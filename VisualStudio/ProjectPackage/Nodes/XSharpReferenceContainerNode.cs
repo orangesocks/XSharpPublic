@@ -106,8 +106,18 @@ namespace XSharp.Project
           ComReferenceNode node = new XSharpComReferenceNode(this.ProjectMgr, selectorData, wrapperTool);
           return node;
       }
+    public override int ImageIndex
+        {
+            get
+            {
+                if (this.CanShowDefaultIcon())
+                    return XSharpImageListIndex.Reference + XSharpProjectNode.imageOffset;
+                else
+                    return XSharpImageListIndex.DanglingReference + XSharpProjectNode.imageOffset;
+            }
+        }
 
-      private bool isDuplicateNode( string nodeCaption, ref ReferenceNode ExistingNode)
+        private bool isDuplicateNode( string nodeCaption, ref ReferenceNode ExistingNode)
       {
           if (nodeCaption != null)
           {

@@ -100,6 +100,16 @@ namespace XSharp.Project
             ErrorHandler.ThrowOnFailure(hierarchy.GetProperty(VSConstants.VSITEMID_ROOT, (int)__VSHPROPID.VSHPROPID_TypeName, out projectType));
             return projectType as string;
         }
+        public override int ImageIndex
+        {
+            get
+            {
+                if (this.CanShowDefaultIcon())
+                    return XSharpImageListIndex.Reference + XSharpProjectNode.imageOffset;
+                else
+                    return XSharpImageListIndex.DanglingReference + XSharpProjectNode.imageOffset;
+            }
+        }
 
         /// <summary>
         /// Shows Visual Studio message box with error message regarding project to project reference. Target Project must be built before

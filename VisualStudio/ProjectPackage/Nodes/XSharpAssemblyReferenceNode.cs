@@ -32,6 +32,16 @@ namespace XSharp.Project
             return new XSharpAssemblyReferenceNodeProperties(this);
         }
 
+        public override int ImageIndex
+        {
+            get
+            {
+                if (this.CanShowDefaultIcon())
+                    return XSharpImageListIndex.Reference + XSharpProjectNode.imageOffset;
+                else
+                    return XSharpImageListIndex.DanglingReference + XSharpProjectNode.imageOffset;
+            }
+        }
 
-   }
+    }
 }

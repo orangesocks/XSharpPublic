@@ -48,8 +48,18 @@ namespace XSharp.Project
          BindReferenceData();
        }
 
+        public override int ImageIndex
+        {
+            get
+            {
+                if (this.CanShowDefaultIcon())
+                    return XSharpImageListIndex.Reference + XSharpProjectNode.imageOffset;
+                else
+                    return XSharpImageListIndex.DanglingReference + XSharpProjectNode.imageOffset;
+            }
+        }
 
-      public XSharpComReferenceNode(ProjectNode root, VSCOMPONENTSELECTORDATA selectorData, string wrapperTool)
+        public XSharpComReferenceNode(ProjectNode root, VSCOMPONENTSELECTORDATA selectorData, string wrapperTool)
          : base(root, selectorData, wrapperTool)
       {
          if (String.IsNullOrEmpty(wrapperTool))

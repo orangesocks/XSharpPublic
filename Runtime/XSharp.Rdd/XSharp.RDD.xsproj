@@ -32,6 +32,7 @@
     <StartupObject />
     <ApplicationIcon />
     <VulcanCompatibleResources>False</VulcanCompatibleResources>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup>
     <ProjectGuid>e83c6c8c-773f-4b01-a597-3d38398a9362</ProjectGuid>
@@ -39,7 +40,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>XSharp.RDD</RootNamespace>
     <AssemblyName>XSharp.Rdd</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <Name>XSharp.RDD</Name>
     <Nologo>true</Nologo>
     <GenerateFullPaths>true</GenerateFullPaths>
@@ -120,6 +121,9 @@
     <Compile Include="Advantage\ADSMemo.prg" />
     <Compile Include="Advantage\Functions.prg" />
     <Compile Include="SubCodes.prg" />
+    <Compile Include="Types\DbfNtx\NtxHeader.prg" />
+    <Compile Include="Types\DbfNtx\NtxItem.prg" />
+    <Compile Include="Types\DbfNtx\NtxPage.prg" />
     <Compile Include="_Dummy.prg" />
     <Compile Include="Types\DBF.prg" />
     <Compile Include="Types\DbfBlob.prg" />
@@ -142,6 +146,7 @@
     <Folder Include="ACE" />
     <Folder Include="Types" />
     <Folder Include="Properties\" />
+    <Folder Include="Types\DbfNtx" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\Common\commonAssemblyInfo.prg">

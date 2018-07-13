@@ -12,7 +12,7 @@ INTERNAL STATIC CLASS ArrayHelpers
 		LOCAL nLen  AS LONG
 		nLen := (INT) aTarget:Length
 		FOR nItem := nStart TO nLen
-			IF object.Equals(aTarget[(DWORD) nItem], element)
+			IF object.Equals(aTarget[ nItem], element)
 				RETURN (DWORD) nItem
 			ENDIF
 			nCount -= 1
@@ -27,7 +27,7 @@ INTERNAL STATIC CLASS ArrayHelpers
 		LOCAL nLen  AS LONG
 		nLen := (INT) aTarget:Length
 		FOR nItem := nStart TO nLen
-			VAR oElement := aTarget[(DWORD) nItem]
+			VAR oElement := aTarget[ nItem]
 			IF bAction(oElement)
 				RETURN  (DWORD) nItem
 			ENDIF
@@ -392,7 +392,7 @@ FUNCTION ACloneShallow<T>(a AS __ArrayBase<T>) AS __ArrayBase<T> WHERE T IS NEW(
 /// <returns>
 /// </returns>
 FUNCTION ADel(a AS ARRAY,dwEl AS DWORD) AS ARRAY
-	a:Delete(dwEl)  
+	a:Delete((INT) dwEl)  
 	RETURN a
 	
 /// <summary>
@@ -403,7 +403,7 @@ FUNCTION ADel(a AS ARRAY,dwEl AS DWORD) AS ARRAY
 /// <returns>
 /// </returns>
 FUNCTION ADel<T>(a AS __ArrayBase<T>,dwEl AS DWORD) AS __ArrayBase<T> WHERE T IS NEW()
-	a:Delete(dwEl)  
+	a:Delete((INT) dwEl)  
 	RETURN a
 	
 /// <summary>
@@ -414,7 +414,7 @@ FUNCTION ADel<T>(a AS __ArrayBase<T>,dwEl AS DWORD) AS __ArrayBase<T> WHERE T IS
 /// <returns>
 /// </returns>
 FUNCTION ATrueDel(a AS ARRAY,dwEl AS DWORD) AS ARRAY
-	a:RemoveAt(dwEl)  
+	a:RemoveAt((INT) dwEl)  
 	RETURN a
 	
 /// <summary>
@@ -425,7 +425,7 @@ FUNCTION ATrueDel(a AS ARRAY,dwEl AS DWORD) AS ARRAY
 /// <returns>
 /// </returns>
 FUNCTION ATrueDel<T>(a AS __ArrayBase<T>,dwEl AS DWORD) AS __ArrayBase<T> WHERE T IS NEW()
-	a:RemoveAt(dwEl)  
+	a:RemoveAt((INT) dwEl)  
 	RETURN a
 	
 /// <summary>Calculate the # of dimensions in an array</summary>
@@ -462,7 +462,7 @@ FUNCTION ADimPic(a AS ARRAY) AS STRING
 /// <param name="dwEl">The position at which the element will be inserted.</param>
 /// <returns>A reference to the original array</returns>
 FUNCTION AIns(a AS ARRAY,dwEl AS DWORD) AS ARRAY 
-	a:Insert(dwEl) 
+	a:Insert((INT) dwEl) 
 	RETURN a
 	
 /// <summary>
@@ -472,7 +472,7 @@ FUNCTION AIns(a AS ARRAY,dwEl AS DWORD) AS ARRAY
 /// <param name="dwEl">The position at which the element will be inserted.</param>
 /// <returns>A reference to the original array</returns>
 FUNCTION AIns<T>(a AS __ArrayBase<T>,dwEl AS DWORD) AS __ArrayBase<T> WHERE T IS NEW()
-	a:Insert(dwEl) 
+	a:Insert((INT) dwEl) 
 	RETURN a
 	
 /// <summary>
@@ -625,7 +625,7 @@ FUNCTION ArrayStore<T>(a AS __ArrayBase<T>,Buff AS T PTR,dwLen AS DWORD) AS DWOR
 /// <param name="u">The new value.</param>
 /// <returns>The original value that was replaced by u.</returns>
 FUNCTION ArraySwap(a AS ARRAY,dwEl AS DWORD,u AS USUAL) AS USUAL
-	RETURN a:Swap(dwEl, u)
+	RETURN a:Swap((INT) dwEl, u)
 	
 /// <summary>
 /// Replace an Array element with a new value and return the old value.
@@ -635,7 +635,7 @@ FUNCTION ArraySwap(a AS ARRAY,dwEl AS DWORD,u AS USUAL) AS USUAL
 /// <param name="u">The new value.</param>
 /// <returns>The original value that was replaced by u.</returns>
 FUNCTION ArraySwap<T>(a AS __ArrayBase<T>,dwEl AS DWORD,u AS T) AS T  WHERE T IS NEW()
-	RETURN a:Swap(dwEl, u)
+	RETURN a:Swap((INT) dwEl, u)
 	
 /// <summary>
 /// Scan an array until a value is found or a code block returns TRUE.
@@ -796,7 +796,7 @@ FUNCTION Ascan<T>(aTarget AS __ArrayBase<T>, act AS @@Func<T,LOGIC>, nStart AS L
 /// <returns>
 /// </returns>
 FUNCTION ASize(a AS ARRAY,dwDim AS DWORD) AS ARRAY
-	a:Resize(dwDim) 
+	a:Resize((INT) dwDim) 
 	RETURN a  
 	
 /// <summary>
@@ -807,7 +807,7 @@ FUNCTION ASize(a AS ARRAY,dwDim AS DWORD) AS ARRAY
 /// <returns>
 /// </returns>
 FUNCTION ASize<T>(a AS __ArrayBase<T>,dwDim AS DWORD) AS __ArrayBase<T> WHERE T IS NEW()
-	a:Resize(dwDim) 
+	a:Resize((INT) dwDim) 
 	RETURN a  
 	
 	
@@ -905,59 +905,48 @@ FUNCTION ACopy(uSource ,uTarget ,nStart ,nCount ,nStartDest ) AS ARRAY CLIPPER
 /// </summary>
 /// <param name="a"></param>
 /// <param name="x"></param>
-/// <returns>
-/// </returns>
-FUNCTION AFill(a AS ARRAY,fill AS USUAL) AS ARRAY 
-	RETURN AFill(a, fill, 1, (INT) ALen(a))
-	
-	
-/// <summary>
-/// Fill Array elements with a specified value.
-/// </summary>
-/// <param name="a"></param>
-/// <param name="x"></param>
-/// <param name="Start"></param>
-/// <returns>
-/// </returns>
-FUNCTION AFill(a AS ARRAY,fill AS USUAL,Start AS LONG) AS ARRAY 
-	RETURN AFill(a, fill, Start, (LONG) ALen(a))
-	
-/// <summary>
-/// Fill Array elements with a specified value.
-/// </summary>
-/// <param name="a"></param>
-/// <param name="x"></param>
 /// <param name="Start"></param>
 /// <param name="Stop"></param>
 /// <returns>
 /// </returns>
-FUNCTION AFill(a AS ARRAY,fill AS USUAL, start AS LONG, Stop AS LONG) AS ARRAY 
+FUNCTION AFill(a AS ARRAY,fill := NIL AS USUAL, start := NIL AS USUAL, count := NIL AS USUAL) AS ARRAY 
+	// The behavior of AFill() in VO is different than what is descibed in the help file
+	// - if start <= 0 throws an error
+	// - if start == NIL, then start becomes 1
+	// - if count < 0 then it does nothing, unless start == nil, in which case start becomes 1 and count becomes 1, too (yeah, crap!)
+	// - if count == nil, then it fills from start to lenght of array
+	
+	// warning, with the current definition of the function, it is not possible for the user to omit the start param
 	LOCAL nLen := ALen( a ) AS DWORD
-	LOCAL x			AS INT
 	IF nLen > 0
-		IF start > nLen 
+
+		LOCAL lStartWasNil := FALSE AS LOGIC
+		IF start == NIL
+			start := 1
+			lStartWasNil := TRUE
+		ENDIF
+
+		IF start > nLen .or. start <= 0
 			THROW Error.BoundError( "AFill", "start", 3, <OBJECT>{ start } )
 		ENDIF
-		IF stop > 0
-			IF stop > nLen
-				THROW Error.BoundError( "AFill", "Stop", 4, <OBJECT>{ Stop } )
-			ENDIF
-			Stop := Math.Min( Stop, Start + stop - 1 )
+		IF count == NIL
+			count := (INT)nLen - start + 1
+		ELSEIF count > 0
+			// VO does not throw an error if count is longer than the array
+			IF start + count - 1 > nLen
+				count := (INT)nLen - start + 1
+			END IF
 		ELSE
-			IF Stop < -nLen
-				THROW Error.BoundError( "AFill", "Stop", 4, <OBJECT>{ Stop } )
-			ENDIF
-			Stop := Math.Max( 1, Start + stop - 1 )
-		ENDIF   
-		IF Start < Stop
-			FOR x := Start UPTO Stop
-				a[(DWORD) x] := fill
-			NEXT
-		ELSE
-			FOR x := Stop DOWNTO Start
-				a[ (DWORD) x] := fill
-			NEXT
-		ENDIF
+			IF lStartWasNil
+				count := 1
+			ELSE
+				RETURN a
+			END IF
+		END IF
+
+		FOR LOCAL x := start AS INT UPTO start + count - 1
+			a[(DWORD) x] := fill
+		NEXT
 	ENDIF
 	RETURN a
 	
@@ -977,8 +966,25 @@ FUNCTION ArrayBuild() AS ARRAY
 /// <param name="nDim"></param>
 /// <returns>
 /// </returns>
-FUNCTION ArrayNew(nDim PARAMS INT[]) AS ARRAY
-	RETURN __Array.ArrayCreate(nDim)
+FUNCTION ArrayNew(aDims PARAMS INT[]) AS ARRAY
+	RETURN __Array.ArrayCreate(aDims)
+
+
+/// <summary>
+/// Create an uninitialized Array with the specified number of elements and dimensions.
+/// </summary>
+/// <param name="nDim"></param>
+/// <returns>
+/// </returns>
+FUNCTION ArrayNew(aDims PARAMS DWORD[]) AS ARRAY
+	LOCAL aDimInt AS INT[]
+	LOCAL i AS INT
+	aDimInt := INT[]{aDims:Length}
+	FOR i := 1 TO aDims:Length
+		aDimInt[i] := (INT) aDims[i]
+	NEXT
+	RETURN __Array.ArrayCreate(aDimInt)
+
 
 
 /// <summary>
@@ -991,6 +997,14 @@ FUNCTION ArrayNew<T>(nSize AS DWORD) AS __ArrayBase<T> where T IS NEW()
 	RETURN __ArrayBase<T>{nSize}
 	
 	
+/// <summary>
+/// Create an uninitialized Array with the specified number of elements and dimensions.
+/// </summary>
+/// <param name="nDim"></param>
+/// <returns>
+/// </returns>
+FUNCTION ArrayNew<T>(nSize AS INT) AS __ArrayBase<T> where T IS NEW()
+	RETURN __ArrayBase<T>{(DWORD) nSize}
 	
 
 /// <summary>
@@ -1023,17 +1037,31 @@ FUNCTION ASort(aArray AS ARRAY, startIndex := NIL AS USUAL,nCount := NIL AS USUA
 	Default( REF startIndex, 1 )
 	
 	nLen := ALen(aArray) 
+	IF nLen == 0 // Let it execute if nLen == 1, maybe the codeblock is important to be executed in this case for some (user) reason
+		RETURN aArray
+	END IF
 
 	EnforceNumeric( startIndex )
 	Default( REF nCount, nLen - startIndex + 1 )
-	EnforceNumeric( nCount )	
+	EnforceNumeric( nCount )
 	
-	IF startIndex < 1 .or. startIndex > nLen
+	// Note: ASort() in VO accepts arguments out of bounds and translates them this way:
+	IF startIndex <= 0
+		startIndex := 1
+	ELSEIF startIndex > nLen
+		RETURN aArray
+	END IF
+	
+	IF nCount <= 0 .or. startIndex + nCount - 1 > nLen
+		nCount := nLen - startIndex + 1
+	ENDIF
+	
+/*	IF startIndex < 1 .or. startIndex > nLen
 		THROW Error.ArgumentError( __ENTITY__, NAMEOF(startIndex), 2, <OBJECT>{ startIndex } )
 	ENDIF 
 	IF nCount + startIndex > ALen((ARRAY)aArray)+1
 		THROW Error.ArgumentError( __ENTITY__, NAMEOF(nCount), 3, <OBJECT>{ nCount } )
-	ENDIF 
+	ENDIF */
 	
 	
 	IF cbOrder != NIL && ( ( ! cbOrder:IsCodeBlock ) || ((CODEBLOCK)cbOrder):PCount() != 2 )
