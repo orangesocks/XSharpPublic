@@ -1,4 +1,4 @@
-//
+﻿//
 // Copyright (c) XSharp B.V.  All Rights Reserved.  
 // Licensed under the Apache License, Version 2.0.  
 // See License.txt in the project root for license information.
@@ -120,7 +120,7 @@ CLASS XSharp.RuntimeState
 				RETURN (T) oSettings[nSetting]
 			ENDIF
 		END LOCK
-		RETURN Default(T)
+		RETURN DEFAULT(T)
 
 	PRIVATE METHOD _SetThreadValue<T>(nSetting AS INT, oValue AS T) AS T
 		LOCAL result AS T
@@ -128,13 +128,13 @@ CLASS XSharp.RuntimeState
 			IF oSettings.ContainsKey(nSetting)
 				result := (T) oSettings[nSetting]
 			ELSE
-				result := Default(T)
+				result := DEFAULT(T)
 			ENDIF
 			oSettings[nSetting] := oValue
 		END LOCK
 		RETURN	result		
 
-	#region properties from the Vulcan RuntimeState that are emulated
+	#region properties FROM the Vulcan RuntimeState that are emulated
 
 	/// <summary>The current compiler setting for the VO11 compiler option as defined when compiling the main application.
 	/// This value gets assigned in the startup code for applications in the VO or Vulcan dialect.</summary>
@@ -236,6 +236,12 @@ CLASS XSharp.RuntimeState
         GET GetValue<DWORD>(Set.DIGITS);
         SET SetValue<DWORD>(Set.DIGITS, VALUE)
 
+    /// <summary>Logical setting that fixes the number of digits used to display numeric output.</summary>
+    STATIC PROPERTY DigitsFixed AS LOGIC ;
+        GET GetValue<LOGIC>(Set.DigitFixed);
+        SET SetValue<LOGIC>(Set.DigitFixed, VALUE)
+
+
 	/// <summary>The DOS Codepage. This gets read at startup from the OS().</summary>
     STATIC PROPERTY DosCodePage AS LONG 
         GET 
@@ -267,6 +273,13 @@ CLASS XSharp.RuntimeState
     STATIC PROPERTY Exact AS LOGIC ;
         GET GetValue<LOGIC>(Set.EXACT);
         SET SetValue<LOGIC>(Set.EXACT, VALUE)
+
+    /// <summary>Logical setting that fixes the number of decimal digits used to display numbers.</summary>
+    STATIC PROPERTY Fixed AS LOGIC ;
+        GET GetValue<LOGIC>(Set.Fixed);
+        SET SetValue<LOGIC>(Set.Fixed, VALUE)
+
+
 
 	/// <summary>Numeric value that controls the precision of Float comparisons.</summary>
    STATIC PROPERTY FloatDelta AS REAL8 ;
@@ -362,9 +375,9 @@ CLASS XSharp.RuntimeState
 		SELF:_SetThreadValue(Set.AMPM, dtInfo:ShortDatePattern:IndexOf("tt") != -1)
 		VAR dateformat  := dtInfo:ShortDatePattern:ToLower()
 		// reduce to single m and d
-		do while (dateformat.IndexOf("mm") != -1)
+		DO WHILE (dateformat.IndexOf("mm") != -1)
 			dateformat		:= dateformat:Replace("mm", "m")
-		enddo
+		ENDDO
 		// make sure we have a double mm to get double digit dates
 
 		DO WHILE dateformat.IndexOf("dd") != -1
@@ -392,7 +405,7 @@ CLASS XSharp.RuntimeState
 	INTERNAL STATIC METHOD _SetDateFormat(format AS STRING) AS VOID
 		format := format:ToUpper()
 		// ensure we have dd, mm and yy
-		IF format:IndexOf("DD") == -1 .or. format:IndexOf("MM") == -1 .or. format:IndexOf("YY") == -1
+		IF format:IndexOf("DD") == -1 .OR. format:IndexOf("MM") == -1 .OR. format:IndexOf("YY") == -1
 			RETURN
 		ENDIF
 		SetValue(Set.DateFormatNet, format:Replace("D","d"):Replace("Y","y"):Replace("/","'/'"))
@@ -434,7 +447,7 @@ CLASS XSharp.RuntimeState
 		SetValue<DWORD>(Set.DateCountry, country)
 		
 		LOCAL format, year AS STRING
-		year := iif(Century , "YYYY" , "YY")
+		year := IIF(Century , "YYYY" , "YY")
 		SWITCH country
 			CASE 1 // American
 				format := "MM/DD/" + year
@@ -463,7 +476,7 @@ CLASS XSharp.RuntimeState
 	/// <summary>The workarea information for the current Thread.</summary>
 	PUBLIC PROPERTY Workareas AS WorkAreas
 	GET
-		IF _workareas == null_object
+		IF _workareas == NULL_OBJECT
 			_workareas := WorkAreas{}
 		ENDIF
 		RETURN _workareas
@@ -474,7 +487,7 @@ CLASS XSharp.RuntimeState
 	GET
 		LOCAL coll AS BYTE[]
 		coll := GetInstance():_collationTable 
-		IF coll == NULL .or. coll :Length < 256
+		IF coll == NULL .OR. coll :Length < 256
 			_SetCollation("Generic")
 			coll := GetInstance():_collationTable := GetValue<BYTE[]>(SET.CollationTable)
 		ENDIF

@@ -1,10 +1,10 @@
-//
+﻿//
 // Copyright (c) XSharp B.V.  All Rights Reserved.  
 // Licensed under the Apache License, Version 2.0.  
 // See License.txt in the project root for license information.
 //
-using System.IO
-using XSharp.RDD
+USING System.IO
+USING XSharp.RDD
 USING XSharp.RDD.Enums
 
 BEGIN NAMESPACE XSharp.RDD
@@ -134,7 +134,7 @@ VIRTUAL METHOD Skip(nToSkip AS INT) AS LOGIC
 		IF !SELF:SkipFilter(lToSkip)
 			RETURN FALSE
 		ENDIF              
-		IF SELF:_BOF .or. SELF:_EOF
+		IF SELF:_BOF .OR. SELF:_EOF
 			EXIT
 		ENDIF
 	ENDDO
@@ -149,17 +149,17 @@ VIRTUAL METHOD Skip(nToSkip AS INT) AS LOGIC
 VIRTUAL METHOD SkipFilter(nToSkip AS INT) AS LOGIC
 	LOCAL Bottom /*, Deleted */ AS LOGIC
 	// When no active filter, record is Ok
-	IF SELF:_FilterInfo == NULL_OBJECT .or. ;
-		!SELF:_FilterInfo:Active .or. ;
+	IF SELF:_FilterInfo == NULL_OBJECT .OR. ;
+		!SELF:_FilterInfo:Active .OR. ;
 		SELF:_FilterInfo:FilterBlock == NULL_OBJECT ;
 		// .or. !SetDeleted()
 		RETURN TRUE
 	ENDIF
-	nToSkip := iif(nToSkip < 0 , -1, 1)
+	nToSkip := IIF(nToSkip < 0 , -1, 1)
 	Bottom := SELF:_Bottom    
 	RETURN FALSE
 /*
-while( ! pArea->fBof && ! pArea->fEof )
+WHILE( ! pArea->fBof && ! pArea->fEof )
    {
       /* SET DELETED * /
       IF( hb_setGetDeleted() )
@@ -177,19 +177,19 @@ while( ! pArea->fBof && ! pArea->fEof )
       /* SET FILTER TO * /
       IF( pArea->dbfi.itmCobExpr )
       {
-         if( SELF_EVALBLOCK( pArea, pArea->dbfi.itmCobExpr ) != HB_SUCCESS )
-            return HB_FAILURE;
+         IF( SELF_EVALBLOCK( pArea, pArea->dbfi.itmCobExpr ) != HB_SUCCESS )
+            RETURN HB_FAILURE;
 
-         if( HB_IS_LOGICAL( pArea->valResult ) &&
+         IF( HB_IS_LOGICAL( pArea->valResult ) &&
              ! hb_itemGetL( pArea->valResult ) )
          {
-            if( SELF_SKIPRAW( pArea, lUpDown ) != HB_SUCCESS )
-               return HB_FAILURE;
+            IF( SELF_SKIPRAW( pArea, lUpDown ) != HB_SUCCESS )
+               RETURN HB_FAILURE;
             continue;
          }
       }
 
-      break;
+      BREAK;
    }
 
    /*
@@ -202,23 +202,23 @@ while( ! pArea->fBof && ! pArea->fEof )
       IF( fBottom )
       {
          /* GOTO EOF (phantom) record -
-            this is the only one place where GOTO is used by Harbour
-            directly and RDD which does not operate on numbers should
-            serve this method only as SELF_GOEOF() synonym. If it's a
-            problem then we can remove this if and always use SELF_GOTOP()
-            but it also means second table scan if all records filtered
-            are out of filter so I do not want to do that. I will prefer
-            explicit add SELF_GOEOF() method
+            this IS the only one place WHERE GOTO IS used BY Harbour
+            directly and RDD which does not operate ON numbers should
+            serve this METHOD only AS SELF_GOEOF() synonym. IF it's a
+            problem then we can REMOVE this IF and always use SELF_GOTOP()
+            but it also means second table scan IF all records filtered
+            are OUT OF filter so I DO not want TO DO that. I will prefer
+            explicit ADD SELF_GOEOF() METHOD
           * /
          errCode = SELF_GOTO( pArea, 0 );
       }
-      else
+      ELSE
       {
          errCode = SELF_GOTOP( pArea );
          pArea->fBof = HB_TRUE;
       }
    }
-   else
+   ELSE
    {
       errCode = HB_SUCCESS;
    }
@@ -353,8 +353,8 @@ PROTECTED METHOD _FieldIndexValidate(nFldPos AS LONG) AS LOGIC
 	LOCAL nMax AS INT
 	// Note that nFldPos is 1 based
 	nMax := (INT) SELF:_Fields?:Length  
-	IF nFldPos <= 0 .or. nFldPos > nMax 
-		THROW ArgumentException{"Invalid Field Index, must be between 1 and "+SELF:FieldCount:ToString(), nameof(nFldPos)}
+	IF nFldPos <= 0 .OR. nFldPos > nMax 
+		THROW ArgumentException{"Invalid Field Index, must be between 1 and "+SELF:FieldCount:ToString(), NAMEOF(nFldPos)}
 	ENDIF
 	RETURN TRUE	
 
@@ -362,9 +362,9 @@ PROTECTED METHOD _FieldIndexValidate(nFldPos AS LONG) AS LOGIC
 VIRTUAL METHOD FieldInfo(nFldPos AS LONG, nOrdinal AS LONG, oNewValue AS OBJECT) AS OBJECT
 	// Note that nFldPos is 1 based
 	IF SELF:_FieldIndexValidate(nFldPos)
-		if __ARRAYBASE__ == 0
+		IF __ARRAYBASE__ == 0
 			nFldPos -= 1
-		endif
+		ENDIF
 	ENDIF
 	THROW NotImplementedException{__ENTITY__}
 
@@ -372,9 +372,9 @@ VIRTUAL METHOD FieldInfo(nFldPos AS LONG, nOrdinal AS LONG, oNewValue AS OBJECT)
 VIRTUAL METHOD FieldName(nFldPos AS INT) AS STRING
 	// Note that nFldPos is 1 based
 	IF SELF:_FieldIndexValidate(nFldPos)
-		if __ARRAYBASE__ == 0
+		IF __ARRAYBASE__ == 0
 			nFldPos -= 1
-		endif
+		ENDIF
 		RETURN SELF:_Fields[nFldPos]:Name
 	ENDIF          
 	RETURN String.Empty
@@ -459,11 +459,11 @@ VIRTUAL METHOD OrderDestroy(info AS DbOrderInfo) AS LOGIC
 	RETURN SELF:_Order:OrderDestroy(info)
 
 /// <inheritdoc />
-VIRTUAL METHOD OrderInfo(nOrdinal AS INT) AS OBJECT
+VIRTUAL METHOD OrderInfo(nOrdinal AS DWORD, info AS DbOrderInfo) AS OBJECT
    /* CA-Cl*pper does not generate RT error when default ORDERINFO() method
     * is called
     */
-   	RETURN SELF:_Order:OrderInfo(nOrdinal)
+   	RETURN SELF:_Order:OrderInfo(nOrdinal, info)
 
 /// <inheritdoc />
 VIRTUAL METHOD OrderListAdd(info AS DbOrderInfo) AS LOGIC
@@ -510,7 +510,7 @@ VIRTUAL METHOD ForceRel( ) AS LOGIC
 	THROW NotImplementedException{__ENTITY__}
 
 /// <inheritdoc />
-VIRTUAL METHOD RelArea(nRelNum AS INT) AS INT
+VIRTUAL METHOD RelArea(nRelNum AS DWORD) AS DWORD
 	THROW NotImplementedException{__ENTITY__}
 
 /// <inheritdoc />
@@ -518,7 +518,7 @@ VIRTUAL METHOD RelEval(info AS DbRelInfo) AS LOGIC
 	THROW NotImplementedException{__ENTITY__}
 
 /// <inheritdoc />
-VIRTUAL METHOD RelText(nRelNum AS INT) AS STRING
+VIRTUAL METHOD RelText(nRelNum AS DWORD) AS STRING
 	THROW NotImplementedException{__ENTITY__}
 
 /// <inheritdoc />
@@ -553,7 +553,7 @@ VIRTUAL METHOD Compile(sBlock AS STRING) AS LOGIC
 
 /// <inheritdoc />
 VIRTUAL METHOD EvalBlock(oBlock AS ICodeBlock) AS OBJECT
-	return oBlock:EvalBlock()
+	RETURN oBlock:EvalBlock()
 
 /// <inheritdoc />
 VIRTUAL METHOD Info(nOrdinal AS INT, oNewValue AS OBJECT) AS OBJECT
@@ -575,7 +575,7 @@ VIRTUAL METHOD Info(nOrdinal AS INT, oNewValue AS OBJECT) AS OBJECT
 		oResult := SELF:_Separator
 	CASE DBI_SETDELIMITER            
 		oResult := SELF:_Separator		
-		IF oNewValue != NULL .and. oNewValue:GetType() == typeof(STRING)
+		IF oNewValue != NULL .AND. oNewValue:GetType() == TYPEOF(STRING)
 			SELF:_Separator	:= (STRING) oNewValue
 		ENDIF
 	CASE DBI_DB_VERSION
@@ -673,7 +673,7 @@ VIRTUAL METHOD Info(nOrdinal AS INT, oNewValue AS OBJECT) AS OBJECT
 	VIRTUAL PROPERTY Shared AS LOGIC GET FALSE
 
 /// <inheritdoc />
-	VIRTUAL PROPERTY SysName AS STRING GET typeof(Workarea):ToString()
+	VIRTUAL PROPERTY SysName AS STRING GET TYPEOF(Workarea):ToString()
 
 END CLASS
 END NAMESPACE

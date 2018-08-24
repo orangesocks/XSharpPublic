@@ -68,7 +68,7 @@ namespace XSharp.Project
             }
             return _tagAggregator != null;
         }
-	
+
         private void registerClassifier()
         {
             if (_buffer.Properties.ContainsProperty(typeof(XSharpClassifier)))
@@ -117,7 +117,10 @@ namespace XSharp.Project
                         var editSession = _buffer.CreateEdit();
                         try
                         {
-                            foreach (int nLine in lines)
+                            // simplify things: take lowest and highest numbers and do all lines in between
+                            int first = lines[0];
+                            int last = lines[lines.Length - 1];
+                            for (int nLine = first; nLine <= last; nLine++)
                             {
                                 ITextSnapshotLine line = snapshot.GetLineFromLineNumber(nLine);
                                 formatLineCase(editSession, line);
@@ -140,7 +143,7 @@ namespace XSharp.Project
         public CommandFilter(IWpfTextView textView, ICompletionBroker completionBroker, ITextStructureNavigator nav, ISignatureHelpBroker signatureBroker, IBufferTagAggregatorFactoryService aggregator)
         {
             m_navigator = nav;
-            
+
             _completionSession = null;
             _signatureSession = null;
 
@@ -181,93 +184,160 @@ namespace XSharp.Project
             return keyword;
         }
 
-        private void replaceText(ITextSnapshotLine line, IToken token, ITextEdit editSession, string Text)
+
+        private void formatToken(ITextEdit editSession, int offSet, IToken token)
         {
-            int startpos = line.Start.Position + token.Column;
-            editSession.Replace(startpos, Text.Length, Text);
-
-        }
-
-        private void formatLineCase(ITextEdit editSession, ITextSnapshotLine line)
-        {
-            XSharpProjectPackage.Instance.DisplayOutPutMessage($"CommandFilter.formatLineCase({line.LineNumber+1})");
-            // Note that this will only work if the Tags are already updated.
-            // That means: only when you type slowly.
-            // We need to fix this later by doing:
-            // register the lines we are interested in
-            // wait for tagAggregator.TagsChanged event
-            // then retrieve the tags that we need and apply the formatting
-
-            getOptions();
-            var tokens = getTokensInLine(line);
-            // Keyword and Identifier Case
-            foreach (var token in tokens)
+            if (token.Channel == XSharpLexer.Hidden || token.Channel == XSharpLexer.PREPROCESSORCHANNEL)
+                return;
+            bool syncKeyword = false;
+            // Some exceptions are (pseudo) functions. These should not be formatted
+            switch (token.Type)
             {
-                if (XSharpLexer.IsKeyword(token.Type))
-                {
-                    var keyword = token.Text;
-                    var transform = FormatKeyword(keyword);
-                    if (String.Compare(transform, keyword) != 0 && keyword[0] != '#')
+                case XSharpLexer.NAMEOF:
+                case XSharpLexer.SIZEOF:
+                case XSharpLexer.TYPEOF:
+                    // these are keywords but should be excluded I think
+                    syncKeyword = false;
+                    break;
+                case XSharpLexer.TRUE_CONST:
+                case XSharpLexer.FALSE_CONST:
+                case XSharpLexer.MACRO:
+                case XSharpLexer.LOGIC_AND:
+                case XSharpLexer.LOGIC_OR:
+                case XSharpLexer.LOGIC_NOT:
+                case XSharpLexer.LOGIC_XOR:
+                case XSharpLexer.VO_AND:
+                case XSharpLexer.VO_OR:
+                case XSharpLexer.VO_NOT:
+                case XSharpLexer.VO_XOR:
+                    syncKeyword = true;
+                    break;
+                default:
+                    if (token.Type >= XSharpLexer.FIRST_NULL && token.Type <= XSharpLexer.LAST_NULL)
                     {
-                        replaceText(line, token, editSession, transform);
+                        syncKeyword = true;
                     }
-                }
-                else if (token.Type == XSharpLexer.ID && IdentifierCase)
-                {
-                    var identifier = token.Text;
-                    var lineNumber = currentLine;
-                    XTypeMember currentMember = XSharpTokenTools.FindMember(lineNumber, _file);
-                    //
-                    if (currentMember == null)
-                        continue;
-                    CompletionType cType = null;
-                    XSharpLanguage.CompletionElement foundElement = null;
-                    XVariable element = null;
-                    // Search in Parameters
-                    if (currentMember.Parameters != null)
+                    else if (XSharpLexer.IsKeyword(token.Type))
                     {
-                        element = (XVariable)currentMember.Parameters.Where(x => XSharpTokenTools.StringEquals(x.Name, identifier)).FirstOrDefault();
+                        syncKeyword = token.Text[0] != '#';
+                    }
+                    break;
+            }
+            if (syncKeyword)
+            {
+                var keyword = token.Text;
+                var transform = FormatKeyword(keyword);
+                if (String.Compare(transform, keyword) != 0)
+                {
+                    int startpos = offSet + token.StartIndex;
+                    editSession.Replace(startpos, transform.Length, transform);
+                }
+            }
+            if (token.Type == XSharpLexer.ID && IdentifierCase)
+            {
+                var identifier = token.Text;
+                var lineNumber = currentLine;
+                XTypeMember currentMember = XSharpTokenTools.FindMember(lineNumber, _file);
+                //
+                if (currentMember == null)
+                    return;
+                CompletionType cType = null;
+                XSharpLanguage.CompletionElement foundElement = null;
+                XVariable element = null;
+                // Search in Parameters
+                if (currentMember.Parameters != null)
+                {
+                    element = (XVariable)currentMember.Parameters.Where(x => XSharpTokenTools.StringEquals(x.Name, identifier)).FirstOrDefault();
+                }
+                if (element == null)
+                {
+                    // then Locals
+                    var locals = currentMember.GetLocals(TextView.TextSnapshot, lineNumber);
+                    if (locals != null)
+                    {
+                        element = locals.Where(x => XSharpTokenTools.StringEquals(x.Name, identifier)).FirstOrDefault();
                     }
                     if (element == null)
                     {
-                        // then Locals
-                        var locals = currentMember.GetLocals(TextView.TextSnapshot, lineNumber);
-                        if (locals != null)
+                        if (currentMember.Parent != null)
                         {
-                            element = locals.Where(x => XSharpTokenTools.StringEquals(x.Name, identifier)).FirstOrDefault();
-                        }
-                        if (element == null)
-                        {
-                            if (currentMember.Parent != null)
+                            // Context Type....
+                            cType = new CompletionType(currentMember.Parent.Clone);
+                            // We can have a Property/Field of the current CompletionType
+                            if (!cType.IsEmpty())
                             {
-                                // Context Type....
-                                cType = new CompletionType(currentMember.Parent.Clone);
-                                // We can have a Property/Field of the current CompletionType
-                                if (!cType.IsEmpty())
-                                {
-                                    cType = XSharpTokenTools.SearchPropertyOrFieldIn(cType, identifier, Modifiers.Private, out foundElement);
-                                }
-                                // Not found ? It might be a Global !?
-                                if (foundElement == null)
-                                {
-                                    
-                                }
+                                cType = XSharpTokenTools.SearchPropertyOrFieldIn(cType, identifier, Modifiers.Private, out foundElement);
+                            }
+                            // Not found ? It might be a Global !?
+                            if (foundElement == null)
+                            {
+
                             }
                         }
                     }
-                    if (element != null)
+                }
+                if (element != null)
+                {
+                    cType = new CompletionType((XVariable)element, "");
+                    foundElement = new XSharpLanguage.CompletionElement(element);
+                }
+                // got it !
+                if (foundElement != null)
+                {
+                    if ((String.Compare(foundElement.Name, identifier) != 0))
                     {
-                        cType = new CompletionType((XVariable)element, "");
-                        foundElement = new XSharpLanguage.CompletionElement(element);
+                        int startpos = offSet + token.StartIndex;
+                        editSession.Replace(startpos, foundElement.Name.Length, foundElement.Name);
+
                     }
-                    // got it !
-                    if (foundElement != null)
+                }
+
+            }
+        }
+        private void formatLineCase(ITextEdit editSession, ITextSnapshotLine line)
+        {
+            XSharpProjectPackage.Instance.DisplayOutPutMessage($"CommandFilter.formatLineCase({line.LineNumber+1})");
+            // get classification of the line.
+            // when the line is part of a multi line comment then do nothing
+            // to detect that we take the start of the line and check if it is in
+            getEditorPreferences(TextView);
+            int lineStart = line.Start.Position;
+            if (line.Length == 0)
+                return;
+            var ss = new SnapshotSpan(line.Snapshot, lineStart, 1);
+            var spans = _classifier.GetClassificationSpans(ss);
+            if (spans.Count > 0 )
+            {
+                var type = spans[0].ClassificationType;
+                if (type.Classification =="comment")
+                {
+                    return;
+                }
+            }
+            var tokens = getTokensInLine(line);
+            foreach (var token in tokens)
+            {
+                if (currentLine == line.LineNumber)
+                {
+                    // do not update tokens touching or after the caret
+                    // after typing String it was already uppercasing even when I wanted to type StringComparer
+                    // now we wait until the user has typed an extra character. That will trigger another session.
+                    // (in this case the C, but it could also be a ' ' or tab and then it would match the STRING keyword)
+                    int caretPos = this.TextView.Caret.Position.BufferPosition.Position;
+                    if (lineStart + token.StopIndex < caretPos -1)
                     {
-                        if ((String.Compare(foundElement.Name, identifier) != 0))
-                        {
-                            replaceText(line, token, editSession, foundElement.Name);
-                        }
+                        formatToken(editSession, lineStart, token);
                     }
+                    else
+                    {
+                        // Come back later.
+                        registerLineForCaseSync(line.LineNumber);
+                        break;
+                    }
+                }
+                else
+                {
+                    formatToken(editSession, lineStart, token);
                 }
             }
         }
@@ -302,6 +372,7 @@ namespace XSharp.Project
         }
         private void formatCaseForWholeBuffer()
         {
+            getEditorPreferences(TextView);
             if (_optionsPage.KeywordCase != 0)
             {
                 XSharpProjectPackage.Instance.DisplayOutPutMessage("--> CommandFilter.formatCaseForBuffer()");
@@ -313,9 +384,11 @@ namespace XSharp.Project
                 var edit = _buffer.CreateEdit(EditOptions.DefaultMinimalChange, null, null);
                 try
                 {
-                    foreach (var line in _buffer.CurrentSnapshot.Lines)
+                    string text = _buffer.CurrentSnapshot.GetText();
+                    var tokens = getTokens(text);
+                    foreach (var token in tokens)
                     {
-                        formatLineCase( edit, line);
+                        formatToken(edit, 0, token);
                     }
                 }
                 finally
@@ -484,7 +557,7 @@ namespace XSharp.Project
         }
 
 
-   
+
         #region Goto Definition
 
         private void GotoDefn()
@@ -781,7 +854,7 @@ namespace XSharp.Project
                 // Then, the corresponding Type/Element if possible
                 IToken stopToken;
                 // Check if we can get the member where we are
-                
+
                 XTypeMember member = XSharpLanguage.XSharpTokenTools.FindMember(lineNumber, file);
                 XType currentNamespace = XSharpLanguage.XSharpTokenTools.FindNamespace(caretPos, file);
                 List<String> tokenList = XSharpLanguage.XSharpTokenTools.GetTokenList(caretPos, lineNumber, snapshot, out stopToken, true, file, false, member);
@@ -935,7 +1008,7 @@ namespace XSharp.Project
                 }
                 else
                 {
-                    // fill indent room with tabs and optionally also with one or more spaces 
+                    // fill indent room with tabs and optionally also with one or more spaces
                     // if the indentsize is not the same as the tabsize
                     int numTabs = desiredIndentation / tabSize;
                     int numSpaces = desiredIndentation % tabSize;
@@ -958,7 +1031,7 @@ namespace XSharp.Project
         }
     }
 
-    
+
     internal static class ObjectBrowserHelper
     {
         private static Guid GUID_VsSymbolScope_All = new Guid(0xa5a527ea, 0xcf0a, 0x4abf, 0xb5, 0x1, 0xea, 0xfe, 0x6b, 0x3b, 0xa5, 0xc6);
