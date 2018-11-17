@@ -611,10 +611,10 @@ FUNCTION ArrayStore(a AS ARRAY,Buff AS USUAL PTR,dwLen AS DWORD) AS DWORD
 FUNCTION ArrayStore<T>(a AS __ArrayBase<T>,Buff AS T PTR,dwLen AS DWORD) AS DWORD WHERE T IS NEW()
 	LOCAL i AS DWORD
 	LOCAL nLen AS DWORD
-	nLen := ALen(a)
+	nLen := a:Length
 	dwLen := Math.Min(dwLen, nLen)
-	FOR i := 1 TO dwLen
-		buff[i] := a[i]
+	FOR i := 1 TO (LONG) dwLen
+		buff[i] := a[(INT) i]
 	NEXT
 	RETURN dwLen
 	
@@ -641,64 +641,38 @@ FUNCTION ArraySwap<T>(a AS __ArrayBase<T>,dwEl AS DWORD,u AS T) AS T  WHERE T IS
 /// <summary>
 /// Scan an array until a value is found or a code block returns TRUE.
 /// </summary>
-/// <param name="aTarget">The array whose element will be replaced with a new value.</param>
-/// <param name="uSearch">The number of the element to be replaced.</param>
-/// <param name="nStart">The number of the element to be replaced.</param>
-/// <param name="nCount">The new value.</param>
-/// <returns>If uSearch is a code block, AScan() returns the position of the first element for which the code block returns TRUE.  Otherwise, AScan() returns the position of the first matching element.  AScan() returns 0 if no match is found.</returns>
+/// <param name="aTarget">The array whose element will be scanned.</param>
+/// <param name="uSearch">The value to search for.</param>
+/// <param name="nStart">The number of the element to start with.</param>
+/// <param name="nCount">The number fo elements the scan.</param>
+/// <returns>If uSearch is a code block then the functions returns the position of the first element for which the code block returns TRUE.  Otherwise it returns the position of the first matching element.  The function returns 0 if no match is found.</returns>
 FUNCTION Ascan(aTarget AS ARRAY, uSearch AS USUAL,nStart AS LONG,nCount AS LONG) AS DWORD 
 	RETURN ArrayHelpers.Ascan( aTarget, uSearch, nStart, nCount, SetExact()) 
 
-/// <summary>
-/// Scan an array until a value is found or a code block returns TRUE.
-/// </summary>
-/// <param name="aTarget">The array whose element will be replaced with a new value.</param>
-/// <param name="uSearch">The number of the element to be replaced.</param>
-/// <param name="nStart">The number of the element to be replaced.</param>
-/// <returns>If uSearch is a code block, AScan() returns the position of the first element for which the code block returns TRUE.  Otherwise, AScan() returns the position of the first matching element.  AScan() returns 0 if no match is found.</returns>
+
+/// <inheritdoc cref='M:XSharp.VO.Functions.Ascan(XSharp.__Array,XSharp.__Usual,System.Int32,System.Int32)'/>
 FUNCTION Ascan(aTarget AS ARRAY, uSearch AS USUAL,nStart AS LONG) AS DWORD 
 	RETURN ArrayHelpers.Ascan( aTarget, uSearch, nStart, ALen(aTarget), SetExact()) 
 
 
-/// <summary>
-/// Scan an array until a value is found or a code block returns TRUE.
-/// </summary>
-/// <param name="aTarget">The array whose element will be replaced with a new value.</param>
-/// <param name="uSearch">The number of the element to be replaced.</param>
-/// <returns>If uSearch is a code block, AScan() returns the position of the first element for which the code block returns TRUE.  Otherwise, AScan() returns the position of the first matching element.  AScan() returns 0 if no match is found.</returns>
+/// <inheritdoc cref='M:XSharp.VO.Functions.Ascan(XSharp.__Array,XSharp.__Usual,System.Int32,System.Int32)'/>
 FUNCTION Ascan(aTarget AS ARRAY, uSearch AS USUAL) AS DWORD 
 	RETURN ArrayHelpers.Ascan( aTarget, uSearch, 1, ALen(aTarget), SetExact()) 
-	
 
 /// <summary>
 /// Scan an array until an exact match with a value is found or a code block returns TRUE.
 /// </summary>
-/// <param name="aTarget">The array whose element will be replaced with a new value.</param>
-/// <param name="uSearch">The number of the element to be replaced.</param>
-/// <param name="nStart">The number of the element to be replaced.</param>
-/// <param name="nCount">The new value.</param>
-/// <returns>If uSearch is a code block, AScan() returns the position of the first element for which the code block returns TRUE.  Otherwise, AScan() returns the position of the first matching element.  AScan() returns 0 if no match is found.</returns>
+/// <inheritdoc cref='M:XSharp.VO.Functions.Ascan(XSharp.__Array,XSharp.__Usual,System.Int32,System.Int32)'/>
 FUNCTION AScanExact( aTarget AS ARRAY, uSearch AS USUAL, nStart AS INT, nCount AS INT) AS DWORD 
 	RETURN ArrayHelpers.Ascan( aTarget, uSearch, nStart, nCount, TRUE )
 
-/// <summary>
-/// Scan an array until an exact match with a value is found or a code block returns TRUE.
-/// </summary>
-/// <param name="aTarget">The array whose element will be replaced with a new value.</param>
-/// <param name="uSearch">The number of the element to be replaced.</param>
-/// <param name="nStart">The number of the element to be replaced.</param>
-/// <returns>If uSearch is a code block, AScan() returns the position of the first element for which the code block returns TRUE.  Otherwise, AScan() returns the position of the first matching element.  AScan() returns 0 if no match is found.</returns>
+
+/// <inheritdoc cref='M:XSharp.VO.Functions.AscanExact(XSharp.__Array,XSharp.__Usual,System.Int32,System.Int32)'/>
 FUNCTION AScanExact( aTarget AS ARRAY, uSearch AS USUAL, nStart AS INT) AS DWORD 
 	RETURN ArrayHelpers.Ascan( aTarget, uSearch, nStart, ALen(aTarget), TRUE )
 
 
-/// <summary>
-/// Scan an array until an exact match with a value is found or a code block returns TRUE.
-/// </summary>
-/// <param name="aTarget">The array whose element will be replaced with a new value.</param>
-/// <param name="uSearch">The number of the element to be replaced.</param>
-/// <param name="nStart">The number of the element to be replaced.</param>
-/// <returns>If uSearch is a code block, AScan() returns the position of the first element for which the code block returns TRUE.  Otherwise, AScan() returns the position of the first matching element.  AScan() returns 0 if no match is found.</returns>
+/// <inheritdoc cref='M:XSharp.VO.Functions.AscanExact(XSharp.__Array,XSharp.__Usual,System.Int32,System.Int32)'/>
 FUNCTION AScanExact( aTarget AS ARRAY, uSearch AS USUAL) AS DWORD 
 	RETURN ArrayHelpers.Ascan( aTarget, uSearch, 1, ALen(aTarget), TRUE )
 
@@ -712,33 +686,22 @@ FUNCTION AScanExact( aTarget AS ARRAY, uSearch AS USUAL) AS DWORD
 /// </returns>
 FUNCTION AScanBin(a AS ARRAY,x AS USUAL) AS DWORD
 	RETURN ArrayHelpers.AScanBin( "AscanBin" , a, x, FALSE )
-	
+
 /// <summary>
 /// Scan a sorted Array until there is an exact match or a code block returns 0.
 /// </summary>
-/// <param name="a"></param>
-/// <param name="x"></param>
-/// <returns>
-/// </returns>
+/// <inheritdoc cref='M:XSharp.VO.Functions.AscanBin(XSharp.__Array,XSharp.__Usual)'/>
 FUNCTION AScanBinExact(a AS ARRAY,x AS USUAL) AS DWORD
 	RETURN ArrayHelpers.AScanBin( "AscanBin" , a, x, TRUE )
 
-
-/// <summary>
-/// Scan an array until value is found.
-/// </summary>
-/// <param name="aTarget">The array whose element will be replaced with a new value.</param>
-/// <param name="act">The lambda expression to use for looking up the correct element.</param>
-/// <returns>AScan() returns the position of the first element for which the expression returns TRUE.</returns>
+/// <inheritdoc cref='M:XSharp.VO.Functions.Ascan(XSharp.__Array,XSharp.__Usual,System.Int32,System.Int32)'/>
 FUNCTION Ascan<T>(aTarget AS __ArrayBase<T>, element AS T) AS DWORD WHERE T IS NEW()
 	RETURN ArrayHelpers.Ascan( aTarget, element,1, (INT) aTarget:Length) 
 
 /// <summary>
 /// Scan an array until an expression returns TRUE.
 /// </summary>
-/// <param name="aTarget">The array whose element will be replaced with a new value.</param>
-/// <param name="act">The lambda expression to use for looking up the correct element.</param>
-/// <returns>AScan() returns the position of the first element for which the expression returns TRUE.</returns>
+/// <inheritdoc cref='M:XSharp.VO.Functions.Ascan(XSharp.__Array,XSharp.__Usual,System.Int32,System.Int32)'/>
 FUNCTION Ascan<T>(aTarget AS __ArrayBase<T>, act AS @@Func<T,LOGIC>) AS DWORD WHERE T IS NEW()
 	RETURN ArrayHelpers.Ascan( aTarget, act,1, (INT) aTarget:Length) 
 
@@ -746,10 +709,7 @@ FUNCTION Ascan<T>(aTarget AS __ArrayBase<T>, act AS @@Func<T,LOGIC>) AS DWORD WH
 /// <summary>
 /// Scan an array until value is found.
 /// </summary>
-/// <param name="aTarget">The array whose element will be replaced with a new value.</param>
-/// <param name="act">The lambda expression to use for looking up the correct element.</param>
-/// <param name="nStart">The starting element.  Negative values are not supported for the typed arrays.</param>
-/// <returns>AScan() returns the position of the first element for which the expression returns TRUE.</returns>
+/// <inheritdoc cref='M:XSharp.VO.Functions.Ascan(XSharp.__Array,XSharp.__Usual,System.Int32,System.Int32)'/>
 FUNCTION Ascan<T>(aTarget AS __ArrayBase<T>, element AS T, nStart AS LONG) AS DWORD WHERE T IS NEW()
 	RETURN ArrayHelpers.Ascan( aTarget, element, nStart, (INT) aTarget:Length- nStart +1) 
 
@@ -757,10 +717,8 @@ FUNCTION Ascan<T>(aTarget AS __ArrayBase<T>, element AS T, nStart AS LONG) AS DW
 /// <summary>
 /// Scan an array until an expression returns TRUE.
 /// </summary>
-/// <param name="aTarget">The array whose element will be replaced with a new value.</param>
 /// <param name="act">The lambda expression to use for looking up the correct element.</param>
-/// <param name="nStart">The starting element.  Negative values are not supported for the typed arrays.</param>
-/// <returns>AScan() returns the position of the first element for which the expression returns TRUE.</returns>
+/// <inheritdoc cref='M:XSharp.VO.Functions.Ascan(XSharp.__Array,XSharp.__Usual,System.Int32,System.Int32)'/>
 FUNCTION Ascan<T>(aTarget AS __ArrayBase<T>, act AS @@Func<T,LOGIC>, nStart AS LONG) AS DWORD WHERE T IS NEW()
 	RETURN ArrayHelpers.Ascan( aTarget, act, nStart, (INT) aTarget:Length - nStart +1) 
 
@@ -769,22 +727,16 @@ FUNCTION Ascan<T>(aTarget AS __ArrayBase<T>, act AS @@Func<T,LOGIC>, nStart AS L
 /// <summary>
 /// Scan an array until value is found.
 /// </summary>
-/// <param name="aTarget">The array whose element will be replaced with a new value.</param>
 /// <param name="act">The lambda expression to use for looking up the correct element.</param>
-/// <param name="nStart">The starting element.  Negative values are not supported for the typed arrays.</param>
-/// <param name="nCount">The number of elements to process from nStart.</param>
-/// <returns>AScan() returns the position of the first element for which the expression returns TRUE.</returns>
+/// <inheritdoc cref='M:XSharp.VO.Functions.Ascan(XSharp.__Array,XSharp.__Usual,System.Int32,System.Int32)'/>
 FUNCTION Ascan<T>(aTarget AS __ArrayBase<T>, element AS T, nStart AS LONG, nCount AS LONG) AS DWORD WHERE T IS NEW()
 	RETURN ArrayHelpers.Ascan( aTarget, element, nStart, nCount) 
 
 /// <summary>
 /// Scan an array until an expression returns TRUE.
 /// </summary>
-/// <param name="aTarget">The array whose element will be replaced with a new value.</param>
 /// <param name="act">The lambda expression to use for looking up the correct element.</param>
-/// <param name="nStart">The starting element.  Negative values are not supported for the typed arrays.</param>
-/// <param name="nCount">The number of elements to process from nStart.</param>
-/// <returns>AScan() returns the position of the first element for which the expression returns TRUE.</returns>
+/// <inheritdoc cref='M:XSharp.VO.Functions.Ascan(XSharp.__Array,XSharp.__Usual,System.Int32,System.Int32)'/>
 FUNCTION Ascan<T>(aTarget AS __ArrayBase<T>, act AS @@Func<T,LOGIC>, nStart AS LONG, nCount AS LONG) AS DWORD WHERE T IS NEW()
 	RETURN ArrayHelpers.Ascan( aTarget, act, nStart, nCount) 
 
@@ -1127,9 +1079,7 @@ END STRUCTURE
 /// <returns>
 /// </returns>
 FUNCTION ASort<T>(aArray AS __ArrayBase<T> ,startIndex AS INT,nCount AS INT,cbOrder AS @@Func<T,T,LOGIC>) AS __ArrayBase<T> WHERE T IS NEW()
-
 	aArray:Sort( startIndex, nCount, ArraySortComparer<T, LOGIC> { cbOrder } )
-	
 	RETURN aArray
 
 
@@ -1186,7 +1136,7 @@ FUNCTION AEval<T>(aArray AS __ArrayBase<T>, cb AS Action<T>,iStart AS DWORD,iCou
 	LOCAL nEnd AS DWORD
 	nEnd := iStart + iCount -1
 	FOR nX := iStart TO nEnd
-		cb(aArray[ nX])
+		cb(aArray[ (INT) nX])
 	NEXT
 	RETURN aArray
 
@@ -1329,7 +1279,7 @@ FUNCTION AEvalA<T>(aArray AS __ArrayBase<T>, cb AS @@Func<T,T>,iStart AS DWORD,i
 	LOCAL nEnd AS DWORD
 	nEnd := iStart + iCount -1
 	FOR nX := iStart TO nEnd
-		aArray[ nX] := cb(aArray[ nX])
+		aArray[ (INT) nX] := cb(aArray[(INT)  nX])
 	NEXT
 	RETURN aArray
 

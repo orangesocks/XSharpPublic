@@ -1,4 +1,4 @@
-﻿//
+//
 // Copyright (c) XSharp B.V.  All Rights Reserved.  
 // Licensed under the Apache License, Version 2.0.  
 // See License.txt in the project root for license information.
@@ -55,6 +55,11 @@ INTERNAL STATIC CLASS OOPHelpers
 		// TOdo Optimize
 		LOCAL ret := NULL AS System.Type
 		LOCAL aAssemblies AS IEnumerable<Assembly>
+		
+		IF String.IsNullOrWhiteSpace(cName)
+			// otherwise asm:GetType() will throw an exception with empty name
+			RETURN ret
+		END IF
 
 		IF lOurAssembliesOnly
 			aAssemblies := FindOurAssemblies()
@@ -71,10 +76,10 @@ INTERNAL STATIC CLASS OOPHelpers
 			// If there is an Implicoit Namespace Attribute
 			// We don't know if the current assembly is compiler with /INS, but we assume it is when they
 			// use the 'old fashioned' CreateInstance().
-			VAR ins := TYPEOF( ImplicitNamespaceAttribute )
+			VAR ins := TYPEOF( ClassLibraryAttribute )
 			IF asm:IsDefined(  ins, FALSE )
-				VAR atr := (ImplicitNamespaceAttribute) (asm:GetCustomAttributes(ins,FALSE) [1])
-				VAR cFullName := atr:Namespace +"."+cName
+				VAR atr := (ClassLibraryAttribute) (asm:GetCustomAttributes(ins,FALSE) [1])
+				VAR cFullName := atr:DefaultNamespace +"."+cName
 				ret := asm:GetType( cFullName, FALSE, TRUE )
 				IF ret != NULL
 					EXIT
@@ -270,6 +275,10 @@ INTERNAL STATIC CLASS OOPHelpers
 		IF propInfo != NULL_OBJECT .AND. propInfo:CanRead
 			RETURN propInfo:GetValue(oObject, NULL)
 		ENDIF
+		LOCAL result AS USUAL
+		IF sendHelper(oObject, "NoIVarGet", <USUAL>{String2Symbol(cIVar)}, OUT result)
+			RETURN result
+		END IF
 		THROW Error.VOError( EG_NOVARMETHOD, IIF( lSelf, __ENTITY__, __ENTITY__ ), NAMEOF(cIVar), 2, <OBJECT>{cIVar} )
 		
 	STATIC METHOD IVarPut(oObject AS OBJECT, cIVar AS STRING, oValue AS OBJECT, lSelf AS LOGIC)  AS VOID
@@ -289,6 +298,10 @@ INTERNAL STATIC CLASS OOPHelpers
 			propInfo:SetValue(oObject,oValue , NULL)
 			RETURN
 		ENDIF
+		LOCAL dummy AS USUAL
+		IF sendHelper(oObject, "NoIVarPut", <USUAL>{String2Symbol(cIVar), oValue}, OUT dummy)
+			RETURN
+		END IF
 		THROW Error.VOError( EG_NOVARMETHOD, IIF( lSelf, __ENTITY__, __ENTITY__ ), NAMEOF(cIVar), 2, <OBJECT>{cIVar})
 		
 	STATIC METHOD SendHelper(oObject AS OBJECT, cMethod AS STRING, uArgs AS USUAL[], result OUT USUAL) AS LOGIC
@@ -375,7 +388,7 @@ INTERNAL STATIC CLASS OOPHelpers
 			IF toType == TYPEOF(USUAL)
 				// box the usual
                 RETURN __CastClass(OBJECT, uValue)
-            ELSEIF IsArray(uValue) .and. totype == typeof(ARRAY)
+            ELSEIF IsArray(uValue) .AND. totype == typeof(ARRAY)
                 RETURN (ARRAY) uValue
             ELSEIF IsObject(uValue) 
                 RETURN (OBJECT) uValue
@@ -491,7 +504,7 @@ FUNCTION CreateInstance(cClassName) AS OBJECT CLIPPER
 	ENDIF    	
 	VAR t := OOPHelpers.FindClass((STRING) cClassName)
 	IF t == NULL
-		 THROW Error.VOError( EG_NOCLASS, __FUNCTION__, NAMEOF(cClassName), 1,  cClassName  )
+		 THROW Error.VOError( EG_NOCLASS, __FUNCTION__, NAMEOF(cClassName), 1,  <OBJECT>{cClassName}  )
 	ENDIF
 	VAR constructors := t:getConstructors() 
 	IF constructors:Length > 1
@@ -523,9 +536,9 @@ FUNCTION CreateInstance(cClassName) AS OBJECT CLIPPER
 			FOR nArg := 2 TO nPCount
 				args[nArg-1] := _GetFParam(nArg)
 			NEXT 
-			oArgs  := <OBJECT>{args}
+			oArgs  := args
 		ENDIF
-		oRet := ctor:Invoke( oArgs)	
+		oRet := ctor:Invoke( oArgs )
 	CATCH
 		THROW Error.VOError( EG_NOMETHOD, __FUNCTION__, "Constructor", 0 , NULL)
 		oRet := NULL_OBJECT
@@ -1083,4 +1096,18 @@ FUNCTION _CallClipFunc(symFunction AS STRING,uArgs PARAMS USUAL[]) AS USUAL
 	RETURN  NIL   
 
 
+/// <summary>Dynamically loads a library (dll) compiled with X#, running any _INIT procedures it may contain.</summary>
+/// <param name="cLibFileName">The full path of the library to load.</param>
+/// <returns>The Assembly object of the loaded library.</returns>
+FUNCTION XSharpLoadLibrary(cLibFileName AS STRING) AS Assembly
+	LOCAL oAssembly AS Assembly
+	oAssembly := Assembly.LoadFrom(cLibFileName)
+	LOCAL oModule AS Module
+	oModule := oAssembly:GetModules()[1]
+	LOCAL oMethod AS MethodInfo
+	oMethod := oModule:GetMethod("RunInitProcs")
+	IF oMethod != NULL
+		oMethod:Invoke(NULL, NULL)
+	END IF
+RETURN oAssembly
 
