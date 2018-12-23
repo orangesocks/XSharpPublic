@@ -296,6 +296,8 @@ namespace XSharp.Project
         }
         private void formatLineCase(ITextEdit editSession, ITextSnapshotLine line)
         {
+            if (XSharpProjectPackage.Instance.DebuggerIsRunning)
+                return;
             XSharpProjectPackage.Instance.DisplayOutPutMessage($"CommandFilter.formatLineCase({line.LineNumber+1})");
             // get classification of the line.
             // when the line is part of a multi line comment then do nothing
@@ -372,6 +374,8 @@ namespace XSharp.Project
         }
         private void formatCaseForWholeBuffer()
         {
+            if (XSharpProjectPackage.Instance.DebuggerIsRunning)
+                return;
             getEditorPreferences(TextView);
             if (_optionsPage.KeywordCase != 0)
             {
@@ -826,8 +830,7 @@ namespace XSharp.Project
             XSharpLanguage.CompletionElement gotoElement = null;
             if (cType != null && methodName != null)
             {
-                cType = XSharpLanguage.XSharpTokenTools.SearchMethodTypeIn(cType, methodName, XSharpModel.Modifiers.Private, false, out gotoElement);
-
+                XSharpLanguage.XSharpTokenTools.SearchMethodTypeIn(cType, methodName, XSharpModel.Modifiers.Private, false, out gotoElement );
             }
             else
             {
@@ -864,7 +867,8 @@ namespace XSharp.Project
                 {
                     currentNS = currentNamespace.Name;
                 }
-                cType = XSharpTokenTools.RetrieveType(file, tokenList, member, currentNS, stopToken, out gotoElement, snapshot, startLineNumber);
+                // We don't care of the corresponding Type, we are looking for the gotoElement
+                XSharpTokenTools.RetrieveType(file, tokenList, member, currentNS, stopToken, out gotoElement, snapshot, startLineNumber);
             }
             //
             if ((gotoElement != null) && (gotoElement.IsInitialized))

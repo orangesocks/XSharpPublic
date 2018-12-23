@@ -35,18 +35,22 @@ BEGIN NAMESPACE XSharpModel
 
 			PROPERTY TokenStream AS ITokenStream GET SELF:_tokenStream
 
+			PROPERTY StartPosition AS INT AUTO
+
 
 		#endregion
 
 		CONSTRUCTOR(file AS XFile)
 			SUPER()
-			LOCAL sourcePath AS STRING
-			SELF:_gate := OBJECT{}
-			SELF:_file := file
-			SELF:_prjNode := SELF:_file?:Project?:ProjectNode
-			//
-			sourcePath := SELF:_file:SourcePath
-
+            if (file != null)
+			    LOCAL sourcePath AS STRING
+			    SELF:_gate := OBJECT{}
+			    SELF:_file := file
+			    SELF:_prjNode := SELF:_file?:Project?:ProjectNode
+			    SELF:StartPosition := 0
+			    //
+			    sourcePath := SELF:_file:SourcePath
+            endif
 
 
 		METHOD BuildModel(oInfo AS ParseResult) AS VOID
@@ -103,6 +107,7 @@ BEGIN NAMESPACE XSharpModel
 			WriteOutputMessage("-->> Parse() "+_file:FullPath+"(# lines " +lines:Count+" locals "+lIncludeLocals+" )")
 
 			VAR oParser := XSharpModel.Parser{}
+			oParser:StartPosition := SELF:StartPosition
 			VAR info := oParser:Parse(lines, lIncludeLocals)
 			BEGIN LOCK SELF
 				SELF:_info := info
@@ -117,7 +122,7 @@ BEGIN NAMESPACE XSharpModel
 
 			VIRTUAL METHOD ReportWarning(fileName AS STRING, span AS LinePositionSpan, errorCode AS STRING, message AS STRING, args AS OBJECT[]) AS VOID
 				SELF:_errors:Add(XWarning{fileName, span, errorCode, message, args})
-
+            /*
 			PRIVATE METHOD ShowErrorsAsync(syntaxRoot AS SyntaxNode) AS VOID
 				LOCAL list AS System.Collections.Immutable.ImmutableList<XError>
 				LOCAL obj2 AS OBJECT
@@ -149,6 +154,7 @@ BEGIN NAMESPACE XSharpModel
 					END LOCK
 					WriteOutputMessage("<<-- ShowErrorsAsync() "+_file:FullPath)
 				ENDIF
+            */
 		STATIC METHOD WriteOutputMessage(message AS STRING) AS VOID
 			XSolution.WriteOutputMessage("XModel.SourceWalker "+message)
 

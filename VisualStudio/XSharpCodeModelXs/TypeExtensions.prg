@@ -1,22 +1,20 @@
 //
-// Copyright (c) XSharp B.V.  All Rights Reserved.  
-// Licensed under the Apache License, Version 2.0.  
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
 // See License.txt in the project root for license information.
 //
 USING System.Collections.Generic
 USING System.Collections.Immutable
 USING System
 BEGIN NAMESPACE XSharpModel
-    
+
     STATIC CLASS TypeExtensions
         // Fields
         STATIC PRIVATE lookupTable AS IDictionary<STRING, STRING>
-        
+
         // Methods
         STATIC  CONSTRUCTOR()
-            SUPER()
-            //
-            lookupTable  := Dictionary<STRING, STRING>{StringComparer.OrdinalIgnoreCase} 
+            lookupTable  := Dictionary<STRING, STRING>{StringComparer.OrdinalIgnoreCase}
             lookupTable:Add("System.Boolean", "LOGIC")
             lookupTable:Add("System.Byte", "BYTE")
             lookupTable:Add("System.String", "STRING")
@@ -46,29 +44,49 @@ BEGIN NAMESPACE XSharpModel
             lookupTable:Add("XSharp.__Usual", "USUAL")
             lookupTable:Add("XSharp.__VODate", "DATE")
             lookupTable:Add("XSharp.__VOFloat", "FLOAT")
+            lookupTable:Add("XSharp.__Date", "DATE")
+            lookupTable:Add("XSharp.__Float", "FLOAT")
             lookupTable:Add("XSharp.__WinBool", "LOGIC")
             lookupTable := lookupTable:ToImmutableDictionary<STRING, STRING>(StringComparer.OrdinalIgnoreCase)
-            
-        STATIC METHOD GetSystemTypeName( SELF typename AS STRING) AS STRING
+
+        STATIC METHOD GetSystemTypeName( SELF typename AS STRING, lXSharpNames as LOGIC) AS STRING
             //
 			// Todo: Rename to XSharp type names
 			//
-            SWITCH typename:ToLower()
-                CASE "array"
-                    RETURN "Vulcan.__Array"
-                CASE "date"
-                    RETURN "Vulcan.__VODate"
-                CASE "float"
-                    RETURN "Vulcan.__VOFloat"
-                CASE "psz"
-                    RETURN "Vulcan.__Psz"
-                CASE "symbol"
-                    RETURN "Vulcan.__Symbol"
-                CASE "usual"
-                    RETURN "Vulcan.__Usual"
-            END SWITCH
+            IF lXSharpNames
+                 SWITCH typename:ToLower()
+                    CASE "array"
+                        RETURN "XSharp.__Array"
+                    CASE "date"
+                        RETURN "XSharp.__Date"
+                    CASE "float"
+                        RETURN "XSharp.__Float"
+                    CASE "psz"
+                        RETURN "VulcanXSharp.__Psz"
+                    CASE "symbol"
+                        RETURN "XSharp.__Symbol"
+                    CASE "usual"
+                        RETURN "XSharp.__Usual"
+                END SWITCH
+
+             ELSE
+                 SWITCH typename:ToLower()
+                    CASE "array"
+                        RETURN "Vulcan.__Array"
+                    CASE "date"
+                        RETURN "Vulcan.__VODate"
+                    CASE "float"
+                        RETURN "Vulcan.__VOFloat"
+                    CASE "psz"
+                        RETURN "Vulcan.__Psz"
+                    CASE "symbol"
+                        RETURN "Vulcan.__Symbol"
+                    CASE "usual"
+                        RETURN "Vulcan.__Usual"
+                END SWITCH
+             ENDIF
             RETURN typename
-            
+
         STATIC METHOD GetXSharpTypeName( SELF sysType AS System.Type) AS STRING
             LOCAL fullName AS STRING
             LOCAL suffix AS STRING
@@ -110,9 +128,9 @@ BEGIN NAMESPACE XSharpModel
                 fullName := genTypeName + genericString
             ENDIF
             RETURN fullName+ suffix
-            
-            
+
+
     END CLASS
-    
-END NAMESPACE 
+
+END NAMESPACE
 
