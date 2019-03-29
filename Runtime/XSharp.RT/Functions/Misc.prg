@@ -104,13 +104,22 @@ FUNCTION Max(u1 AS USUAL,u2 AS USUAL) AS USUAL
 	ELSEIF u1:IsDate .AND. u2:IsDate
 		RETURN IIF ((DATE) u1 > (DATE) u2, u1, u2)
 
+	ELSEIF u1:IsDateTime .AND. u2:IsDateTime
+		RETURN IIF ((DateTime) u1 > (DateTime) u2, u1, u2)
+
+	ELSEIF (u1:IsDateTime .or. u1:IsDate) .AND. (u2:IsDateTime .or. u2:IsDate)
+		RETURN IIF ((DateTime) u1 > (DateTime) u2, u1, u2)
+
 	ELSEIF u1:IsString .AND. u2:IsString
 		RETURN IIF ((STRING) u1 > (STRING) u2, u1, u2)
+
+	ELSEIF u1:IsSymbol .AND. u2:IsSymbol
+		RETURN IIF ((SYMBOL) u1 > (SYMBOL) u2, u1, u2)
 
 	ELSE
         THROW Error.ArgumentError( __FUNCTION__, NAMEOF(u2) , "Incompatible types")
 	ENDIF
-	RETURN u1
+	
 
 
 
@@ -144,7 +153,7 @@ FUNCTION Min(u1 AS USUAL,u2 AS USUAL) AS USUAL
 	ELSE
         THROW Error.ArgumentError( __FUNCTION__, NAMEOF(u2) , "Incompatible types")
 	ENDIF
-	RETURN u1
+	
 
 
 /// <summary>This function is not implemented yet</summary>
@@ -158,7 +167,7 @@ FUNCTION Min(u1 AS USUAL,u2 AS USUAL) AS USUAL
 /// </returns>
 FUNCTION PaletteRGB(bR AS USUAL,bG AS USUAL,bB AS BYTE) AS INT
 	THROW NotImplementedException{}
-	RETURN 0   
+	
 
 /// <summary>This function is not implemented yet</summary>
 // <summary>
@@ -168,7 +177,7 @@ FUNCTION PaletteRGB(bR AS USUAL,bG AS USUAL,bB AS BYTE) AS INT
 /// </returns>
 FUNCTION Pause() AS DWORD
 	THROW NotImplementedException{}
-	RETURN 0   
+	
 
 
 

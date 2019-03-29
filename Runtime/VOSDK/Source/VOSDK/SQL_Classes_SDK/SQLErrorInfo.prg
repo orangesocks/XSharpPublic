@@ -1,4 +1,4 @@
-PARTIAL CLASS SQLErrorInfo  INHERIT Error
+CLASS SQLErrorInfo  INHERIT Error
 	HIDDEN cSQLState     AS STRING
 	HIDDEN nNativeError  AS INT
 	HIDDEN cErrorMessage AS STRING
@@ -137,7 +137,7 @@ ASSIGN SQLState( uVal )
 		SELF:cSQLState := uVal
 	ENDIF
 	RETURN 
-#ifdef __XRUNTIME__
+#ifdef __XSHARP_RT__
 METHOD @@Throw() AS VOID  STRICT
 #else
 METHOD @@Throw() 

@@ -1,4 +1,4 @@
-﻿// TestDBF.prg
+// TestDBF.prg
 // Created by    : fabri
 // Creation Date : 4/24/2018 5:21:57 PM
 // Created for   : 
@@ -36,7 +36,7 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 			//
 			VAR myDBF := DBF{}
 			
-			Assert.Equal( FALSE, myDBF:Open( dbInfo ) )
+			Assert.Throws( typeof(XSharp.RDD.RddError), {=> myDBF:Open( dbInfo ) })
 			//
 			myDBF:Close()
 			RETURN
@@ -259,7 +259,7 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 		METHOD CheckAddFields() AS VOID
 			LOCAL fieldDefs := "ID,N,5,0;NAME,C,10,0;BIRTHDAY,D,8,0" AS STRING
 			LOCAL fields := fieldDefs:Split( ';' ) AS STRING[]
-			VAR dbInfo := DbOpenInfo{ "XSharpTest.DBF", "XSharpTest", 1, FALSE, FALSE }
+			VAR dbInfo := DbOpenInfo{ "XSharpTestA.DBF", "XSharpTest", 1, FALSE, FALSE }
 			//
 			LOCAL myDBF := DBF{} AS DBF
 			// Let's say Three Fields
@@ -293,7 +293,7 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 		METHOD CheckCreateFields() AS VOID
 			LOCAL fieldDefs := "ID,N,5,0;NAME,C,10,0;BIRTHDAY,D,8,0" AS STRING
 			LOCAL fields := fieldDefs:Split( ';' ) AS STRING[]
-			VAR dbInfo := DbOpenInfo{ "XSharpTest.DBF", "XSharpTest", 1, FALSE, FALSE }
+			VAR dbInfo := DbOpenInfo{ "XSharpTestB.DBF", "XSharpTest", 1, FALSE, FALSE }
 			//
 			LOCAL myDBF := DBF{} AS DBF
 			LOCAL fieldInfo AS STRING[]
@@ -328,7 +328,7 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 		METHOD CheckCreateDBF() AS VOID
 			LOCAL fieldDefs := "ID,N,5,0;NAME,C,20,0;MAN,L,1,0;BIRTHDAY,D,8,0" AS STRING
 			LOCAL fields := fieldDefs:Split( ';' ) AS STRING[]
-			VAR dbInfo := DbOpenInfo{ "XMenTest.DBF", "XMenTest", 1, FALSE, FALSE }
+			VAR dbInfo := DbOpenInfo{ "XMenTestC.DBF", "XMenTest", 1, FALSE, FALSE }
 			//
 			LOCAL myDBF := DBF{} AS DBF
 			LOCAL fieldInfo AS STRING[]
@@ -349,12 +349,15 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 			//
 			myDBF:Close()
 			RETURN
-			
-		[Fact, Trait("Dbf", "CreateAppend")];
-		METHOD CheckCreateAppendDBF() AS VOID
+
+        [Fact, Trait("Dbf", "CreateAppend")];
+        METHOD CheckCreateAppendDBF() AS VOID
+		    CheckCreateAppendDBF("XMenTest1.dbf")
+
+		METHOD CheckCreateAppendDBF(cFileName AS STRING) AS VOID
 			LOCAL fieldDefs := "ID,N,5,0;NAME,C,20,0;MAN,L,1,0;BIRTHDAY,D,8,0" AS STRING
 			LOCAL fields := fieldDefs:Split( ';' ) AS STRING[]
-			VAR dbInfo := DbOpenInfo{ "XMenTest.DBF", "XMenTest", 1, FALSE, FALSE }
+			VAR dbInfo := DbOpenInfo{ cFileName, "XMenTest", 1, FALSE, FALSE }
 			//
 			LOCAL myDBF := DBF{} AS DBF
 			LOCAL fieldInfo AS STRING[]
@@ -416,7 +419,7 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 		METHOD CheckCreateBigAppendDBF() AS VOID
 			LOCAL fieldDefs := "ID,N,5,0;NAME,C,20,0;MAN,L,1,0;BIRTHDAY,D,8,0" AS STRING
 			LOCAL fields := fieldDefs:Split( ';' ) AS STRING[]
-			VAR dbInfo := DbOpenInfo{ "XMenTest.DBF", "XMenTest", 1, FALSE, FALSE }
+			VAR dbInfo := DbOpenInfo{ "XMenTestE.DBF", "XMenTest", 1, FALSE, FALSE }
 			//
 			LOCAL myDBF := DBF{} AS DBF
 			LOCAL fieldInfo AS STRING[]
@@ -461,9 +464,9 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 		[Fact, Trait("Dbf", "Zap")];
 		METHOD CheckZap() AS VOID
 			//
-			SELF:CheckCreateAppendDBF()
+			SELF:CheckCreateAppendDBF("XMenTestF.DBF")
 			//
-			VAR dbInfo := DbOpenInfo{ "XMenTest.DBF", "XMenTest", 1, FALSE, FALSE }
+			VAR dbInfo := DbOpenInfo{ "XMenTestF.DBF", "XMenTest", 1, FALSE, FALSE }
 			//
 			LOCAL myDBF := DBF{} AS DBF
 			IF myDBF:Open( dbInfo ) 
@@ -481,9 +484,9 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 		[Fact, Trait("Dbf", "Zap")];
 		METHOD CheckZapAppend() AS VOID
 			//
-			SELF:CheckCreateAppendDBF()
+			SELF:CheckCreateAppendDBF("XMenTestG.DBF")
 			//
-			VAR dbInfo := DbOpenInfo{ "XMenTest.DBF", "XMenTest", 1, FALSE, FALSE }
+			VAR dbInfo := DbOpenInfo{ "XMenTestG.DBF", "XMenTest", 1, FALSE, FALSE }
 			//
 			LOCAL myDBF := DBF{} AS DBF
 			IF myDBF:Open( dbInfo ) 
@@ -511,9 +514,9 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 		[Fact, Trait("Dbf", "Pack")];
 		METHOD CheckPack() AS VOID
 			//
-			SELF:CheckCreateAppendDBF()
+			SELF:CheckCreateAppendDBF("XMenTestH.DBF")
 			//
-			VAR dbInfo := DbOpenInfo{ "XMenTest.DBF", "XMenTest", 1, FALSE, FALSE }
+			VAR dbInfo := DbOpenInfo{ "XMenTestH.DBF", "XMenTest", 1, FALSE, FALSE }
 			//
 			LOCAL myDBF := DBF{} AS DBF
 			IF myDBF:Open( dbInfo ) 
@@ -538,7 +541,7 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 		METHOD CheckCreateDBFMemo() AS VOID
 			LOCAL fieldDefs := "ID,N,5,0;NAME,C,20,0;MAN,L,1,0;BIRTHDAY,D,8,0;BIOGRAPHY,M,10,0" AS STRING
 			LOCAL fields := fieldDefs:Split( ';' ) AS STRING[]
-			VAR dbInfo := DbOpenInfo{ "XMenTest.DBF", "XMenTest", 1, FALSE, FALSE }
+			VAR dbInfo := DbOpenInfo{ "XMenTestI.DBF", "XMenTest", 1, FALSE, FALSE }
 			//
 			LOCAL myDBF := DBFDBT{} AS DBFDBT
 			LOCAL fieldInfo AS STRING[]
@@ -559,7 +562,7 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 			//
 			myDBF:Close()
 			//
-			LOCAL isFile := System.IO.File.Exists( "XMenTest.DBT" ) AS LOGIC
+			LOCAL isFile := System.IO.File.Exists( "XMenTestI.DBT" ) AS LOGIC
 			Assert.Equal( TRUE, isFile  )
 			RETURN           
 			
@@ -567,7 +570,7 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 		METHOD CheckCreateAppendDBFDBT() AS VOID
 			LOCAL fieldDefs := "ID,N,5,0;NAME,C,20,0;MAN,L,1,0;BIRTHDAY,D,8,0;BIOGRAPHY,M,10,0" AS STRING
 			LOCAL fields := fieldDefs:Split( ';' ) AS STRING[]
-			VAR dbInfo := DbOpenInfo{ "XMenTest.DBF", "XMenTest", 1, FALSE, FALSE }
+			VAR dbInfo := DbOpenInfo{ "XMenTestJ.DBF", "XMenTest", 1, FALSE, FALSE }
 			//
 			LOCAL myDBF := DBFDBT{} AS DBFDBT
 			LOCAL fieldInfo AS STRING[]
@@ -640,7 +643,7 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 			// Create and put some Data
 			SELF:CheckCreateAppendDBFDBT()
 			// Now Modify in the same space
-			VAR dbInfo := DbOpenInfo{ "XMenTest.DBF", "XMenTest", 1, FALSE, FALSE }
+			VAR dbInfo := DbOpenInfo{ "XMenTestJ.DBF", "XMenTest", 1, FALSE, FALSE }
 			LOCAL myDBF := DBFDBT{} AS DBFDBT
 			VAR Memos := List<STRING>{} 
 			// Now, Modify the Memo
@@ -676,7 +679,7 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 			// Create and put some Data
 			SELF:CheckCreateAppendDBFDBT()
 			// Now Modify in the same space
-			VAR dbInfo := DbOpenInfo{ "XMenTest.DBF", "XMenTest", 1, FALSE, FALSE }
+			VAR dbInfo := DbOpenInfo{ "XMenTestJ.DBF", "XMenTest", 1, FALSE, FALSE }
 			LOCAL myDBF := DBFDBT{} AS DBFDBT
 			VAR Memos := List<STRING>{} 
 			// Now, Modify the Memo

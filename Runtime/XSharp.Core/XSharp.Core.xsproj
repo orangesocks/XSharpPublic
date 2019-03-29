@@ -10,7 +10,7 @@
     <CS>false</CS>
     <LB>false</LB>
     <OVF>false</OVF>
-    <Unsafe>true</Unsafe>
+    <Unsafe>false</Unsafe>
     <INS>false</INS>
     <NS>false</NS>
     <VO1>false</VO1>
@@ -33,6 +33,13 @@
     <VO15>false</VO15>
     <VulcanCompatibleResources>True</VulcanCompatibleResources>
     <VO16>false</VO16>
+    <XSharpProjectversion>2.0.0.9</XSharpProjectversion>
+    <Includepaths>$(Solutiondir)Common</Includepaths>
+    <Nostandarddefs>true</Nostandarddefs>
+    <NamedArgs>false</NamedArgs>
+    <StandardDefs />
+    <MemVar>false</MemVar>
+    <Undeclared>false</Undeclared>
   </PropertyGroup>
   <PropertyGroup>
     <ProjectGuid>535dff14-efb7-43f5-a4e1-71c1c4280040</ProjectGuid>
@@ -65,8 +72,6 @@
     <DelaySign>false</DelaySign>
     <PPO>false</PPO>
     <NoStdDef>true</NoStdDef>
-    <IncludePaths>$(Solutiondir)Common</IncludePaths>
-    <NoStandardDefs>true</NoStandardDefs>
     <AssemblyOriginatorKeyFile>$(solutiondir)common\xsharp.snk</AssemblyOriginatorKeyFile>
     <CommandLineOption />
     <OutputPath>$(BaseOutputPath)\$(Configuration)\</OutputPath>
@@ -87,15 +92,13 @@
     <DelaySign>false</DelaySign>
     <PPO>false</PPO>
     <NoStdDef>false</NoStdDef>
-    <IncludePaths>$(Solutiondir)Common</IncludePaths>
-    <NoStandardDefs>false</NoStandardDefs>
     <Prefer32Bit>False</Prefer32Bit>
     <AssemblyOriginatorKeyFile>$(solutiondir)common\xsharp.snk</AssemblyOriginatorKeyFile>
     <CommandLineOption />
     <OutputPath>$(BaseOutputPath)\$(Configuration)\</OutputPath>
     <IntermediateOutputPath>$(BaseOutputPath)\Obj\$(Configuration)\$(AssemblyName)\</IntermediateOutputPath>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Documentation|AnyCPU' ">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Documentation|AnyCPU'">
     <PlatformTarget>AnyCPU</PlatformTarget>
     <EmitDebugInformation>true</EmitDebugInformation>
     <DebugType>full</DebugType>
@@ -111,8 +114,6 @@
     <DelaySign>false</DelaySign>
     <PPO>false</PPO>
     <NoStdDef>true</NoStdDef>
-    <IncludePaths>$(Solutiondir)Common</IncludePaths>
-    <NoStandardDefs>true</NoStandardDefs>
     <AssemblyOriginatorKeyFile>$(solutiondir)common\xsharp.snk</AssemblyOriginatorKeyFile>
     <CommandLineOption />
     <DocumentationFile>XSharp.Core.Xml</DocumentationFile>
@@ -122,7 +123,10 @@
   <Import Project="$(MSBuildExtensionsPath)\XSharp\XSharp.targets" />
   <ItemGroup>
     <Reference Include="mscorlib" />
-    <Reference Include="System" />
+    <Reference Include="System">
+      <Name>System</Name>
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -230,6 +234,7 @@
     <None Include="Collations\Spanish.collation" />
     <None Include="Collations\Swedish.collation" />
     <None Include="Collations\Uk.collation" />
+    <None Include="CoreComments.Xml" />
     <None Include="README.md" />
     <None Include="State\GetSet.xh" />
   </ItemGroup>

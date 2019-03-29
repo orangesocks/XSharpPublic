@@ -93,6 +93,7 @@ BEGIN NAMESPACE XSharpModel
 
 		CONSTRUCTOR(typeName AS STRING, xFile AS XFile, defaultNS AS STRING)
 			SELF()
+			SELF:_file := xFile
 			SELF:CheckType(typeName, xFile, defaultNS)
 
 		PRIVATE METHOD CheckProjectType(typeName AS STRING, xprj AS XProject, usings AS IList<STRING>) AS VOID
@@ -115,7 +116,7 @@ BEGIN NAMESPACE XSharpModel
 		PRIVATE METHOD CheckSystemType(typeName AS STRING, usings AS IList<STRING>) AS VOID
 			LOCAL sType AS System.Type
 			IF SELF:_file != NULL
-                var options := self:_file:Project:ProjectNode:ParseOptions
+                VAR options := SELF:_file:Project:ProjectNode:ParseOptions
 				typeName := typeName:GetSystemTypeName(options:XSharpRuntime)
 				sType := SELF:_file:Project:FindSystemType(typeName, usings)
 			ENDIF
@@ -157,8 +158,8 @@ BEGIN NAMESPACE XSharpModel
 			ENDIF
             // For fully qualified typenames, search without usings first. That is usually faster
             IF typename:Contains(".")
-                SELF:CheckType(typeName, xFile, List<String>{})
-            endif
+                SELF:CheckType(typeName, xFile, List<STRING>{})
+            ENDIF
             IF ! SELF:IsInitialized
                 // Now check all usings
 			    SELF:CheckType(typeName, xFile, usings)

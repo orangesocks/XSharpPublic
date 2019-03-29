@@ -1,4 +1,4 @@
-﻿//
+//
 // Copyright (c) XSharp B.V.  All Rights Reserved.
 // Licensed under the Apache License, Version 2.0.
 // See License.txt in the project root for license information.
@@ -37,9 +37,9 @@ INTERNAL STATIC CLASS ConversionHelpers
 		formatStrings:Add(nKey, cFormat)
 		RETURN cFormat
 
-	PRIVATE CONST NOCHAR := c'\0' AS Char
-	STATIC METHOD NextChar(c AS STRING, nIndex REF INT) AS Char
-		LOCAL cChar AS Char
+	PRIVATE CONST NOCHAR := c'\0' AS CHAR
+	STATIC METHOD NextChar(c AS STRING, nIndex REF INT) AS CHAR
+		LOCAL cChar AS CHAR
 		LOCAL lStart := nIndex == -1 AS LOGIC
 		DO WHILE TRUE
 			nIndex ++
@@ -50,20 +50,20 @@ INTERNAL STATIC CLASS ConversionHelpers
 			IF cChar == c'E'
 				RETURN NOCHAR
 			END IF
-			IF cChar >= c'0' .and. cChar <= c'9'
-				IF cChar == c'0' .and. lStart
+			IF cChar >= c'0' .AND. cChar <= c'9'
+				IF cChar == c'0' .AND. lStart
 					nIndex ++
 					LOOP
 				END IF
 				RETURN cChar
 			END IF
 		END DO
-	RETURN NOCHAR
+	
 	
 	STATIC METHOD AdjustPrecision(cNum15 AS STRING, cNum17 AS STRING) AS STRING
 		LOCAL cDiff15 := "0", cDiff17 := "0" AS STRING
 		LOCAL cResult AS STRING
-		LOCAL c15,c17 AS Char
+		LOCAL c15,c17 AS CHAR
 		LOCAL n15,n17 AS INT
 		LOCAL nMatch AS INT
 		LOCAL lDiff  AS LOGIC
@@ -74,7 +74,7 @@ INTERNAL STATIC CLASS ConversionHelpers
 		DO WHILE TRUE
 			c15 := NextChar(cNum15 , REF n15)
 			c17 := NextChar(cNum17 , REF n17)
-			IF c15 == NOCHAR .or. c17 == NOCHAR
+			IF c15 == NOCHAR .OR. c17 == NOCHAR
 				IF lDiff
 					EXIT
 				ELSE
@@ -112,7 +112,7 @@ INTERNAL STATIC CLASS ConversionHelpers
         // G17 returns all 17 relevant digits for a REAL8
         // See https://docs.microsoft.com/en-us/dotnet/api/system.double.tostring?view=netframework-4.7.2
 		result := String.Format(usCulture, cFormat, n)
-		IF nLen > 15 .and. result:Length >= 15
+		IF nLen > 15 .AND. result:Length >= 15
 			result := AdjustPrecision(result, n:ToString("G17", usCulture))
 		END IF
 /*      IF result:EndsWith("0") .AND. nDec > 0 .AND. nLen > 15
@@ -148,7 +148,13 @@ INTERNAL STATIC CLASS ConversionHelpers
             ENDIF
         ENDIF*/
 		IF result:Length > nLen
-			result := Replicate("*", (DWORD) nLen)
+			LOCAL nSepIndex AS INT
+			nSepIndex := result:IndexOf(usCulture:NumberFormat:NumberDecimalSeparator)
+			IF nSepIndex != -1 .and. nSepIndex <= nLen
+				result := result:Substring(0, nLen)
+			ELSE
+				result := Replicate("*", (DWORD) nLen)
+			END IF
 		ENDIF
 		RETURN result
 
@@ -172,6 +178,16 @@ INTERNAL STATIC CLASS ConversionHelpers
 		ENDIF
 		RETURN cString
 
+	STATIC METHOD GetSignificantWholeDigits(r AS REAL8) AS INT
+		LOCAL nRet := iif(r < 0.0 , 1 , 0) AS INT
+		r := Math.Floor(Math.Abs(r))
+		DO WHILE r > 0.0
+			nRet ++
+			r := r /10.0
+			r := Math.Floor(r)
+		END DO
+	RETURN nRet
+
 END CLASS
 
 	/// <summary>
@@ -183,7 +199,7 @@ END CLASS
 FUNCTION AsHexString(uValue AS USUAL) AS STRING
 	LOCAL result AS STRING
 	IF IsString(uValue)
-		result := "0x"+c2Hex( (STRING) uValue)
+		result := c2Hex( (STRING) uValue)
 	ELSEIF IsNumeric(uValue)
 		result := String.Format("{0:X8}", (INT64) uValue)
 	ELSE
@@ -478,9 +494,11 @@ FUNCTION Str(n ,uLen ,uDec ) AS STRING CLIPPER
 	LOCAL result AS STRING
 	LOCAL nLen AS DWORD
     LOCAL nDec AS DWORD
+    LOCAL lTrimSpaces := FALSE AS LOGIC
 	IF IsNumeric(uLen)
         IF uLen < 0
 	        nLen := System.UInt32.MaxValue
+	        lTrimSpaces := TRUE
         ELSE
             nLen := (DWORD) uLen
         ENDIF
@@ -497,6 +515,9 @@ FUNCTION Str(n ,uLen ,uDec ) AS STRING CLIPPER
         ENDIF
     ENDIF
 	result := _str3(n, nLen, nDec)
+	IF lTrimSpaces
+		result := result:TrimStart()
+	END IF
 	RETURN ConversionHelpers.AdjustDecimalSeparator(result)
 
 
@@ -706,6 +727,9 @@ INTERNAL FUNCTION _Str1(f AS FLOAT) AS STRING
 	ENDIF
 	IF nDigits <= 0 .OR. RuntimeState.DigitsFixed
 		nDigits := (SHORT) RuntimeState.Digits
+    	IF ConversionHelpers.GetSignificantWholeDigits(f) > nDigits
+    		RETURN STRING{ c'*', (INT) nDigits}
+    	END IF
         IF nDecimals != 0
             nDigits += nDecimals +1
         ENDIF
@@ -751,6 +775,7 @@ FUNCTION Str3(f AS FLOAT,dwLen AS DWORD,dwDec AS DWORD) AS STRING
 
 /// <exclude/>
 FUNCTION _Str3(f AS FLOAT,dwLen AS DWORD,dwDec AS DWORD) AS STRING
+	LOCAL lDecSpecified := dwDec != UInt32.MaxValue AS LOGIC
 
 
    IF dwDec == UInt32.MaxValue
@@ -764,7 +789,10 @@ FUNCTION _Str3(f AS FLOAT,dwLen AS DWORD,dwDec AS DWORD) AS STRING
    ENDIF
     
    IF dwLen == 0 .OR. dwLen == UInt32.MaxValue 
-        IF dwDec > 0 
+        IF dwDec > 0
+        	IF ConversionHelpers.GetSignificantWholeDigits(f) > RuntimeState.Digits
+        		RETURN STRING{ c'*', (INT) (RuntimeState.Digits + dwDec +1) } // VO's behavior...
+        	END IF
             dwLen := (DWORD) RuntimeState.Digits + dwDec +1
         ELSE
             dwLen := (DWORD) RuntimeState.Digits
@@ -774,7 +802,7 @@ FUNCTION _Str3(f AS FLOAT,dwLen AS DWORD,dwDec AS DWORD) AS STRING
    ENDIF
 
  
-   IF dwDec > 0 .AND. dwLen != UInt32.MaxValue .and. ( dwLen < ( dwDec + 2 ) )
+   IF dwDec > 0 .AND. dwLen != UInt32.MaxValue .AND. ( dwLen < ( dwDec + 2 ) )
       RETURN STRING{ c'*', (INT) dwLen }
    ENDIF
    RETURN ConversionHelpers.FormatNumber(f, (INT) dwLen, (INT) dwDec)
@@ -858,3 +886,22 @@ FUNCTION Object2Float(oValue AS OBJECT) AS FLOAT
     END SWITCH
 
 
+
+
+
+FUNCTION Bin2F(c AS STRING) AS FLOAT
+    LOCAL nDec AS WORD
+    LOCAL val  AS REAL8
+	IF SLen(c) >= 12
+        nDec := Bin2W(SubStr3(c, 11,2))
+        val  := Bin2Real8(SubStr3(c, 1,8))
+        RETURN FLOAT{val, 0, nDec}
+        
+    ENDIF
+	RETURN 0.0
+	
+
+
+FUNCTION F2Bin(f AS FLOAT) AS STRING
+    RETURN Real82Bin(f:Value)+ e"\0\0" + W2Bin((WORD)f:Decimals)
+	
