@@ -60,7 +60,7 @@ BEGIN NAMESPACE XSharp.RDD
 
         STATIC PROTECT _Extension := ".DBF" AS STRING
         INTERNAL PROPERTY FullPath AS STRING GET _FileName
-        INTERNAL PROPERTY Header as DbfHeader GET _Header
+        INTERNAL PROPERTY Header AS DbfHeader GET _Header
 		INTERNAL _Ansi          AS LOGIC
 		//
 		INTERNAL _Encoding      AS Encoding
@@ -168,7 +168,10 @@ BEGIN NAMESPACE XSharp.RDD
 			END LOCK
 			RETURN result
 			
-			
+        /// <inheritdoc />
+        METHOD SetFilter(info AS DbFilterInfo) AS LOGIC
+            SELF:ForceRel()
+            RETURN SUPER:SetFilter(info)			
 			
 			/// <inheritdoc />
 		METHOD Skip(nToSkip AS INT) AS LOGIC
@@ -299,7 +302,7 @@ BEGIN NAMESPACE XSharp.RDD
 			// LockMethod.Multiple  : Loc the indicated record
 		METHOD Lock( lockInfo REF DbLockInfo ) AS LOGIC
 			LOCAL isOk AS LOGIC
-			//
+			SELF:ForceRel()
 			BEGIN LOCK SELF
 				IF ( lockInfo:@@METHOD == DbLockInfo.LockMethod.Exclusive ) .OR. ;
 				( lockInfo:@@METHOD == DbLockInfo.LockMethod.Multiple )
@@ -556,7 +559,7 @@ BEGIN NAMESPACE XSharp.RDD
 			// Un Delete the curretn Record
 		METHOD Recall() AS LOGIC
 			LOCAL isOk AS LOGIC
-			//
+			SELF:ForceRel()
 			isOk := SELF:_readRecord()
 			IF isOk
 				SELF:_RecordBuffer[ 0 ] := (BYTE)' '
@@ -573,7 +576,7 @@ BEGIN NAMESPACE XSharp.RDD
 			// Mark the current record as DELETED
 		METHOD Delete() AS LOGIC
 			LOCAL isOk AS LOGIC
-			//
+			SELF:ForceRel()
 			BEGIN LOCK SELF
 				isOk := SELF:_readRecord()
 				IF isOk
@@ -586,7 +589,8 @@ BEGIN NAMESPACE XSharp.RDD
                         ENDIF
 					ENDIF
 				ELSE
-					SELF:_DbfError( ERDD.READ, XSharp.Gencode.EG_READ )
+                    // VO does not report an error when deleting on an invalid record
+					isOk := TRUE // SELF:_DbfError( ERDD.READ, XSharp.Gencode.EG_READ )
 				ENDIF
 			END LOCK
 			RETURN isOk
@@ -594,6 +598,7 @@ BEGIN NAMESPACE XSharp.RDD
 			// Retrieve the raw content of a record
 		METHOD GetRec() AS BYTE[]
 			LOCAL records := NULL AS BYTE[]
+            SELF:ForceRel()
 			// Read Record to Buffer
 			BEGIN LOCK SELF
 				IF SELF:_readRecord()
@@ -866,20 +871,20 @@ BEGIN NAMESPACE XSharp.RDD
 			ENDIF
 			FOR VAR i := nStart TO fieldCount - ( 1 - nStart )
 				//
-                var fld := SELF:_Fields[ i ]
+                VAR fld := SELF:_Fields[ i ]
 				currentField:Name := fld:Name
 				currentField:Type := fld:FieldType
-                if fld:FieldType != DbFieldType.Character
-				    currentField:Len := (byte) fld:Length
-				    currentField:Dec := (byte) fld:Decimals
-                else
-                    currentField:Len := (byte) (fld:Length % 256)
-                    if fld:Length > Byte.MaxValue
-                        currentField:Dec := (byte) (fld:Length / 256)
-                    else
+                IF fld:FieldType != DbFieldType.Character
+				    currentField:Len := (BYTE) fld:Length
+				    currentField:Dec := (BYTE) fld:Decimals
+                ELSE
+                    currentField:Len := (BYTE) (fld:Length % 256)
+                    IF fld:Length > Byte.MaxValue
+                        currentField:Dec := (BYTE) (fld:Length / 256)
+                    ELSE
                         currentField:Dec := 0
-                    endif
-                endif
+                    ENDIF
+                ENDIF
 				//
                 Array.Copy(currentField:Buffer, 0, fieldsBuffer, i*DbfField.SIZE, DbfField.SIZE )
 			NEXT
@@ -916,6 +921,7 @@ BEGIN NAMESPACE XSharp.RDD
 			IF (Path.GetDirectoryName(SELF:_FileName):Length == 0)
                 IF File(SELF:_FileName)
 				    SELF:_FileName := FPathName()
+                    SELF:_OpenInfo:FileName := SELF:_FileName
                 ENDIF
 			ENDIF
 			SELF:_Alias := SELF:_OpenInfo:Alias
@@ -992,6 +998,15 @@ BEGIN NAMESPACE XSharp.RDD
 				currentField:Initialize()
 				// Now, process
 				//SELF:_Fields := DbfRddFieldInfo[]{ fieldCount }
+                // count # of fields. When we see a 0x0D then the header has blank space for non fields
+                fieldCount := 0
+                FOR VAR i := 0 UPTO fieldDefSize - 1 STEP DbfField.Size
+                    IF fieldsBuffer[i] == 0x0D // last field
+                        EXIT
+                    ENDIF
+                    fieldCount++
+                NEXT
+
 				SELF:SetFieldExtent( fieldCount )
 				LOCAL nStart AS INT
 				nStart := 1
@@ -1003,7 +1018,7 @@ BEGIN NAMESPACE XSharp.RDD
                     Array.Copy(fieldsBuffer, i*DbfField.SIZE, currentField:Buffer, 0, DbfField.SIZE )
 					LOCAL info AS RddFieldInfo
 					info := RddFieldInfo{ currentField:Name, currentField:Type, currentField:Len, currentField:Dec }
-                    if info:FieldType == DbFieldType.Character .and. info:Decimals > 0
+                    IF info:FieldType == DbFieldType.Character .AND. info:Decimals > 0
                         info:Length    += info:Decimals * 256
                         info:Decimals := 0
                     ENDIF
@@ -1066,6 +1081,7 @@ BEGIN NAMESPACE XSharp.RDD
 		METHOD SetFieldExtent( fieldCount AS LONG ) AS LOGIC
 			SELF:_HasMemo := FALSE
 			RETURN SUPER:SetFieldExtent(fieldCount)
+
 			
 			// Add a Field to the _Fields List. Fields are added in the order of method call
 			/// <inheritdoc />
@@ -1111,7 +1127,11 @@ BEGIN NAMESPACE XSharp.RDD
 						SELF:_dbfError( ERDD.CREATE_FILE, XSharp.Gencode.EG_ARG )
 					ENDIF
 				CASE DbFieldType.Memo
-					IF ( info:Length != 10 ) .OR. ( info:Decimals != 0 )
+					IF ( info:Length != 10 .and. info:Length != 4) .OR. ( info:Decimals != 0 )
+						SELF:_dbfError( ERDD.CREATE_FILE, XSharp.Gencode.EG_ARG )
+					ENDIF
+                CASE DbFieldType.Integer
+					IF ( info:Length != 4) .OR. ( info:Decimals != 0 )
 						SELF:_dbfError( ERDD.CREATE_FILE, XSharp.Gencode.EG_ARG )
 					ENDIF
 				OTHERWISE
@@ -1291,21 +1311,12 @@ BEGIN NAMESPACE XSharp.RDD
 			SWITCH fieldType
 				CASE DbFieldType.Float
 				CASE DbFieldType.Number
-				CASE DbFieldType.Double
 				CASE DbFieldType.Currency
-				CASE DbFieldType.Integer
 					LOCAL r8 AS REAL8
 					// Default value is 0
 					r8 := 0.0
 					IF (! String.IsNullOrWhiteSpace(str))
-						//
-
-						IF ( ( fieldType == DbFieldType.Number ) .AND. (nDec == 0 ) ) .OR. ( fieldType == DbFieldType.Integer ) 
-							r8 := System.Convert.ToInt32(str)
-						ELSE
-                            _numformat:NumberDecimalDigits := nDec
-							r8 := System.Convert.ToDouble(str, _numFormat)
-						ENDIF
+                        r8 := Convert.ToDouble(_Val(str))
 					ENDIF
 					data := DbFloat{r8, length, nDec} 
 				CASE DbFieldType.Character
@@ -1373,6 +1384,15 @@ BEGIN NAMESPACE XSharp.RDD
 						//                        //
 						//                        data := System.DateTime.MinValue
 					//                    ENDIF
+                CASE DbFieldType.Integer
+                CASE DbFieldType.AutoIncrement
+                CASE DbFieldType.Integer4
+                    data := BuffToLong(buffer, offSet)
+                CASE DbFieldType.Integer2
+                    data := BuffToShort(buffer, offSet)
+                CASE DbFieldType.Double
+                CASE DbFieldType.Double8
+                    data := BitConverter.ToDouble(buffer, offset)
 				OTHERWISE
 					// Unknown, bring back the buffer
 					data := buffer
@@ -1419,12 +1439,17 @@ BEGIN NAMESPACE XSharp.RDD
                 OTHERWISE
                 	str := Convert.ToString( oValue, _numformat )
                 END SWITCH
+                LOCAL lDataWidthError := FALSE AS LOGIC
 				IF ( str:Length > length )
 					str := STRING{'*', length}
+                    lDataWidthError := TRUE
 				ELSE
 					str := str:PadLeft(length)
 				ENDIF
    				encoding:GetBytes( str, 0, length, buffer, offset )
+                IF lDataWidthError
+                    SELF:_dbfError(ERDD_DATAWIDTH, EG_DATAWIDTH)
+                ENDIF
 				isOk := TRUE
 				
 			CASE __UsualType.Logic
@@ -1474,6 +1499,7 @@ BEGIN NAMESPACE XSharp.RDD
 					isOk := TRUE
 				ELSE
 					// Type Error !
+                    SELF:_dbfError(ERDD_DATATYPE, EG_DATATYPE)
 					isOk := FALSE
 				ENDIF
 			END SWITCH
@@ -1583,6 +1609,7 @@ BEGIN NAMESPACE XSharp.RDD
 		INTERNAL METHOD _getMemoBlockNumber( nFldPos AS LONG ) AS LONG
 			LOCAL blockNbr := 0 AS LONG
 			//
+            SELF:ForceRel()
 			IF SELF:_isMemoField( nFldPos )
 				//
 				IF SELF:_readRecord()
@@ -1591,19 +1618,23 @@ BEGIN NAMESPACE XSharp.RDD
 					IF __ARRAYBASE__ == 0
 						nArrPos -= 1
 					ENDIF
-					LOCAL encoding AS Encoding //ASCIIEncoding
-					// Read actual Data
-					encoding := SELF:_Encoding //ASCIIEncoding{}
-					VAR str :=  encoding:GetString( SELF:_RecordBuffer, SELF:_Fields[nArrPos]:OffSet, SELF:_Fields[nArrPos]:Length)
-					IF ( str == NULL )
-						str := String.Empty
-					ENDIF
-					str := str:Trim()
-					IF String.IsNullOrEmpty(str)
-						blockNbr := 0
-					ELSE
-						blockNbr := System.Convert.ToInt32(str)
-					ENDIF
+                    IF SELF:_Fields[nArrPos]:Length == 10
+					    LOCAL encoding AS Encoding //ASCIIEncoding
+					    // Read actual Data
+					    encoding := SELF:_Encoding //ASCIIEncoding{}
+					    VAR str :=  encoding:GetString( SELF:_RecordBuffer, SELF:_Fields[nArrPos]:OffSet, SELF:_Fields[nArrPos]:Length)
+					    IF ( str == NULL )
+						    str := String.Empty
+					    ENDIF
+					    str := str:Trim()
+					    IF String.IsNullOrEmpty(str)
+						    blockNbr := 0
+					    ELSE
+						    blockNbr := System.Convert.ToInt32(str)
+					    ENDIF
+                    ELSE
+                        blockNbr := BuffToLong(SELF:_RecordBuffer, SELF:_Fields[nArrPos]:OffSet)
+                    ENDIF
 					//
 				ENDIF
 			ENDIF
@@ -1613,6 +1644,7 @@ BEGIN NAMESPACE XSharp.RDD
 		METHOD GetValue(nFldPos AS LONG) AS OBJECT
 			LOCAL ret := NULL AS OBJECT
 			LOCAL nArrPos := nFldPos AS LONG
+            SELF:ForceRel()
 			IF __ARRAYBASE__ == 0
 				nArrPos -= 1
 			ENDIF
@@ -1643,17 +1675,19 @@ BEGIN NAMESPACE XSharp.RDD
 			
 		/// <inheritdoc />
 		METHOD GetValueFile(nFldPos AS LONG, fileName AS STRING) AS LOGIC
+            SELF:ForceRel()
 			IF _oMemo != NULL
 				RETURN _oMemo:GetValueFile(nFldPos, fileName)
-				ELSE
+			ELSE
 				RETURN SUPER:GetValueFile(nFldPos, fileName)
 			ENDIF
 			
 		/// <inheritdoc />
 		METHOD GetValueLength(nFldPos AS LONG) AS LONG
+            SELF:ForceRel()
 			IF _oMemo != NULL
 				RETURN _oMemo:GetValueLength(nFldPos)
-				ELSE
+			ELSE
 				RETURN SUPER:GetValueLength(nFldPos)
 			ENDIF
 			
@@ -1720,12 +1754,13 @@ BEGIN NAMESPACE XSharp.RDD
 			ENDIF
 			RETURN ret
 			
-		PROPERTY IsHot AS LOGIC GET SELF:_Hot
+		PROPERTY IsHot AS LOGIC GET SELF:_Hot SET SELF:_Hot := VALUE
 		PROPERTY IsNewRecord AS LOGIC GET SELF:_NewRecord
 		
 		/// <inheritdoc />
 		METHOD PutValue(nFldPos AS LONG, oValue AS OBJECT) AS LOGIC
 			LOCAL nArrPos := nFldPos AS LONG
+            SELF:ForceRel()
 			IF __ARRAYBASE__ == 0
 				nArrPos -= 1
 			ENDIF
@@ -1741,7 +1776,11 @@ BEGIN NAMESPACE XSharp.RDD
 				    IF _oMemo != NULL
 					    IF _oMemo:PutValue(nFldPos, oValue)
 						    // Update the Field Info with the new MemoBlock Position
-						    SELF:_convertFieldToData( SELF:_oMemo:LastWrittenBlockNumber, SELF:_RecordBuffer, offSet,  length, DbFieldType.Integer, 0 )
+                            IF length == 10
+						        SELF:_convertFieldToData( SELF:_oMemo:LastWrittenBlockNumber, SELF:_RecordBuffer, offSet,  length, DbFieldType.Integer, 0 )
+                            ELSE // 4
+                                LongToBuff((LONG) oValue,SELF:_RecordBuffer, offSet)
+                            ENDIF
 					    ENDIF
 				    ELSE
 					    RETURN SUPER:PutValue(nFldPos, oValue)
@@ -2095,7 +2134,9 @@ BEGIN NAMESPACE XSharp.RDD
             ELSE
                 nNewRec := SELF:Recno
 			ENDIF
+            
             // Some operations require the new record te be selected
+            SELF:ForceRel()
           IF nNewRec != 0
               SWITCH nOrdinal
                 CASE DBRI_DELETED
@@ -2272,7 +2313,6 @@ BEGIN NAMESPACE XSharp.RDD
 		PROPERTY Deleted 	AS LOGIC 
 			GET
 				SELF:ForceRel()
-				// Update ?
 				SELF:_readRecord()
 				RETURN SELF:_Deleted
 			END GET
@@ -2710,12 +2750,10 @@ BEGIN NAMESPACE XSharp.RDD
 	INTERNAL CLASS DBFSortCompare IMPLEMENTS IComparer<SortRecord>
 	
 		PRIVATE _sortInfo AS DBSORTINFO
-		PRIVATE _oRdd AS DBF
         PRIVATE _dataX AS BYTE[]
         PRIVATE _dataY AS BYTE[]
 		
 		INTERNAL CONSTRUCTOR( rdd AS DBF, info AS DBSORTINFO )
-			SELF:_oRdd      := rdd
 			SELF:_sortInfo  := info
             LOCAL max       := 0 AS INT
             FOREACH VAR item IN info:Items

@@ -35,17 +35,18 @@
     <VO12>false</VO12>
     <VO13>true</VO13>
     <VO14>false</VO14>
-    <VO15>false</VO15>
+    <VO15>true</VO15>
     <VO16>false</VO16>
     <XSharpProjectExtensionsPath>$(MSBuildExtensionsPath)\XSharp\</XSharpProjectExtensionsPath>
     <StartupObject />
     <ApplicationIcon />
     <VulcanCompatibleResources>False</VulcanCompatibleResources>
     <TargetFrameworkProfile />
-    <XSharpProjectversion>2.0.0.9</XSharpProjectversion>
+    <XSharpProjectversion>2.0.1.0</XSharpProjectversion>
     <Includepaths />
     <Nostandarddefs>false</Nostandarddefs>
     <NamedArgs />
+    <XPP1>false</XPP1>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'" Label="Configuration">
     <PlatformTarget>AnyCPU</PlatformTarget>

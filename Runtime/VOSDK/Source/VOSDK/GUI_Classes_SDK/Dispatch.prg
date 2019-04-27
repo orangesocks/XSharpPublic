@@ -7,7 +7,6 @@ METHOD Dispatch(oEvent)
 	LOCAL dwLParam AS DWORD
 	LOCAL oTempEvent AS OBJECT
 	LOCAL oChild AS OBJECT
-	LOCAL oScrollBar AS OBJECT
 	LOCAL ptrBuf AS PTR
 	LOCAL cBuf AS STRING
 	LOCAL strucPS IS _winPAINTSTRUCT
@@ -29,12 +28,12 @@ METHOD Dispatch(oEvent)
 	uMsg := oEvt:uMsg
 //	wp   := oEvt:wParam
 	
-	DO CASE
-	CASE (uMsg == WM_CTLCOLORBTN) .or.;
-			(uMsg == WM_CTLCOLOREDIT) .or.;
-			(uMsg == WM_CTLCOLORLISTBOX) .or.;
-			(uMsg == WM_CTLCOLORSTATIC) .or.;
-			(uMsg == WM_CTLCOLORSCROLLBAR)
+	SWITCH uMsg
+	CASE WM_CTLCOLORBTN
+	CASE WM_CTLCOLOREDIT
+	CASE WM_CTLCOLORLISTBOX
+	CASE WM_CTLCOLORSTATIC
+	CASE WM_CTLCOLORSCROLLBAR
 		
 		_Handle := PTR(_CAST, oEvt:lParam)
 		_hdc := PTR(_CAST, oEvt:wParam)
@@ -48,7 +47,7 @@ METHOD Dispatch(oEvent)
             ENDIF
         ENDIF
         
-		IF (oControl != NULL_OBJECT) .and. IsMethod(oControl, #__SetColors)
+		IF (oControl != NULL_OBJECT) .AND. IsMethod(oControl, #__SetColors)
 			hBr := oControl:__SetColors(_hdc)  
 			IF (hBR != NULL_PTR)
 				RETURN (SELF:EventreturnValue := (LONGINT(_CAST, hbr)))
@@ -56,22 +55,21 @@ METHOD Dispatch(oEvent)
 		ELSE
 			//PP-031129
 			//For not generated controls with transparent style
-			IF _And(GetWindowLong(_Handle, GWL_EXSTYLE), WS_EX_TRANSPARENT)>0
+			IF _AND(GetWindowLong(_Handle, GWL_EXSTYLE), WS_EX_TRANSPARENT)>0
 				hbr := GetStockObject(HOLLOW_BRUSH)
 				SetBkMode(_hdc, TRANSPARENT)
 				IF IsThemeEnabled()
-					DrawThemeParentBackground(_Handle, _hDC, Null_Ptr)
+					DrawThemeParentBackground(_Handle, _hDC, NULL_PTR)
 				ENDIF
 				RETURN (SELF:EventreturnValue := (LONGINT(_CAST, hbr)))
 			ENDIF
 		ENDIF
 		
-	CASE (uMsg == WM_NOTIFY)
-		//SELF:ControlNotify(__ObjectCastClassPtr(oEvt, __pCControlNotifyEvent))
+	CASE WM_NOTIFY
 		SELF:ControlNotify(ControlNotifyEvent{oEvt})
 		RETURN SELF:EventReturnValue
 		
-	CASE (uMsg == WM_ERASEBKGND) //Hong
+	CASE WM_ERASEBKGND
 		//PP-031129 added call to DrawBackGround
 		_hdc := PTR(_CAST, oEvt:wParam)
 		IF (SELF:background != NULL_OBJECT)
@@ -84,72 +82,62 @@ METHOD Dispatch(oEvent)
 		ENDIF
 		RETURN SELF:EventReturnValue
 		
-	CASE (uMsg == WM_PAINT)
+	CASE WM_PAINT
 		hDCPaint := BeginPaint(hWnd, @strucPS)
 		strucPaintRect := @strucPS:rcPaint
-		//SELF:ExPose(__ObjectCastClassPtr(oEvt, __pCExposeEvent))
 		SELF:ExPose(ExposeEvent{oEvt})
 		EndPaint(hWnd, @strucPS)
 		hDCPaint := NULL_PTR
 		strucPaintRect := NULL_PTR
 		RETURN SELF:EventReturnValue
 		
-	CASE uMsg == WM_DRAWITEM
+	CASE WM_DRAWITEM
 		//PP-030319 owner draw support, thanks to SEbert
 		//Used for owner drawn menus or controls
 		__Dispatch_DrawItem(oEvt, SELF)
 		RETURN SELF:EventReturnValue
 		
-	CASE uMsg == WM_MEASUREITEM
+	CASE WM_MEASUREITEM
 		//PP-030319 owner draw support
 		//Used for owner drawn menus or controls
 		__Dispatch_MeasureItem(oEvt, SELF)
 		RETURN SELF:EventReturnValue
 		
 		// Liuho01 05-01-96 Application receives drop notification in this message
-	CASE (uMsg == WM_DROPFILES) .or.;
-			(uMsg == WM_QUERYDROPOBJECT) .or.;
-			(uMsg == WM_DRAGSELECT)
+	CASE WM_DROPFILES
+    CASE WM_QUERYDROPOBJECT
+	CASE WM_DRAGSELECT
 		oObject := SELF:DragDropClient
 		IF (oObject != NULL_OBJECT)
 			oObject:Dispatch(oEvt)
 		ENDIF
 		RETURN SELF:EventReturnValue
 		
-	CASE (uMsg == WM_QUERYDROPOBJECT)
-		oObject := SELF:DragDropClient
-		IF oObject != NULL_OBJECT
-			oObject:Dispatch(oEvt)
-		ENDIF
-		RETURN SELF:EventReturnValue
-		
-	CASE (uMsg == WM_WCHELP)
+	CASE WM_WCHELP
 		SELF:__EnableHelpCursor(FALSE)
-		//SELF:HelpRequest(__ObjectCastClassPtr(oEvt, __pCHelpRequestEvent))
 		SELF:HelpRequest(HelpRequestEvent{oEvt})
 		RETURN SELF:EventReturnValue
 		
-	CASE (uMsg == WM_HELP)
+	CASE WM_HELP
 		//SE-060522 S.Ebert
 		IF ! lHelpOn
-			//SELF:HelpRequest(__ObjectCastClassPtr(oEvt, __pCHelpRequestEvent))
 			SELF:HelpRequest(HelpRequestEvent{oEvt})
 			IF SELF:EventReturnValue = 1l
 				RETURN 1l
 			ENDIF
 		ENDIF
 		strHelpInfo := PTR(_CAST, oEvt:lParam)
-		IF strHelpInfo:iContextType = HELPINFO_MENUITEM .and. SELF:Menu != NULL_OBJECT
+		IF strHelpInfo:iContextType = HELPINFO_MENUITEM .AND. SELF:Menu != NULL_OBJECT
 			oMenuHL := SELF:Menu:HyperLabel(strHelpInfo:iCtrlId)
-			IF (oMenuHL != NULL_OBJECT) .and. !Empty(oMenuHL:HelpContext) .and. (SELF:HelpDisplay != NULL_OBJECT)
+			IF (oMenuHL != NULL_OBJECT) .AND. !Empty(oMenuHL:HelpContext) .AND. (SELF:HelpDisplay != NULL_OBJECT)
 				SELF:HelpDisplay:Show(oMenuHL:HelpContext)
 			ENDIF
 			RETURN SELF:EventReturnValue
 		ENDIF
 		
-	CASE (uMsg == WM_ACTIVATE)
+	CASE WM_ACTIVATE
 		IF LoWord(oEvt:wParam) != WA_INACTIVE    //FdW//20061202 // LoWord() added
-			IF lHelpOn .and. (oApp != NULL_OBJECT)
+			IF lHelpOn .AND. (oApp != NULL_OBJECT)
 				IF lHelpCursorOn
 					oApp:__SetHelpWind(hWnd,HM_MOUSE)
 				ELSE
@@ -164,7 +152,8 @@ METHOD Dispatch(oEvent)
 		ENDIF
 		RETURN SELF:EventReturnValue
 		
-	CASE (uMsg == WM_SETFOCUS) .or. (uMsg == WM_KILLFOCUS)
+	CASE WM_SETFOCUS
+    CASE WM_KILLFOCUS
 		// if __lFilterFocusMsg
 		// 	self:EventReturnValue := 1L
 		// endif
@@ -174,32 +163,29 @@ METHOD Dispatch(oEvent)
 		IF (oCursor != NULL_OBJECT)
 			oCursor:__Update((uMsg == WM_SETFOCUS))
 		ENDIF
-		//SELF:FocusChange(__ObjectCastClassPtr(oEvt, __pCFocusChangeEvent))
 		SELF:FocusChange(FocusChangeEvent{oEvt})
 		RETURN SELF:EventReturnValue
 		
-	CASE uMsg == WM_APPCOMMAND
+	CASE WM_APPCOMMAND
 		//PP-030904
 		// If AppCommand returns TRUE it means the command has been processed so 1 is returned
 		// so that no further action is taken.
-		//SELF:EventReturnValue := iif(SELF:AppCommand(__ObjectCastClassPtr(oEvent, __pCAppCommandEvent)),1,0)
-		SELF:EventReturnValue := iif(SELF:AppCommand(AppCommandEvent{oEvt}),1,0)
+		SELF:EventReturnValue := IIF(SELF:AppCommand(AppCommandEvent{oEvt}),1,0)
 		RETURN SELF:EventReturnValue
 		
-	CASE (uMsg == WM_LBUTTONDOWN) .or. (uMsg == WM_RBUTTONDOWN) .or. (uMsg == WM_MBUTTONDOWN) .or. ;
-			uMsg == WM_XBUTTONDOWN
+	CASE WM_LBUTTONDOWN
+    CASE WM_RBUTTONDOWN
+    CASE WM_MBUTTONDOWN
+    CASE WM_XBUTTONDOWN
 		//PP-030904 Xbutton
-		//SELF:MouseButtonDown(__ObjectCastClassPtr(oEvt, __pCMouseEvent))
 		SELF:MouseButtonDown(MouseEvent{oEvt})
 		RETURN SELF:EventReturnValue
 		
-	CASE (uMsg == WM_LBUTTONUP)
+	CASE WM_LBUTTONUP
 		IF lFileDragging
 			IF IsMethod(SELF, #MouseDrag)
-				//SELF:MouseDrag(__ObjectCastClassPtr(oEvt, __pCMouseEvent))
 				SELF:MouseDrag(MouseEvent{oEvt})
 			ELSEIF IsMethod(oParent, #MouseDrag)
-				//oParent:MouseDrag(__ObjectCastClassPtr(oEvt, __pCMouseEvent))
 				oParent:MouseDrag(MouseEvent{oEvt})
 			ENDIF
 			// if IsMethod(self, #MouseDrag)
@@ -207,34 +193,33 @@ METHOD Dispatch(oEvent)
 			// else
 			// oObject := self
 			// endif
-			// oObject:MouseDrag(__ObjectCastClassPtr(oEvt, __pCMouseEvent))
 			lFileDragging := FALSE
 			ReleaseCapture()
 		ENDIF
-		//SELF:MouseButtonUp(__ObjectCastClassPtr(oEvt, __pCMouseEvent))
 		SELF:MouseButtonUp(MouseEvent{oEvt})
 		RETURN SELF:EventReturnValue
 		
-		
-	CASE (uMsg == WM_RBUTTONUP) .or. (uMsg == WM_MBUTTONUP) .or. uMsg == WM_XBUTTONUP
+	CASE WM_RBUTTONUP
+    CASE WM_MBUTTONUP
+    CASE WM_XBUTTONUP
 		//PP-030904 Xbutton
-		//SELF:MouseButtonUp(__ObjectCastClassPtr(oEvt, __pCMouseEvent))
 		SELF:MouseButtonUp(MouseEvent{oEvt})
 		RETURN SELF:EventReturnValue
 		
-	CASE (uMsg == WM_LBUTTONDBLCLK) .or. (uMsg == WM_RBUTTONDBLCLK) .or. (uMsg == WM_MBUTTONDBLCLK) .or. ;
-			uMsg == WM_XBUTTONDBLCLK
+	CASE WM_LBUTTONDBLCLK
+    CASE WM_RBUTTONDBLCLK
+    CASE WM_MBUTTONDBLCLK
+    CASE WM_XBUTTONDBLCLK
 		//PP-030904 Xbutton
-		//SELF:MouseButtonDoubleClick(__ObjectCastClassPtr(oEvt, __pCMouseEvent))
 		SELF:MouseButtonDoubleClick(MouseEvent{oEvt})
 		RETURN SELF:EventReturnValue
 		
-	CASE (uMsg == WM_CHAR)
-		//SELF:KeyDown(__ObjectCastClassPtr(oEvt, __pCKeyEvent))
+	CASE WM_CHAR
 		SELF:KeyDown(KeyEvent{oEvt})
 		RETURN SELF:EventReturnValue
 		
-	CASE (uMsg == WM_HSCROLL) .or. (uMsg == WM_VSCROLL)
+	CASE WM_HSCROLL
+    CASE WM_VSCROLL
 		dwLParam := DWORD(_CAST,oEvt:lParam)
 		IF dwLParam != 0
 			ptrBuf := MemAlloc(50)
@@ -243,7 +228,6 @@ METHOD Dispatch(oEvent)
 			MemFree(ptrBuf)
 		ENDIF
 		IF (cBuf == UpDown_Class)
-			//oTempEvent := __ObjectCastClassPtr(oEvt, __pCSpinnerEvent)
 			oTempEvent := SpinnerEvent{oEvt}
 			IF (uMsg == WM_HSCROLL)
 				SELF:HorizontalSpin(oTempEvent)
@@ -251,7 +235,6 @@ METHOD Dispatch(oEvent)
 				SELF:VerticalSpin(oTempEvent)
 			ENDIF
 		ELSEIF (cBuf == TrackBar_Class)
-			//oTempEvent := __ObjectCastClassPtr(oEvt, __pCSliderEvent)
 			oTempEvent := SliderEvent{oEvt}
 			IF (uMsg == WM_HSCROLL)
 				SELF:HorizontalSlide(oTempEvent)
@@ -259,9 +242,8 @@ METHOD Dispatch(oEvent)
 				SELF:VerticalSlide(oTempEvent)
 			ENDIF
 		ELSE
-			//oTempEvent := __ObjectCastClassPtr(oEvt, __pCScrollEvent)
-			oTempEvent := ScrollEvent{oEvt}
-			oScrollBar := oTempEvent:ScrollBar
+            oTempEvent := ScrollEvent{oEvt}
+            //	oScrollBar := oTempEvent:ScrollBar
 			
 			//if (sbi && CV_RunTime::ScrollBar_GetIgnore(sbi)
 			// && (CV_RunTime::Event_wParam(e) == SB_ENDSCROLL))
@@ -282,7 +264,7 @@ METHOD Dispatch(oEvent)
 		ENDIF
 		RETURN SELF:EventReturnValue
 		
-	CASE (uMsg == WM_COMMAND)
+	CASE WM_COMMAND
 		
 		dwLParam := DWORD(_CAST, oEvt:lParam)
 		
@@ -299,11 +281,10 @@ METHOD Dispatch(oEvent)
 				
 				DO CASE
 				CASE IsInstanceOf(oChild,#Button)
-					//oTempEvent := __ObjectCastClassPtr(oEvt, __pCControlEvent)
 					oTempEvent := ControlEvent{oEvt}
 					
-					DO CASE
-					CASE (dwHiWord == BN_CLICKED)
+					SWITCH dwHiWord
+					CASE BN_CLICKED
 						IF IsInstanceOf(oChild, #PushButton)
 							
 							// force focus to button to update values
@@ -317,64 +298,56 @@ METHOD Dispatch(oEvent)
 							SELF:ButtonClick(oTempEvent)
 						ENDIF
 						
-					CASE (dwHiWord == BN_DOUBLECLICKED)
+					CASE BN_DOUBLECLICKED
 						SELF:ButtonDoubleClick(oTempEvent)
 					OTHERWISE
 						SELF:Default(oEvt)
-					ENDCASE
+					END SWITCH
 					
 				CASE IsInstanceOf(oChild, #BaseListBox)
 					IF IsInstanceOf(oChild, #ComboBox)
-						DO CASE
-						CASE dwHiWord == CBN_DBLCLK
-							//SELF:ListBoxClick(__ObjectCastClassPtr(oEvt, __pCControlEvent))
+						SWITCH dwHiWord 
+						CASE CBN_DBLCLK
 							SELF:ListBoxClick(ControlEvent{oEvt})
-						CASE dwHiWord == CBN_EDITCHANGE
+						CASE CBN_EDITCHANGE
 							//PP-030923 Tell the combobox that an edit change occurred
 							oChild:__EditChange()
-							//SELF:EditChange(__ObjectCastClassPtr(oEvt, __pCControlEvent))
 							SELF:EditChange(ControlEvent{oEvt})
 							
-						CASE dwHiWord == CBN_KILLFOCUS .or.;
-								dwHiWord == CBN_SETFOCUS
-							//SELF:EditFocusChange(__ObjectCastClassPtr(oEvt, __pCEditFocusChangeEvent))
+						CASE CBN_KILLFOCUS
+                        CASE CBN_SETFOCUS
 							SELF:EditFocusChange(EditFocusChangeEvent{oEvt})
-						CASE dwHiWord == CBN_SELCHANGE
-							//SELF:ListBoxSelect(__ObjectCastClassPtr(oEvt, __pCControlEvent))
+						CASE CBN_SELCHANGE
 							SELF:ListBoxSelect(ControlEvent{oEvt})
 						OTHERWISE
 							SELF:Default(oEvt)
-						ENDCASE
+						END SWITCH
 					ELSE
-						DO CASE
-						CASE dwHiWord == LBN_DBLCLK
-							//SELF:ListBoxClick(__ObjectCastClassPtr(oEvt, __pCControlEvent))
+						SWITCH dwHiWord
+						CASE LBN_DBLCLK
 							SELF:ListBoxClick(ControlEvent{oEvt})
-						CASE dwHiWord == LBN_SELCHANGE
-							//SELF:ListBoxSelect(__ObjectCastClassPtr(oEvt, __pCControlEvent))
+						CASE LBN_SELCHANGE
 							SELF:ListBoxSelect(ControlEvent{oEvt})
 						OTHERWISE
 							SELF:Default(oEvt)
-						ENDCASE
+						END SWITCH
 					ENDIF
 					
-				CASE (IsInstanceOf(oChild,#Edit) .and. !oChild:__NoNotify) .or. IsInstanceOf(oChild,#IPAddress)
+				CASE (IsInstanceOf(oChild,#Edit) .AND. !oChild:__NoNotify) .OR. IsInstanceOf(oChild,#IPAddress)
 					dwHiWord:=HiWord(oEvt:wParam)
 					
-					DO CASE
-					CASE dwHiWord == EN_CHANGE
-						//SELF:EditChange(__ObjectCastClassPtr(oEvt, __pCControlEvent))
+					SWITCH dwHiWord
+					CASE EN_CHANGE
 						SELF:EditChange(ControlEvent{oEvt})
-					CASE dwHiWord == EN_HSCROLL .or.;
-							dwHiWord == EN_VSCROLL
-						//SELF:EditScroll(__ObjectCastClassPtr(oEvt, __pCControlEvent))
+					CASE EN_HSCROLL
+                    CASE EN_VSCROLL
 						SELF:EditScroll(ControlEvent{oEvt})
-					CASE dwHiWord == EN_KILLFOCUS .or. dwHiWord == EN_SETFOCUS
-						//SELF:EditFocusChange(__ObjectCastClassPtr(oEvt, __pCEditFocusChangeEvent))
+					CASE EN_KILLFOCUS
+                    CASE EN_SETFOCUS
 						SELF:EditFocusChange(EditFocusChangeEvent{oEvt})
 						// this is needed because the IPAddress control has nested edits, whose WM_SETFOCUS we don't get
 						IF IsInstanceOf(oChild,#IPAddress)
-							SendMessage(oChild:Handle(), IIf(dwHiWord==EN_SETFOCUS, WM_SETFOCUS, WM_KILLFOCUS), 0, 0)
+							SendMessage(oChild:Handle(), IIF(dwHiWord==EN_SETFOCUS, WM_SETFOCUS, WM_KILLFOCUS), 0, 0)
 						ENDIF
 						//					RvdH 050816 Unreachable code
 						//					CASE dwHiWord == EN_KILLFOCUS .or. dwHiWord == EN_SETFOCUS
@@ -385,11 +358,11 @@ METHOD Dispatch(oEvent)
 						//						ENDIF
 					OTHERWISE
 						SELF:Default(oEvt)
-					ENDCASE
+					END SWITCH
 					
 				CASE IsInstanceOf(oChild, #ToolBar)
 					oObject := oChild:Owner
-					IF IsInstanceOfUsual(oChild:Owner, #Window) .and. !(IsInstanceOfUsual(oObject, #ShellWindow) .and. (IVarGet(oObject, #ChildToolbarLocation) == TBL_SHELL))
+					IF IsInstanceOfUsual(oChild:Owner, #Window) .AND. !(IsInstanceOfUsual(oObject, #ShellWindow) .AND. (IVarGet(oObject, #ChildToolbarLocation) == TBL_SHELL))
 						SELF:__PreMenuCommand(MenuCommandEvent{oEvt}:__SetMenu(oObject))
 					ELSE
 						SELF:__PreMenuCommand(MenuCommandEvent{oEvt}:__SetMenu(SELF))
@@ -399,7 +372,6 @@ METHOD Dispatch(oEvent)
 					
 					//PP-031115 ACN_START/ACN_STOP were in ControlNotify - should be here as WM_COMMAND
 				CASE IsInstanceOf(oChild, #AnimationControl)
-					//oTempEvent := __ObjectCastClassPtr(oEvt, __pCControlEvent)
 					oTempEvent := ControlEvent{oEvt}
 					
 					IF dwHiWord = ACN_START
@@ -415,7 +387,7 @@ METHOD Dispatch(oEvent)
 				RETURN SELF:EventReturnValue
 			ENDIF
 		ELSEIF (dwLParam == 0) //Menu or Accel
-			IF !lHelpOn .or. !SELF:__HelpFilter(oEvt)
+			IF !lHelpOn .OR. !SELF:__HelpFilter(oEvt)
 				SELF:EventReturnValue := 1L
 				SELF:__PreMenuCommand(MenuCommandEvent{oEvt}:__SetMenu(SELF))
 				SELF:EventReturnValue := 0
@@ -426,7 +398,7 @@ METHOD Dispatch(oEvent)
 			RETURN SELF:EventReturnValue
 		ENDIF
 		
-	CASE (uMsg == WM_SETCURSOR)
+	CASE WM_SETCURSOR
 		IF (oEvt:wParam) != (DWORD(_CAST, hWnd))
 			lclient := FALSE
 		ELSE
@@ -444,7 +416,7 @@ METHOD Dispatch(oEvent)
 		SELF:__HandlePointer(oEvt, lHelpEnable, lclient)
 		RETURN SELF:EventReturnValue
 		
-	CASE (uMsg == WM_DESTROY)
+	CASE WM_DESTROY
 		SetMenu(hWnd, 0)
 		// SetAccelerator(Null_Ptr, Null_Ptr)
 		// ReleaseCapture()
@@ -452,104 +424,94 @@ METHOD Dispatch(oEvent)
 			SetWindowLong(hwnd, DWL_USER, 0L)
 		IF !InCollect()
 			UnregisterAxit(SELF)
-			ptrSelfPtr:=Null_Ptr
+			ptrSelfPtr:=NULL_PTR
 		ENDIF
 		
 		SELF:__ReleaseDC()
 		/*WCDCDelete(self)
 		ReleaseDC(hWnd,hDC)*/
 		RETURN SELF:EventReturnValue
-		
-	CASE (uMsg == WM_INITMENU) .or. (uMsg == WM_INITMENUPOPUP)
-		//SELF:MenuInit(__ObjectCastClassPtr(oEvt, __pCMenuInitEvent))
+
+	CASE WM_INITMENU
+    CASE WM_INITMENUPOPUP
 		SELF:MenuInit(MenuInitEvent{oEvt})
 		RETURN SELF:EventReturnValue
 		
-	CASE (uMsg == WM_KEYDOWN) .or. (uMsg == WM_SYSKEYDOWN)
+	CASE WM_KEYDOWN
+    CASE WM_SYSKEYDOWN
 		IF ! PeekMessage(@msg, hWnd, WM_CHAR, WM_CHAR, PM_NOREMOVE) //  == FALSE
-			//SELF:KeyDown(__ObjectCastClassPtr(oEvt, __pCKeyEvent))
 			SELF:KeyDown(KeyEvent{oEvt})
 			RETURN SELF:EventReturnValue
 		ENDIF
 		
-	CASE (uMsg == WM_KEYUP) .or. (uMsg == WM_SYSKEYUP)
-		//SELF:KeyUp(__ObjectCastClassPtr(oEvt, __pCKeyEvent))
+	CASE WM_KEYUP
+    CASE WM_SYSKEYUP
 		SELF:KeyUp(KeyEvent{oEvt})
 		SELF:EventReturnValue := 1
 		RETURN SELF:EventReturnValue
 		
-	CASE (uMsg == WM_MENUSELECT)
+	CASE WM_MENUSELECT
 		IF (oEvt:lParam != 0)
-			//SELF:MenuSelect(__ObjectCastClassPtr(oEvt, __pCMenuSelectEvent))
 			SELF:MenuSelect(MenuSelectEvent{oEvt})
 			RETURN SELF:EventReturnValue
 		ENDIF
 		
-	CASE (uMsg == WM_MOUSEMOVE)
+	CASE WM_MOUSEMOVE
 		//PP-040427 Issue 12909 Following was testing oEvt:wParam == MK_LBUTTON
 		// which allows for the only left button press without ctrl/shift - wParam is different values if ctrl/shift pressed
-		IF _and(oEvt:wParam,MK_LBUTTON) > 0
+		IF _AND(oEvt:wParam,MK_LBUTTON) > 0
 			lFileDragging := TRUE
 			SetCapture(SELF:Handle())
 			IF IsMethod(SELF, #MouseDrag)
-				//SELF:MouseDrag(__ObjectCastClassPtr(oEvt, __pCMouseEvent))
 				SELF:MouseDrag(MouseEvent{oEvt})
 			ELSEIF IsMethod(oParent, #MouseDrag)
-				//oParent:MouseDrag(__ObjectCastClassPtr(oEvt, __pCMouseEvent))
 				oParent:MouseDrag(MouseEvent{oEvt})
 			ENDIF
 		ELSE
-			//SELF:MouseMove(__ObjectCastClassPtr(oEvt, __pCMouseEvent))
 			SELF:MouseMove(MouseEvent{oEvt})
 		ENDIF
 		
 		RETURN SELF:EventReturnValue
 		
-	CASE (uMsg == WM_MOVE)
-		//SELF:Move(__ObjectCastClassPtr(oEvt, __pCMoveEvent))
+	CASE WM_MOVE
 		SELF:Move(MoveEvent{oEvt})
 		RETURN SELF:EventReturnValue
 		
-	CASE (uMsg == WM_SIZE)
+	CASE WM_SIZE
 		DCInitialized := FALSE
-		//SELF:Resize(__ObjectCastClassPtr(oEvt, __pCResizeEvent))
 		SELF:Resize(ResizeEvent{oEvt})
 		RETURN SELF:EventReturnValue
 		
-	CASE (uMsg == WM_CLOSE)
+	CASE WM_CLOSE
 		IF SELF:QueryClose(oEvt)
 			SELF:__Close(oEvt)
 		ENDIF
 		RETURN SELF:EventReturnValue
 		
-	CASE (uMsg == gdwDragListMsg)
-		SELF:__HandleListItemDrag(oEvt)
-		RETURN SELF:EventReturnValue
-		
-	CASE (uMsg == DWORD(_CAST, TRAY_ICON_MSG))
+	CASE TRAY_ICON_MSG
 		//PP-030902
-		DO CASE
-		CASE (oEvt:lParam == WM_LBUTTONDOWN)
+		SWITCH oEvt:lParam
+		CASE WM_LBUTTONDOWN
 			SELF:TrayIconClicked(oEvt:wParam, FALSE, FALSE)
-		CASE (oEvt:lParam == WM_LBUTTONDBLCLK)
+		CASE WM_LBUTTONDBLCLK
 			SELF:TrayIconClicked(oEvt:wParam, FALSE, TRUE)
-		CASE (oEvt:lParam == WM_RBUTTONDOWN)
+		CASE WM_RBUTTONDOWN
 			SELF:TrayIconClicked(oEvt:wParam, TRUE, FALSE)
-		CASE (oEvt:lParam == WM_RBUTTONDBLCLK)
+		CASE WM_RBUTTONDBLCLK
 			SELF:TrayIconClicked(oEvt:wParam, TRUE, TRUE)
 			
-		CASE oEvt:lParam == NIN_BALLOONSHOW
+		CASE NIN_BALLOONSHOW
 			SELF:TrayIconBalloonShown(oEvt:wParam)
 			
-		CASE oEvt:lParam == NIN_BALLOONTIMEOUT
+		CASE NIN_BALLOONTIMEOUT
 			SELF:TrayIconBalloonTimeOut(oEvt:wParam)
 			
-		CASE oEvt:lParam == NIN_BALLOONUSERCLICK
+		CASE NIN_BALLOONUSERCLICK
 			SELF:TrayIconBalloonClicked(oEvt:wParam)
 			
-		ENDCASE
+		END SWITCH
 		
-	CASE uMsg == WM_MENUCHAR
+	CASE WM_MENUCHAR
 		//PP-030319 owner draw support
 		//Used for owner drawn menus or controls
 		__Dispatch_MenuChar(oEvt, SELF)
@@ -563,7 +525,7 @@ METHOD Dispatch(oEvent)
 		// 		EventReturnValue := IIf(oContextMenu == NULL_OBJECT, 0, 1)
 		// 		RETURN SELF:EventReturnValue
 		//
-	CASE (uMsg == WM_CONTEXTMENU)
+	CASE WM_CONTEXTMENU
 		//PP-040410 New improved context menu support
 		oObject :=__WCGetObjectByHandle(PTR(_CAST,oEvt:wPARAM))
 		IF oObject != NULL_OBJECT
@@ -573,22 +535,26 @@ METHOD Dispatch(oEvent)
 			ENDIF
 		ENDIF
 		
-	CASE uMsg == WM_GETMINMAXINFO
+	CASE WM_GETMINMAXINFO
 		//PP-040410
-		//SELF:MinMaxInfo(__ObjectCastClassPtr(oEvt, __pCMinMaxInfoEvent))
 		SELF:MinMaxInfo(MinMaxInfoEvent{oEvt})
 
+    CASE WM_TIMER 
+         //SE-081122 Systemtimer event
+         SELF:Timer(oEvt)
+         RETURN SELF:EventReturnValue 
+
+    END SWITCH
+    DO CASE  
+	CASE (uMsg == gdwDragListMsg)
+		SELF:__HandleListItemDrag(oEvt)
+		RETURN SELF:EventReturnValue
 
         // 081212 suggestion from Sven
     CASE uMsg == WM_SysCommand .AND. oEvt:wParam < 0x0000F000
         //SE-081122 SystemMenu call
         SELF:__PreMenuCommand(MenuCommandEvent{oEvt}:__SetMenu(SELF))
         RETURN SELF:EventReturnValue
-      
-    CASE uMsg == WM_TIMER 
-         //SE-081122 Systemtimer event
-         SELF:Timer(oEvt)
-         RETURN SELF:EventReturnValue 
          
     CASE uMsg >= WM_APP 
          IF IsMethod(SELF, #AppMessage)
@@ -603,7 +569,6 @@ METHOD Dispatch(oEvent)
 		
 	ENDCASE
 	
-	
 	SELF:Default(oEvt)
 	
 	RETURN SELF:EventReturnValue
@@ -617,7 +582,7 @@ FUNCTION __Dispatch_DrawItem(oEvent AS @@event, oWindow AS OBJECT) AS LONGINT ST
 	struDrawItem := PTR(_CAST, oEvent:lParam)
 	
 	oControl :=__WCGetObjectByHandle(struDrawItem:hwnditem)
-	IF oControl != NULL_OBJECT .and. IsMethod(oControl, #ODDrawItem)
+	IF oControl != NULL_OBJECT .AND. IsMethod(oControl, #ODDrawItem)
 		Send(oControl, #ODDrawItem, oEvent)
 		oWindow:EventReturnValue := 1L
 		RETURN 1L
@@ -642,7 +607,7 @@ FUNCTION __Dispatch_MeasureItem(oEvent AS @@event, oWindow AS OBJECT) AS LONGINT
 		hFromHwnd := GetDlgItem(oEvent:hWnd, INT(_CAST,oEvent:wParam))
 	ENDIF
 	oControl :=__WCGetObjectByHandle (hFromHwnd)
-	IF oControl != NULL_OBJECT .and. IsMethod(oControl, #ODMeasureItem)
+	IF oControl != NULL_OBJECT .AND. IsMethod(oControl, #ODMeasureItem)
 		Send(oControl, #ODMeasureItem, oEvent)
 		oWindow:EventReturnValue := 1L
 		RETURN 1l
@@ -658,7 +623,7 @@ FUNCTION __Dispatch_MenuChar(oEvent AS @@event, oWindow AS OBJECT) AS LONGINT ST
 	LOCAL lRetVal AS LONGINT
 	
 	oControl :=__WCGetObjectByHandle(PTR(_CAST, oEvent:lParam))
-	IF oControl != NULL_OBJECT .and. IsMethod(oControl, #ODMenuChar)
+	IF oControl != NULL_OBJECT .AND. IsMethod(oControl, #ODMenuChar)
 		lRetVal := Send(oControl, #ODMenuChar, oEvent)
 		IF lRetVal >= 0
 			oWindow:EventReturnvalue := lRetVal

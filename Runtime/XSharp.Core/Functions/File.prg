@@ -47,7 +47,7 @@ USING System.Text
 	DEFINE OF_SHARE_DENY_WRITE	:= 0x00000020
 	DEFINE OF_SHARE_DENY_READ	:= 0x00000030
 	DEFINE OF_SHARE_DENY_NONE	:= 0x00000040
-	DEFINE OF_PARSE				:= 0x00000100
+	//DEFINE OF_PARSE				:= 0x00000100
 	
 	DEFINE CREATE_NEW := 1
 	DEFINE CREATE_ALWAYS := 2
@@ -126,23 +126,23 @@ BEGIN NAMESPACE XSharp.IO
 			dwTempMode := (DWORD)_OR(OF_SHARE_DENY_WRITE, OF_SHARE_DENY_READ, OF_SHARE_DENY_NONE)
 			dwTempMode := (DWORD)_AND(dwMode,dwTempMode)
 			
-			DO CASE
-				CASE dwTempMode == FO_DENYNONE
+			SWITCH dwTempMode 
+				CASE FO_DENYNONE
 					FileShare  := FileShare.readWrite
 				
-				CASE dwTempMode == FO_DENYWRITE
+				CASE FO_DENYWRITE
 					FileShare  := FileShare.read
 				
-				CASE dwTempMode == FO_DENYREAD
+				CASE FO_DENYREAD
 					FileShare  := FileShare.write
 				
-				CASE dwTempMode == FO_EXCLUSIVE
+				CASE FO_EXCLUSIVE
 					FileShare  := FileShare.None
 				
-				CASE dwTempMode == FO_COMPAT
+				CASE FO_COMPAT
 					FileShare  := FileShare.readWrite
 				
-			ENDCASE
+			END SWITCH
 			RETURN
 		
 		
@@ -648,19 +648,21 @@ FUNCTION FReadStr(pFile AS IntPtr,iCount AS DWORD) AS STRING
 	XSharp.IO.File.read(pFile, OUT cResult, (INT) iCount, XSharp.RuntimeState.Ansi)
 	RETURN cResult
 
-/// <inheritdoc cref="M:XSharp.Core.Functions.FReadText(System.IntPtr,System.String@,System.UInt32)" />
-FUNCTION FRead(pFile AS IntPtr,strValue REF STRING,dwCount AS DWORD) AS DWORD
-	RETURN (DWORD) XSharp.IO.File.read(pFile, OUT strValue, (INT) dwCount, XSharp.RuntimeState.Ansi)
 
 /// <summary>
 /// Read characters from a file into a buffer variable that is passed by reference.
 /// </summary>
-/// <param name="strValue"></param>
-/// <returns>The number of bytes successfully read.  A return value less than the number specified 0 indicates
+/// <param name="strValue">Reference to a variable that reseives the text read from the file.</param>
+/// <returns>The number of bytes successfully read.  A return value less than the number specified in <param ref name="dwCount" /> indicates
 /// end-of-file or some other read error.  FError() can be used to determine the specific error.</returns>
 /// <inheritdoc cref="M:XSharp.Core.Functions.FRead3(System.IntPtr,System.Byte[],System.UInt32)" />
 /// <include file="CoreComments.xml" path="Comments/File/*" />
 FUNCTION FReadText(pFile AS IntPtr,strValue REF STRING,dwCount AS DWORD) AS DWORD
+	RETURN (DWORD) XSharp.IO.File.read(pFile, OUT strValue, (INT) dwCount, XSharp.RuntimeState.Ansi)
+
+
+/// <inheritdoc cref="M:XSharp.Core.Functions.FReadText(System.IntPtr,System.String@,System.UInt32)" />
+FUNCTION FRead(pFile AS IntPtr,strValue REF STRING,dwCount AS DWORD) AS DWORD
 	RETURN (DWORD) XSharp.IO.File.read(pFile, OUT strValue, (INT) dwCount, XSharp.RuntimeState.Ansi)
 
 

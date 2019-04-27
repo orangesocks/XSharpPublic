@@ -1,4 +1,4 @@
-﻿//
+//
 // Copyright (c) XSharp B.V.  All Rights Reserved.  
 // Licensed under the Apache License, Version 2.0.  
 // See License.txt in the project root for license information.
@@ -97,7 +97,7 @@ FUNCTION DbApp(cFile, aFields, uCobFor, uCobWhile,nNext, nRec, lRest,cDriver, aH
 		IF !Used()
 			THROW VoDb.DBCMDError(__FUNCTION__)
 		ENDIF
-		IF IsNil(aStruct)
+		IF aStruct:IsNil
             aStruct := DbStruct()
         ENDIF
         aStruct := VoDb.FieldList(aStruct, aFields, NULL_ARRAY) 
@@ -150,7 +150,6 @@ FUNCTION DbApp(cFile, aFields, uCobFor, uCobWhile,nNext, nRec, lRest,cDriver, aH
 /// <summary>Import records from a delimited text file.</summary>
 FUNCTION DbAppDelim(cFile, cDelim, aFields, uCobFor, uCobWhile, nNext,nRec, lRest,aStruct)AS LOGIC CLIPPER
 	
-	LOCAL siFrom        AS DWORD
 	LOCAL siTo          AS DWORD
 	LOCAL siPos         AS DWORD
 	LOCAL lRetCode      AS LOGIC
@@ -162,7 +161,7 @@ FUNCTION DbAppDelim(cFile, cDelim, aFields, uCobFor, uCobWhile, nNext,nRec, lRes
 	TRY
 		
 		siTo := VODBGetSelect()
-        IF IsNil(aStruct)
+        IF aStruct:IsNil
             aStruct := DbStruct()
         ENDIF
         aStruct := VoDb.FieldList(aStruct, aFields, NULL_ARRAY) 
@@ -182,8 +181,6 @@ FUNCTION DbAppDelim(cFile, cDelim, aFields, uCobFor, uCobWhile, nNext,nRec, lRes
 		lDbfAnsi := DbInfo(DBI_ISANSI)
 		
 		DbCreate(cFile, aStruct, "DELIM", .T., __UniqueAlias(cFile), cDelim, .T.)
-		
-		siFrom := VODBGetSelect()
 		
 		IF ( !lAnsi .AND. lDbfAnsi)
 			SetAnsi(.T.)
@@ -210,7 +207,6 @@ FUNCTION DbAppSdf(cFile, aFields, uCobFor,;
 	uCobWhile, nNext, nRec, ;
 	lRest , aStruct                  )      AS LOGIC CLIPPER
 	
-	LOCAL siFrom        AS DWORD
 	LOCAL siTo          AS DWORD
 	LOCAL siPos         AS DWORD
 	LOCAL lRetCode      AS LOGIC
@@ -221,7 +217,7 @@ FUNCTION DbAppSdf(cFile, aFields, uCobFor,;
 	
 	TRY		
 		siTo := VODBGetSelect()
-        IF IsNil(aStruct)
+        IF aStruct:IsNil
             aStruct := DbStruct()
         ENDIF
 		aStruct := VoDb.FieldList(aStruct, aFields, NULL_ARRAY) 
@@ -241,8 +237,6 @@ FUNCTION DbAppSdf(cFile, aFields, uCobFor,;
 		lDbfAnsi := DbInfo(DBI_ISANSI)
 		
 		DbCreate(cFile, aStruct, "SDF", .T., __UniqueAlias(cFile), ,.T.)
-		
-		siFrom := VODBGetSelect()
 		
 		IF ( !lAnsi .AND. lDbfAnsi )
 			SetAnsi(.T.)
@@ -286,20 +280,20 @@ FUNCTION DbCopy(cFile, aFields, uCobFor, uCobWhile, nNext, nRec, lRest, cDriver,
 		lDbfAnsi := DbInfo(DBI_ISANSI)
 		
 		IF  Empty(AFields)                      .AND. ;
-			IsNil(uCobFor)                      .AND. ;
-			IsNil(uCobWhile)                    .AND. ;
-			IsNil(nNext)                        .AND. ;
-			IsNil(nRec)                         .AND. ;
+			uCobFor:IsNil                      .AND. ;
+			uCobWhile:IsNil                    .AND. ;
+			nNext:IsNil                        .AND. ;
+			nRec:IsNil                         .AND. ;
 			Empty(lRest)                        .AND. ;
-			IsNil(cDriver)                      .AND. ;
-			IsNil(aHidden)                      .AND. ;
+			cDriver:IsNil                      .AND. ;
+			aHidden:IsNil                      .AND. ;
 			( lDbfAnsi == lAnsi )               .AND. ;
 			( DbInfo(DBI_MEMOHANDLE) == 0 )     .AND. ;
 			(DbOrderInfo(DBOI_ORDERCOUNT) = 0)
 			
 			lRetCode := DBFileCopy( DbInfo(DBI_FILEHANDLE), cFile, DbInfo(DBI_FULLPATH) )
         ELSE
-            IF IsNil(aStruct)
+            IF aStruct:IsNil
                 aStruct := DbStruct()
             ENDIF
             aStruct := VoDb.FieldList(aStruct, aFields, NULL_ARRAY)
@@ -411,7 +405,7 @@ FUNCTION DbCopyDelim (cFile, cDelim, aFields, uCobFor, uCobWhile, nNext,nRec, lR
 		IF !Used()
 			THROW VoDb.DBCMDError(__FUNCTION__)
 		ENDIF
-        IF IsNil(aStruct)
+        IF aStruct:IsNil
             aStruct := DbStruct()
         ENDIF
   		aStruct := VoDb.FieldList(aStruct, aFields, NULL_ARRAY)
@@ -473,7 +467,7 @@ FUNCTION DbCopySDF(cFile, aFields, uCobFor, uCobWhile, nNext, nRec, lRest, aStru
 		IF !Used()
 			THROW VoDb.DBCMDError(__FUNCTION__)
 		ENDIF
-        IF IsNil(aStruct)
+        IF aStruct:IsNil
             aStruct := DbStruct()
         ENDIF
 		aStruct := VoDb.FieldList(aStruct, aFields, NULL_ARRAY)
@@ -534,7 +528,7 @@ FUNCTION DbJoin(cAlias, cFile, aFields, uCobFor) AS LOGIC CLIPPER
 	
 	LOCAL pJoinList     AS _JOINLIST
 	
-	IF IsNil(uCobFor)
+	IF uCobFor:IsNil
 		uCobFor := {|| .T.}
 	ENDIF
 	siTo   := 0
@@ -681,11 +675,11 @@ FUNCTION DbTrans(nTo, aStru, uCobFor, uCobWhile, nNext, nRecno, lRest) AS LOGIC 
 	
 	LOCAL fldNames  AS _FieldNames
 	
-	IF !IsNil(uCobWhile)
+	IF !uCobWhile:IsNil
 		lRest := .T.
 	ENDIF
 	
-	IF IsNil(lRest)
+	IF lRest:IsNil
 		lRest := .F.
 	ENDIF
 	
@@ -714,27 +708,27 @@ FUNCTION DbTotal(cFile, bKey, aFields,  uCobFor, uCobWhile, nNext, nRec, lRest, 
 	LOCAL lRetCode  := FALSE   AS LOGIC
 	LOCAL fldNames      AS _FieldNames
 	
-	IF IsNil(uCobWhile)
+	IF uCobWhile:IsNil
 		uCobWhile := {|| .T.}
 	ELSE
 		lRest := .T.
 	ENDIF
 	
-	IF IsNil(uCobFor)
+	IF uCobFor:IsNil
 		uCobFor := {|| .T.}
 	ENDIF
 	
-	IF IsNil(lRest)
+	IF lRest:IsNil
 		lRest := .F.
 	ENDIF
 	siTo   := 0
 	
-	IF !IsNil(nRec)
+	IF !nRec:IsNil
 		DbGoto(nRec)
 		nNext := 1
 	ELSE
 		
-		IF IsNil(nNext)
+		IF nNext:IsNil
 			nNext := -1
 		ELSE
 			lRest := .T.
@@ -783,7 +777,7 @@ FUNCTION DbTotal(cFile, bKey, aFields,  uCobFor, uCobWhile, nNext, nRec, lRest, 
 		fldNames := VoDb.allocFieldNames(aStruct)
 		
 		//	DbCreate( cFile, aStruct, "", .T.)
-		IF IsNil(xDriver)
+		IF xDriver:IsNil
 			xDriver := RddSetDefault()
 		ENDIF
 		DbCreate( cFile, aStruct, xDriver, .T.)

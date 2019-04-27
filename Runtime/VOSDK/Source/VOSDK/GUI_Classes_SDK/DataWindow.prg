@@ -1947,7 +1947,7 @@ CONSTRUCTOR(oOwner, oSource, nResourceID, nDialogStyle)
 	LOCAL oResID AS ResourceID
 	LOCAL oObject AS OBJECT
 	
-	Default(@oOwner, GetAppObject())
+	DEFAULT(@oOwner, GetAppObject())
 	//SE-070906
 	IF IsLong(nDialogStyle)
 	   dwDialogStyle := nDialogStyle
@@ -1968,7 +1968,7 @@ CONSTRUCTOR(oOwner, oSource, nResourceID, nDialogStyle)
 			SUPER(oOwner, TRUE)
 		ELSEIF IsInstanceOf(oObject, #DataWindow) // .or. IsInstanceOf(oObject, #ToolBar)
 			// Create sub form if wr're a regular DataWindow
-			Default(@nResourceID, 0)
+			DEFAULT(@nResourceID, 0)
 			lSubForm := (dwDialogStyle = 0)
 			SUPER(oOwner, FALSE, FALSE)
 		ELSEIF IsInstanceOf(oObject, #ChildAppWindow)
@@ -2154,11 +2154,11 @@ METHOD Notify(kNotification, uDescription)
 	LOCAL oDF AS DataField
     LOCAL oControl AS Control
 	
-	DO CASE
-	CASE (kNotification == NOTIFYCOMPLETION)
+	SWITCH (INT) kNotification
+	CASE NOTIFYCOMPLETION
 		// Do nothing, __NotifyCompletion had no code in it
-		
-	CASE (kNotification == NOTIFYINTENTTOMOVE)
+	    NOP	
+	CASE NOTIFYINTENTTOMOVE
 		//RvdH MOved from OleDataWindow
 		SELF:DeactivateAllOLEObjects()
 		
@@ -2180,10 +2180,10 @@ METHOD Notify(kNotification, uDescription)
 		ENDIF
 		RETURN TRUE
 		
-	CASE (kNotification == NOTIFYFILECHANGE)
+	CASE NOTIFYFILECHANGE
 		SELF:__Scatter()
 		
-	CASE (kNotification == NOTIFYFIELDCHANGE)
+	CASE NOTIFYFIELDCHANGE
 		lRecordDirty := TRUE
 		IF (sCurrentView == #FormView)
 			iLen := INT(ALen(aControls))
@@ -2200,7 +2200,7 @@ METHOD Notify(kNotification, uDescription)
 			//	Send(oGBrowse, #__RefreshField, uDescription)
 		ENDIF
 		
-	CASE (kNotification == NOTIFYCLOSE)
+	CASE NOTIFYCLOSE
 		// Data Server has closed
 		// if sCurrentView == #BrowseView
 		//
@@ -2218,8 +2218,11 @@ METHOD Notify(kNotification, uDescription)
 		ENDIF
 		SELF:__Unlink()
 		
-	CASE (kNotification == NOTIFYRECORDCHANGE) .OR. (kNotification == NOTIFYGOBOTTOM) .OR. ;
-			(kNotification == NOTIFYGOTOP) .OR. (kNotification == NOTIFYDELETE) .OR. (kNotification == NOTIFYAPPEND)
+	CASE NOTIFYRECORDCHANGE
+    CASE NOTIFYGOBOTTOM
+    CASE NOTIFYGOTOP
+    CASE NOTIFYDELETE
+    CASE NOTIFYAPPEND
 		// record position has changed
 		lThisRecDeleted:=IVarGet(oAttachedServer,#Deleted)
 		// Disable or enable controls depending on deletion state
@@ -2239,7 +2242,7 @@ METHOD Notify(kNotification, uDescription)
 		IF (kNotification == NOTIFYAPPEND)
 			AEval(aControls,{ |oControl| oControl:PerformValidations() }) //Set HLStatus for all controls
 		ENDIF
-	END CASE
+	END SWITCH
 	
 	RETURN SELF
 	
@@ -2911,9 +2914,9 @@ METHOD VerticalSpin(oSpinEvent)
 
 METHOD ViewAs(symViewType) 
 	LOCAL oTextBox AS TextBox
+#ifdef USE_OLEOBJECT	
 	LOCAL iLen AS INT
 	LOCAL aObjects AS ARRAY
-#ifdef USE_OLEOBJECT	
 	LOCAL oOleObj AS OleObject
 #endif	
     LOCAL oControl AS Control
@@ -2956,9 +2959,9 @@ METHOD ViewAs(symViewType)
 		// flush changes to form so they are reflected in browser
 		TRY
 			sCurrentView := #ViewSwitch
+#ifdef USE_OLEOBJECT
 			aObjects := SELF:__GetMyOleObjects()
 			iLen 		:= LONGINT(ALen(aObjects))
-#ifdef USE_OLEOBJECT
 			LOCAL i AS INT
 			FOR i:=1 TO iLen
 				oOleObj := aObjects[i]

@@ -536,7 +536,7 @@ METHOD SetFilter(uFilter, uFilterDesc, nIndex)
 METHOD SetStyle(kStyle, lOnOff) 
 	
 
-	Default(@lOnOff, TRUE)
+	DEFAULT(@lOnOff, TRUE)
 
 	IF (lOnOff)
 		Flags := _OR(Flags, DWORD(kStyle))
@@ -549,7 +549,7 @@ METHOD SetStyle(kStyle, lOnOff)
 METHOD SetStyleEx(kStyle, lOnOff) 
 	
 
-	Default(@lOnOff, TRUE)
+	DEFAULT(@lOnOff, TRUE)
 
 	IF (lOnOff)
 		FlagsEx := _OR(Flags, DWORD(kStyle))
@@ -563,7 +563,6 @@ METHOD Show()
 	LOCAL lRet := TRUE AS LOGIC
 	LOCAL sOFN AS _winOPENFILENAME
 	LOCAL pszRes AS PSZ
-	LOCAL dwErr AS DWORD
 	LOCAL cPathName AS STRING
 	LOCAL cDirName AS STRING
 	LOCAL pb AS BYTE PTR
@@ -667,7 +666,7 @@ METHOD Show()
 		IF PCALL(gpfnGetSaveFileName, sOFN) .AND. PCALL(gpfnCommDlgExtendedError) = 0
 			Result := Psz2String(sOFN:lpstrFile)
 		ELSE
-			dwErr := PCALL(gpfnCommDlgExtendedError)
+			PCALL(gpfnCommDlgExtendedError)
 			Result := NULL_STRING
 			lRet := FALSE
 		ENDIF
@@ -716,9 +715,9 @@ ACCESS FolderName
 
 CONSTRUCTOR(oOwner, sCaption, sStartFolder, kType) 
    SUPER()
-	Default(@kType, BIF_RETURNONLYFSDIRS)
-	Default(@sCaption, "Browser Folder")
-	Default(@sStartFolder, "")
+	DEFAULT(@kType, BIF_RETURNONLYFSDIRS)
+	DEFAULT(@sCaption, "Browser Folder")
+	DEFAULT(@sStartFolder, "")
 
 	__LoadShellDll()
 
@@ -808,7 +807,7 @@ CLASS StandardFontDialog INHERIT StandardDialog
 METHOD EnableANSI(bOnOff) 
 	
 
-	Default(@bOnOff, TRUE)
+	DEFAULT(@bOnOff, TRUE)
 	IF bOnOff
 		// lANSIFlag := CF_ANSIONLY // obsolete (see Win32 SDK Help file)
 		lANSIFlag := CF_SCRIPTSONLY		// tk new
@@ -820,7 +819,7 @@ METHOD EnableANSI(bOnOff)
 METHOD EnableEffects(bOnOff) 
 	
 
-	Default(@bOnOff, TRUE)
+	DEFAULT(@bOnOff, TRUE)
 	IF bOnOff
 		lEffectFlag := CF_EFFECTS
 	ELSE
@@ -831,7 +830,7 @@ METHOD EnableEffects(bOnOff)
 
 METHOD EnableFixedPitch(bOnOff) 
 
-	Default(@bOnOff, TRUE)
+	DEFAULT(@bOnOff, TRUE)
 	IF bOnOff
 		lFixPitchFlag := CF_FIXEDPITCHONLY
 	ELSE
@@ -842,7 +841,7 @@ METHOD EnableFixedPitch(bOnOff)
 METHOD EnableTrueType(bOnOff) 
 	
 
-	Default(@bOnOff, TRUE)
+	DEFAULT(@bOnOff, TRUE)
 	IF bOnOff
 		lTTYFlag := CF_TTONLY
 	ELSE
@@ -955,25 +954,25 @@ METHOD Show()
 
 	IF bRet
 		iFam := _AND(sLogFont:lfPitchAndFamily, 0B11110000) // Different from CV code!
-		DO CASE
-		CASE iFam == FF_ROMAN
+		SWITCH iFam
+		CASE FF_ROMAN
 			iFamily := FONTFAMILY_ROMAN
 
-		CASE iFam == FF_SWISS
+		CASE FF_SWISS
 			iFamily := FONTFAMILY_SWISS
 
-		CASE iFam == FF_MODERN
+		CASE FF_MODERN
 			iFamily := FONTFAMILY_MODERN
 
-		CASE iFam == FF_SCRIPT
+		CASE FF_SCRIPT
 			iFamily := FONTFAMILY_SCRIPT
 
-		CASE iFam == FF_DECORATIVE
+		CASE FF_DECORATIVE
 			iFamily := FONTFAMILY_DECORAT
 
 		OTHERWISE
 			iFamily := FONTFAMILY_ANY
-		ENDCASE
+		END SWITCH
 	ENDIF
 
 	oDim := Dimension{sLogFont:lfWidth, sLogFont:lfHeight}
@@ -1014,37 +1013,37 @@ METHOD Show()
 		oFont:Strikethru := TRUE
 	ENDIF
 
-	DO CASE
-	CASE sLogFont:lfWeight == FW_THIN
+	SWITCH sLogFont:lfWeight
+	CASE FW_THIN
 		oFont:Light := TRUE
 
-	CASE sLogFont:lfWeight == FW_EXTRALIGHT
+	CASE FW_EXTRALIGHT
 		oFont:Light := TRUE
 
-	CASE sLogFont:lfWeight == FW_LIGHT
+	CASE FW_LIGHT
 		oFont:Light := TRUE
 
-	CASE sLogFont:lfWeight == FW_NORMAL
+	CASE FW_NORMAL
 		oFont:Normal := TRUE
 
-	CASE sLogFont:lfWeight == FW_MEDIUM
+	CASE FW_MEDIUM
 		oFont:Normal := TRUE
 
-	CASE sLogFont:lfWeight == FW_SEMIBOLD
+	CASE FW_SEMIBOLD
 		oFont:Normal := TRUE
 
-	CASE sLogFont:lfWeight == FW_BOLD
+	CASE FW_BOLD
 		oFont:Bold := TRUE
 
-	CASE sLogFont:lfWeight == FW_ULTRABOLD
+	CASE FW_ULTRABOLD
 		oFont:Bold := TRUE
 
-	CASE sLogFont:lfWeight == FW_HEAVY
+	CASE FW_HEAVY
 		oFont:Bold := TRUE
 
 	OTHERWISE
 		oFont:Normal := TRUE
-	ENDCASE
+	END SWITCH
 
 	RETURN bRet
 

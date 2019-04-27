@@ -72,16 +72,9 @@ FUNCTION  __StringNotEquals(strLHS AS STRING, strRHS AS STRING) AS LOGIC
         notEquals := TRUE
     ENDIF
     RETURN notEquals
-    
-    /// <summary>
-    /// Remove leading and trailing spaces from a string.
-    /// </summary>
-    /// <param name="c">The string to be trimmed.</param>
-    /// <returns>
-    /// The original string without leading and trailing spaces
-    /// </returns>
-    // _FIELD->Name
 
+    // _FIELD->Name
+    /// <exclude />
 FUNCTION __FieldGet( fieldName AS STRING ) AS USUAL
     LOCAL fieldpos := FieldPos( fieldName ) AS DWORD
     LOCAL ret := NULL AS OBJECT
@@ -95,16 +88,16 @@ FUNCTION __FieldGet( fieldName AS STRING ) AS USUAL
     
     // CUSTOMER->NAME
 /// <exclude/>
-FUNCTION __FieldGetWa( alias AS STRING, fieldName AS STRING ) AS USUAL
+FUNCTION __FieldGetWa( area AS USUAL, fieldName AS STRING ) AS USUAL
     // XBase defines that 'M' in 'M->Name' means a Memvar
-    IF String.IsNullOrEmpty(alias)
+    IF area:IsNil
         RETURN __FieldGet(fieldName)
     ENDIF
-    IF alias:ToUpper() == "M"
+    IF area:IsString .AND. ((STRING) area):ToUpper() == "M"
         RETURN __MemVarGet(fieldName)
     ENDIF
     LOCAL ret AS USUAL
-    LOCAL newArea := _SelectString( alias ) AS DWORD
+    LOCAL newArea := _Select( area ) AS DWORD
     LOCAL curArea := RuntimeState.CurrentWorkarea AS DWORD
     IF newArea > 0
         RuntimeState.CurrentWorkarea := newArea
@@ -114,10 +107,10 @@ FUNCTION __FieldGetWa( alias AS STRING, fieldName AS STRING ) AS USUAL
             RuntimeState.CurrentWorkarea := curArea
         END TRY   
     ELSE
-        THROW Error.VODBError( EG_ARG, EDB_BADALIAS, __FUNCTION__, nameof(alias), 1, alias  )
+        THROW Error.VODBError( EG_ARG, EDB_BADALIAS, __FUNCTION__, nameof(area), 1, area  )
     ENDIF
     RETURN ret
-    
+
     // _FIELD->Name := "Foo"
 /// <exclude/>
 FUNCTION __FieldSet( fieldName AS STRING, oValue AS USUAL ) AS USUAL
@@ -132,15 +125,16 @@ FUNCTION __FieldSet( fieldName AS STRING, oValue AS USUAL ) AS USUAL
     
     
     // CUSTOMER->Name := "Foo"
+    // (nArea)->Name := "Foo"
 /// <exclude/>
-FUNCTION __FieldSetWa( alias AS STRING, fieldName AS STRING, uValue AS USUAL ) AS USUAL
-    IF String.IsNullOrEmpty(alias)
-        RETURN __FieldSet(fieldName, uValue)
+FUNCTION __FieldSetWa( area AS USUAL, fieldName AS STRING, uValue AS USUAL ) AS USUAL
+    IF area:IsNil
+        RETURN __FieldGet(fieldName)
     ENDIF
-    IF alias:ToUpper() == "M"
-        RETURN __MemVarPut(fieldName, uValue)
+    IF area:IsString .AND. ((STRING) area):ToUpper() == "M"
+        RETURN __MemVarGet(fieldName)
     ENDIF
-    LOCAL newArea := _SelectString( alias ) AS DWORD
+    LOCAL newArea := _Select( area ) AS DWORD
     LOCAL curArea := RuntimeState.CurrentWorkarea AS DWORD
     IF newArea > 0
         RuntimeState.CurrentWorkarea := newArea
@@ -151,11 +145,49 @@ FUNCTION __FieldSetWa( alias AS STRING, fieldName AS STRING, uValue AS USUAL ) A
             RuntimeState.CurrentWorkarea := curArea
         END TRY   
     ELSE
-        THROW Error.VODBError( EG_ARG, EDB_BADALIAS, __FUNCTION__, nameof(alias),1, alias  )
+        THROW Error.VODBError( EG_ARG, EDB_BADALIAS, __FUNCTION__, nameof(area),1, area  )
     ENDIF
     // Note: must return the same value passed in, to allow chained assignment expressions
     RETURN uValue
-    
+
+    // (area)->(Expression)    
+    /// <exclude />
+FUNCTION __AreaEval<T>(area AS USUAL, action AS @@Func<T>) AS USUAL
+    LOCAL newArea := _Select( area ) AS DWORD
+    LOCAL curArea := RuntimeState.CurrentWorkarea AS DWORD
+    LOCAL result  := DEFAULT(T) AS T
+    IF newArea > 0
+        RuntimeState.CurrentWorkarea := newArea
+        
+        TRY
+            result := action()
+        FINALLY
+            RuntimeState.CurrentWorkarea := curArea
+        END TRY   
+    ELSE
+        THROW Error.VODBError( EG_ARG, EDB_BADALIAS, __FUNCTION__, nameof(area),1, area  )
+    ENDIF
+    RETURN result
+
+
+    // (area)->(VoidExpression)    
+    /// <exclude />
+FUNCTION __AreaEval(area AS USUAL, action AS System.Action) AS LOGIC
+    LOCAL newArea := _Select( area ) AS DWORD
+    LOCAL curArea := RuntimeState.CurrentWorkarea AS DWORD
+    LOCAL result  := FALSE AS LOGIC
+    IF newArea > 0
+        RuntimeState.CurrentWorkarea := newArea
+        TRY
+            action()
+            result := TRUE
+        FINALLY
+            RuntimeState.CurrentWorkarea := curArea
+        END TRY   
+    ELSE
+        THROW Error.VODBError( EG_ARG, EDB_BADALIAS, __FUNCTION__, nameof(area),1, area  )
+    ENDIF
+    RETURN result
     
     // MEMVAR myName
     // ? MyName
@@ -188,8 +220,9 @@ FUNCTION __VarPut(cName AS STRING, uValue AS USUAL) AS USUAL
     
     
     // ALIAS->(DoSomething())
-    // is translated to
+    // is sometimes translated to
     // __pushWorkarea( alias ) ; DoSomething() ; __popWorkArea()
+    // can also be come __AreaEval(..)
     
 /// <exclude/>
 FUNCTION __pushWorkarea( alias AS USUAL ) AS VOID

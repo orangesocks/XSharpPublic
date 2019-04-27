@@ -50,10 +50,8 @@ CLASS XSharp.CoreDb
         ENDIF
         IF ret == NULL       
             LOCAL loadedAssemblies := AppDomain.CurrentDomain:GetAssemblies() AS Assembly[]
-            LOCAL x AS INT
-            
-            FOR x := 1 UPTO loadedAssemblies:Length
-                ret := loadedAssemblies[x]:GetType( cRDDName, FALSE, TRUE )
+            FOREACH VAR asm IN loadedAssemblies
+                ret := asm:GetType( cRDDName, FALSE, TRUE )
                 IF ret != NULL
                     EXIT
                 ENDIF   
@@ -947,11 +945,16 @@ CLASS XSharp.CoreDb
         
     STATIC METHOD MemoExt(cDriver AS STRING) AS STRING
         RETURN CoreDb.Do ({ =>
-        LOCAL oRDD := CoreDb.CWA(__FUNCTION__, FALSE) AS IRDD
+        LOCAL oRDD := NULL AS IRDD
+        IF String.IsNullOrEmpty(cDriver)
+            oRDD := CoreDb.CWA(__FUNCTION__, FALSE) 
+            IF oRDD == NULL
+                cDriver := RuntimeState.DefaultRDD
+            ENDIF
+        ENDIF
         IF oRDD == NULL
-            // Get an RDD object
             LOCAL oRegRDD AS RegisteredRDD
-            oRegRDD:= RegisteredRDD.Find(RuntimeState.DefaultRDD)
+            oRegRDD:= RegisteredRDD.Find(cDriver)
             oRegRdd:Load()
             oRDD := CoreDb.CreateRDDInstance( oRegRdd:RddType, "XXTEMPXX" )
         ENDIF
@@ -1140,6 +1143,28 @@ CLASS XSharp.CoreDb
         LOCAL oRDD := CoreDb.CWA(__FUNCTION__) AS IRDD
         RETURN oRDD:OrderListRebuild()
         })
+
+        /// <summary>
+        /// Set the controlling order for a work area.
+        /// </summary>
+        /// <param name="cBagName"></param>
+        /// <param name="oOrder"></param>
+        /// <param name="strPreviousOrder"></param>
+        /// <returns>TRUE if successful; otherwise, FALSE.</returns>
+        /// <remarks>This function is like DbSetOrder() but strongly typed.
+        /// <inheritdoc cref="M:XSharp.CoreDb.Append(System.Boolean)" select="span[@id='LastError']" />
+        /// </remarks>
+    STATIC METHOD OrdSetFocus(cBagName AS STRING,oOrder AS OBJECT) AS LOGIC
+        TRY
+            LOCAL oRDD := CoreDb.CWA(__FUNCTION__) AS IRDD
+            VAR info     := DbOrderInfo{}
+            info:BagName := cBagName
+            info:Order   := oOrder
+            RETURN oRDD:OrderListFocus(info)
+        CATCH e AS Exception
+            RuntimeState.LastRDDError := e
+        END TRY
+        RETURN FALSE
         
         /// <summary>
         /// Set the controlling order for a work area.
@@ -1220,8 +1245,7 @@ CLASS XSharp.CoreDb
     /// <inheritdoc cref="M:XSharp.CoreDb.RddInfo(System.UInt32,System.Object@)" />
     STATIC METHOD RddInfo(nOrdinal AS DWORD,oRet AS OBJECT) AS LOGIC
         RETURN CoreDb.Do ({ =>
-        LOCAL oValue AS OBJECT
-        oValue := RuntimeState.GetValue<OBJECT> ((INT) nOrdinal)
+        RuntimeState.GetValue<OBJECT> ((INT) nOrdinal)
         RuntimeState.SetValue((INT) nOrdinal, oRet)
         RETURN TRUE
         })

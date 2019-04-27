@@ -234,7 +234,7 @@ BEGIN NAMESPACE XSharp.VO.Tests
 			DBCloseArea()
 			
 			DBUseArea( , , cFileName)
-			FieldPut(1 , 46.11) // ! a float isn/t stored !
+			FieldPut(1 , FLOAT{46.11}) // ! a float isn/t stored !
 			DBCommit()
 			Assert.Equal(46.11 , (FLOAT) FieldGet(1)) // runtime exception
 			DBCloseArea()
@@ -524,9 +524,8 @@ BEGIN NAMESPACE XSharp.VO.Tests
 
 		[Fact, Trait("Category", "DBF")];
 		METHOD Cdx_Issues() AS VOID
-			#warning Disabled sample, updates index fields
-//			Cdx_Issues_Helper(TRUE)
-//			Cdx_Issues_Helper(FALSE)
+			Cdx_Issues_Helper(TRUE)
+			Cdx_Issues_Helper(FALSE)
 		RETURN
 		PRIVATE METHOD Cdx_Issues_Helper(lUseIndexFormVO AS LOGIC) AS VOID
 			LOCAL cDbf AS STRING
@@ -574,7 +573,7 @@ BEGIN NAMESPACE XSharp.VO.Tests
 			DBSkip()
 			FieldPut(1,"HHH")
 			aResult := GetRecords()
-//			should be ABC, GHI, HHH, K
+//			should be ABC, GHI, HHH, K, because the record has been moved in the index
 			Assert.True( aResult[1] == "ABC")
 			Assert.True( aResult[2] == "GHI")
 			Assert.True( aResult[3] == "HHH")
@@ -694,7 +693,7 @@ BEGIN NAMESPACE XSharp.VO.Tests
 			FErase(cFileName + ".cdx")
 
 			RDDSetDefault("DBFCDX")
-
+            TRY
 			SetExclusive ( FALSE )
 			DBCreate ( cFileName , { {"id", "C", 5, 0} })
 		
@@ -724,9 +723,11 @@ BEGIN NAMESPACE XSharp.VO.Tests
 			Assert.Equal( 1 , (INT) a[1] )
 			Assert.Equal( 3 , (INT) a[2] )
 
+            FINALLY
 			DBCloseArea()
 			
 			SetExclusive ( TRUE ) // restore
+            END TRY
 		RETURN
 
 		[Fact, Trait("Category", "DBF")];
@@ -979,8 +980,7 @@ BEGIN NAMESPACE XSharp.VO.Tests
 
 		[Fact, Trait("Category", "DBF")];
 		METHOD CDX_test() AS VOID
-			#warning Disabled sample, updates index fields
-/*			LOCAL aValues AS ARRAY
+			LOCAL aValues AS ARRAY
 			LOCAL i AS DWORD
 			LOCAL cDBF, cCDX AS STRING
 			
@@ -1048,7 +1048,7 @@ BEGIN NAMESPACE XSharp.VO.Tests
 				END CASE
 				DBSkip ( 1 )
 			ENDDO
-			DBCloseArea()*/
+			DBCloseArea()
 		RETURN
 	
 	
@@ -1641,7 +1641,7 @@ BEGIN NAMESPACE XSharp.VO.Tests
 			NEXT    
 			DBCreateIndex( cDbf, "age" )
 			
-			Assert.True( IndexKey() == "age")
+			Assert.Equal( "age" , (STRING) IndexKey() )
 			Assert.True( IndexOrd() == 1 )
 			Assert.True( IndexCount() == 1 )
 			Assert.True( Upper(IndexExt()) == ".CDX")
@@ -1779,7 +1779,580 @@ BEGIN NAMESPACE XSharp.VO.Tests
 			DBCloseArea()
 		RETURN
 		
+
+		// TECH-5YYVPE1A8T, DBFCDX StackOverflow with Shared mode, DBSelete() and DBUnlock()
+		[Fact, Trait("Category", "DBF")];
+		METHOD DBFCDX_StackOverflow() AS VOID
+			LOCAL cDBF AS STRING
+			
+            TRY
+			RDDSetDefault("DBFCDX")
+			SetExclusive( FALSE )
+			
+			cDBF := GetTempFileName()
+			FErase(cDBF)
+			FErase(cDBF + ".cdx")
+			
+			DbfTests.CreateDatabase(cDBF , { { "CFIELD" , "C" , 5 , 0 }} , { "AAA" , "CCC" , "BBB" } )
+			DBCreateIndex(cDbf , "CFIELD")
+			DBCloseAll()
+			
+			DBUseArea(,"DBFCDX",cDBF )
+			DBGoTop()
+			DBSkip()
+			
+			Assert.Equal( 3, (INT) RecNo() )
+			Assert.Equal( "BBB  ", FieldGet(1) )
+			
+			Assert.True( DBRLock()  )
+			Assert.True( DBDelete() )
+			Assert.True( DBUnlock() ) // StackOverflow here
+			
+            FINALLY
+			DBCloseAll()
+            SetExclusive ( TRUE )
+            END TRY
+		RETURN
+
+
+		// TECH-545T6VKW27, Problems with OrdScope() and DBSeek()
+		[Fact, Trait("Category", "DBF")];
+		METHOD OrdScope_and_DBSeek_test() AS VOID
+			LOCAL cDBF AS STRING
+			LOCAL aFields, aValues AS ARRAY
+			LOCAL i AS DWORD
+			
+			RDDSetDefault("DBFCDX")
+			
+			cDbf := GetTempFileName("test1")
+			FErase(cDbf + ".cdx")
+			
+			aValues := {"Gas" , "Abc", "Golden" , "Guru" , "Ddd" , "Aaa" , "Ggg"}
+			aFields := { {"CFIELD" , "C" , 10 , 0} }
+			
+			DBCreate(cDbf , aFields)
+			DBUseArea(,,cDBF , , FALSE)
+			DBCreateIndex(cDbf , "Upper(CFIELD)")
+			FOR i := 1 UPTO ALen(aValues)
+				DBAppend()
+				FieldPut(1, aValues[i])
+			NEXT
+			
+			DBGoTop()
+			Assert.Equal(7 , (INT) DBOrderInfo( DBOI_KEYCOUNT ) ) // 7, correct
+			
+			// Setting order scope
+			OrdScope(TOPSCOPE, "G")
+			OrdScope(BOTTOMSCOPE, "G")
+			DBGoTop()
+			
+			// VO: -2 with NTX, 4 with CDX
+			Assert.Equal(4 , (INT) DBOrderInfo( DBOI_KEYCOUNT ) )
+			
+			Assert.True( DBSeek("G")    ) // TRUE, correct
+			Assert.True( DBSeek("GOLD") ) // TRUE with NTX, FALSE with CDX. VO TRUE in both
+			
+			// Clearing order scope
+			OrdScope(TOPSCOPE, NIL)
+			OrdScope(BOTTOMSCOPE, NIL)
+			Assert.Equal( 7 , (INT) DBOrderInfo( DBOI_KEYCOUNT ) )
+			Assert.True( DBSeek("G") )
+			Assert.True( DBSeek("GOLD") )
+			
+			// Setting order scope again
+			OrdScope(TOPSCOPE, "G")
+			OrdScope(BOTTOMSCOPE, "G")
+			DBGoTop()
+			// VO: -2 with NTX, 4 with CDX
+			Assert.Equal(4 , (INT) DBOrderInfo( DBOI_KEYCOUNT ) )
+			
+			Assert.True( DBSeek("G")    ) // TRUE, correct
+			Assert.True( DBSeek("GOLD") ) // TRUE with NTX, FALSE with CDX. VO TRUE in both
+			
+			DBCloseArea()
+		RETURN
+
+
+
+		// TECH-6010F6ZSY9, DBFCDX OrdDescend() not working
+		[Fact, Trait("Category", "DBF")];
+		METHOD DBFCDX_OrdDescend_test() AS VOID
+			LOCAL cDBF, cIndex AS STRING
+			LOCAL aFields, aValues AS ARRAY
+			LOCAL i AS DWORD
+			
+			RDDSetDefault ( "DBFCDX" )
+			aFields := { { "LAST" , "C" , 20 , 0 }}
+			aValues := { "b" , "d" , "c", "e" , "a" }
+			cDBF := GetTempFileName()
+			FErase ( cDbf + IndexExt() )
+			cIndex := cDbf + "x"
+			FErase ( cIndex + IndexExt() )
+//			 -----------------
+			DBCreate( cDBF , AFields)
+			DBUseArea(,"DBFCDX",cDBF )
+			FOR i := 1 UPTO ALen ( aValues )
+				DBAppend()
+				FieldPut ( 1 , aValues [ i ] )
+			NEXT
+			
+			DBCreateOrder ( "ORDER1" , cIndex , "upper(LAST)" , { || Upper(_FIELD->LAST) } )
+			DBSetOrder ( 1 )
+			
+			Assert.False( DBOrderInfo(DBOI_ISDESC) ) // false, correct
+			Assert.False( OrdDescend() ) // true, incorrect
+
+			DBGoTop()
+			LOCAL aResult AS ARRAY
+			LOCAL nIndex AS INT
+			aResult := {5,1,3,2,4}
+			nIndex := 0
+			DO WHILE ! EOF()
+//				5,1,3,2,4 correct
+				nIndex ++
+				Assert.Equal((INT) aResult[nIndex] , (INT) RecNo() )
+				DBSkip(1)
+			ENDDO
+			
+			Assert.False( OrdDescend ( ,, TRUE ) )
+			Assert.True( DBOrderInfo(DBOI_ISDESC) ) // false, wrong
+			Assert.True( OrdDescend() )
+			
+			DBGoTop()
+			aResult := {4,2,3,1,5}
+			nIndex := 0
+			DO WHILE ! EOF()
+//				5,1,3,2,4 again, wrong, should be 4,2,3,1,5
+				nIndex ++
+				Assert.Equal((INT) aResult[nIndex] , (INT) RecNo() )
+				DBSkip(1)
+			ENDDO
+
+			DBCloseAll()
+		RETURN
+
+
+		// TECH-8H9WL71978, OrdIsUnique() always returns TRUE
+		[Fact, Trait("Category", "DBF")];
+		METHOD OrdIsUnique_test() AS VOID
+			LOCAL cDBF, cIndex AS STRING
+			LOCAL aFields, aValues AS ARRAY
+			LOCAL i AS DWORD
+			LOCAL lUnique AS LOGIC
+
+			lUnique := SetUnique()
+			RDDSetDefault ( "DBFCDX" )
+			
+			aFields := { { "LAST" , "C" , 20 , 0 }}
+			aValues := { "a" , "d" , "f", "c" }
+			
+			cDBF := GetTempFileName()
+			cIndex := cDbf
+			
+			FErase ( cIndex + IndexExt() )
+//			 -----------------
+			DBCreate( cDBF , AFields)
+			DBUseArea(,"DBFCDX",cDBF )
+			FOR i := 1 UPTO ALen ( aValues )
+				DBAppend()
+				FieldPut ( 1 , aValues [ i ] )
+			NEXT
+			
+			Assert.True( OrdCondSet() )
+			Assert.True( OrdCreate(cIndex, "ORDER1", "upper(LAST)", { || Upper ( _FIELD-> LAST) } ) )
+			DBSetOrder ( 1 )
+			Assert.Equal( "ORDER1" , OrdName() ) // "ORDER1"
+			Assert.False( OrdIsUnique() ) // always returns true !
+			Assert.False( DBOrderInfo(DBOI_UNIQUE ) ) // ok
+			Assert.False( DBOrderInfo(DBOI_ISDESC ) ) // ok
+			
+			Assert.True( OrdCondSet() )
+//			 create a descend and unique order
+			Assert.True( OrdCondSet(,,,,,,,,,,TRUE) )
+			SetUnique ( TRUE )
+			OrdCreate(cIndex, "ORDER2", "upper(LAST)", { || Upper ( _FIELD-> LAST) } )
+			
+			DBSetOrder ( 2 )
+			Assert.Equal( "ORDER2" , OrdName() ) // "ORDER2"
+			Assert.True( OrdIsUnique() ) // always returns true !
+			Assert.True( DBOrderInfo(DBOI_UNIQUE ) ) // ok
+			Assert.True( DBOrderInfo(DBOI_ISDESC ) ) // ok
+			DBCloseAll()
+			Assert.True( SetUnique ( lUnique ) )
+		RETURN
+
+
+		// TECH-679F75W648, Cannot create custom DBFCDX index
+		[Fact, Trait("Category", "DBF")];
+		METHOD Custom_DBFCDX_test() AS VOID
+			LOCAL cDBF, cIndex AS STRING
+			LOCAL aFields, aValues AS ARRAY
+			LOCAL i AS DWORD
+			
+			RDDSetDefault ( "DBFCDX" )
+			
+			aFields := { { "LAST" , "C" , 20 , 0 }}
+			
+			aValues := { "Goethe" , "Goldmann" , "Ober",;
+			"Osterreich" , "Gothe" , "Gotz" , "Gobel" ,;
+			"Otter" , "Anfang" , "Art" , "Arger" }
+			
+			cDBF := GetTempFileName()
+			cIndex := cDbf
+			FErase ( cIndex + IndexExt() )
+
+			DBCreate( cDBF , AFields)
+			DBUseArea(,"DBFCDX",cDBF )
+			FOR i := 1 UPTO ALen ( aValues )
+				DBAppend()
+				FieldPut ( 1 , aValues [ i ] )
+			NEXT
+			
+			FOR i := 1 UPTO 2
+				DBSetOrderCondition()
+				IF i == 2
+//					 second order should be a custom order.
+					DBSetOrderCondition(,,,,,,,,,,,,, TRUE)
+				ENDIF
+				DBCreateOrder ( "ORDER"+ NTrim(i) , cIndex , "upper(LAST)" , { ||Upper ( _FIELD->LAST) } )
+//				? OrdCreate(cIndex, "ORDER"+NTrim(i), "upper(LAST)", { || Upper ( _Field->LAST) } ) // ok
+			NEXT
+
+			DBSetOrder ( 1 )
+			Assert.Equal( "ORDER1", OrdName() ) // "ORDER1" ok
+			Assert.Equal( 1 , (INT) OrdNumber() ) // 1 ok
+			Assert.Equal( "upper(LAST)" ,  OrdKey(1) ) // "UPPER(LAST)" ok
+			Assert.False( (LOGIC) DBOrderInfo ( DBOI_CUSTOM ) ) // returns FALSE ok
+			Assert.Equal( 11 , (INT) DBOrderInfo ( DBOI_KEYCOUNT ) ) // ok, shows 11
+			Assert.Equal( 11 , (INT) OrdKeyCount( 1 , cIndex ) ) // ok, shows 11
+			Assert.Equal( 11 , (INT) OrdKeyCount( "ORDER1" , cIndex) ) // ok, shows 11
+			Assert.Equal( 11 , (INT) OrdKeyCount( 1 ) )
+			Assert.Equal( 11 , (INT) OrdKeyCount() )
+			
+			DBSetOrder ( 2 )
+			Assert.Equal( "ORDER2", OrdName() ) // "ORDER2" ok
+			Assert.Equal( 2 , (INT) OrdNumber() ) // 2 ok
+			Assert.Equal( "upper(LAST)" ,  OrdKey(2) ) // "UPPER(LAST)" ok
+			Assert.True( (LOGIC) DBOrderInfo ( DBOI_CUSTOM ) ) // NOTE: returns FALSE instead of TRUE
+			Assert.Equal( 0 , (INT) DBOrderInfo ( DBOI_KEYCOUNT ) ) // NOTE: shows 11 instead of 0
+			Assert.Equal( 0 , (INT) OrdKeyCount( 2 , cIndex ) ) // NOTE: shows 11 instead of 0
+			Assert.Equal( 0 , (INT) OrdKeyCount( "ORDER2" , cIndex) ) // NOTE: shows 11 instead of 0
+			Assert.Equal( 0 , (INT) OrdKeyCount( 2 ) )
+			Assert.Equal( 0 , (INT) OrdKeyCount() )
+			
+			Assert.Equal( 2 , (INT) IndexCount() ) // 2 ok
+			
+//			 NOTE: ORDDESTROY() problem. if the order doesn´t exist the func returns TRUE and
+//			 seems to do nothing. VO throws an error if a order doesn´exist.
+			LOCAL lException := FALSE AS LOGIC
+			TRY
+				OrdDestroy("ORDER4") // NOTE: "ORDER4" does not exist
+			CATCH
+				lException := TRUE
+				Assert.Equal( 2 , (INT) IndexCount() )
+				Assert.Equal( 2 , (INT) IndexOrd() )
+			END TRY
+			Assert.True( lException )
+			DBCloseAll()
+		RETURN
+
+
+		// TECH-679F75W648, Cannot create custom DBFCDX index
+		[Fact, Trait("Category", "DBF")];
+		METHOD Custom_DBFCDX_test2() AS VOID
+			#warning Custom order test not added, feature is not supported yet
+/*
+			LOCAL cDBF, cPfad, cIndex, cDriver AS STRING
+			LOCAL aFields, aValues AS ARRAY
+			LOCAL i AS DWORD
+			LOCAL aRecnos AS ARRAY
+			
+			cDriver := RDDSetDefault ( "DBFCDX" )
+			
+			aFields := { { "LAST" , "C" , 20 , 0 }}
+			
+			aValues := { "Goethe" , "Goldmann" , "Ober",;
+			"Osterreich" , "Gothe" , "Gotz" , "Gobel" ,;
+			"Otter" , "Anfang" , "Art" , "Arger" }
+			
+			cPfad := "" // "c:\xide\projects\project1\bin\debug\"
+			cDBF := cPfad + "Foo"
+			cIndex := cPfad + "Foox"
+			
+			FErase ( cIndex + IndexExt() )
+//			 -----------------
+			? DBCreate( cDBF , AFields)
+			? DBUseArea(,"DBFCDX",cDBF )
+			
+			FOR i := 1 UPTO ALen ( aValues )
+			DBAppend()
+			FieldPut ( 1 , aValues [ i ] )
+			NEXT
+			
+			FOR i := 1 UPTO 2
+			DBSetOrderCondition()
+			IF i == 2
+			DBSetOrderCondition(,,,,,,,,,,,,, TRUE)
+			ENDIF
+			
+//			 ? DBCREATEORDER ( "ORDER"+ NTrim(i) , cIndex ,"upper(LAST)" , { || Upper ( _Field->LAST) } )
+			? OrdCreate(cIndex, "ORDER"+ NTrim(i), "upper(LAST)", { || Upper (_Field->LAST) } )
+			NEXT
+			
+//			 -------------
+			?
+			? IndexCount() // ok 2
+			? OrdName() // ok current order is "ORDER2"
+			? OrdKeyCount() // 0 before OrdKeyAdd()
+			?
+			
+//			 add 4 records to the custom order
+			aRecnos := { 1 , 11 , 4 , 9 }
+			FOR i := 1 UPTO ALen ( aRecnos )
+			DBGoTo ( aRecnos [ i ] )
+			OrdKeyAdd ()
+			NEXT
+			? OrdKeyCount() // 4 after OrdKeyAdd()
+			?
+			
+			DBGoTop()
+			
+//			 "Last" names shown are:
+//			 Anfang
+//			 Arger
+//			 Gothe
+//			 Osterreich
+			
+			DO WHILE ! EOF()
+			? FieldGet ( 1 ) , RecNo()
+			DBSkip(1)
+			ENDDO
+			?
+//			
+			? "Delete the entry 'Arger'"
+			DBSeek( Upper ( "Arger" ))
+			OrdKeyDel () // delete the entry
+			? OrdKeyCount() // 3
+			?
+			DBGoTop()
+			
+//			 "Last" names shown are now:
+//			 Anfang
+//			 Gothe
+//			 Osterreich
+			
+			DO WHILE ! EOF()
+			? FieldGet ( 1 ) , RecNo()
+			DBSkip(1)
+			ENDDO
+			?
+			? "Delete all entries"
+			
+			DBGoTop()
+			DO WHILE OrdKeyCount() > 0
+			OrdKeyDel()
+			DBGoTop()
+			ENDDO
+			
+			? "Entries now:" , OrdKeyCount()
+			?
+//			 "ORDER2" order is no longer needed
+			? OrdDestroy("ORDER2")
+			? IndexCount() // 1
+			?
+//			 --- switch to the first order ---
+			? DBSetOrder ( 1 )
+			? OrdName() // ok "ORDER1"
+			?
+//			 List all "Last" names
+			DBGoTop()
+			
+			DO WHILE ! EOF()
+			? FieldGet ( 1 ) , RecNo()
+			DBSkip(1)
+			ENDDO
+			
+			DBCloseAll()
+			RDDSetDefault ( cDriver )*/
+		RETURN
+
+
+		// TECH-5OD246EMC4, VODBOrdListAdd() fails when index filename passed without extension
+		[Fact, Trait("Category", "DBF")];
+		METHOD VODBOrdListAdd_test() AS VOID
+			LOCAL cDBF, cIndex AS STRING
+			LOCAL aFields, aValues AS ARRAY
+			LOCAL i AS DWORD
+			
+			RDDSetDefault("DBFCDX")
+			aFields := { { "LAST" , "C" , 20 , 0 }}
+			aValues := { "b" , "c" , "d", "e" , "a" }
+			
+			cDBF := GetTempFileName()
+			cIndex := cDbf
+			FErase ( cIndex + IndexExt() )
+			
+			DBCreate( cDBF , AFields)
+			DBUseArea(,,cDBF)
+			FOR i := 1 UPTO ALen ( aValues )
+				DBAppend()
+				FieldPut ( 1 , aValues [ i ] )
+			NEXT
+			DBCreateOrder ( "ORDER1" , cIndex , "upper(LAST)" , { || Upper (_FIELD->LAST) } )
+			DBCloseAll()
+			
+//			 When ".cdx" is added SetIndex() returns true
+//			 cIndex := cIndex + IndexExt()
+			DBUseArea(,,cDBF)
+			Assert.True( VODBOrdListAdd(cIndex , NIL) ) // Returns FALSE, error
+			DBCloseAll()
+		RETURN
+
+
+		// TECH-0YI914Z4I2, Problem opening dbf with dbt via SetDefault()
+		[Fact, Trait("Category", "DBF")];
+		METHOD SetDefault_test() AS VOID
+			LOCAL cPath, cDbf AS STRING
+			LOCAL cDefault AS STRING
+			RDDSetDefault("DBFCDX")
+			
+			cPath := System.IO.Path.GetTempPath()
+			IF .NOT. cPath:EndsWith("\")
+				cPath += "\"
+			END IF
+			cDbf := "fpttest"
+			FErase(cPath + cDBF + ".dbf")
+			FErase(cPath + cDBF + ".ntx")
+			FErase(cPath + cDBF + ".cdx")
+			FErase(cPath + cDBF + ".dbt")
+			FErase(cPath + cDBF + ".fpt")
+			
+			cDefault := GetDefault()
+			SetDefault(cPath)
+			
+			Assert.True( DBCreate( cPath + cDbf , { { "ID" , "C" , 5 , 0 } , {"MEM" , "M" , 10 , 0}} ) )
+//			 System.IO.FileNotFoundException
+//			 Could not find file '<path_of_exe>\mydbf.DBT'.
+			Assert.True( DBUseArea(,,cDbf ) )
+			Assert.True( DBCloseArea()      )
+			
+			SetDefault(cDefault)
+		RETURN
+
+
+		// TECH-ZW8D1S87CH, Problem updating cdx
+		[Fact, Trait("Category", "DBF")];
+		METHOD CdxUpdating() AS VOID
+			LOCAL cDBF AS STRING
+			LOCAL aFields, aValues AS ARRAY 
+			LOCAL cPrev AS STRING
+			LOCAL nCount AS INT
+			LOCAL i AS DWORD
+			
+			RDDSetDefault ( "DBFCDX" )
+			
+			aFields := { { "NUM" , "N" , 8 , 0 },{ "LAST" , "C" , 100 , 0 }} 
+			aValues := { "b" , "c" , "d", "e" , "a" , "r" , "t" , "g" , "m" , "n" , "t" , "b" , "h" , "f" , "y", "r", "t", "y", "z", "v", "e", "r", "b", "z", "b", "m", "w", "e" }
+			
+			cDBF := GetTempFileName()
+			FErase ( cDbf + IndexExt() )       
+			
+			DBCreate( cDBF , AFields)
+			DBUseArea(,,cDBF )
+			FOR i := 1 UPTO ALen ( aValues )
+				DBAppend()
+				FieldPut ( 1 , i )                                      
+				FieldPut ( 2 , Replicate( aValues [ i ] , 50) )
+			NEXT
+			DBCreateIndex ( cDBF , "NUM" , {||_FIELD->NUM})
+			DBCreateOrder ( "LAST" , cDBF , "LAST" , {||_FIELD->LAST})
+			DBCloseAll()
+			
+			
+			DBUseArea(,,cDBF )
+			DBSetOrder(2)
+			DBGoBottom()
+			
+			FieldPut(2, "a")
+			DBSkip(-5)
+			FieldPut(2, "d")
+			DBSkip(5)
+			FieldPut(2, "z")
+			
+			
+			cPrev := NULL
+			nCount := 0
+			DBGoTop()
+			DO WHILE .not. EoF()
+				nCount ++
+				IF cPrev != NULL
+					Assert.True( cPrev <= FieldGet(2) )
+				END IF
+				cPrev := FieldGet(2)
+				DBSkip()
+			END DO
+			Assert.Equal( nCount, (INT) ALen(aValues) )
+	
+			DBCloseArea()
+		RETURN
 		
+	
+		// TECH-78PAZ508AE, Problems with creating/opening DBFCDX memo files
+		[Fact, Trait("Category", "DBF")];
+		METHOD MemoCreateAndOpen() AS VOID
+			LOCAL aFields AS ARRAY
+			LOCAL cDBF AS STRING
+			
+			RDDSetDefault("DBFCDX")
+			cDBF := System.IO.Path.GetTempPath() + "cdxtest"
+
+			aFields := { { "LAST" , "C" , 20 , 0 } , { "COMMENTS" , "M" , 10 , 0 }}
+			FErase(cDBF + ".cdx")
+			FErase(cDBF + ".dbt")
+			FErase(cDBF + ".fpt")
+			
+			DBCreate( cDBF , AFields)
+//			DBCreate( cDBF , AFields , "DBFCDX") // same
+			
+			Assert.False( (LOGIC) File(cDBF + ".dbt") )
+			Assert.True( (LOGIC) File(cDBF + ".fpt") )
+			
+			IF File(cDBF + ".dbt")
+				FRename(cDBF + ".dbt",cDBF + ".fpt")
+			END IF
+
+			TRY
+				DBUseArea(,,cDBF)
+			FINALLY
+				DBCloseAll()
+			END TRY
+
+
+			RDDSetDefault("DBFNTX")
+			cDBF := System.IO.Path.GetTempPath() + "ntxtest"
+
+			aFields := { { "LAST" , "C" , 20 , 0 } , { "COMMENTS" , "M" , 10 , 0 }}
+			FErase(cDBF + ".dbt")
+			FErase(cDBF + ".fpt")
+			
+			DBCreate( cDBF , aFields)
+			
+			Assert.True( (LOGIC) File(cDBF + ".dbt") )
+			Assert.False( (LOGIC) File(cDBF + ".fpt") )
+			
+			IF File(cDBF + ".fpt")
+				FRename(cDBF + ".fpt",cDBF + ".dbt")
+			END IF
+
+			TRY
+				DBUseArea(,,cDBF)
+			FINALLY
+				DBCloseAll()
+			END TRY
+		RETURN		
+
+
+
 		STATIC PRIVATE METHOD GetTempFileName() AS STRING
 		RETURN GetTempFileName("testdbf")
 		STATIC PRIVATE METHOD GetTempFileName(cFileName AS STRING) AS STRING

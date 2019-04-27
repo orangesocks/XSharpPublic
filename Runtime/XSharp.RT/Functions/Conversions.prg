@@ -150,7 +150,7 @@ INTERNAL STATIC CLASS ConversionHelpers
 		IF result:Length > nLen
 			LOCAL nSepIndex AS INT
 			nSepIndex := result:IndexOf(usCulture:NumberFormat:NumberDecimalSeparator)
-			IF nSepIndex != -1 .and. nSepIndex <= nLen
+			IF nSepIndex != -1 .AND. nSepIndex <= nLen
 				result := result:Substring(0, nLen)
 			ELSE
 				result := Replicate("*", (DWORD) nLen)
@@ -179,7 +179,7 @@ INTERNAL STATIC CLASS ConversionHelpers
 		RETURN cString
 
 	STATIC METHOD GetSignificantWholeDigits(r AS REAL8) AS INT
-		LOCAL nRet := iif(r < 0.0 , 1 , 0) AS INT
+		LOCAL nRet := IIF(r < 0.0 , 1 , 0) AS INT
 		r := Math.Floor(Math.Abs(r))
 		DO WHILE r > 0.0
 			nRet ++
@@ -198,9 +198,9 @@ END CLASS
 	/// </returns>
 FUNCTION AsHexString(uValue AS USUAL) AS STRING
 	LOCAL result AS STRING
-	IF IsString(uValue)
+	IF uValue:IsString
 		result := c2Hex( (STRING) uValue)
-	ELSEIF IsNumeric(uValue)
+	ELSEIF uValue:IsNumeric
 		result := String.Format("{0:X8}", (INT64) uValue)
 	ELSE
 		result := ""
@@ -495,7 +495,7 @@ FUNCTION Str(n ,uLen ,uDec ) AS STRING CLIPPER
 	LOCAL nLen AS DWORD
     LOCAL nDec AS DWORD
     LOCAL lTrimSpaces := FALSE AS LOGIC
-	IF IsNumeric(uLen)
+	IF uLen:IsNumeric
         IF uLen < 0
 	        nLen := System.UInt32.MaxValue
 	        lTrimSpaces := TRUE
@@ -505,7 +505,7 @@ FUNCTION Str(n ,uLen ,uDec ) AS STRING CLIPPER
 	ELSE
 		nLen := System.UInt32.MaxValue
     ENDIF
-    IF ! IsNumeric(uDec)
+    IF ! uDec:IsNumeric
         nDec := UInt32.MaxValue
     ELSE
         IF uDec < 0
@@ -524,23 +524,23 @@ FUNCTION Str(n ,uLen ,uDec ) AS STRING CLIPPER
 /// <summary>
 /// Convert a numeric expression to a string.
 /// </summary>
-/// <param name="n"></param>
+/// <param name="nValue"></param>
 /// <param name="uLength"></param>
 /// <param name="uDec"></param>
 /// <returns>The string with always a DOT as decimal separator.</returns>
 
-FUNCTION _Str(n ,uLen ,uDec ) AS STRING CLIPPER
+FUNCTION _Str(nValue ,uLen ,uDec ) AS STRING CLIPPER
     LOCAL nLen,  nDec AS LONG
     LOCAL dwLen, dwDec AS DWORD
-	IF PCount() > 0 .AND. ! n:IsNumeric
-       THROW Error.DataTypeError( __ENTITY__, NAMEOF(n),1, n, uLen, uDec)
+	IF PCount() > 0 .AND. ! nValue:IsNumeric
+       THROW Error.DataTypeError( __ENTITY__, NAMEOF(nValue),1, nValue, uLen, uDec)
     ENDIF
 	SWITCH PCount()
 	CASE 1
-		RETURN _Str1( n)
+		RETURN _Str1( nValue)
 	CASE 2
 		IF ! uLen:IsNumeric
-			THROW Error.DataTypeError( __ENTITY__, NAMEOF(uLen),2,n, uLen, uDec)
+			THROW Error.DataTypeError( __ENTITY__, NAMEOF(uLen),2,nValue, uLen, uDec)
         ENDIF
         nLen := uLen
         IF nLen < 0
@@ -548,21 +548,21 @@ FUNCTION _Str(n ,uLen ,uDec ) AS STRING CLIPPER
         ELSE
             dwLen := (DWORD) nLen
         ENDIF
-		IF n:IsFloat
-			RETURN _Str2(n, dwLen)
+		IF nValue:IsFloat
+			RETURN _Str2(nValue, dwLen)
 		ELSE
-			RETURN ConversionHelpers.FormatNumber((INT64) n, nLen,0)
+			RETURN ConversionHelpers.FormatNumber((INT64) nValue, nLen,0)
 		ENDIF
 	CASE 3
 		IF ! uLen:IsNumeric
-			THROW Error.DataTypeError( __ENTITY__, NAMEOF(uLen),2,n, uLen, uDec)
+			THROW Error.DataTypeError( __ENTITY__, NAMEOF(uLen),2,nValue, uLen, uDec)
 		ENDIF
 		IF ! uDec:IsNumeric
-			THROW Error.DataTypeError( __ENTITY__, NAMEOF(uDec),3,n, uLen, uDec)
+			THROW Error.DataTypeError( __ENTITY__, NAMEOF(uDec),3,nValue, uLen, uDec)
         ENDIF
         nLen := uLen
         nDec := uDec
- 		IF n:IsLong
+ 		IF nValue:IsFLoat
             nLen := uLen
             IF nLen < 0
                 dwLen := System.UInt32.MaxValue
@@ -581,15 +581,19 @@ FUNCTION _Str(n ,uLen ,uDec ) AS STRING CLIPPER
                     dwLen := dwLen + dwDec + 1
                 ENDIF
             ENDIF
-            RETURN _Str3(n, dwLen, dwDec)
+            VAR res := _Str3(nValue, dwLen, dwDec)
+            IF nLen < 0
+                res := res:TrimStart()
+            ENDIF
+            RETURN res
         ELSE
             IF nLen < 0
-                nLen := -1
+                nLen := 30
             ENDIF
             IF nDec < 0
-                nDec := -1
+                nDec := (INT) SetDecimal()
             ENDIF
-			RETURN ConversionHelpers.FormatNumber((INT64) n, nLen,nDec)
+			RETURN ConversionHelpers.FormatNumber((INT64) nValue, nLen,nDec)
 		ENDIF
 	OTHERWISE
 		RETURN ""
@@ -775,7 +779,6 @@ FUNCTION Str3(f AS FLOAT,dwLen AS DWORD,dwDec AS DWORD) AS STRING
 
 /// <exclude/>
 FUNCTION _Str3(f AS FLOAT,dwLen AS DWORD,dwDec AS DWORD) AS STRING
-	LOCAL lDecSpecified := dwDec != UInt32.MaxValue AS LOGIC
 
 
    IF dwDec == UInt32.MaxValue
@@ -811,26 +814,11 @@ FUNCTION _Str3(f AS FLOAT,dwLen AS DWORD,dwDec AS DWORD) AS STRING
 /// <summary>
 /// </summary>
 /// <param name="c"></param>
-/// <param name="dwRadix"></param>
 /// <returns>
 /// </returns>
-FUNCTION StrToFloat(c AS STRING,dwRadix AS DWORD) AS FLOAT
-	VAR wSep   := SetDecimalSep()
-	LOCAL result AS FLOAT
-	IF wSep != 46 // .
-		c := c:Replace((CHAR) wSep, c'.')
-	ENDIF
-	TRY
-		LOCAL r8 AS System.Double
-		IF System.Double.TryParse(c, OUT r8)
-			result := r8
-		ELSE
-			result := 0
-		ENDIF
-	CATCH
-		result := 0
-	END TRY
-RETURN result
+FUNCTION StrToFloat(c AS STRING) AS FLOAT
+    return (FLOAT) Val(c)
+
 
 
 
@@ -843,7 +831,7 @@ RETURN result
 /// <returns>
 /// </returns>
 FUNCTION Val(cNumber AS STRING) AS USUAL
-	RETURN _Val(cNumber)
+	RETURN _Val(AllTrim(cNumber))
 
 
 /// <summary>

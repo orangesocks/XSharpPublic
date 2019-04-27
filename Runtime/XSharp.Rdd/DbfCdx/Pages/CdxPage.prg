@@ -30,9 +30,13 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 
         INTERNAL PROPERTY Dumped AS LOGIC GET _dumped SET _dumped := VALUE
         INTERNAL PROPERTY IsHot  AS LOGIC GET _hot SET _hot := VALUE
-        INTERNAL PROPERTY Tag    AS CDXTag GET _tag SET _tag := VALUE
+        INTERNAL PROPERTY Tag    AS CDXTag GET _tag SET _setTag(VALUE)
         INTERNAL PROPERTY Buffer AS BYTE[] GET _buffer
         INTERNAL PROPERTY PageNo AS Int32 GET _nPage SET _nPage := VALUE
+
+
+        PROTECTED VIRTUAL METHOD _setTag(newTag AS CdxTag) AS VOID
+            _tag := newTag
 
         PROTECTED INTERNAL CONSTRUCTOR( bag AS CdxOrderBag )
 			SELF:_bag    := bag
@@ -49,7 +53,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 		    RETURN
         #region Read/Write
 
-        PROTECTED METHOD SetBuffer(buffer as Byte[]) AS VOID
+        PROTECTED METHOD SetBuffer(buffer AS BYTE[]) AS VOID
             _buffer := buffer
 
 			
@@ -64,13 +68,13 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             RETURN lOk
 
         INTERNAL METHOD Clear() AS VOID
-            _buffer := Byte[]{_buffer:Length}
+            _buffer := BYTE[]{_buffer:Length}
             RETURN
 
         INTERNAL METHOD SetEmptyRoot() AS VOID
             SELF:Clear()
-            SELF:PageType  := CdxPageType.Leaf
-            VAR oLeaf := CdxLeafPage{SELF:_bag,SELF}
+            SELF:PageType   := CdxPageType.Leaf
+            VAR oLeaf       := CdxLeafPage{SELF:_bag,SELF}
             oLeaf:InitBlank(SELF:_tag)
             SELF:PageType  := CdxPageType.Leaf | CdxPageType.Root
             SELF:Write()
@@ -93,11 +97,27 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 	            nValue:b1 := buffer[nOffSet]
                 nValue:b2 := buffer[nOffSet+1]
                 RETURN nValue:wordValue
+
+           [MethodImpl(MethodImplOptions.AggressiveInlining)];        
+			PROTECTED INTERNAL METHOD _GetShort(nOffSet AS INT) AS SHORT
+                LOCAL nValue := WordStruct{} AS WordStruct
+	            nValue:b1 := buffer[nOffSet]
+                nValue:b2 := buffer[nOffSet+1]
+                RETURN nValue:ShortValue
 				
 			[MethodImpl(MethodImplOptions.AggressiveInlining)];        
 			PROTECTED INTERNAL METHOD _SetWord(nOffSet AS INT, wValue AS WORD) AS VOID
                 LOCAL nValue := WordStruct{} AS WordStruct
                 nValue:wordValue := wValue
+	            buffer[nOffSet]   := nValue:b1
+                buffer[nOffSet+1] := nValue:b2
+				_hot := TRUE
+                RETURN 
+
+			[MethodImpl(MethodImplOptions.AggressiveInlining)];        
+			PROTECTED INTERNAL METHOD _SetShort(nOffSet AS INT, siValue AS SHORT) AS VOID
+                LOCAL nValue := WordStruct{} AS WordStruct
+                nValue:shortValue := siValue
 	            buffer[nOffSet]   := nValue:b1
                 buffer[nOffSet+1] := nValue:b2
 				_hot := TRUE
@@ -210,16 +230,17 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 
 
         STATIC METHOD MemSet(bytes AS BYTE[], start AS INT, length AS INT, bValue AS BYTE) AS VOID
-            var finish := start+length-1
-            FOR var i := start to finish
+            VAR finish := start+length-1
+            FOR VAR i := start TO finish
                 bytes[i] := bValue
-            next
+            NEXT
 
 		INTERNAL CONST CDXPAGE_SIZE        := 512 AS WORD
 
         INTERNAL VIRTUAL METHOD Dump AS STRING
             RETURN String.Empty
 
+ 
        
 	END CLASS
 

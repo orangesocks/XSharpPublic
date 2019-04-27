@@ -54,14 +54,13 @@ FUNCTION _Select(xValue) AS USUAL CLIPPER
     LOCAL nSelect           AS DWORD
     LOCAL xType             AS DWORD
     
-    IF IsNil(xValue)
+    IF xValue:IsNil
         RETURN  (INT) VoDb.GetSelect() 
     ENDIF
     xType := UsualType(xValue)
     SWITCH xType
     CASE SYMBOL
-        LOCAL symSelect := xValue AS SYMBOL
-        nSelect := (DWORD) VoDb.SymSelect(symSelect)
+        nSelect := (DWORD) VoDb.SymSelect((SYMBOL) xValue)
     CASE STRING
         nSelect := _SelectString(xValue)
     CASE LONG
@@ -91,6 +90,7 @@ FUNCTION __FieldGetWaNum( workarea AS DWORD, fieldpos AS DWORD ) AS USUAL
     END TRY   
     RETURN ret
     
+
     
 /// <exclude/>
 FUNCTION __FieldSetNum( fieldpos AS DWORD, uValue AS USUAL ) AS USUAL
@@ -108,7 +108,7 @@ FUNCTION __FieldSetWaNum( nArea AS DWORD, fieldpos AS DWORD, uValue AS USUAL ) A
     END TRY   
     RETURN uValue
     
-    
+
     
     
     /// <summary>
@@ -124,7 +124,7 @@ FUNCTION FieldBlock(cFieldName AS STRING) AS CODEBLOCK
         nPos := FieldPos(cFieldName)
         IF nPos != 0
             //oCB := MCompile("{|x| iif( IsNil(x), __FieldGetNum( "+nPos:ToString()+"), __FieldSetNum( "+nPos:ToString()+" , x)")
-            oCb := {|x| IIF(isNil(x), __FieldGetNum(nPos), __FieldSetNum(nPos, x))}
+            oCb := {|x| IIF(x:IsNil, __FieldGetNum(nPos), __FieldSetNum(nPos, x))}
         ENDIF
     ENDIF
     RETURN oCB
@@ -137,26 +137,17 @@ FUNCTION FieldBlock(cFieldName AS STRING) AS CODEBLOCK
     /// </returns>
 FUNCTION FieldBlockSym(symFieldName AS SYMBOL) AS CODEBLOCK
     RETURN FieldBlock(symFieldName)   
-    
+
+   
     /// <summary>
     /// Return a set-get code block for a field, specified as a string, in a specified work area.
     /// </summary>
-    /// <param name="cFieldName"></param>
-    /// <param name="nArea"></param>
+    /// <param name="cFieldName">The name of the field.</param>
+    /// <param name="uArea">The work area number where the field resides. This can be a string, number or symbol</param>
     /// <returns>
     /// </returns>
-FUNCTION FieldWBlock(cFieldName AS STRING,nArea AS DWORD) AS CODEBLOCK
-    LOCAL oCB  := NULL AS CODEBLOCK
-    LOCAL nPos := 0    AS DWORD
-    IF ! String.IsNullOrEmpty(cFieldName)
-        nPos := FieldPos(cFieldName, nArea)
-        IF nPos != 0
-            //VAR cPars := nArea:ToSTring()+","+nPos:ToString()
-            // oCB := MCompile("{|x| iif( IsNil(x), __FieldGetWaNum("+cPars+"), __FieldSetWaNum("+cPars+", x)")
-            oCB := {|x| IIF( IsNil(x), __FieldGetWaNum(nArea, nPos), __FieldSetWaNum(nArea, nPos, x)) }
-        ENDIF
-    ENDIF
-    RETURN oCB
+FUNCTION FieldWBlock(cFieldName AS STRING,uArea AS USUAL) AS CODEBLOCK
+    RETURN {|x| IIF( x:IsNil, __FieldGetWa(uArea, cFieldName), __FieldSetWa(uArea, cFieldName, x)) }
     
     /// <summary>
     /// Return a set-get code block for a field, specified as a Symbol, in a specified work area.
@@ -267,7 +258,7 @@ FUNCTION FieldPutSelect(uSelect AS USUAL,symField AS SYMBOL,uValue AS USUAL) AS 
     /// <returns>
     /// </returns>
 FUNCTION Alias(nSelect) AS STRING CLIPPER
-    IF IsNil(nSelect)
+    IF nSelect:IsNil
         RETURN Alias0()
     ENDIF
     RETURN VoDb.Alias(nSelect)
@@ -285,7 +276,7 @@ FUNCTION Alias0Sym() AS SYMBOL
 FUNCTION DbAppend(lReleaseLocks) AS LOGIC CLIPPER
     LOCAL lRetCode  AS LOGIC
     
-    IF IsNil(lReleaseLocks)
+    IF lReleaseLocks:IsNil
         lReleaseLocks := .T.
     ENDIF
     
@@ -319,7 +310,7 @@ FUNCTION DbCreate (   cName,  aStruct, cRddName , lNew,  cAlias, cDelim, lJustOp
         aStruct := {}
     ENDIF
     
-    IF !IsArray( aStruct )
+    IF ! aStruct:IsArray
         RETURN .F.
     ENDIF
     
@@ -343,13 +334,6 @@ FUNCTION DbCreate (   cName,  aStruct, cRddName , lNew,  cAlias, cDelim, lJustOp
         lJustOpen := .F.
     ENDIF
     
-    IF IsNil(cAlias)
-        cAlias := ""
-    ENDIF
-    
-    IF IsNil(cDelim)
-        cDelim := ""
-    ENDIF
     LOCAL oDriver := cRddName AS OBJECT
     IF oDriver == NULL_OBJECT
         oDriver := RuntimeState.DefaultRDD
@@ -386,12 +370,8 @@ FUNCTION DbDelete () AS LOGIC STRICT
     /// <summary>Remove an order from an open index file.</summary>
     /// <returns>TRUE if successful; otherwise, FALSE.</returns>
 FUNCTION DbDeleteOrder(uOrder, cOrdBag) AS LOGIC CLIPPER
-    LOCAL lRet   AS LOGIC
-    
-    lRet := TRUE
-    
-    IF IsNumeric(uOrder)
-        lRet := VoDb.OrderInfo(DBOI_NAME,"",uOrder, REF uOrder)
+    IF uOrder:IsNumeric
+        VoDb.OrderInfo(DBOI_NAME,"",uOrder, REF uOrder)
     ENDIF
     
     RETURN OrdDestroy(uOrder, cOrdBag)
@@ -403,7 +383,7 @@ FUNCTION DbDeleteOrder(uOrder, cOrdBag) AS LOGIC CLIPPER
 /// <br/> <note type="tip">The difference between VoDbEval and CoreDb.Eval is that DbEval takes USUAL parameters and has optional parameters.</note></remarks>
 /// <seealso cref="M:XSharp.CoreDb.Eval(XSharp.ICodeblock,XSharp.ICodeblock,XSharp.ICodeblock,System.Object,System.Object,System.Boolean)"  />
 FUNCTION DbEval(uBlock, uCobFor, uCobWhile, nNext, nRecno, lRest) AS LOGIC CLIPPER
-    IF IsNil(lRest)
+    IF lRest:IsNil
         lRest := .F.
     ENDIF
     RETURN _DbThrowErrorOnFailure(__FUNCTION__, VoDb.Eval(VoDb.ValidBlock(uBlock), VoDb.ValidBlock(uCobFor), VoDb.ValidBlock(uCobWhile), nNext, nRecno, lRest) )
@@ -446,17 +426,17 @@ FUNCTION DbLocate(uCobFor, uCobWhile, nNext, uRecId, lRest ) AS LOGIC CLIPPER
 
     LOCAL lRetCode  AS LOGIC
     
-    IF IsNil(lRest)
+    IF lRest:IsNil
         lRest := .F.
     ENDIF
     
-    IF IsNil(uCobWhile)
+    IF uCobWhile:IsNil
         uCobWhile := {|| .T. }
     ELSE
         lRest := .T.
     ENDIF
     
-    IF IsNil(nNext)
+    IF nNext:IsNil
         nNext := 0
     ENDIF
     lRetCode := _DbThrowErrorOnFailure(__FUNCTION__, VoDb.Locate(VoDb.ValidBlock(uCobFor), VoDb.ValidBlock(uCobWhile), nNext, uRecId, lRest))
@@ -474,12 +454,12 @@ FUNCTION DbLocate(uCobFor, uCobWhile, nNext, uRecId, lRest ) AS LOGIC CLIPPER
 FUNCTION DbOrderInfo(nOrdinal,cBagName, uOrder, xNewVal) AS USUAL CLIPPER
     LOCAL lKeyVal  := FALSE  AS LOGIC
     
-    IF !IsString(cBagName)
+    IF !cBagName:IsString
         cBagName := ""
     ENDIF
     
-    IF IsString(uOrder)
-        IF Len(uOrder) == 0
+    IF uOrder:IsString
+        IF SLen(uOrder) == 0
             uOrder := NIL
         ENDIF
     ENDIF
@@ -490,8 +470,8 @@ FUNCTION DbOrderInfo(nOrdinal,cBagName, uOrder, xNewVal) AS USUAL CLIPPER
     ENDIF
     VoDb.OrderInfo(nOrdinal, cBagName, uOrder, REF xNewVal)
     IF lKeyVal
-        IF IsString(xNewVal)
-            IF Len(xNewVal) == 0
+        IF xNewVal:IsString
+            IF SLen(xNewVal) == 0
                 xNewVal := NIL
             ELSE
                 xNewVal := &(xNewVal)
@@ -615,7 +595,7 @@ FUNCTION DbSetSelect(nSelect) AS DWORD CLIPPER
     /// <returns>
     /// </returns>
 FUNCTION DbSymSelect(sAlias)  AS DWORD CLIPPER
-    IF IsNil(sAlias)
+    IF sAlias:IsNil
         sAlias := Alias0Sym()
     ENDIF
     EnForceType(sAlias, SYMBOL)
@@ -642,7 +622,7 @@ FUNCTION DbRelation(wPos)  AS STRING CLIPPER
     /// <returns>
     /// </returns>
 FUNCTION DbSetDriver(cDriver) AS STRING CLIPPER
-    IF IsString(cDriver)
+    IF cDriver:IsString
         RETURN RddSetDefault(cDriver)
     ENDIF
     RETURN RddSetDefault()
@@ -651,7 +631,7 @@ FUNCTION DbSetDriver(cDriver) AS STRING CLIPPER
     
 /// <inheritdoc cref="M:XSharp.RT.Functions.VoDbSetFilter(XSharp.__Usual,System.String)" />
 FUNCTION DbSetFilter(cbFilter, cFilter) AS LOGIC CLIPPER
-    IF IsNil(cFilter)
+    IF cFilter:IsNil
         cFilter := "UNKNOWN"
     ENDIF
     RETURN _DbThrowErrorOnFailure(__FUNCTION__, VoDb.SetFilter(cbFilter, cFilter) )
@@ -669,9 +649,6 @@ FUNCTION DbSetRelation  (xAlias, uCobKey, cKey) AS LOGIC CLIPPER
     LOCAL cAlias    AS STRING
     LOCAL xType     AS DWORD
     
-    IF IsNil(cKey)
-        cKey := ""
-    ENDIF
     
     xType := UsualType(xAlias)
     
@@ -698,7 +675,7 @@ FUNCTION DbSetRelation  (xAlias, uCobKey, cKey) AS LOGIC CLIPPER
     /// <returns>
     /// </returns>
 FUNCTION DbSkip (nRecords) AS LOGIC CLIPPER
-    IF IsNil(nRecords)
+    IF nRecords:IsNil
         nRecords := 1
     ENDIF
     RETURN _DbThrowErrorOnFailure(__FUNCTION__, VoDb.Skip(nRecords) )
@@ -753,7 +730,6 @@ FUNCTION DbUseArea (lNew, xDriver, cName, cAlias, lShare, lReadOnly, aStru, cDel
 FUNCTION FieldPut (wPos AS USUAL, xValue  AS USUAL) AS USUAL 
 
     LOCAL xRetVal := NIL AS USUAL
-
     IF _DbThrowErrorOnFailure(__FUNCTION__, VoDb.FieldPut(wPos, xValue) )
         xRetVal := xValue
     ENDIF
@@ -818,7 +794,7 @@ FUNCTION LUpdate()  AS DATE STRICT
     /// <returns>
     /// </returns>
     
-FUNCTION RddCount(nType) AS DWORD CLIPPER
+FUNCTION RddCount() AS DWORD CLIPPER
     RETURN VoDb.RddCount()
     
     
@@ -836,7 +812,7 @@ FUNCTION RddInfo(nOrdinal, xNewVal) AS USUAL CLIPPER
     /// </summary>
     /// <returns>
     /// </returns>
-FUNCTION RddList (nType) AS ARRAY CLIPPER
+FUNCTION RddList () AS ARRAY CLIPPER
     LOCAL aRddList := {}    AS ARRAY
     IF VoDb.RddCount() > 0
         VAR aNames := VoDb.RddList()
@@ -848,16 +824,12 @@ FUNCTION RddList (nType) AS ARRAY CLIPPER
     
     
 FUNCTION DbMemoExt      (cDriver) AS STRING CLIPPER
-    IF IsNil(cDriver)
-        cDriver := ""
-    ENDIF
-    
     RETURN VoDb.MemoExt(cDriver)
     
     
     
 FUNCTION RddVersion     (nParm) AS USUAL CLIPPER
-    IF !IsNumeric(nParm)
+    IF !nParm:IsNumeric
         nParm := 0
     ENDIF
     RETURN DbInfo(DBI_RDD_VERSION, nParm)
@@ -869,11 +841,11 @@ FUNCTION DbMemoField (xField AS USUAL)  AS USUAL
     LOCAL xRet       AS USUAL
     LOCAL nFields    AS DWORD
     
-    IF IsNumeric(xField)
+    IF xField:IsNumeric
         n := xField
-    ELSEIF IsSymbol(xField)
+    ELSEIF xField:IsSymbol
         n := FieldPosSym(xField)
-    ELSEIF IsString(xField)
+    ELSEIF xField:IsString
         n := FieldPos(xField)
     ELSE
         nFields := FCount()
@@ -1024,13 +996,36 @@ FUNCTION AFields(aNames, aTypes, aLens, aDecs)  AS DWORD CLIPPER
     RETURN siCount
     
     
-/// <exclude/>
-FUNCTION DbCopyStruct(cFile AS STRING, aFields AS ARRAY) AS LOGIC STRICT
+/// <summary>Create an empty database file with field definitions from another database file.</summary>
+/// <param name="cFile">The name of the target database file, including an optional drive, directory, and extension.</param>
+/// <param name="acStruct">A one-dimensional array of field names to copy to the new database file.  The default is all fields.</param>
+/// <returns>TRUE if successful; otherwise, FALSE.</returns>
+/// <remarks>
+/// If <paramref name="cFile"/> does not exist, it is created.  If it exists, this function attempts to open the file in
+/// exclusive mode and, if successful, the file is overwritten without warning or error.
+/// If access is denied because, for example, another process is using the file, NetErr() is set to TRUE.
+/// DbCopyStruct() creates the specified file in ANSI or OEM character set format, based ON the SetAnsi() setting.
+/// (for more information, refer to the SetAnsi() function.)
+/// </remarks>
+/// <seealso cref='M:XSharp.Core.Functions.SetAnsi(System.Boolean)'>SetAnsi</seealso>
+/// <seealso cref='M:XSharp.RT.Functions.DbCopyXStruct(System.String)'>DbCopyXStruct</seealso>
+FUNCTION DbCopyStruct(cFile AS STRING, acStruct := NULL_ARRAY AS ARRAY) AS LOGIC STRICT
+    RETURN DBCREATE(cFile, VoDb.FieldList(DbStruct(), acStruct, NULL_ARRAY) )
 
-    RETURN DBCREATE(cFile, VoDb.FieldList(DbStruct(), aFields, NULL_ARRAY) )
-    
 
-/// <summary>Copy the field definitions in a workarea to a structure-extended file as data..</summary>    
+
+/// <summary>Copy the field definitions in a workarea to a structure-extended file as data..</summary>
+/// <param name="cFile">The name of the target database file, including an optional drive, directory, and extension.</param>
+/// <returns>TRUE if successful; otherwise, FALSE.</returns>
+/// <remarks>
+/// If <paramref name="cFile"/> does not exist, it is created.  If it exists, this function attempts to open the file in
+/// exclusive mode and, if successful, the file is overwritten without warning or error.
+/// If access is denied because, for example, another process is using the file, NetErr() is set to TRUE.
+/// DbCopyXStruct() creates the specified file in ANSI or OEM character set format, based ON the SetAnsi() setting.
+/// (for more information, refer to the SetAnsi() function.)
+/// </remarks>
+/// <seealso cref='M:XSharp.Core.Functions.SetAnsi(System.Boolean)'>SetAnsi</seealso>
+/// <seealso cref='M:XSharp.RT.Functions.DbCopyStruct(System.String,XSharp.__Array)'>DbCopyStruct</seealso>
 FUNCTION DbCopyXStruct(cFile AS STRING) AS LOGIC STRICT
 
     LOCAL siSaveSel,n,i AS DWORD
@@ -1080,12 +1075,37 @@ FUNCTION DbCopyXStruct(cFile AS STRING) AS LOGIC STRICT
     
     RETURN (lRetCode)
     
-    /// <summary>
-    /// </summary>
-    /// <param name="uSelect"></param>
-    /// <param name="symField"></param>
-    /// <returns>
-    /// </returns>
+    /// <summary>Create an array containing the structure of a database file.</summary>
+    /// <returns>The structure of the database file in an array whose length is equal to the number of fields in the database file.  Each element of the array is a subarray containing information for one field.  The subarrays have the following format:
+    ///      <para></para>
+    ///        <list type="table">
+    ///          <listheader>
+    ///            <term>Constant</term>
+    ///            <description>Attribute</description>
+    ///          </listheader>
+    ///          <item>
+    ///            <term>DBS_NAME</term>
+    ///            <description>cName</description>
+    ///          </item>
+    ///          <item>
+    ///            <term>DBS_TYPE</term>
+    ///            <description>cType</description>
+    ///          </item>
+    ///          <item>
+    ///            <term>DBS_LEN</term>
+    ///            <description>nLength</description>
+    ///          </item>
+    ///          <item>
+    ///            <term>DBS_DEC</term>
+    ///            <description>nDecimals</description>
+    ///          </item>
+    ///          <item>
+    ///            <term>DBS_ALIAS</term>
+    ///            <description>cAlias</description>
+    ///          </item>
+    ///        </list>
+    ///        <para>If there is no database file in use in the work area, DBStruct() will generate a runtime error.</para>
+    ///  </returns>
 FUNCTION DbStruct() AS ARRAY PASCAL
 
     LOCAL aStruct   AS ARRAY
@@ -1128,7 +1148,7 @@ FUNCTION DbStruct() AS ARRAY PASCAL
 FUNCTION IndexHPLock(lSet AS USUAL) AS LOGIC
     LOCAL lOld AS LOGIC
     lOld := RuntimeState.HPLocking
-    IF IsLogic(lSet)
+    IF lSet:IsLogic
         RuntimeState.HPLocking := (LOGIC) lSet
     ENDIF
     RETURN lOld
@@ -1142,7 +1162,7 @@ FUNCTION IndexHPLock(lSet AS USUAL) AS LOGIC
 FUNCTION NewIndexLock(lSet AS USUAL) AS LOGIC
     LOCAL lOld AS LOGIC
     lOld := RuntimeState.NewIndexLock
-    IF IsLogic(lSet)
+    IF lSet:IsLogic
         RuntimeState.NewIndexLock := (LOGIC) lSet
     ENDIF
     RETURN lOld

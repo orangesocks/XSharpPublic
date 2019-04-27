@@ -46,7 +46,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
         INTERNAL PROPERTY Tags AS IList<CdxTag> GET _tagList:Tags
         INTERNAL PROPERTY Structural AS LOGIC AUTO
         INTERNAL PROPERTY Root      AS CdxFileHeader GET _root
-        INTERNAL PROPERTY Encoding as System.Text.Encoding GET _oRDD:_Encoding
+        INTERNAL PROPERTY Encoding AS System.Text.Encoding GET _oRDD:_Encoding
         INTERNAL CONSTRUCTOR(oRDD AS DBFCDX )
             SUPER( oRdd )
             SELF:_oRdd     := oRDD
@@ -58,7 +58,18 @@ BEGIN NAMESPACE XSharp.RDD.CDX
         METHOD OrderCondition(info AS DbOrderCondInfo) AS LOGIC
             THROW NotImplementedException{}
 
-
+        internal static method GetIndexExtFromDbfExt(cDbfName as STRING) AS STRING
+            switch System.IO.Path.GetExtension(cDbfName:ToLower())
+            case ".vcx"         // Control Library
+            case ".scx"         // Screen
+            case ".pjx"         // Project
+            case ".mnx"         // Menu
+            case ".frx"         // Report
+                return ""
+            case ".dbc"         // database container
+                return ".dcx"
+            end switch
+            return CDX_EXTENSION
             /// <inheritdoc />
         METHOD OrderCreate(info AS DbOrderCreateInfo) AS LOGIC
             LOCAL cTag AS STRING
@@ -126,19 +137,19 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 
 
         METHOD OrderListRebuild( ) AS LOGIC
-            LOCAL aTags as CdxTag[]
-            local cBagName as STRING
-            LOCAL lOk as LOGIC
+            LOCAL aTags AS CdxTag[]
+            LOCAL cBagName AS STRING
+            LOCAL lOk AS LOGIC
             aTags := SELF:_tagList:Tags:ToArray()
             cBagName := SELF:FullPath
             lOk := TRUE
             lOk := SELF:Close()
-            if lOk
+            IF lOk
                 FErase(cBagName)
                 lOk := SELF:CreateBag(cBagName)
             ENDIF
             IF lOk
-                FOREACH oTag as CdxTag in aTags
+                FOREACH oTag AS CdxTag IN aTags
                     lOk := oTag:Rebuild()
                     IF ! lOk
                         EXIT
@@ -168,12 +179,13 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             LOCAL cDbf      AS STRING
             cFullName := cBagName
             cDbf      := SELF:_oRDD:_FileName
+            var cExt  := GetIndexExtFromDbfExt(cDBF)
             IF String.IsNullOrEmpty(cFullName)
-                cFullName := Path.ChangeExtension(cDBF, CDX_EXTENSION)
+                cFullName := Path.ChangeExtension(cDBF, cExt)
             ELSEIF String.IsNullOrEmpty(Path.GetExtension(cFullName))
-                cFullName := Path.ChangeExtension(cFullname, CDX_EXTENSION)
+                cFullName := Path.ChangeExtension(cFullname, cExt)
             ELSEIF String.Compare(cDbf, cFullName, StringComparison.OrdinalIgnoreCase) == 0
-                 cFullName := Path.ChangeExtension(cFullname, CDX_EXTENSION)
+                 cFullName := Path.ChangeExtension(cFullname, cExt)
             ENDIF
             cPath := Path.GetDirectoryName(cFullName)
             IF String.IsNullOrEmpty(cPath)
@@ -191,8 +203,8 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             _pageList:Add(_root)
             SELF:Write(_root)
             // taglist page
-            VAR page := SELF:GetPage(_root:RootPage, _root:KeySize, NULL)
-            _tagList := CdxTagList{SELF,  page, _root:KeySize}
+            VAR buffer := SELF:AllocBuffer()
+            _tagList := CdxTagList{SELF,  _root:RootPage, buffer, _root:KeySize}
             _taglist:InitBlank(NULL)
             SELF:Write(_tagList)
             // we now have a 
@@ -236,7 +248,8 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             ENDIF
             cFullName := cFileName := info:BagName
             IF String.IsNullOrEmpty(Path.GetExtension(cFullName))
-                cFullName := Path.ChangeExtension(cFullname, CDX_EXTENSION)
+                var cExt  := GetIndexExtFromDbfExt(cFullName)
+                cFullName := Path.ChangeExtension(cFullname, cExt)
             ENDIF
             cPath := Path.GetDirectoryName(cFullName)
             IF String.IsNullOrEmpty(cPath)
@@ -330,7 +343,8 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             IF SELF:_root:FreeList != 0
                 nPage := SELF:_root:FreeList
                 VAR oPage := SELF:_PageList:GetPage(nPage, 0, NULL)
-                IF oPage IS CdxTreePage tpage
+                IF oPage IS CdxTreePage
+                    VAR tpage := (CdxTreePage) oPage
                     nNext := tpage:NextFree
                     IF nNext == -1
                         nNext := 0

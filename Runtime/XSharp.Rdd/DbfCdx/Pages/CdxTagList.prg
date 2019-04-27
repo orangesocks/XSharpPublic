@@ -18,13 +18,16 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 	/// </summary>
 	INTERNAL CLASS CdxTagList INHERIT CdxLeafPage
         PROTECTED _tags AS List<CdxTag>
-        
+
+        INTERNAL CONSTRUCTOR( bag AS CdxOrderBag , nPage AS Int32 , buffer AS BYTE[], nKeyLen AS WORD)
+            SUPER(bag, nPage, buffer, nkeyLen)
+
 	    PROTECTED INTERNAL CONSTRUCTOR( bag AS CdxOrderBag , page AS CdxPage, keyLen AS WORD)
             SUPER(bag  , page:PageNo, page:Buffer, keyLen)
 
         INTERNAL METHOD ReadTags() AS List<CdxTag>
             _tags := List<CdxTag>{}
-            Debug.Assert (SELF:PageType:HasFlag(CdxPageType.Leaf) .and. SELF:PageType:HasFlag(CdxPageType.Root))
+            Debug.Assert (SELF:PageType:HasFlag(CdxPageType.Leaf) .AND. SELF:PageType:HasFlag(CdxPageType.Root))
             FOR VAR nI := 0 TO SELF:NumKeys-1
                 LOCAL nRecno    := SELF:GetRecno(nI) AS Int32
                 LOCAL bName     := SELF:GetKey(nI)  AS BYTE[]
@@ -40,7 +43,6 @@ BEGIN NAMESPACE XSharp.RDD.CDX
         PROPERTY Tags AS IList<cdxTag> GET _tags
 
         INTERNAL VIRTUAL METHOD Initialize(keyLength AS WORD) AS VOID
-            
             SUPER:Initialize(keyLength)
             _tags := List<CdxTag>{}
             SELF:PageType := CdxPageType.Leaf + CdxPageType.Root
@@ -70,9 +72,9 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             IF aTags:Length > 1
                 System.Array.Sort(aTags,  { x,y => IIF (x:OrderName < y:Ordername , -1, 1)})
             ENDIF
-            var dbytes := SELF:DataBytes  
-            var rbits  := SELF:RecordBits 
-            var mask   := SELF:RecnoMask  
+            VAR dbytes := SELF:DataBytes  
+            VAR rbits  := SELF:RecordBits 
+            VAR mask   := SELF:RecnoMask  
             SELF:Initialize(KeyLength)
             SELF:DataBytes  := dbytes 
             SELF:RecordBits := rbits  
@@ -85,8 +87,8 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 				System.Text.Encoding.ASCII:GetBytes( name, 0, Math.Min(keyLength,name:Length), bytes, 0)
 				_hot := TRUE
 
-                LOCAL action := SELF:Add(tag:Header:PageNo, bytes) as CdxAction
-                if action:Type == CdxActionType.ExpandRecnos
+                LOCAL action := SELF:Add(tag:Header:PageNo, bytes) AS CdxAction
+                IF action:Type == CdxActionType.ExpandRecnos
                     SELF:ExpandRecnos()
                     action := SELF:Add(tag:Header:PageNo, bytes)
                 ENDIF

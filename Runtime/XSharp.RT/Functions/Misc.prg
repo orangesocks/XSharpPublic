@@ -19,25 +19,6 @@ FUNCTION Between(val AS USUAL,min AS USUAL,max AS USUAL) AS LOGIC
 	RETURN val >=min .AND.  val<=max
 
 
- 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 /// <summary>
@@ -107,7 +88,7 @@ FUNCTION Max(u1 AS USUAL,u2 AS USUAL) AS USUAL
 	ELSEIF u1:IsDateTime .AND. u2:IsDateTime
 		RETURN IIF ((DateTime) u1 > (DateTime) u2, u1, u2)
 
-	ELSEIF (u1:IsDateTime .or. u1:IsDate) .AND. (u2:IsDateTime .or. u2:IsDate)
+	ELSEIF (u1:IsDateTime .OR. u1:IsDate) .AND. (u2:IsDateTime .OR. u2:IsDate)
 		RETURN IIF ((DateTime) u1 > (DateTime) u2, u1, u2)
 
 	ELSEIF u1:IsString .AND. u2:IsString
@@ -204,3 +185,48 @@ FUNCTION SysObject(o AS USUAL) AS OBJECT
 FUNCTION Tone(dwFreq AS DWORD,dwDur AS DWORD) AS USUAL
 	Console.Beep( (INT)dwFreq, (INT)dwDur * 1000 / 18 )
 RETURN	 NIL   
+
+
+/// <summary>
+/// Changes and/or reads a system setting. 
+/// </summary>
+/// <param name="nDefine">Is a positive integer identifying a system setting or system variable.
+/// This should match the values from the Set enumerated type.</param>
+/// <param name="newValue">The optional expression can specify a new value for a system setting.
+/// The data type is dependent on the system setting designated by <paramref name="nDefine" />.</param>
+/// <returns>When Set() is called without the argument <paramref name="newValue" /> ,
+/// the function returns the current system setting designated by <paramref name="nDefine" /> .
+/// If <paramref name="newValue" /> is specified, the corresponding system setting is set to <paramref name="newValue" />
+/// and the value of the old setting is returned. 
+/// </returns>
+/// <seealso cref="T:XSharp.Set" />
+/// <remarks>If you are coming from XHarbour or Xbase++ please don't use set.ch for the value of <paramref name="nDefine" />
+/// because there are some differences between the values in this header file and the values used inside X#. </remarks>
+FUNCTION Set(nDefine, newValue) AS USUAL CLIPPER
+    LOCAL state AS XSharp.RuntimeState
+    LOCAL old  := NULL AS OBJECT
+    LOCAL nSetting AS LONG
+    IF ! IsNumeric(nDefine)
+        RETURN NIL
+    ENDIF
+    nSetting := nDefine
+    state := XSharp.RuntimeState.GetInstance()
+    IF state:Settings:ContainsKey(nSetting)
+        old := state:Settings[nSetting]
+    ENDIF
+    IF PCount() > 1
+        LOCAL oValue := newValue AS OBJECT
+        IF old != NULL_OBJECT
+            TRY
+                oValue := System.Convert.ChangeType( oValue, old:GetType())
+                state:Settings[nSetting] := oValue
+            CATCH
+                NOP // can't convert, so ignore assignment
+            END TRY
+        ENDIF
+    ENDIF
+    RETURN old
+            
+    
+
+

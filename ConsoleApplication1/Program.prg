@@ -6,7 +6,29 @@ USING XSharp.RDD
 FUNCTION Start() AS VOID
     LOCAL cb AS CODEBLOCK
     TRY
-        TestLb()
+        TestIndexUpdates()
+        //testVFPFiles()
+        //testOrdNameInvalid()
+        //aevalNil()
+        //testFptMemo()
+        //testUpdateCdx()
+        //testOverFlow()
+        //testIndexNoExtension()
+        //testRelation()
+        //testCustomIndex()
+        //testOrdDescend()
+        //testScopeDescend()
+        //testScope()
+        //TestRebuild()
+        //Test__Str()
+        //testOptValue()
+        //testReal8Abs()
+        //testIvarGet()
+        //testUnlock()
+        //testDelete()
+        //testUnique2()
+        //testCrypt()
+        //TestLb()
         // TestCopyStruct()
         //TestDbf()
         //WaTest()
@@ -48,11 +70,895 @@ FUNCTION Start() AS VOID
     END TRY
     WAIT
     RETURN
+
+DEFINE records := 500 // with 20 it's ok, but not with 21
+DEFINE changes := 250
+FUNCTION TestIndexUpdates() 
+    LOCAL aFields AS ARRAY
+    LOCAL cDBF AS STRING
+    LOCAL n AS DWORD
+    LOCAL c AS STRING
+    RddSetDefault("DBFCDX")
+    cDBF := "C:\test\cdxtest"
+    aFields := { { "LAST" , "C" , 40 , 0 } , { "FIRST" , "C" , 50 , 0 }}
+    FErase(cDBF + ".cdx")
+    
+    DBCREATE( cDBF , AFields)
+    
+    DBUSEAREA(,,cDBF)
+    DBCREATEINDEX(cDBF , "LAST" , {||_FIELD->LAST})
+    FOR n := 1 UPTO records
+        c := CHR( 65 + ((n * 41) % 26) )
+        c := Replicate(c , 1 + ((n * 31) % 35) )
+        DBAPPEND()
+        FIELDPUT(1, c)
+    NEXT
+    DbCommit()
+    DbOrderInfo(DBOI_USER+42)
+    CheckOrder()   
+
+    FOR  n := 1 UPTO changes
+        VAR nRec := 1 + (n * 13) % (records - 1)
+        DbGoto(nRec)
+        c := CHR( 65 + ((n * 21) % 26) )
+        c := Replicate(c , 1 + ((n * 23) % 35) )
+        FIELDPUT(1, c)
+    NEXT
+    
+    CheckOrder()
+    DbOrderInfo(DBOI_USER+42)
+    DBCLOSEALL()   
+    WAIT
+RETURN  NIL
+
+PROCEDURE CheckOrder()
+    LOCAL nCount := 0 AS INT
+    LOCAL cPrev := NULL_STRING AS STRING
+    DbGotop()
+    DO WHILE .NOT. EOF()
+        nCount ++
+        IF cPrev != NULL_STRING
+            IF cPrev > FIELDGET(1)
+                ? "Wrong order at recno", RECNO(), cPrev, FieldGet(1)
+            END IF
+        END IF
+        cPrev := FIELDGET(1)
+        DBSKIP(1)
+    END DO
+    
+    IF nCount != records
+        ? "Wrong record count", nCount
+    END IF
+    
+RETURN 
+
+FUNCTION TestVFPFiles() AS VOID
+LOCAL cDbf AS STRING
+LOCAL aStruct AS ARRAY
+RddSetDefault("DBFCDX")
+//RddInfo(SET.AUTOOPEN, FALSE)
+cDbf := "c:\test\bldquery.vcx"
+cDbf := "c:\test\solution.scx"
+cDbf := "c:\test\ADMKERTO.DBC"
+DbUseArea(,,cDbf)
+aStruct := DbStruct()
+DbSetOrder(1)
+
+DbSetFilter(,"ObjectType='Table'")
+DbGoTop()
+DO WHILE ! eof()
+    ? recno()
+    FOREACH aField AS ARRAY IN aStruct
+        ?? /*aField[1], ":", */IIF(aField[1] != "OBJCODE", Trim(AsString(FieldGetSym(aField[1]))), "<binary>"),""
+    NEXT
+    ?
+    DbSkip(1)
+ENDDO
+RETURN
+
+
+
+FUNCTION TestOrdNameInvalid() AS VOID
+LOCAL cDBF, cDriver AS STRING
+LOCAL aFields, aValues AS ARRAY
+LOCAL i AS DWORD
+
+RDDSetDefault ( "DBFNTX" )
+
+aFields := { { "LAST" , "C" , 20 , 0 }}
+aValues := { "b" , "c" , "d", "e" , "a" }
+
+cDBF := "C:\test\mydbf"
+
+? "Ferase" , FErase ( cDBF + IndexExt() )
+// -----------------
+? DBCreate( cDBF , AFields)
+? DBUseArea(,,cDBF )
+
+FOR i := 1 UPTO ALen ( aValues )
+DBAppend()
+FieldPut ( 1 , aValues [ i ] )
+NEXT
+
+FOR i := 1 UPTO 3
+? DBCreateOrder ( "ORDER" +NTrim ( i ) , cDBF+NTrim ( i ) , "upper(LAST)" , { ||Upper ( _FIELD->LAST) } )
+NEXT
+DbClearIndex()
+OrdListAdd(cDBF+"1")
+OrdListAdd(cDBF+"2")
+OrdListAdd(cDBF+"3")
+?
+DBSetOrder ( 2 )
+? OrdBagName ( 1 ) // ok
+? OrdBagName ( 2 ) // ok
+? OrdBagName ( 3 ) // ok
+? OrdBagName ( "order1" ) // ok
+? OrdBagName ( 4 ) // order doesn/t exist, must return ""
+? OrdBagName ( "order4" ) // order doesn/t exist, must return ""
+?
+? OrdNumber ( "order4") // order doesn/t exist, must return 0 instead of 2
+? OrdNumber ( 4 ) // order doesn/t exist, must return 0 instead of 2
+? OrdNumber() // ok , current order is 2
+?
+? OrdName() // ok, "ORDER2" is the current order
+? OrdName(3) // ok, "ORDER3"
+? OrdName("ORDER3") // ok, "ORDER3"
+? OrdName(4) // order doesn/t exist, must return ""
+? OrdName("ORDER4") // order doesn/t exist, must return ""
+
+DBCloseAll()
+RETURN
+
+FUNCTION AevalNil() AS VOID
+LOCAL aArr AS ARRAY
+
+aArr := {1,2,3}
+AEval(aArr, {|x| Console.WriteLine((INT)x)},NIL,NIL) 
+RETURN
+
+FUNCTION testFptMemo() AS VOID
+LOCAL aFields AS ARRAY
+LOCAL cDBF AS STRING
+
+RDDSetDefault("DBFCDX")
+cDBF := "c:\test\mytest"
+aFields := { { "LAST" , "C" , 20 , 0 } , ;
+{ "COMMENTS" , "M" , 10 , 0 }}
+FErase(cDBF + ".dbt")
+FErase(cDBF + ".fpt")
+
+? DBCreate( cDBF , AFields) // generates .dbt file
+// ? DBCreate( cDBF , AFields , "DBFCDX") // same
+
+? File(cDBF + ".dbt")
+? File(cDBF + ".fpt")
+
+IF File(cDBF + ".dbt")
+    FRename(cDBF + ".dbt",cDBF + ".fpt")
+END IF
+? DBUseArea(,,cDBF) // fails because it searchs for a .dbt file
+DBCloseAll()
+RETURN 
+
+FUNCTION testUpdateCdx AS VOID
+	LOCAL cDBF AS STRING
+	LOCAL aFields, aValues AS ARRAY 
+	LOCAL cPrev AS STRING
+	LOCAL nCount AS INT
+	LOCAL i AS DWORD
+	
+	RDDSetDefault ( "DBFCDX" )
+	
+	aFields := { { "NUM" , "N" , 8 , 0 },{ "LAST" , "C" , 100 , 0 }} 
+	aValues := { "b" , "c" , "d", "e" , "a" , "r" , "t" , "g" , "m" , "n" , "t" , "b" , "h" , "f" , "y", "r", "t", "y", "z", "v", "e", "r", "b", "z", "b", "m", "w", "e" }
+	
+	cDBF := "C:\test\mycdx"
+	? "Ferase" , FErase ( cDbf + IndexExt() )       
+
+	DBCreate( cDBF , AFields)
+	DBUseArea(,,cDBF )
+	FOR i := 1 UPTO ALen ( aValues )
+		DBAppend()
+		FieldPut ( 1 , i )                                      
+		FieldPut ( 2 , Replicate( aValues [ i ] , 50) )
+	NEXT
+	DBCreateIndex ( cDBF , "NUM" , {||_FIELD->NUM})
+	DBCreateOrder ( "LAST" , cDBF , "LAST" , {||_FIELD->LAST})
+	DBCloseAll()
+	
+
+	DBUseArea(,,cDBF )
+	DBSetOrder(2)
+	DBGoBottom()
+	
+	FieldPut(2, "a")
+	DBSkip(-5)
+	FieldPut(2, "d")
+	DBSkip(5)
+	FieldPut(2, "z")
+	
+
+	cPrev := NULL
+	nCount := 0
+	DBGoTop()
+	DO WHILE .NOT. EoF()
+		nCount ++
+		? AllTrim(FieldGet(2))
+		IF cPrev != NULL
+			IF .NOT. (cPrev <= FieldGet(2))
+				? " *** incorrect order ***"
+			ENDIF
+		END IF
+		cPrev := FieldGet(2)
+		DBSkip()
+	END DO
+	? ALen(aValues), nCount
+	?
+	? "no order"
+	DBSetOrder(0)
+	DBGoTop()
+	DO WHILE .NOT. EoF()
+		? AllTrim(FieldGet(2))
+		DBSkip()
+	END DO
+
+	DBCloseArea()
+RETURN
+
+FUNCTION testOverflow() AS VOID
+LOCAL cDBF AS STRING
+
+cDBF := "c:\test\test"
+FErase(cDBF + ".ntx")
+FErase(cDBF + ".cdx")
+
+RDDSetDefault("DBFNTX")
+
+DBCreate( cDBF , {{ "AGE" , "N" , 4 , 1 }})
+DBUseArea(,,cDBF, ,FALSE)
+DBAppend()
+FieldPut(1,12345)
+
+? FieldGet(1) // exception
+
+DBCreateIndex( cDbf, "age" ) // exception
+
+DBCloseArea()
+RETURN
+
+
+FUNCTION TestIndexNoExtension AS VOID
+LOCAL cDBF, cPfad, cIndex AS STRING
+LOCAL aFields, aValues AS ARRAY
+LOCAL i AS DWORD
+
+RDDSetDefault("DBFNTX")
+RDDSetDefault("DBFCDX")
+aFields := { { "LAST" , "C" , 20 , 0 }}
+aValues := { "b" , "c" , "d", "e" , "a" }
+
+cPfad := "c:\test\"
+cDBF := cPfad + "Foo"
+cIndex := cPfad + "Foox"
+? "Ferase" , FErase ( cIndex + IndexExt() )
+
+? DBCreate( cDBF , AFields)
+? DBUseArea(,,cDBF)
+FOR i := 1 UPTO ALen ( aValues )
+DBAppend()
+FieldPut ( 1 , aValues [ i ] )
+NEXT
+? DBCreateOrder ( "ORDER1" , cIndex , "upper(LAST)" , { || Upper (_FIELD->LAST) } )
+? DBCloseAll()
+? "Open oDB"
+
+// When ".cdx" is added SetIndex() returns true
+// cIndex := cIndex + IndexExt()
+? DBUseArea(,,cDBF)
+? VODBOrdListAdd(cIndex , NIL) // Returns FALSE, error
+? DBCloseAll()
+RETURN
+FUNCTION TestRelation() AS VOID
+ LOCAL cDBF1, cDBf2 AS STRING
+LOCAL cINdex1, cINdex2 AS STRING
+LOCAL cPfad AS STRING
+LOCAL aFields, aValues AS ARRAY
+LOCAL i AS DWORD
+
+cPfad := "C:\TEST\" // "c:\xide\projects\project1\bin\debug\"
+cDBF1 := cPfad + "relation1"
+cDBf2 := cPfad + "relation2"
+
+cINdex1 := cPfad + "relation1"
+cINdex2 := cPfad + "relation2"
+// ------- create Parent DBF --------------
+aFields := { { "ID" , "C" , 5 , 0 }}
+
+aValues := { "00002" , "00001" , "00003" }
+
+? DBCREATE( cDBF1 , AFields)
+? DBUSEAREA(,"DBFCDX",cDBF1 )
+
+FOR i := 1 UPTO ALen ( aValues )
+DBAPPEND()
+FIELDPUT ( 1 , aValues [ i ] )
+NEXT
+
+? DBCREATEINDEX( cINdex1, "ID" )
+
+// ------- create Child DBF --------------
+aFields := { { "ID" , "C" , 5 , 0 },;
+	{ "TEXT1" , "C" ,20 , 0 }}
+aValues := { { "00002" , "Text1 00002" } , { "00001" , "Text2 00001" }, { "00001" , "Text1 00001"} ,;
+{ "00001" , "Text3 00001" } , {"00003" , "Text1 00003" } , { "00002" , "Text2 00002"} ,;
+{ "00003" , "Text3 00003" } , {"00002" , "Text3 00002" } , { "00001" , "Text4 00001"} ,;
+{ "00003" , "Text2 00003" } , {"00003" , "Text4 00003" } }
+
+? DBCREATE( cDBf2 , AFields)
+? DBUSEAREA(,"DBFCDX",cDBf2 )
+
+FOR i := 1 UPTO ALen ( aValues )
+DBAPPEND()
+FIELDPUT ( 1 , aValues [ i , 1 ] )
+FIELDPUT ( 2 , aValues [ i , 2 ] )
+NEXT
+
+? DBCREATEINDEX( cINdex2, "ID + TEXT1" )
+
+DBCloseAll()
+
+// ------------------------
+// open Parent DBF
+
+? DBUseArea(TRUE ,"DBFNTX",cDBF1 )
+? DBSetIndex( cINdex1 )
+? DBSetOrder ( 1 )
+? DBGoTop()
+
+// open Child DBF
+? DBUseArea(TRUE,"DBFNTX",cDBf2 )
+? DBSetIndex( cINdex2 )
+? DBSetOrder ( 1 )
+
+DBSetSelect ( 1 )
+// set the relation to the common field ID
+? DBSetRelation(2, {|| _FIELD->ID } , "ID" )
+?
+DO WHILE ! a->EOF()
+    DO WHILE a->FieldGet ( 1 ) == b->FieldGet ( 1 ) 
+
+        // excepion here. Removing it makes DO WHILE never end
+        ? a->FieldGet ( 1 ) , b->FieldGet ( 1 ) ,b->FieldGet ( 2 )
+        b->DBSkip(1)
+    ENDDO
+    ?
+    a->DBSkip(1)
+ENDDO
+
+DBCLOSEALL()
+FUNCTION TestCustomIndex AS VOID
+LOCAL cDBF, cPfad, cIndex, cDriver AS STRING
+LOCAL aFields, aValues AS ARRAY
+LOCAL i AS DWORD
+
+cDriver := RddSetDefault ( "DBFCDX" )
+
+aFields := { { "LAST" , "C" , 20 , 0 }}
+
+aValues := { "Goethe" , "Goldmann" , "Ober",;
+"Osterreich" , "Gothe" , "Gotz" , "Gobel" ,;
+"Otter" , "Anfang" , "Art" , "Arger" }
+
+cPfad := "c:\test\"
+cDBF := cPfad + "Foo"
+cIndex := cPfad + "Foox"
+
+FErase ( cIndex + INDEXEXT() )
+// -----------------
+? DBCREATE( cDBF , AFields)
+? DBUSEAREA(,"DBFCDX",cDBF )
+FOR i := 1 UPTO ALen ( aValues )
+DBAPPEND()
+FIELDPUT ( 1 , aValues [ i ] )
+NEXT
+
+FOR i := 1 UPTO 2
+DBSETORDERCONDITION()
+IF i == 2
+// second order should be a custom order.
+DBSETORDERCONDITION(,,,,,,,,,,,,, TRUE)
+ENDIF
+? DBCREATEORDER ( "ORDER"+ NTrim(i) , cIndex , "upper(LAST)" , { ||Upper ( _FIELD->LAST) } )
+// ? OrdCreate(cIndex, "ORDER"+NTrim(i), "upper(LAST)", { || Upper ( _Field->LAST) } ) // ok
+NEXT
+
+?
+? DbSetOrder ( 1 )
+? OrdName() // "ORDER1" ok
+? ORDNUMBER() // 1 ok
+? ORDKEY(1) // "UPPER(LAST)" ok
+? DbOrderInfo ( DBOI_CUSTOM ) // returns FALSE ok
+? DbOrderInfo ( DBOI_KEYCOUNT ) // ok, shows 11
+? OrdKeyCount( 1 , cIndex ) // ok, shows 11
+? OrdKeyCount( "ORDER1" , cIndex) // ok, shows 11
+? OrdKeyCount( 1 )
+? OrdKeyCount()
+?
+? DbSetOrder ( 2 )
+? OrdName() // "ORDER2" ok
+? OrdNumber() // 2 ok
+? OrdKey(2) // "UPPER(LAST)" ok
+? DBOrderInfo ( DBOI_CUSTOM ) // NOTE: returns FALSE instead of TRUE
+? DBOrderInfo ( DBOI_KEYCOUNT ) // NOTE: shows 11 instead of 0
+? OrdKeyCount( 2 , cIndex ) // NOTE: shows 11 instead of 0
+? OrdKeyCount( "ORDER2" , cIndex) // NOTE: shows 11 instead of 0
+? OrdKeyCount( 2 )
+? OrdKeyCount()
+
+?
+? IndexCount() // 2 ok
+?
+
+// NOTE: ORDDESTROY() problem. if the order doesn´t exist the func returns TRUE and
+// seems to do nothing. VO throws an error if a order doesn´exist.
+? OrdDestroy("ORDER4") // NOTE: "ORDER4" does not exist
+? IndexCount()
+? IndexOrd()
+
+DBCloseAll()
+
+RddSetDefault ( cDriver )
+RETURN
+FUNCTION testOrdDescend() AS VOID
+LOCAL cDBF, cPfad, cIndex, cDriver AS STRING
+LOCAL aFields, aValues AS ARRAY
+LOCAL i AS DWORD
+cDriver := RDDSetDefault ( "DBFCDX" )
+aFields := { { "LAST" , "C" , 20 , 0 }}
+aValues := { "b" , "d" , "c", "e" , "a" }
+cPfad := "c:\test\"
+cDBF := cPfad + "Foo"
+cIndex := cPfad + "Foox"
+FErase ( cIndex + IndexExt() )
+// -----------------
+? DBCreate( cDBF , AFields)
+? DBUseArea(,"DBFCDX",cDBF )
+FOR i := 1 UPTO ALen ( aValues )
+DBAppend()
+FieldPut ( 1 , aValues [ i ] )
+NEXT
+
+? DBCreateOrder ( "ORDER1" , cIndex , "upper(LAST)" , { || Upper(_FIELD->LAST) } )
+? DBSetOrder ( 1 )
+?
+? "IsDesc" ,DBOrderInfo(DBOI_ISDESC) // false, correct
+DBGoTop()
+DO WHILE ! EOF()
+// 5,1,3,2,4 correct
+? FieldGet ( 1 ) , RecNo()
+DBSkip(1)
+ENDDO
+?
+
+? OrdDescend ( ,, TRUE )
+? "IsDesc" ,DBOrderInfo(DBOI_ISDESC) // false, wrong
+
+?
+DBGoTop()
+DO WHILE ! EOF()
+// 5,1,3,2,4 again, wrong, should be 4,2,3,1,5
+? FieldGet ( 1 ) , RecNo()
+DBSkip(1)
+ENDDO
+DBCloseAll()
+RDDSetDefault ( cDriver ) 
+
+FUNCTION testScopeDescend() AS VOID
+LOCAL cDbf AS STRING
+cDBF := "testdbf"
+
+DBCreate( cDBF , {{"FIELDN" , "N" ,5 , 0 } } )
+DBUseArea(,"DBFCDX",cDBF)
+DBAppend()
+FieldPut(1,3)
+DBAppend()
+FieldPut(1,1)
+DBAppend()
+FieldPut(1,4)
+DBAppend()
+FieldPut(1,2)
+
+DBSetOrderCondition(,,,,,,,,,,TRUE)
+DBCreateIndex(cDbf, "FIELDN" )
+
+DBOrderInfo( DBOI_SCOPETOP, "", NIL, 3 )
+DBOrderInfo( DBOI_SCOPEBOTTOM, "", NIL,2 )
+
+// prints 3,2,1. If the order of scopes is
+// changed to 2->3, then it prints 2,1
+? "Down"
+DbGotop()
+DO WHILE .NOT. EOF()
+    ? "val",FIELDGET(1) , "#",RECNO()
+    DBSKIP()
+ENDDO
+
+? "Up"
+DbGoBottom()
+DO WHILE .NOT. BOF()
+    ? "val",FIELDGET(1) , "#",RECNO()
+    DBSKIP(-1)
+ENDDO
+? "Clear scopes"
+DBOrderInfo( DBOI_SCOPETOPCLEAR )
+DBOrderInfo( DBOI_SCOPEBOTTOMCLEAR)
+? "Down"
+DbGotop()
+DO WHILE .NOT. EOF()
+    ? "val",FIELDGET(1) , "#",RECNO()
+    DBSKIP()
+ENDDO
+
+? "Up"
+DbGoBottom()
+DO WHILE .NOT. BOF()
+    ? "val",FIELDGET(1) , "#",RECNO()
+    DBSKIP(-1)
+ENDDO
+
+DBCloseArea()
+
+FUNCTION testscope AS VOID
+LOCAL cDBF AS STRING
+LOCAL aFields, aValues AS ARRAY
+LOCAL i AS DWORD
+
+//RDDSetDefault("DBFNTX")
+RDDSetDefault("DBFCDX")
+
+cDbf := "C:\test\mycdx"
+FErase(cDbf + ".ntx")
+FErase(cDbf + ".cdx")
+
+aValues := {"Gas" , "Abc", "Golden" , "Guru" , "Ddd" , "Aaa" , "Ggg"}
+aFields := { {"CFIELD" , "C" , 10 , 0} }
+
+DBCreate(cDbf , aFields)
+DBUseArea(,,cDBF)
+DBCreateIndex(cDbf , "Upper(CFIELD)")
+FOR i := 1 UPTO ALen(aValues)
+DBAppend()
+FieldPut(1, aValues[i])
+NEXT
+
+DBGoTop()
+? DBOrderInfo( DBOI_KEYCOUNT ) // 7, correct
+
+? "Setting order scope"
+OrdScope(TOPSCOPE, "G")
+OrdScope(BOTTOMSCOPE, "G")
+DBGoTop()
+
+// X#: -2 with both CDX and NTX
+// VO: -2 with NTX, 4 with CDX
+? DBOrderInfo( DBOI_KEYCOUNT )
+
+? DBSeek("G") // TRUE, correct
+? DBSeek("GOLD") // TRUE with NTX, FALSE with CDX. VO TRUE in both
+
+? "Clearing order scope"
+OrdScope(TOPSCOPE, NIL)
+OrdScope(BOTTOMSCOPE, NIL)
+? DBOrderInfo( DBOI_KEYCOUNT )
+? DBSeek("G")
+? DBSeek("GOLD")
+
+? "Setting order scope again"
+OrdScope(TOPSCOPE, "G")
+OrdScope(BOTTOMSCOPE, "G")
+DBGoTop()
+? DBOrderInfo( DBOI_KEYCOUNT )
+? DBSeek("G")
+? DBSeek("GOLD")
+
+DBCloseArea()
+RETURN
+FUNCTION TestRebuild() AS VOID
+LOCAL cDBF, cPfad, cIndex, cDriver AS STRING
+LOCAL aFields, aValues AS ARRAY
+LOCAL i AS DWORD
+LOCAL lSHared AS LOGIC
+
+lSHared := TRUE
+
+cDriver := RddSetDefault ( "DBFCDX" )
+
+aFields := { { "LAST" , "C" , 20 , 0 }}
+aValues := { "b" , "d" , "c", "e" , "a" }
+
+cPfad := "C:\test\"
+cDBF := cPfad + "Foo"
+cIndex := cPfad + "Foox"
+
+FErase ( cIndex + INDEXEXT() )
+
+DBCREATE( cDBF , AFields)
+DBUSEAREA(,"DBFNTX",cDBF , , lSHared )
+FOR i := 1 UPTO ALen ( aValues )
+DBAPPEND()
+FIELDPUT ( 1 , aValues [ i ] )
+NEXT
+
+? DBCREATEORDER ( "ORDER1" , cIndex , "upper(LAST)" , { || Upper (_FIELD->LAST) } )
+
+? DbSetOrder ( 1 )
+
+// DBReindex()
+//
+// When the DBF is opened shared VO throws an "Shared error",
+// while X# seems to allow a reindex , no matter if the DBF is openedshared or not.
+
+? "Reindex", DBDRIVER(), DbReindex()
+
+DBCLOSEALL()   
+FUNCTION Test__Str AS VOID
+    LOCAL r := 1.2354 AS REAL8
+    ? __str(r,-1,-1)
+    WAIT
+    RETURN
+
+FUNCTION testOptValue() AS VOID STRICT
+
+       
+
+    LOCAL oTEst AS TestOpt
+
+    LOCAL oObject AS OBJECT
+
+   
+
+    oTest := TestOpt{}
+
+    oOBject := TestOpt{}
+
+   
+
+    oTest:SetStyle(1)  //Default param is TRUE
+
+    oOBject:SetStyle(1) //Default param is FALSE
+
+    
+
+    RETURN     
+
+ 
+
+ 
+
+    CLASS TestOpt
+
+       
+
+        METHOD SetStyle(liStyle AS INT,lEnableStyle := TRUE AS LOGIC) AS VOID
+
+       
+
+        LOCAL lTest AS LOGIC
+
+       
+
+        ? lTest := lEnableStyle
+
+       
+
+        RETURN
+
+        
+
+    END CLASS    
+    FUNCTION TestReal8Abs AS VOID
+        
+        LOCAL rReal1, rReal2 AS REAL8        
+        LOCAL uUsual AS USUAL
+        LOCAL c1, c2 AS STRING
+        LOCAL nMenge1 := 1 AS INT
+        nMenge1 := Integer(nMenge1)
+        rReal1 := 10.25
+               
+        uUsual := rReal1 //Decimals -1 - not evaluated?
+        c1 := NTRIM(uUsual) //10.25
+       
+        rReal2 := Abs(rReal1)  // 10.25 - OK
+        uUsual := Abs(rReal1) // Problem - FLOAT 10, Value is 10.25 but DECIMALS is 0
+        
+        c2 := NTRIM(uUsual) //10
+        ? c1, c2
+        WAIT
+
+    FUNCTION TestIvarGet() AS VOID
+    LOCAL n := 0 AS INT
+    LOCAL c := "abc" AS STRING
+    LOCAL uNil := NIL AS USUAL
+    ? n == NIL
+    ? n == uNil
+    ? NIL == n
+    ? uNil == n
+    
+    ? uNil == c
+    ? c == NIL
+    ? c == uNil
+    
+    LOCAL o AS USUAL
+    o := TestClass{}
+    ? o:NilMethod() == 1
+    ? o:NilMethodUntyped() == 1
+    ? o:NilMethodUntyped() == c
+
+    ? o:NilAccess == 1
+    ? o:NilAccess == ""
+
+    ? o:DoesNotExistAccess == 1
+    ? o:DoesNotExistMethod() == 1
+
+    ? o:DoesNotExistMethodNil() == 1
+    ? o:DoesNotExistMethodNil() == "abc"
+
+    ? o:DoesNotExistAccessNil == 1 // exception here "Value does not fall within the expected range."
+    ? o:DoesNotExistAccessNil == "abc" // exception
+    ? o:DoesNotExistAccessNil == n // exception
+
+    ? o:DoesNotExistAccessNil == NIL // OK, TRUE
+RETURN
+
+CLASS TestClass
+    METHOD NilMethod() AS USUAL
+    RETURN NIL
+    METHOD NilMethodUntyped()
+    RETURN NIL
+    
+    ACCESS NilAccess
+    RETURN NIL
+    
+    METHOD NoMethod(c)
+        ? c
+        IF AsString(c) == "DOESNOTEXISTMETHOD"
+            RETURN 2
+        END IF
+    RETURN NIL
+    METHOD NoIVarGet(c)
+        ? c
+        IF AsString(c) == "DOESNOTEXISTACCESS"
+            RETURN 2
+        END IF
+    RETURN NIL
+END CLASS
+
+FUNCTION testUnlock() AS VOID
+LOCAL cDBF,cPath AS STRING
+LOCAL aFields, aValues AS ARRAY
+LOCAL i AS DWORD
+
+RDDSetDefault("DBFCDX")
+SetExclusive( FALSE )
+
+cPath := "C:\TEST\"
+cDBF := cPath + "small"
+FErase(cDBF)
+FErase(cDBF + ".cdx")
+
+aFields := { { "CFIELD" , "C" , 5 , 0 }}
+aValues := { "AAA" , "CCC" , "BBB" }
+
+? DBCreate( cDBF , AFields)
+? DBUseArea(,"DBFCDX",cDBF )
+FOR i := 1 UPTO ALen(aValues)
+DBAppend()
+FieldPut(1 , aValues[i])
+NEXT
+? DBCreateIndex(cDbf , "CFIELD")
+DBCloseAll()
+
+
+? DBUseArea(,"DBFCDX",cDBF )
+DBGoTop()
+DBSkip()
+? RecNo(), FieldGet(1)
+
+? DBRLock()
+? DBDelete()
+? DBUnlock() // StackOverflow here
+
+DBCloseAll()
+RETURN
+FUNCTION testDelete() AS VOID
+LOCAL cDBF,cPath AS STRING
+LOCAL AFields AS ARRAY
+LOCAL i AS DWORD
+
+cPath := "C:\TEST\" // "c:\xide\projects\project1\bin\debug\"
+cDBF := cPath + "mydbf"
+// ------- create Parent DBF --------------
+AFields := { { "ID" , "C" , 5 , 0 }}
+
+RDDSetDefault("DBFNTX")
+? DBCreate( cDBF , AFields)
+? DBUseArea(,"DBFNTX",cDBF )
+? DBCreateIndex(cDbf , "ID")
+
+DBGoTop()
+? RecNo(), FieldGet(1)
+
+? DBRLock()
+? DBDelete()
+? DBUnlock()
+
+DBCloseAll()
+RETURN
+
+FUNCTION testUnique2() AS VOID
+LOCAL cDBF, cPfad, cIndex, cDriver AS STRING
+LOCAL aFields, aValues AS ARRAY
+LOCAL i AS DWORD
+LOCAL lUnique AS LOGIC
+cDriver := RDDSetDefault ( "DBFCDX" )
+lUnique := SetUnique()
+
+aFields := { { "LAST" , "C" , 20 , 0 }}
+aValues := { "a" , "d" , "f", "c" }
+
+cPfad := "C:\test\"
+cDBF := cPfad + "Foo"
+cIndex := cPfad + "Foox"
+
+FErase ( cIndex + IndexExt() )
+// -----------------
+? DBCreate( cDBF , AFields)
+? DBUseArea(,"DBFCDX",cDBF )
+FOR i := 1 UPTO ALen ( aValues )
+DBAppend()
+FieldPut ( 1 , aValues [ i ] )
+NEXT
+
+
+OrdCondSet()
+OrdCreate(cIndex, "ORDER1", "upper(LAST)", { || Upper ( _FIELD-> LAST) } )
+DBSetOrder ( 1 )
+? OrdName() // "ORDER1"
+? "OrdIsUnique() unique", OrdIsUnique() // always returns true !
+? "DBOrderinfo unique", DBOrderInfo(DBOI_UNIQUE ) // ok
+? "desc" , DBOrderInfo(DBOI_ISDESC ) // ok
+?
+
+OrdCondSet()
+// create a descend and unique order
+? OrdCondSet(,,,,,,,,,,TRUE)
+SetUnique ( TRUE )
+OrdCreate(cIndex, "ORDER2", "upper(LAST)", { || Upper ( _FIELD-> LAST) } )
+
+DBSetOrder ( 2 )
+? OrdName() // "ORDER2"
+? "OrdIsUnique() unique", OrdIsUnique() // always returns true !
+? "DBOrderinfo unique", DBOrderInfo(DBOI_UNIQUE ) // ok
+? "desc" , DBOrderInfo(DBOI_ISDESC ) // ok
+DBCloseAll()
+RDDSetDefault ( cDriver )
+SetUnique ( lUnique )
+RETURN 
 DEFINE LANG_GERMAN := 0x07
 DEFINE SUBLANG_GERMAN := 0x01 // German
 DEFINE SORT_DEFAULT := 0x0 // sorting default
 DEFINE SORT_GERMAN_PHONE_BOOK := 0x1 // German Phone Book order
-
+    FUNCTION TestCrypt() AS VOID
+        LOCAL cRes AS STRING
+	    LOCAL pRes AS BYTE PTR 
+	    ? cRes := Crypt("abc", "def")
+	    pRes := StringAlloc(cRes)
+	    ? pRes[1], pRes[2], pRes[3]
+	    MemFree(pRes)
+        cRes := Crypt(cRes, "def")
+        ? cRes
+	    WAIT
+        RETURN
 	FUNCTION testLb() AS VOID STRICT
         LOCAL x AS TestLbClass
         LOCAL o AS OBJECT
@@ -80,7 +986,7 @@ DEFINE SORT_GERMAN_PHONE_BOOK := 0x1 // German Phone Book order
         
     END CLASS 
 
-function TestCopyStruct() AS VOID
+FUNCTION TestCopyStruct() AS VOID
 LOCAL cDBF, cPfad, cCopyStructTo AS STRING
 LOCAL aFields AS ARRAY
 
@@ -104,7 +1010,7 @@ cCopyStructTo := "D:\test\foonew"
 DBCloseAll()
 RETURN 
 
-function TestDbf() as void
+FUNCTION TestDbf() AS VOID
 LOCAL cDBF, cPfad AS STRING
 LOCAL aFields AS ARRAY
 
@@ -128,17 +1034,17 @@ DBCloseAll()
 RETURN 
 
 
-function TestUnique() as void
-local cDbf as STRING
-local aFields as ARRAY
-local nMax := 1000 as long
-local nCnt as long
+FUNCTION TestUnique() AS VOID
+LOCAL cDbf AS STRING
+LOCAL aFields AS ARRAY
+LOCAL nMax := 1000 AS LONG
+LOCAL nCnt AS LONG
 cDBF := "Foo"
 aFields := {{ "NAME" , "C" , 10 , 0 }}
 DBCreate( cDBF , aFields,"DBFCDX")
 DBCloseAll()
 DBUseArea( TRUE ,"DBFCDX",cDBF,"Foo",FALSE)
-FOR var i := 1 to nMax
+FOR VAR i := 1 TO nMax
     DbAppend()
     FieldPut(1, str(i,10,0))
 NEXT
@@ -148,8 +1054,8 @@ DO WHILE ! EOF()
     ? Recno(), FieldGet(1)
     DbSkip(1)
 ENDDO
-wait
-FOR var i := 1 to nMax
+WAIT
+FOR VAR i := 1 TO nMax
     DbGoto(i)
     FieldPut(1, "AAAAAAAAAA")
 NEXT
@@ -161,8 +1067,8 @@ DO WHILE ! EOF()
     nCnt++
 ENDDO
 ? nCnt, "records"
-Wait
-FOR var i := 1 to nMax
+WAIT
+FOR VAR i := 1 TO nMax
     DbGoto(i)
     FieldPut(1, str(i,10,0))
 NEXT
@@ -176,17 +1082,12 @@ ENDDO
 ? nCnt, "records"
 
 DbCloseAll()
-return
-function testRebuild() as void
-LOCAL cDbf AS STRING
-cDbf := "c:\test\TEST10K"
-? DBUseArea(,"DBFCDX",cDbf)
-? DbReindex()
-RETURN 
+RETURN
 
 
 
-function WaTest() as void
+
+FUNCTION WaTest() AS VOID
 LOCAL cDBF AS STRING
 LOCAL aFields AS ARRAY
 LOCAL dwStartWA, dwMaxWA AS DWORD
@@ -244,7 +1145,7 @@ DBSetSelect ( dwStartWA )
 DBCloseAll()
 RETURN
 
-Function BigDbf as void
+FUNCTION BigDbf AS VOID
 LOCAL aFields AS ARRAY
 LOCAL cDBF, cPath AS STRING
 
@@ -276,7 +1177,7 @@ DbAppend()
 DBCloseAll()
 RETURN
 
-Function TestClearOrderScope as void
+FUNCTION TestClearOrderScope AS VOID
     LOCAL cDbf AS STRING
     LOCAL aValues AS ARRAY
     LOCAL i AS DWORD
@@ -323,8 +1224,8 @@ RETURN
 
 FUNCTION TestReplace() AS VOID
 LOCAL cDBF AS STRING
-local f as float
-local nMax := 50000 as Long
+LOCAL f AS FLOAT
+LOCAL nMax := 50000 AS LONG
 cDBF := "c:\test\TestRepl"
 FErase(cDbf+".dbf")
 FErase(cDbf+".cdx")
