@@ -22,8 +22,10 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 	PUBLIC CLASS TestDbfNtx
 
         METHOD InitTest() AS VOID
-            //LOCAL d := __Date{0,0,0} AS __Date
+           // the next line ensures that we have included XSharp.RT as reference
+            LOCAL d := __Date{0,0,0} AS __Date
             SetMacroCompiler(typeof(XSharp.Runtime.MacroCompiler))
+
             RETURN
 	
 		[Fact, Trait("DbfNtx", "Create")];
@@ -246,9 +248,9 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 			FOR VAR i := 1 TO 3000
 				// 
 				myDBF:Append( FALSE )
-				myDBF:PutValue( 1,  rnd:@@NEXT( 1, 5000 ))
+				myDBF:PutValue( 1,  rnd:NEXT( 1, 5000 ))
 				myDBF:PutValue( 2,  LoremIpsum(20) )
-				myDBF:PutValue( 3,  rnd:@@NEXT(0,2) == 1 )
+				myDBF:PutValue( 3,  rnd:NEXT(0,2) == 1 )
 				myDBF:PutValue( 4, DateTime.Now )
 			NEXT
 			//myDBF:Close()

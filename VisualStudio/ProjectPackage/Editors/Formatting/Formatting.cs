@@ -306,22 +306,38 @@ namespace XSharp.Project
                     var lines = _buffer.CurrentSnapshot.Lines;
                     int indentSize = 0;
                     bool inComment = false;
-                    bool prevContinue = false;
+                    int lineContinue = 0;
                     int prevIndentSize = 0;
+                    int continueOffset = _indentSize * _indentFactor;
+                    char prevstart = '\0';
                     foreach (var snapLine in lines)
                     {
+                        bool lineAfterAttributes = false;
                         // Ignore Empty lines
                         if (snapLine.Length > 0)
                         {
                             SnapshotSpan sSpan = new SnapshotSpan(snapLine.Start, snapLine.End);
                             string lineText = sSpan.GetText();
                             lineText = lineText.Trim();
+
                             if (lineText.Length > 0)
                             {
                                 char start = lineText.Substring(0, 1)[0];
                                 char end = lineText.Substring(lineText.Length - 1, 1)[0];
                                 //
-                                if (prevContinue)
+                                if (lineContinue==1)
+                                {
+                                    if ( prevstart != '[')
+                                    {
+                                        indentSize = prevIndentSize + continueOffset;
+                                    }
+                                    else
+                                    {
+                                        lineAfterAttributes = true;
+                                    }
+
+                                }
+                                else if (lineContinue>1)
                                 {
                                     indentSize = prevIndentSize;
                                 }
@@ -329,15 +345,28 @@ namespace XSharp.Project
                                 {
                                     indentSize = getDesiredIndentationInDocument(snapLine, regions, out inComment);
                                 }
-                                if (!inComment && (end == ';'))
+                                prevstart = start;
+                                // Not in comment, Multiple line but not Attribute
+                                if (!inComment && (end == ';') )
                                 {
-                                    // Keep the previous Indentation
-                                    prevContinue = true;
-                                    prevIndentSize = indentSize;
+                                    if (lineContinue==0)
+                                    {
+                                        // Keep the previous Indentation
+                                        lineContinue = 1;
+                                        prevIndentSize = indentSize;
+                                    }
+                                    else if (lineContinue ==1)
+                                    {
+                                        if (!lineAfterAttributes)
+                                        {
+                                            lineContinue = 2;
+                                            prevIndentSize = indentSize;
+                                        }
+                                    }
                                 }
                                 else
                                 {
-                                    prevContinue = false;
+                                    lineContinue=0;
                                 }
                             }
                         }
@@ -693,6 +722,7 @@ namespace XSharp.Project
         private static int _lastIndentValue;    // in number of characters
         private static int _tabSize;
         private static int _indentSize;
+        private static int _indentFactor;
         private static bool _alignDoCase;
         private static bool _alignMethod;
         private static int _keywordCase;
@@ -733,6 +763,7 @@ namespace XSharp.Project
                 }
                 _tabSize = textView.Options.GetTabSize();
                 _indentSize = textView.Options.GetIndentSize();
+                _indentFactor = optionsPage.MultiFactor;
                 _optionsValid = true;
             }
         }

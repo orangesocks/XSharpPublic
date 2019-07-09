@@ -77,7 +77,7 @@ STRUCTURE DbLockInfo
 	PUBLIC RecId		AS OBJECT
 	 
 	/// <summary>A constant indicating the type of lock to obtain.  The possible values are of the Lockmethod enum. </summary>
-	PUBLIC @@Method		AS LockMethod
+	PUBLIC @@Method AS LockMethod
 	
 	/// <summary>A flag that is TRUE if the lock operation was successful.</summary>
 	PUBLIC Result		AS LOGIC
@@ -155,7 +155,7 @@ CLASS DbOrderCondInfo
 	/// <summary>A flag that is TRUE if the new order will be a custom built order.</summary>
 	PUBLIC Custom			AS LOGIC
 	/// <summary> A flag that is TRUE if the order should be created in descending order. </summary>
-	PUBLIC @@Descending 	AS LOGIC
+	PUBLIC DESCENDING 	AS LOGIC
 	/// <summary>A code block defining the expression to evaluate every StepSize rows during the creation of the order.  The code block referenced should return a logical value: TRUE indicates that creation of the order should continue normally, and FALSE indicates that order creation should terminate. </summary>
 	PUBLIC EvalBlock		AS ICodeblock 
 	/// <summary>A code block defining the for condition to use for the creation and maintenance of the order.</summary>
@@ -206,8 +206,8 @@ CLASS DbOrderCondInfo
             ENDIF
         ENDIF
 
-    METHOD Clone() as DbOrderCondInfo
-        return (DbOrderCondInfo) SELF:MemberwiseClone()
+    METHOD Clone() AS DbOrderCondInfo
+        RETURN (DbOrderCondInfo) SELF:MemberwiseClone()
 
 END CLASS
 
@@ -234,8 +234,8 @@ CLASS DbOrderCreateInfo
             SELF:OrdCondInfo:Compile(oRDD)
         ENDIF
 
-   METHOD Clone() as DbOrderCreateInfo
-        return (DbOrderCreateInfo) SELF:MemberwiseClone()
+   METHOD Clone() AS DbOrderCreateInfo
+        RETURN (DbOrderCreateInfo) SELF:MemberwiseClone()
 
 END CLASS
 
@@ -252,9 +252,19 @@ CLASS DbOrderInfo
 	/// <summary>Return value for some order operations.</summary>
 	PUBLIC Result		AS OBJECT
 
-    METHOD Clone() as DbOrderInfo
-        return (DbOrderInfo) SELF:MemberwiseClone()
-    PROPERTY IsEmpty as LOGIC GET Order == null .and. String.IsNullOrEmpty(BagName)
+    METHOD Clone() AS DbOrderInfo
+        RETURN (DbOrderInfo) SELF:MemberwiseClone()
+    PROPERTY IsEmpty AS LOGIC 
+        GET
+            IF Order == NULL 
+                RETURN String.IsNullOrEmpty(BagName)
+            ENDIF
+            IF Order IS LONG .AND. (LONG) Order = 0
+                RETURN String.IsNullOrEmpty(BagName)
+            ENDIF
+            RETURN FALSE
+        END GET
+    END PROPERTY
 END CLASS
 
 /// <summary>Helper class to store a list of relational information.</summary> 
@@ -268,13 +278,15 @@ CLASS DbRelInfo
 	/// <summary>A reference to the parent RDD for the relation.</summary>
 	PUBLIC Parent		AS IRDD
 
+    /// <summary>name of the relation. Defaults to the parent alias = '_' + child alias.</summary>
+	PUBLIC Name         AS STRING
     METHOD Compile() AS VOID
         IF SELF:Block == NULL .AND. SELF:Parent != NULL .AND. ! String.IsNullOrWhiteSpace(SELF:Key)
             SELF:Block := SELF:Parent:Compile(SELF:Key)
         ENDIF
 
-    METHOD Clone() as DbRelInfo
-        return (DbRelInfo) SELF:MemberwiseClone()
+    METHOD Clone() AS DbRelInfo
+        RETURN (DbRelInfo) SELF:MemberwiseClone()
     
 END CLASS
 
@@ -340,7 +352,7 @@ STRUCTURE DbSeekInfo
 	/// <summary>A flag that is TRUE if a soft seek is to be performed. </summary>
 	PUBLIC SoftSeek AS LOGIC
 	/// <summary>An object containing the key value to find.</summary>
-	PUBLIC @@Value AS OBJECT
+	PUBLIC Value AS OBJECT
 END STRUCTURE
 
 /// <summary>Helper class to store information needed to perform a physical sort. </summary> 
@@ -410,31 +422,56 @@ CLASS RddFieldInfo
 	PUBLIC Length 		AS LONG
 	PUBLIC Decimals 	AS LONG
 	PUBLIC Alias 		AS STRING
-	PROTECTED iOffset   AS LONG
+    	PUBLIC Flags        AS DbfFieldFlags
+	PUBLIC Offset       AS LONG
     
      /// <summary>Construct a RddFieldInfo object.</summary>
-	CONSTRUCTOR(sName AS STRING, sType AS STRING, nLength AS LONG, nDecimals AS LONG)
+	CONSTRUCTOR(sName AS STRING, sType AS STRING, nLength AS LONG, nDecimals AS LONG, nOffSet := -1 AS LONG)
 		Name 		:= sName
 		Length 		:= nLength
-		Decimals 	:= nDecimals                            
+		Decimals 	:= nDecimals
+        	Flags       := DbfFieldFlags.None
 		IF !String.IsNullOrEmpty(sType)
 			FieldType := (DbFieldType) Char.ToUpper(sType[0])
+			IF sType:IndexOf("0",1) >= 0
+			    Flags |= DbfFieldFlags.Nullable
+			ENDIF
+			IF FieldType:IsBinary() .OR. sType:IndexOf("B", 1) >= 0
+			    Flags |= DbfFieldFlags.Binary
+			ENDIF
+            IF sType:Contains('+')
+                Flags |= DbfFieldFlags.AutoIncrement
+            ENDIF
 		ELSE
 			FieldType := DBFieldType.Unknown
-		ENDIF  
+		ENDIF
+		IF String.Compare(Name, _NULLFLAGS, TRUE) == 0
+		    Flags |= DbfFieldFlags.System
+		    Flags |= DbfFieldFlags.Binary
+		ENDIF
 		Alias       := sName
-		SELF:iOffset := -1
+		SELF:Offset := nOffSet
 		RETURN
     /// <summary>Construct a RddFieldInfo object.</summary>        
-	CONSTRUCTOR(sName AS STRING, nType AS DbFieldType, nLength AS LONG, nDecimals AS LONG)
-		Name 		:= sName                                
-		FieldType 	:= nType
-		Length 		:= nLength
-		Decimals 	:= nDecimals
-		Alias       := sName
-		SELF:iOffset := -1
+	CONSTRUCTOR(sName AS STRING, nType AS DbFieldType, nLength AS LONG, nDecimals AS LONG, nOffSet := -1 AS LONG, nFlags := DbfFieldFlags.None AS DbfFieldFlags)
+		SELF:Name 		:= sName                                
+		SELF:FieldType 	:= nType
+		SELF:Length 	:= nLength
+		SELF:Decimals 	:= nDecimals
+		SELF:Alias      := sName
+		SELF:Offset     := nOffSet
+        	SELF:Flags      := nFLags
 		RETURN
 
+    CONSTRUCTOR(oInfo AS RddFieldInfo)
+ 		SELF:Name 		:= oInfo:Name                                
+		SELF:FieldType 	:= oInfo:FieldType
+		SELF:Length 	:= oInfo:Length
+		SELF:Decimals 	:= oInfo:Decimals
+		SELF:Alias      := oInfo:Alias
+		SELF:Flags      := oInfo:Flags
+		SELF:OffSet     := oInfo:OffSet
+       
     /// <summary>Clone a RddFieldInfo object.</summary>        
 	METHOD Clone() AS RddFieldInfo
         VAR info := (RddFieldInfo) SELF:MemberwiseClone()
@@ -444,24 +481,96 @@ CLASS RddFieldInfo
     METHOD SameType(oFld AS RDDFieldInfo) AS LOGIC
         RETURN SELF:FieldType == oFld:FieldType .AND. SELF:Length == oFld:Length .AND. SELF:Decimals == oFld:Decimals
 
-    PROPERTY Offset AS LONG
-		GET
-			RETURN SELF:iOffset
-		END GET
-		INTERNAL SET
-			SELF:iOffset := VALUE
-		END SET
-	END PROPERTY
-        
+    VIRTUAL METHOD Validate() AS LOGIC
+        RETURN TRUE
+
+    OVERRIDE METHOD ToString() AS STRING
+        RETURN SELF:Name+" ('"+SELF:FieldTypeStr+"',"+SELF:Length:ToString()+","+SELF:Decimals:ToString()+","+SELF:Flags:ToString()+")"
+
+    PROPERTY FieldTypeStr AS STRING GET ((CHAR) SELF:FieldType):ToString()
+    PROPERTY IsMemo      AS LOGIC GET SELF:FieldType:IsMemo()
+    PROPERTY IsBinary    AS LOGIC GET SELF:FieldType:IsBinary()
+    PROPERTY IsNullable  AS LOGIC GET SELF:Flags:HasFlag(DbfFieldFlags.Nullable)
+    PROPERTY IsAutoIncrement AS LOGIC GET SELF:Flags:HasFLag(DbfFieldFlags.AutoIncrement)
+    PROPERTY IsStandard  AS LOGIC GET SELF:FieldType:IsStandard()
+    PROPERTY IsVfp       AS LOGIC GET SELF:FieldType:IsVfp()
+    PROPERTY IsVarLength AS LOGIC GET SELF:FieldType:IsVarLength()
+
 END CLASS
 
 
+STATIC CLASS RDDExtensions
+    STATIC METHOD IsMemo(SELF eType AS DBFieldType ) AS LOGIC
+        SWITCH eType
+        CASE DBFieldType.Memo
+        CASE DbFieldType.Picture
+        CASE DbFieldType.General
+            RETURN TRUE
+        END SWITCH
+        RETURN FALSE
 
+    STATIC METHOD IsVarLength(SELF eType AS DBFieldType ) AS LOGIC
+        SWITCH eType
+        CASE DbFieldType.VarBinary
+        CASE DbFieldType.VarChar
+            RETURN TRUE
+        END SWITCH
+        RETURN FALSE
 
+    STATIC METHOD IsStandard(SELF eType AS DBFieldType ) AS LOGIC
+        SWITCH eType
+        CASE DbFieldType.Character
+        CASE DbFieldType.Date
+        CASE DbFieldType.Logic
+        CASE DbFieldType.Memo
+        CASE DbFieldType.Number
+            RETURN TRUE
+        END SWITCH
+        RETURN FALSE
+
+    STATIC METHOD IsBinary(SELF eType AS DBFieldType ) AS LOGIC
+        SWITCH eType
+        CASE DBFieldType.Integer
+        CASE DbFieldType.Currency
+        CASE DbFieldType.Double
+        CASE DbFieldType.Picture
+        CASE DbFieldType.Blob
+        CASE DbFieldType.VarBinary
+        CASE DbFieldType.VarChar
+        CASE DbFieldType.DateTime
+            RETURN TRUE
+        END SWITCH
+        RETURN FALSE
+
+    STATIC METHOD IsVfp(SELF eType AS DBFieldType ) AS LOGIC
+        SWITCH eType
+        CASE DBFieldType.Character
+        CASE DbFieldType.Blob
+        CASE DbFieldType.Currency
+        CASE DBFieldType.Date
+        CASE DBFieldType.DateTime
+        CASE DbFieldType.Double
+        CASE DbFieldType.Float
+        CASE DbFieldType.General
+        CASE DBFieldType.Integer
+        CASE DBFieldType.Logic
+        CASE DBFieldType.Memo
+        CASE DBFieldType.Number
+        CASE DbFieldType.Picture
+        CASE DbFieldType.VarBinary
+        CASE DbFieldType.VarChar
+        CASE DbFieldType.NullFlags
+            RETURN TRUE
+        END SWITCH
+        RETURN FALSE        
+END CLASS
 END NAMESPACE
 
+
+BEGIN NAMESPACE XSharp
+
 /// <summary>Helper class for VoDbTrans and VoDbSort()</summary>
-CLASS XSharp._FieldNames
+CLASS _FieldNames
     /// <summary>List of field names.</summary>
     PUBLIC fields AS STRING[]
     /// <summary>Number of fields in the list.</summary>
@@ -472,9 +581,8 @@ CLASS XSharp._FieldNames
         RETURN
 END CLASS
 
-
 /// <summary>Helper class for DbJoin()</summary>
-CLASS XSharp._JoinList
+CLASS _JoinList
     /// <summary>Area number of destination workarea.</summary>
     PUBLIC uiDestSel AS DWORD
     /// <summary>List of field areas and positions.</summary>
@@ -488,7 +596,7 @@ CLASS XSharp._JoinList
 END CLASS
 
 /// <summary>Helper structure for DbJoin()</summary>
-STRUCTURE XSharp._JoinField
+STRUCTURE _JoinField
     /// <summary>Source workarea number.</summary>
     PUBLIC Area AS DWORD
     /// <summary>Source field position.</summary>
@@ -496,7 +604,7 @@ STRUCTURE XSharp._JoinField
 END STRUCTURE
 
 /// <summary>Helper structure to store information for a list of RDD names for DbUseArea()</summary>
-STRUCTURE XSharp._RddList
+STRUCTURE _RddList
     /// <summary>List of RDD names.</summary>
     EXPORT atomRddName AS STRING[]
     /// <summary>Number of names in the list.</summary>
@@ -524,3 +632,4 @@ STRUCTURE XSharp._RddList
         RETURN
             
 END STRUCTURE
+END NAMESPACE

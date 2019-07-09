@@ -27,9 +27,10 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 
     [Flags];
     INTERNAL ENUM CdxPageType AS WORD
-        MEMBER Branch  := 0
-        MEMBER Root    := 1
-        MEMBER Leaf    := 2
+        MEMBER Branch    := 0
+        MEMBER Root      := 1
+        MEMBER Leaf      := 2
+        MEMBER VFP       := 4   
         MEMBER Undefined := 0xFFFF
     END ENUM
 
@@ -38,12 +39,14 @@ BEGIN NAMESPACE XSharp.RDD.CDX
         MEMBER AddKey
         MEMBER DeleteKey
         MEMBER InsertKey
+
         MEMBER AddLeaf
-        MEMBER Delete
+        MEMBER SplitLeaf
         MEMBER Balance
         MEMBER InsertParent    
         MEMBER ChangeParent
         MEMBER AddBranch     
+        MEMBER DeletePage
         MEMBER DeleteFromParent
         MEMBER ExpandRecnos
         MEMBER OutOfBounds

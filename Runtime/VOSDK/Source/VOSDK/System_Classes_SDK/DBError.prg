@@ -17,8 +17,8 @@ CONSTRUCTOR( oOriginator, symMethod, wErrorType, oHLErrorMessage, uMisc1, uMisc2
 		GenCode := EG_NOTABLE
 	ENDIF
 	IF oHLErrorMessage# NIL
-		IF IsInstanceOfUsual( oHLErrorMessage, #HyperLabel )
-			Description := oHLErrorMessage:Description
+		IF IsObject(oHLErrorMessage) .and. __Usual.ToObject(oHLErrorMessage) IS HyperLabel 
+			Description := ((HyperLabel)oHLErrorMessage):Description
 		ELSE
 			Description := oHLErrorMessage
 		ENDIF
@@ -31,9 +31,9 @@ CONSTRUCTOR( oOriginator, symMethod, wErrorType, oHLErrorMessage, uMisc1, uMisc2
 	RETURN 
 
 #ifdef __XSHARP_RT__
-METHOD @@Throw() AS VOID STRICT
+METHOD Throw() AS VOID STRICT
 #else
-METHOD @@Throw()
+METHOD Throw()
 #endif
 
 	IF CanBreak()

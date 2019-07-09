@@ -108,7 +108,7 @@ namespace XSharp.Project
                     XSharpModel.XTypeMember member = XSharpLanguage.XSharpTokenTools.FindMember(lineNumber, _file);
                     XSharpModel.XType currentNamespace = XSharpLanguage.XSharpTokenTools.FindNamespace(caretPos, _file);
                     // adjust caretpos, for other completions we need to stop before the caret. Now we include the caret
-                    List<String> tokenList = XSharpLanguage.XSharpTokenTools.GetTokenList(caretPos + 1, lineNumber, tokens.TokenStream, out stopToken, true, _file, false);
+                    List<String> tokenList = XSharpLanguage.XSharpTokenTools.GetTokenList(caretPos + 1, lineNumber, tokens.TokenStream, out stopToken, true, _file, false, member);
                     // Check if we can get the member where we are
                     //if (tokenList.Count > 1)
                     //{
@@ -144,6 +144,20 @@ namespace XSharp.Project
 
                                     qiContent.Add(description);
                                 }
+                            }
+                            else if ( gotoElement.XSharpElement is XSharpModel.XTypeMember)
+                            {
+                                QuickInfoTypeMember qitm = new QuickInfoTypeMember((XSharpModel.XTypeMember)gotoElement.XSharpElement);
+                                var description = new TextBlock();
+                                description.Inlines.AddRange(qitm.WPFDescription);
+                                qiContent.Add(description);
+                            }
+                            else if (gotoElement.XSharpElement is XSharpModel.XVariable)
+                            {
+                                QuickInfoVariable qitm = new QuickInfoVariable((XSharpModel.XVariable)gotoElement.XSharpElement);
+                                var description = new TextBlock();
+                                description.Inlines.AddRange(qitm.WPFDescription);
+                                qiContent.Add(description);
                             }
                             else
                             {
@@ -406,7 +420,7 @@ namespace XSharp.Project
                     temp.Foreground = Brushes.Blue;
                     content.Add(temp);
                     //
-                    if (this.IsStatic)
+                    if ((this.IsStatic)  && ((this.Kind != Kind.Function) && (this.Kind != Kind.Procedure)) )
                     {
                         temp = new Run("STATIC" + " ");
                         temp.Foreground = Brushes.Blue;
@@ -490,6 +504,179 @@ namespace XSharp.Project
                 }
             }
         }
+
+        internal class QuickInfoTypeMember
+        {
+            XSharpModel.XTypeMember typeMember;
+
+            internal QuickInfoTypeMember(XSharpModel.XTypeMember tm )
+            {
+                this.typeMember = tm;
+            }
+
+            public List<Inline> WPFDescription
+            {
+                get
+                {
+                    List<Inline> content = new List<Inline>();
+
+                    Run temp;
+                    if (this.typeMember.Modifiers != XSharpModel.Modifiers.None)
+                    {
+                        temp = new Run(this.typeMember.Modifiers.ToString() + " ");
+                        temp.Foreground = Brushes.Blue;
+                        content.Add(temp);
+                    }
+                    temp = new Run(this.typeMember.Visibility.ToString() + " ");
+                    temp.Foreground = Brushes.Blue;
+                    content.Add(temp);
+                    //
+                    if ( (this.typeMember.IsStatic) && ( (this.typeMember.Kind != Kind.Function) && (this.typeMember.Kind != Kind.Procedure) ) )
+                    {
+                        temp = new Run("STATIC" + " ");
+                        temp.Foreground = Brushes.Blue;
+                        content.Add(temp);
+                    }
+                    //
+                    if (this.typeMember.Kind != XSharpModel.Kind.Field)
+                    {
+                        temp = new Run(this.typeMember.Kind.ToString() + " ");
+                        temp.Foreground = Brushes.Blue;
+                        content.Add(temp);
+                    }
+                    //
+                    content.AddRange(this.WPFPrototype);
+                    //
+                    return content;
+                }
+
+            }
+
+            public List<Inline> WPFPrototype
+            {
+                get
+                {
+                    List<Inline> content = new List<Inline>();
+                    Run temp;
+                    List<Inline> vars = new List<Inline>();
+                    if (this.typeMember.Kind.HasParameters())
+                    {
+                        temp = new Run(this.typeMember.Kind == XSharpModel.Kind.Constructor ? "{" : "(");
+                        temp.Foreground = Brushes.Blue;
+                        vars.Add(temp);
+
+                        foreach (var var in this.typeMember.Parameters)
+                        {
+                            if (vars.Count > 1)
+                            {
+                                temp = new Run(", ");
+                                vars.Add(temp);
+                            }
+                            temp = new Run(var.Name + " ");
+                            vars.Add(temp);
+                            temp = new Run(var.ParamTypeDesc + " ");
+                            temp.Foreground = Brushes.Blue;
+                            vars.Add(temp);
+                            temp = new Run(var.TypeName);
+                            temp.Foreground = Brushes.Blue;
+                            vars.Add(temp);
+                        }
+                        temp = new Run(this.typeMember.Kind == XSharpModel.Kind.Constructor ? "}" : ")");
+                        temp.Foreground = Brushes.Blue;
+                        vars.Add(temp);
+                    }
+                    //
+                    temp = new Run(this.typeMember.Name);
+                    content.Add(temp);
+                    content.AddRange(vars);
+                    //
+                    if (this.typeMember.Kind.HasReturnType())
+                    {
+                        temp = new Run(" AS ");
+                        temp.Foreground = Brushes.Blue;
+                        content.Add(temp);
+                        temp = new Run(this.typeMember.TypeName);
+                        temp.Foreground = Brushes.Blue;
+                        content.Add(temp);
+                    }
+                    //
+                    return content;
+                }
+            }
+
+        }
+
+
+        internal class QuickInfoVariable
+        {
+            XSharpModel.XVariable xVar;
+
+            internal QuickInfoVariable(XSharpModel.XVariable var)
+            {
+                this.xVar = var;
+            }
+
+            public List<Inline> WPFDescription
+            {
+                get
+                {
+                    List<Inline> content = new List<Inline>();
+
+                    Run temp;
+                    if (this.xVar.IsParameter)
+                    {
+                        temp = new Run("PARAMETER" + " ");
+                        temp.Foreground = Brushes.Blue;
+                        content.Add(temp);
+                    }
+                    else
+                    {
+                        temp = new Run("LOCAL" + " ");
+                        temp.Foreground = Brushes.Blue;
+                        content.Add(temp);
+                    }
+                    //
+                    content.AddRange(this.WPFPrototype);
+                    //
+                    if (this.xVar.IsTyped)
+                    {
+                        temp = new Run(this.xVar.ParamTypeDesc + " ");
+                        temp.Foreground = Brushes.Blue;
+                        content.Add(temp);
+                        //
+                        temp = new Run(this.xVar.TypeName );
+                        temp.Foreground = Brushes.Blue;
+                        content.Add(temp);
+                        if (this.xVar.IsArray)
+                        {
+                            temp = new Run("[] ");
+                            temp.Foreground = Brushes.Blue;
+                            content.Add(temp);
+                        }
+                    }
+                    //
+                    return content;
+                }
+
+            }
+
+            public List<Inline> WPFPrototype
+            {
+                get
+                {
+                    List<Inline> content = new List<Inline>();
+                    Run temp;
+                    //
+                    temp = new Run(this.xVar.Name);
+                    content.Add(temp);
+                    //
+                    return content;
+                }
+            }
+
+        }
+
+
 
     }
 }

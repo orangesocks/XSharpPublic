@@ -29,7 +29,8 @@ namespace XSharp.Project.OptionsPages
             chkCompletionListtabs.Checked = optionsPage.CompletionListTabs;
             chkKeywordsInAll.Checked = optionsPage.KeywordsInAll;
             chkDotAsUniversalSelector.Checked = optionsPage.UseDotAsUniversalSelector;
-            chkShowAfterChar.Checked = optionsPage.ShowAfterChar;
+            //chkShowAfterChar.Checked = optionsPage.ShowAfterChar;
+            chkShowAfterChar.Checked = false;
             grpCase.Enabled = true;
             switch (optionsPage.KeywordCase)
             {
@@ -55,6 +56,7 @@ namespace XSharp.Project.OptionsPages
             chkShowMembersOfCurrentType.Checked = optionsPage.ShowMembersOfCurrentTypeOnly;
             commitChars.Text = optionsPage.CommitChars;
             chkAutoPairs.Checked = optionsPage.AutoPairs;
+            multiFactor.Text = optionsPage.MultiFactor.ToString();
             _loading = false;
 
         }
@@ -122,7 +124,8 @@ namespace XSharp.Project.OptionsPages
 
         private void chkShowAfterChar_CheckedChanged(object sender, EventArgs e)
         {
-            optionsPage.ShowAfterChar = chkShowAfterChar.Checked;
+            //optionsPage.ShowAfterChar = chkShowAfterChar.Checked;
+            optionsPage.ShowAfterChar = false;
         }
 
         private void Control_CheckedChanged(object sender, EventArgs e)
@@ -193,6 +196,13 @@ namespace XSharp.Project.OptionsPages
         private void chkAutoPairs_CheckedChanged(object sender, EventArgs e)
         {
             optionsPage.AutoPairs = chkAutoPairs.Checked;
+        }
+
+        private void multiFactor_TextChanged(object sender, EventArgs e)
+        {
+            int factor = 0;
+            int.TryParse(multiFactor.Text, out factor);
+            optionsPage.MultiFactor = factor;
         }
     }
 }

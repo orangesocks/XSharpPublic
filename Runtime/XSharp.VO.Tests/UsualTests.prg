@@ -85,6 +85,45 @@ BEGIN NAMESPACE XSharp.VO.Tests
 			RETURN
 
 		[Fact, Trait("Category", "Usual")];
+		METHOD UsualReal4Tests() AS VOID
+			LOCAL u AS USUAL
+			LOCAL r AS REAL4
+			r := 1.0
+            u:= r
+			Assert.Equal(UsualType(u), (DWORD) FLOAT)
+			r := u
+			Assert.Equal(r,(REAL4) 1.0)
+			Assert.Equal(r,  (REAL4) u)
+			r := System.Single.MaxValue
+            u:= r
+			Assert.Equal(UsualType(u), (DWORD) FLOAT)
+			r := u
+			Assert.Equal(r,System.Single.MaxValue)
+			Assert.Equal(r,  (REAL4) u)
+				
+			RETURN
+
+        [Fact, Trait("Category", "Usual")];
+		METHOD UsualReal8Tests() AS VOID
+			LOCAL u AS USUAL
+			LOCAL r AS REAL8
+			r := 1.0
+            u:= r
+			Assert.Equal(UsualType(u), (DWORD) FLOAT)
+			r := u
+			Assert.Equal(r,(REAL8) 1.0)
+			Assert.Equal(r,  (REAL8) u)
+			r := System.Double.MaxValue
+            u:= r
+			Assert.Equal(UsualType(u), (DWORD) FLOAT)
+			r := u
+			Assert.Equal(r,System.Double.MaxValue)
+			Assert.Equal(r,  (REAL8) u)
+				
+			RETURN
+
+
+		[Fact, Trait("Category", "Usual")];
 		METHOD UsualShortTests() AS VOID
 			LOCAL u AS USUAL
 			LOCAL l AS LONG
@@ -374,6 +413,44 @@ BEGIN NAMESPACE XSharp.VO.Tests
             Assert.Equal(TRUE, IsObject(u))
 
             RETURN
+        [Fact, Trait("Category", "Usual pointer conversion tests")];
+		METHOD UsualPtrConversionTests() AS VOID
+            LOCAL u1 AS USUAL
+            LOCAL u2 AS USUAL
+            u1 := -1
+            u2 := (IntPtr) -2
+            Assert.Equal(FALSE, u1 == u2)
+            Assert.Equal(TRUE, u1 != u2)
+            Assert.Equal(TRUE, u1 > u2)
+            Assert.Equal(TRUE, u1 >= u2)
+            Assert.Equal(FALSE, u1 < u2)
+            Assert.Equal(FALSE, u1 <= u2)
+
+            Assert.Equal(FALSE, u2 == u1)
+            Assert.Equal(TRUE, u2 != u1)
+            Assert.Equal(FALSE, u2 > u1)
+            Assert.Equal(FALSE, u2 >= u1)
+            Assert.Equal(TRUE, u2 < u1)
+            Assert.Equal(TRUE, u2 <= u1)
+
+            LOCAL  i64 := -1 AS INT64
+            u1 := i64
+            Assert.Equal(FALSE, u1 == u2)
+            Assert.Equal(TRUE, u1 != u2)
+            Assert.Equal(TRUE, u1 > u2)
+            Assert.Equal(TRUE, u1 >= u2)
+            Assert.Equal(FALSE, u1 < u2)
+            Assert.Equal(FALSE, u1 <= u2)
+
+            Assert.Equal(FALSE, u2 == u1)
+            Assert.Equal(TRUE, u2 != u1)
+            Assert.Equal(FALSE, u2 > u1)
+            Assert.Equal(FALSE, u2 >= u1)
+            Assert.Equal(TRUE, u2 < u1)
+            Assert.Equal(TRUE, u2 <= u1)
+
+
+
 	END CLASS
 END NAMESPACE // XSharp.Runtime.Tests
 

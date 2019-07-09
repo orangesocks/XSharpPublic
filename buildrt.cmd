@@ -1,15 +1,18 @@
 @echo off
+if "%libpath%" == "" goto NotFound
 if /i "%1" == "Debug" goto Ok
 if /i "%1" == "Release" goto Ok
 if /i "%1" == "Documentation" goto Ok
 goto Error
 :Ok
-call findmsbuild.cmd
-if "%msbuilddir%" == "" goto NotFound
+rem call findmsbuild.cmd
+rem if "%msbuilddir%" == "" goto NotFound
 :found
 Echo Building Runtime %1 Configuration
-Echo Using MsBuild in "%msbuilddir%"
-"%msbuilddir%msbuild" Runtime.sln 		/fl1 /flp1:Append /p:Configuration=%1	/p:Platform="Any CPU"     /t:Build  /m /v:q /nologo 
+rem Echo Using MsBuild in "%msbuilddir%"
+if not "%XSHARPDEV%" == "" Echo Using X# development compiler in "%XSHARPDEV%"
+msbuild Runtime.sln 		/fl1 /flp1:Append /p:Configuration=%1	/p:Platform="Any CPU"     /t:Build  /m /v:m
+rem /v:q /nologo 
 if exist buildRt%1.log del buildRt%1.log
 rename msbuild1.log buildRt%1.log
 Goto End
@@ -17,7 +20,8 @@ Goto End
 echo Syntax: BuildRt Debug, BuildRt Release or BuildRt Documentation
 goto end
 :NotFound
-echo Cannot locate VS 2017 MsBuild.exe
+Echo Make sure you run this cmd file from a Developer prompt
+echo Cannot locate MsBuild.exe
 goto end
 :End
 

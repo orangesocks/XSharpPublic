@@ -44,10 +44,14 @@ BEGIN NAMESPACE XSharp
         /// <include file="RTComments.xml" path="Comments/Constructor/*" />
         [MethodImpl(MethodImplOptions.AggressiveInlining)];
         CONSTRUCTOR(sValue AS STRING,  upperCase AS LOGIC)
-            IF (upperCase)
-                sValue := sValue:ToUpperInvariant()
+            IF sValue != NULL
+                IF (upperCase)
+                    sValue := sValue:ToUpperInvariant()
+                ENDIF
+                _index := SymbolTable.Add(sValue)
+            ELSE
+                _index := 0
             ENDIF
-            _index := SymbolTable.Add(sValue)
             RETURN
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)];
@@ -79,7 +83,7 @@ BEGIN NAMESPACE XSharp
 
         #region methods
         /// <inheritdoc />
-        OVERRIDE METHOD @@Equals(obj AS OBJECT) AS LOGIC
+        OVERRIDE METHOD Equals(obj AS OBJECT) AS LOGIC
             LOCAL rhs AS SYMBOL
             IF (obj == NULL)
                 RETURN FALSE
@@ -113,15 +117,15 @@ BEGIN NAMESPACE XSharp
 
         #region Equality
         /// <inheritdoc />
-        METHOD @@Equals(symOther AS SYMBOL) AS LOGIC
+        METHOD Equals(symOther AS SYMBOL) AS LOGIC
             RETURN SELF:_index == symOther:_index
 
             /// <inheritdoc />
-        METHOD @@Equals(x AS SYMBOL, y AS SYMBOL) AS LOGIC
+        METHOD Equals(x AS SYMBOL, y AS SYMBOL) AS LOGIC
             RETURN x:_index == y:_index
 
             /// <exclude />
-        METHOD @@Equals(s AS STRING) AS LOGIC
+        METHOD Equals(s AS STRING) AS LOGIC
             RETURN SELF:_value == s
 
             #endregion

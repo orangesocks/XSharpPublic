@@ -9,7 +9,7 @@ USING System.Linq
 USING Xide
 
 GLOBAL gaNewKeywordsInXSharp := <STRING>{;
-	"EVENT","NULL","INT64","ENUM","DELEGATE","PARTIAL","INTERFACE",;
+	"EVENT","INT64","ENUM","DELEGATE","PARTIAL","INTERFACE",;
 	"CONSTRUCTOR","DESTRUCTOR","FINALLY","TRY","CATCH","THROW","SEALED","ABSTRACT","PUBLIC",;
 	"CONST","INITONLY","VIRTUAL","NEW","OPERATOR","EXPLICIT","IMPLICIT","PROPERTY",;
 	"SET","GET","VALUE","AUTO","OUT","IMPLIED";
@@ -43,7 +43,7 @@ FUNCTION Start(asParams AS STRING[]) AS VOID
 	oOptions:DontGenerateEmptyFiles := TRUE
 	oOptions:AdjustCallbackFunctions := TRUE      
 	oOptions:SortEntitiesByName := TRUE
-	oOptions:UseXSharpRuntime := FALSE
+	oOptions:UseXSharpRuntime := TRUE
     oOptions:CopyResourcesToProjectFolder := TRUE
 	xPorter.Options := oOptions
 	
@@ -235,6 +235,7 @@ STRUCTURE xPorterOptions
 	EXPORT SortEntitiesByName AS LOGIC 
 	EXPORT UseXSharpRuntime AS LOGIC
     EXPORT CopyResourcesToProjectFolder AS LOGIC
+    EXPORT ReplaceResourceDefinesWithValues AS LOGIC
 END STRUCTURE
 
 INTERFACE IProgressBar
@@ -279,6 +280,19 @@ CLASS xPorter
 					_aSDKDefines:Add(oField:Name:ToUpper() , oField:GetValue(NULL):ToString())
 				END IF
 			NEXT
+			TRY
+				// those were not included in the SDK_Defines.dll
+				_aSDKDefines:Add("VOVER_FILE_VERSION", e"\"0,0,0,0\"")
+				_aSDKDefines:Add("VOVER_PROD_VERSION", e"\"0,0,0,0\"")
+				_aSDKDefines:Add("VOVER_COMPANY", e"\"\"")
+				_aSDKDefines:Add("VOVER_FILE_VERSION_TXT", e"\"\"")
+				_aSDKDefines:Add("VOVER_PROD_VERSION_TXT", e"\"\"")
+				_aSDKDefines:Add("VOVER_COPYRIGHT", e"\"\"")
+				_aSDKDefines:Add("VOVER_PROD_NAME", e"\"\"")
+				_aSDKDefines:Add("VOVER_DEVELOPMENT", e"\"\"")
+				_aSDKDefines:Add("VOVER_DEVWEBSITE", e"\"\"")
+				_aSDKDefines:Add("VOVER_WEBSITE", e"\"\"")
+			END TRY
 		CATCH e AS Exception
 			MessageBox.Show(e:ToString())
 		END TRY
@@ -849,6 +863,10 @@ CLASS ApplicationDescriptor
 	RETURN SELF:AddModule(cName , cCode:Split(<STRING>{e"\r\n" , e"\r" , e"\n"} , StringSplitOptions.None))
 	METHOD AddModule(cName AS STRING , aCode AS IEnumerable) AS ModuleDescriptor
 		LOCAL oModule AS ModuleDescriptor
+		cName := cName:TrimStart()
+		FOREACH c AS Char IN e"/?:&\*\"<>|#%"
+			cName := cName:Replace(c,'_')
+		NEXT
 		DO WHILE SELF:ContainsModuleName(cName)
 			cName := cName + "_" // happens when creating the SDK_Defines library, where modules from all libraries are added into a single one
 		END DO
@@ -1011,10 +1029,9 @@ CLASS ApplicationDescriptor
                         VAR aContents := oPair:Value:GetContents():ToArray()
                         cRcSource     := aContents[1]
                         
-                        IF xPorter.Options:CopyResourcesToProjectFolder
-                            cRcSource := SELF:AdjustResource(cRcSource,cFolder,TRUE)
-                            aContents[1] := cRcSource 
-                        ENDIF
+						cRcSource := SELF:AdjustResource(cRcSource,cFolder,TRUE)
+						aContents[1] := cRcSource 
+
 						File.WriteAllLines(cFolder + "\" + cResFileName , aContents , System.Text.Encoding.Default)
 						oModule:AddVSrc(cResFileName)
 
@@ -1040,12 +1057,11 @@ CLASS ApplicationDescriptor
 							cResFileName := oModule:PathValidName + ".rc"
                             LOCAL aResult   := List<STRING>{} AS List<STRING>
                             FOREACH cLine AS STRING IN oXideResources:GetContents():ToArray()
-                                IF xPorter.Options:CopyResourcesToProjectFolder
-                                    VAR cNewLine := SELF:AdjustResource(cLine, cFolder , FALSE)
-                                    aResult:Add(cNewLine)
-                                ELSE
-                                    aResult:Add(cLine)
-                                ENDIF
+                            	// in XIDE, all resource of one file are included in a single
+                            	// buffer, so we need to check every line for resource markers
+                            	// Probably need to redesign this...
+                            	cLine := SELF:AdjustResource(cLine, cFolder , FALSE)
+                                aResult:Add(cLine)
                             NEXT
 							File.WriteAllLines(cFolder + "\" + cResFileName , aResult , System.Text.Encoding.Default)
 							oModule:AddXIDErc(cResFileName)
@@ -1095,30 +1111,44 @@ CLASS ApplicationDescriptor
             CASE "CURSOR"
                 lHasFile := TRUE
             OTHERWISE
-                lHasFile := TRUE
+                lHasFile := FALSE
             END SWITCH
             IF lHasFile
-                LOCAL nPos      := cLine:IndexOf(aElements[2]) + aElements[2]:Length AS INT
-                LOCAL cFileName := cLine:SubString(nPos) AS STRING
+            	// space below is needed, to make sure we do not get the first "icon" in: myicon icon "filename"
+                LOCAL nPos       := cLine:IndexOf(" " + aElements[2]) + aElements[2]:Length + 1 AS INT
+                LOCAL cFileName  := cLine:SubString(nPos) AS STRING
+                LOCAL lHasQuotes := FALSE AS LOGIC
                 cFileName := cFileName:Trim()
                 IF cFileName:StartsWith(e"\"") .and. cFileName:EndsWith(e"\"") .and. cFileName:Length > 2
+                	lHasQuotes := TRUE
                     cFileName := cFileName:Substring(1, cFileName:Length-2)
                 ENDIF
                 IF SafeFileExists(cFileName)
-                    VAR cDestName := System.IO.Path.Combine(cResourcesFolder, System.IO.Path.GetFileName(cFileName))
-                    IF ! System.IO.File.Exists(cDestName)
-                        System.IO.File.Copy(cFileName, cDestName)
-                    ENDIF
-                    // change to relative path
-                    cDestName := cDestName:Replace(cFolder+"\", "")
-                    IF lAddToOtherFiles
-	                    SELF:_aOtherFiles:Add(cDestName)
-                    END IF
-                    cLine  := cLine :Replace(cFileName, cDestName)
+					LOCAL cDestName AS STRING
+                	IF xPorter.Options:CopyResourcesToProjectFolder
+						cDestName := Path.Combine(cResourcesFolder, Path.GetFileName(cFileName))
+	                    IF ! SafeFileExists(cDestName)
+	                        File.Copy(cFileName, cDestName)
+	                    ENDIF
+	                    // change to relative path
+	                    cDestName := cDestName:Replace(cFolder+"\", "")
+	                    IF lAddToOtherFiles
+		                    SELF:_aOtherFiles:Add(cDestName)
+	                    END IF
+                	ELSE
+                		cDestName := Path.GetFullPath(cFileName)
+                	ENDIF
+                	// always surround filenames with quotes, to make sure we have no issues with spaces in filenames
+					IF .not. lHasQuotes
+						cDestName := e"\"" + cDestName + e"\""
+					ENDIF
+					// when filenames are inside quotes, then backslashes need to be doubled, otherwise are being seen as escape sequences
+					cDestName := cDestName:Replace("\" , "\\")
+                    cLine  := cLine:Replace(cFileName, cDestName)
                 ENDIF
             ENDIF
         ENDIF
-       RETURN cLine:Trim()
+       RETURN cLine //:TrimEnd() // why trim?
 
 	METHOD CreateAppFile(cFolder AS STRING , lXide AS LOGIC) AS VOID
 		LOCAL oTemplate AS StreamReader
@@ -1574,9 +1604,9 @@ CLASS ModuleDescriptor
 		FOREACH oEntity AS EntityDescriptor IN SELF:_aEntities
 			DO CASE
 			CASE oEntity:Type == EntityType._Resource
-				IF oEntity:Name:ToUpper() == "VS_VERSION_INFO"
+/*				IF oEntity:Name:ToUpper() == "VS_VERSION_INFO"
 					LOOP
-				END IF
+				END IF*/
 				RETURN TRUE
 			END CASE
 		NEXT
@@ -1590,9 +1620,9 @@ CLASS ModuleDescriptor
 		FOREACH oEntity AS EntityDescriptor IN SELF:_aEntities
 			DO CASE
 			CASE oEntity:Type == EntityType._Resource
-				IF oEntity:Name:ToUpper() == "VS_VERSION_INFO"
+/*				IF oEntity:Name:ToUpper() == "VS_VERSION_INFO"
 					LOOP
-				END IF
+				END IF*/
 				oCode := oEntity:Generate()
 				aResources:Add(oEntity:Name , oCode)
 			END CASE
@@ -2051,15 +2081,16 @@ CLASS EntityDescriptor
 
 	PROTECTED METHOD Generate_Resource() AS OutputCode
 		LOCAL oCode AS OutputCode
-		LOCAL cLine AS STRING
 		LOCAL lFirstLine := TRUE AS LOGIC
 		LOCAL lStringTableLine := FALSE AS LOGIC
+		LOCAL IMPLIED aDefines := Dictionary<STRING,STRING>{}
 		
 		LOCAL tag := "__T_A_G__" AS STRING
 
 		oCode := OutputCode{}
 		FOREACH oLine AS LineObject IN SELF:_aLines
 
+			LOCAL cLine AS STRING
 			//LOCAL lHasWizDir := FALSE AS LOGIC
 			cLine := oLine:LineText
 			//lHasWizDir := cLine:ToUpper():Contains("%APPWIZDIR%")
@@ -2093,6 +2124,9 @@ CLASS EntityDescriptor
 
 				DO CASE
 
+				CASE oWord:cWord == " " .or. oWord:cWord == e"\t"
+					NOP
+
 				CASE oWord:eStatus == WordStatus.Text // no literals or comments
 					STATIC LOCAL tag_version := tag + "VERSION" + tag AS STRING
 					STATIC LOCAL tag_appwiz := tag + "APPWIZDIR" + tag AS STRING
@@ -2104,6 +2138,8 @@ CLASS EntityDescriptor
 						EXIT
 					CASE cUpper == "__VERSION__" .or. cUpper == tag_version
 						cWord := "1"
+/*					CASE cUpper == "VS_VERSION_INFO"
+						cWord := "1"*/
 					CASE cUpper == "__APPWIZDIR__" .or. cUpper == tag_appwiz
 						cWord := VOFolder.Get() + "\Appwiz"
 					CASE cUpper == "__CAVOSAMPLESROOTDIR__" .or. cUpper == tag_samples
@@ -2115,7 +2151,16 @@ CLASS EntityDescriptor
 						// do not allow below to replace defines in part of filenames that are not surrounded by quotes
 						NOP
 					CASE SELF:_oModule:Application:HasDefine(cUpper)
-						cLine += SELF:TranslateDefineInResource(cUpper)
+						LOCAL cValue AS STRING
+						cValue := SELF:TranslateDefineInResource(cUpper)
+						IF xPorter.Options:ReplaceResourceDefinesWithValues
+							cLine += cValue
+						ELSE
+							cLine += cWord
+							IF .not. aDefines:ContainsKey(cUpper)
+								aDefines:Add(cUpper , String.Format("#define {0} {1}" , cWord , cValue))
+							END IF
+						END IF
 						cPrevWord := cWord
 						LOOP
 /*					CASE SELF:_oModule:HasDefine(cUpper)
@@ -2127,7 +2172,20 @@ CLASS EntityDescriptor
 						cPrevWord := cWord
 						LOOP*/
 					CASE xPorter.SDKDefines:ContainsKey(cUpper)
-						cLine += xPorter.SDKDefines[cUpper]:Replace(e"\"" , ""):Replace("'" , "")
+						LOCAL cValue AS STRING
+						cValue := xPorter.SDKDefines[cUpper]
+						IF xPorter.Options:ReplaceResourceDefinesWithValues .or. (cValue:Contains("'") .or. cValue:Contains('"'))
+							#warning Need to check here
+							// need to check where this is needed and when not
+							// as it is now, it replaces defines for VERSION resource like VOVER_FILE_VERSION_TXT
+							// from '""' as defined manually above, to an empty string without quotes
+							cLine += cValue:Replace(e"\"" , ""):Replace("'" , "")
+						ELSE
+							cLine += cWord
+							IF .not. aDefines:ContainsKey(cUpper)
+								aDefines:Add(cUpper , String.Format("#define {0} {1}" , cWord , cValue))
+							END IF
+						ENDIF
 						cPrevWord := cWord
 						LOOP
 					END CASE
@@ -2167,6 +2225,13 @@ Probably we need to do that also to every other string in every line in the reso
 			lFirstLine := FALSE
 
 		NEXT
+		
+		LOCAL nLine := 0 AS INT
+		FOREACH cLine AS STRING IN aDefines:Values
+			oCode:InsertLine(cLine , nLine)
+			nLine ++
+		NEXT
+		
 	RETURN oCode
 	
 	METHOD TranslateDefineInResource(cUpper AS STRING) AS STRING
@@ -2232,6 +2297,9 @@ CLASS OutputCode
 	RETURN
 	METHOD InsertLine(cLine AS STRING) AS VOID
 		SELF:_aLines:Insert(0 , cLine)
+	RETURN
+	METHOD InsertLine(cLine AS STRING , nAfter AS INT) AS VOID
+		SELF:_aLines:Insert(nAfter , cLine)
 	RETURN
 	METHOD Combine(oCode AS OutputCode) AS VOID
 		FOREACH cLine AS STRING IN oCode:Lines

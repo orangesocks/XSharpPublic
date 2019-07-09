@@ -31,7 +31,7 @@ CLASS XSharp.RuntimeState
 		RETURN currentState:Value
 
 	PRIVATE oSettings AS Dictionary<INT, OBJECT>
-    PUBLIC PROPERTY Settings as Dictionary<INT, OBJECT> GET oSettings
+    PUBLIC PROPERTY Settings AS Dictionary<INT, OBJECT> GET oSettings
 
 	PRIVATE CONSTRUCTOR(initialize AS LOGIC)       
 		VAR oThread := Thread.CurrentThread
@@ -64,6 +64,7 @@ CLASS XSharp.RuntimeState
 			SELF:_SetThreadValue(Set.FloatDelta , 0.0000000000001)
 			SELF:_SetThreadValue(Set.DOSCODEPAGE, Win32.GetDosCodePage())
 			SELF:_SetThreadValue(Set.WINCODEPAGE, Win32.GetWinCodePage())
+            SELF:_SetThreadValue(Set.Dialect, XSharpDialect.Core)
 			// Add null value for Clipper collation 
 			SELF:_SetThreadValue<BYTE[]>(Set.CollationTable, NULL )
 			SELF:_SetThreadValue(Set.CollationMode, CollationMode.Windows)
@@ -147,6 +148,7 @@ CLASS XSharp.RuntimeState
     /// <seealso cref="P:XSharp.RuntimeState.CompilerOptionVO13" />
     /// <seealso cref="P:XSharp.RuntimeState.CompilerOptionOVF" />
     /// <seealso cref="P:XSharp.RuntimeState.CompilerOptionFOVF" />
+    /// <seealso cref="P:XSharp.RuntimeState.Dialect" />
 	STATIC PROPERTY CompilerOptionVO11 AS LOGIC ;
         GET GetValue<LOGIC>(Set.OPTIONVO11);
         SET SetValue<LOGIC>(Set.OPTIONVO11, VALUE)
@@ -156,6 +158,7 @@ CLASS XSharp.RuntimeState
     /// <seealso cref="P:XSharp.RuntimeState.CompilerOptionVO11" />
     /// <seealso cref="P:XSharp.RuntimeState.CompilerOptionOVF" />
     /// <seealso cref="P:XSharp.RuntimeState.CompilerOptionFOVF" />
+    /// <seealso cref="P:XSharp.RuntimeState.Dialect" />
 	STATIC PROPERTY CompilerOptionVO13 AS LOGIC ;
         GET GetValue<LOGIC>(Set.OPTIONVO13);
         SET SetValue<LOGIC>(Set.OPTIONVO13, VALUE)
@@ -171,15 +174,27 @@ CLASS XSharp.RuntimeState
     /// <seealso cref="P:XSharp.RuntimeState.CompilerOptionVO11" />
     /// <seealso cref="P:XSharp.RuntimeState.CompilerOptionVO13" />
     /// <seealso cref="P:XSharp.RuntimeState.CompilerOptionFOVF" />
+    /// <seealso cref="P:XSharp.RuntimeState.Dialect" />
 	STATIC PROPERTY CompilerOptionOVF AS LOGIC ;
         GET GetValue<LOGIC>(Set.OPTIONOVF);
         SET SetValue<LOGIC>(Set.OPTIONOVF, VALUE)
+
+    /// <summary>The current compiler setting for the X# Dialect as defined when compiling the main application.
+	/// This value gets assigned in the startup code for applications in the VO or Vulcan dialect.</summary>
+    /// <seealso cref="P:XSharp.RuntimeState.CompilerOptionVO11" />
+    /// <seealso cref="P:XSharp.RuntimeState.CompilerOptionVO13" />
+    /// <seealso cref="P:XSharp.RuntimeState.CompilerOptionFOVF" />
+    /// <seealso cref="P:XSharp.RuntimeState.CompilerOptionOVF" />
+	STATIC PROPERTY Dialect AS XSharpDialect ;
+        GET GetValue<XSharpDialect>(Set.Dialect);
+        SET SetValue<XSharpDialect>(Set.Dialect, VALUE)
 
 	/// <summary>The current compiler setting for the FOVF compiler option as defined when compiling the main application.
 	/// This value gets assigned in the startup code for applications in the VO or Vulcan dialect.</summary>
     /// <seealso cref="P:XSharp.RuntimeState.CompilerOptionVO11" />
     /// <seealso cref="P:XSharp.RuntimeState.CompilerOptionVO13" />
     /// <seealso cref="P:XSharp.RuntimeState.CompilerOptionOVF" />
+    /// <seealso cref="P:XSharp.RuntimeState.Dialect" />
 	STATIC PROPERTY CompilerOptionFOVF AS LOGIC ;
         GET GetValue<LOGIC>(Set.OPTIONOVF);
         SET SetValue<LOGIC>(Set.OPTIONOVF, VALUE)
@@ -193,7 +208,7 @@ CLASS XSharp.RuntimeState
 
 
 	/// <summary>The current ANSI setting</summary>
-    STATIC PROPERTY @@Ansi AS LOGIC ;
+    STATIC PROPERTY Ansi AS LOGIC ;
         GET GetValue<LOGIC>(Set.Ansi);
         SET SetValue<LOGIC>(Set.Ansi, VALUE)
 
@@ -294,8 +309,8 @@ CLASS XSharp.RuntimeState
 	/// <summary>The DOS Codepage. This gets read at startup from the OS().</summary>
     /// <seealso cref="P:XSharp.RuntimeState.DosEncoding" />
     STATIC PROPERTY DosCodePage AS LONG 
-        GET 
-			RETURN GetValue<LONG>(Set.DOSCODEPAGE)
+        GET
+            RETURN Convert.ToInt32(GetValue<OBJECT>(Set.DOSCODEPAGE))
 		END GET
         SET 
 			SetValue<LONG>(Set.DOSCODEPAGE, VALUE) 
@@ -307,16 +322,16 @@ CLASS XSharp.RuntimeState
 
 	/// <summary>Date Epoch value that determines how dates without century digits are interpreted.</summary>
     STATIC PROPERTY Epoch AS DWORD ;
-        GET GetValue<DWORD>(Set.EPOCH);
+        GET Convert.ToUInt32(GetValue<OBJECT>(Set.EPOCH));
         SET SetValue<DWORD>(Set.EPOCH, VALUE)
 
 	/// <summary>Date Epoch Year value. This gets set by the SetEpoch() function to the Epoch year % 100.</summary>
     STATIC PROPERTY EpochYear AS DWORD ;
-        GET GetValue<DWORD>(Set.EPOCHYEar)
+        GET Convert.ToUInt32(GetValue<OBJECT>(Set.EPOCHYEAR));
 
 	/// <summary>Date Epoch Century value. This gets set by the SetEpoch() function to the century in which the Epoch year falls.</summary>
     STATIC PROPERTY EpochCent AS DWORD ;
-        GET GetValue<DWORD>(Set.EPOCHCent)
+        GET Convert.ToUInt32(GetValue<OBJECT>(Set.EPOCHCENT));
 
 
 	/// <summary>String comparison Exact flag that determines how comparisons with the single '=' characters should be done.</summary>
@@ -348,7 +363,7 @@ CLASS XSharp.RuntimeState
 
 	/// <summary>Number of tries that were done when the last lock operation failed.</summary>
     STATIC PROPERTY LockTries AS DWORD ;
-        GET GetValue<DWORD>(Set.LOCKTRIES);
+        GET Convert.ToUInt32(GetValue<OBJECT>(Set.LOCKTRIES));
         SET SetValue<DWORD>(Set.LOCKTRIES, VALUE)
 
     /// <summary>The setting that determines whether to use the High Performance (HP) locking schema for newly created .NTX files</summary>
@@ -362,9 +377,9 @@ CLASS XSharp.RuntimeState
 
 
 	/// <summary>The current default MemoBlock size.</summary>
-    STATIC PROPERTY MemoBlockSize AS DWORD;
-        GET GetValue<DWORD>(Set.MEMOBLOCKSIZE);
-        SET SetValue<DWORD>(Set.MEMOBLOCKSIZE, VALUE)
+    STATIC PROPERTY MemoBlockSize AS WORD;
+        GET Convert.ToUInt16(GetValue<OBJECT>(Set.MEMOBLOCKSIZE));
+        SET SetValue<WORD>(Set.MEMOBLOCKSIZE, VALUE)
 
 
 	/// <summary>Did the last RDD operation cause a Network Error ?</summary>
@@ -385,7 +400,7 @@ CLASS XSharp.RuntimeState
 	/// <summary>The Thousand separator</summary>
     /// <seealso cref="P:XSharp.RuntimeState.DecimalSep" />
     STATIC PROPERTY ThousandSep AS DWORD ;
-        GET GetValue<DWORD>(Set.THOUSANDSEP);
+        GET Convert.ToUInt32(GetValue<OBJECT>(Set.THOUSANDSEP));
         SET SetValue<DWORD>(Set.THOUSANDSEP, VALUE)
 
 
@@ -398,7 +413,7 @@ CLASS XSharp.RuntimeState
     /// <seealso cref="P:XSharp.RuntimeState.WinEncoding" />
     STATIC PROPERTY WinCodePage AS LONG
 	GET
-        RETURN GetValue<LONG>(Set.WINCODEPAGE)
+        RETURN Convert.ToInt32(GetValue<OBJECT>(Set.WINCODEPAGE))
 	END GET
 	SET 
         SetValue<LONG>(Set.WINCODEPAGE, VALUE)
@@ -492,27 +507,27 @@ CLASS XSharp.RuntimeState
 		SetValue(Set.DATEFORMAT, format)
 		SWITCH format
 			CASE "MM/DD/YY"
-			CASE "MM/DD/YYYY"
-				SetValue(Set.DATECOUNTRY, (DWORD) DateCountry.American)	
-			CASE "YY.MM.DD"
+			CASE "MM/DD/YYYY" 
+				SetValue(Set.DATECOUNTRY, (DWORD) XSharp.DateCountry.American)	 
+			CASE "YY.MM.DD" 
 			CASE "YYYY.MM.DD"
-				SetValue(Set.DATECOUNTRY, (DWORD) DateCountry.Ansi)	
+				SetValue(Set.DATECOUNTRY, (DWORD) XSharp.DateCountry.Ansi)	  
 			CASE "DD/MM/YY"
 			CASE "DD/MM/YYYY"
                 // What a laugh, the British & french have an identical format. 
-				SetValue(Set.DATECOUNTRY, (DWORD)DateCountry.British)	
+				SetValue(Set.DATECOUNTRY, (DWORD)XSharp.DateCountry.British)	
 			CASE "DD.MM.YY"
 			CASE "DD.MM.YYYY"
-				SetValue(Set.DATECOUNTRY, (DWORD)DateCountry.German)	
+				SetValue(Set.DATECOUNTRY, (DWORD)XSharp.DateCountry.German)	
 			CASE "DD-MM-YY"
 			CASE "DD-MM-YYYY"
-				SetValue(Set.DATECOUNTRY, (DWORD)DateCountry.Italian)	
+				SetValue(Set.DATECOUNTRY, (DWORD)XSharp.DateCountry.Italian)	
 			CASE "YY/MM/DD"
 			CASE "YYYY/MM/DD"
-				SetValue(Set.DATECOUNTRY, (DWORD)DateCountry.Japanese)	
+				SetValue(Set.DATECOUNTRY, (DWORD)XSharp.DateCountry.Japanese)	
 			CASE "MM-DD-YY"
 			CASE "MM-DD-YYYY"
-				SetValue(Set.DATECOUNTRY, (DWORD)DateCountry.USA)	
+				SetValue(Set.DATECOUNTRY, (DWORD)XSharp.DateCountry.USA)	
 			OTHERWISE
 				SetValue(Set.DATECOUNTRY, (DWORD)0)	
 		END SWITCH
@@ -528,21 +543,21 @@ CLASS XSharp.RuntimeState
 		LOCAL format, year AS STRING
 		year := IIF(Century , "YYYY" , "YY")
 		SWITCH (DateCountry) country
-			CASE DateCountry.American
+			CASE XSharp.DateCountry.American
 				format := "MM/DD/" + year
-			CASE DateCountry.Ansi
+			CASE XSharp.DateCountry.Ansi
 				format := year + ".MM.DD"
-			CASE DateCountry.British
-			CASE DateCountry.French
+			CASE XSharp.DateCountry.British
+			CASE XSharp.DateCountry.French
                 // What a laugh, the British & french have an identical format. 
 				format := "DD/MM/" + year
-			CASE DateCountry.German
+			CASE XSharp.DateCountry.German
 				format := "DD.MM." + year
-			CASE DateCountry.Italian
+			CASE XSharp.DateCountry.Italian
 				format := "DD-MM-" + year
-			CASE DateCountry.Japanese
+			CASE XSharp.DateCountry.Japanese
 				format := year + "/MM/DD"
-			CASE DateCountry.USA
+			CASE XSharp.DateCountry.USA
 				format := "MM-DD-" + year
 			OTHERWISE
 				format := "MM/DD/" + year

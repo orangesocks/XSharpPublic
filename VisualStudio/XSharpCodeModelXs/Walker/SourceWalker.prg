@@ -82,10 +82,15 @@ BEGIN NAMESPACE XSharpModel
 			WriteOutputMessage("-->> Lex() "+_file:FullPath)
 			SELF:_errors := List<XError>{}
 			LOCAL stream := NULL AS ITokenStream
+            TRY
 			XSharp.Parser.VsParser.Lex(cSource, SELF:_file:SourcePath, SELF:_file:Project:ProjectNode:ParseOptions, SELF, OUT stream)
 			BEGIN LOCK SELF
 				SELF:_tokenStream := stream
 			END LOCK
+            CATCH e as Exception
+                WriteOutputMessage("Lex() Failed:")
+                WriteOutputMessage(e:Message)
+            END TRY
 			WriteOutputMessage("<<-- Lex() "+_file:FullPath)
 			RETURN stream
 
@@ -108,10 +113,18 @@ BEGIN NAMESPACE XSharpModel
 
 			VAR oParser := XSharpModel.Parser{}
 			oParser:StartPosition := SELF:StartPosition
-			VAR info := oParser:Parse(lines, lIncludeLocals)
-			BEGIN LOCK SELF
-				SELF:_info := info
-			END LOCK
+			IF ( SELF:_prjNode != NULL )
+				oParser:Dialect := SELF:_prjNode:ParseOptions:Dialect
+			ENDIF
+            TRY
+			    VAR info := oParser:Parse(lines, lIncludeLocals)
+			    BEGIN LOCK SELF
+				    SELF:_info := info
+			    END LOCK
+            CATCH e as Exception
+                WriteOutputMessage("Parse() Failed:")
+                WriteOutputMessage(e:Message)
+            END TRY
 			WriteOutputMessage("<<-- Parse() "+_file:FullPath)
 			RETURN SELF:_info
 

@@ -61,14 +61,26 @@ FUNCTION MemVarPut(cVar AS STRING,uValue AS USUAL) AS USUAL
 /// <summary>
 /// Release a memory variable
 /// </summary>
-/// <param name="symVar">The name of the variable you want to release. </param>
+/// <param name="symVar">The name of the variable you want to clear. </param>
 /// <remarks>
 /// The value of this variable will be set to NIL. The variable is NOT deleted.  
 /// </remarks>
 /// <include file="RTComments.xml" path="Comments/Memvar/*" />
+FUNCTION MemVarClear(symVar AS STRING) AS VOID 
+	XSharp.MemVar.Put(symVar, NIL)
+	RETURN
+
+
+
+/// <summary>
+/// Release a memory variable
+/// </summary>
+/// <param name="symVar">The name of the variable you want to release. </param>
+/// <include file="RTComments.xml" path="Comments/Memvar/*" />
 FUNCTION MemVarRelease(symVar AS STRING) AS VOID 
 	XSharp.MemVar.Release(symVar)
 	RETURN
+
 
     
 /// <summary>Return the contents of a field or a memory variable.</summary>
@@ -167,52 +179,80 @@ FUNCTION _MxRelease (var1, var2, var3, var4, varn) AS VOID CLIPPER
 /// <param name="cMask">The wildcard pattern to use when releasing the memvars. May contain * and ? characters.</param>
 /// <param name="lMatch">Indicates if the variables that need to be released should match (TRUE) or NOT match (FALSE) the pattern.</param>
 /// <remarks>
-/// The variables are not removed but their values are replaced with NIL.
+/// For most dialects the variables are not removed but their values are replaced with NIL. 
 /// </remarks>
 /// <include file="RTComments.xml" path="Comments/Memvar/*" />
 FUNCTION _MRelease(cMask AS STRING, lMatch AS LOGIC)	AS VOID
 	LOCAL cName AS STRING
+    LOCAL lFoxPro as LOGIC
+    lFoxPro := XSharp.RuntimeState.Dialect == XSharpDialect.FoxPro
 	// Case INsensitive comparison. Symbols are all in UPPER case
 	cMask := Upper(cMask)                                        
-	cName := _PrivateFirst()
-	DO WHILE cName != NULL_SYMBOL
+	cName := _PrivateFirst(TRUE)
+	DO WHILE cName != NULL
 		IF _Like(cMask, cName) == lMatch
-			MemVarPut(cName, NIL)
+            IF lFoxPro
+                MemVarRelease(cName)
+            ELSE
+			    MemVarClear(cName)
+            ENDIF
 		ENDIF
 		cName := _PrivateNext()
 	ENDDO
 	RETURN   
 
 
-/// <exclude/>
+
+/// <summary>
+/// Enumerate private variables
+/// </summary>
 FUNCTION _PrivateFirst(lCurrentOnly := FALSE AS LOGIC) AS STRING 
 	RETURN XSharp.MemVar.PrivatesFirst(lCurrentOnly)
 
-/// <exclude/>
+
+/// <summary>
+/// Enumerate private variables
+/// </summary>
 FUNCTION _PrivateNext() AS STRING STRICT
 	RETURN XSharp.MemVar.PrivatesNext() 
 
-/// <exclude/>	
+
+/// <summary>
+/// Enumerate public variables
+/// </summary>
 FUNCTION _PublicFirst() AS STRING STRICT 
 	RETURN XSharp.MemVar.PublicsFirst()
 
-/// <exclude/>
+
+/// <summary>
+/// Enumerate public variables
+/// </summary>
 FUNCTION _PublicNext() AS STRING STRICT
 	RETURN XSharp.MemVar.PublicsNext()
 	
-/// <exclude/>
+/// <summary>
+/// Count private variables
+/// </summary>
+
 FUNCTION _PrivateCount(lCurrentOnly := FALSE AS LOGIC) AS INT      
 	RETURN XSharp.MemVar.PrivatesCount(lCurrentOnly)
 
-/// <exclude/>
+/// <summary>
+/// Count public variables
+/// </summary>
+
 FUNCTION _PublicCount() AS INT STRICT    
 	RETURN XSharp.MemVar.PublicsCount()
 
-/// <exclude/>	
+/// <summary>
+/// Enumerate private variables
+/// </summary>
 FUNCTION _PrivateEnum(lCurrentOnly := FALSE AS LOGIC) AS IEnumerator<STRING>
 	RETURN XSharp.MemVar.PrivatesEnum(lCurrentOnly)
 
-/// <exclude/>		
+/// <summary>
+/// Enumerate public variables
+/// </summary>
 FUNCTION _PublicEnum AS IEnumerator<STRING>
 	RETURN XSharp.MemVar.PublicsEnum()
 

@@ -40,17 +40,18 @@ namespace XSharp.CodeDom
     [DebuggerDisplay("{Name,nq}")]
     internal class XCodeTypeReferenceExpression : CodeTypeReferenceExpression
     {
+        internal string Name { get; private set; }
         internal XCodeTypeReferenceExpression(System.Type type) : base(type)
         {
-
+            Name = type.FullName;
         }
         internal XCodeTypeReferenceExpression(string type) : base(type)
         {
-
+            Name = type;
         }
         internal XCodeTypeReferenceExpression(CodeTypeReference type) : base(type)
         {
-
+            Name = type.BaseType;
         }
     }
 
@@ -71,6 +72,8 @@ namespace XSharp.CodeDom
 
         }
     }
+
+
     [DebuggerDisplay("{Name,nq}")]
     internal class XCodeTypeDeclaration : CodeTypeDeclaration
     {
@@ -83,6 +86,13 @@ namespace XSharp.CodeDom
     internal class XCodeMemberMethod : CodeMemberMethod
     {
         internal XCodeMemberMethod() : base()
+        {
+
+        }
+    }
+    internal class XCodeCompileUnit : CodeCompileUnit
+    {
+        internal XCodeCompileUnit() : base()
         {
 
         }
@@ -115,6 +125,14 @@ namespace XSharp.CodeDom
     internal class XCodeFieldReferenceExpression : CodeFieldReferenceExpression
     {
         internal XCodeFieldReferenceExpression(CodeExpression lhs, string name) : base(lhs, name)
+        {
+
+        }
+    }
+
+    internal class XCodeSnippetTypeMember : CodeSnippetTypeMember
+    {
+        internal XCodeSnippetTypeMember(string text) : base(text)
         {
 
         }

@@ -31,6 +31,7 @@ namespace XSharp.CodeDom
         private string staticSelector;
         private string entrypointCode = null;
         private List<String> _using;
+        private int indentSave = 0;
         public XSharpCodeGenerator() : base()
         {
             this.selector = ":";
@@ -235,6 +236,7 @@ namespace XSharp.CodeDom
             {
                 // Do we have some Source Code pushed here by our Parser ??
                 // when so then that source code also includes the constructor line
+                writeTrivia(e.UserData);
                 if (e.UserData.Contains(XSharpCodeConstants.USERDATA_CODE))
                 {
                     String sourceCode = e.UserData[XSharpCodeConstants.USERDATA_CODE] as string;
@@ -335,6 +337,7 @@ namespace XSharp.CodeDom
         {
             if (!this.IsCurrentDelegate && !this.IsCurrentEnum)
             {
+                writeTrivia(e.UserData);
                 if (e.CustomAttributes.Count > 0)
                 {
                     this.GenerateAttributes(e.CustomAttributes);
@@ -384,6 +387,7 @@ namespace XSharp.CodeDom
         {
             if (!this.IsCurrentDelegate && !this.IsCurrentInterface)
             {
+                writeTrivia(e.UserData);
                 if (this.IsCurrentEnum)
                 {
                     if (e.CustomAttributes.Count > 0)
@@ -417,7 +421,7 @@ namespace XSharp.CodeDom
                     }
                     base.Output.Write(" AS ");
                     this.OutputType(e.Type);
-                    //base.Output.WriteLine();
+                    base.Output.WriteLine();
                 }
             }
         }
@@ -499,10 +503,10 @@ namespace XSharp.CodeDom
 
         protected override void GenerateMethod(CodeMemberMethod e, CodeTypeDeclaration c)
         {
-
-            //
             if ((this.IsCurrentClass || this.IsCurrentStruct) || this.IsCurrentInterface)
             {
+                writeTrivia(e.UserData);
+
                 // Do we have some Source Code pushed here by our Parser ??
                 // this code contains the method declaration line as well
                 if (e.UserData.Contains(XSharpCodeConstants.USERDATA_CODE))
@@ -555,7 +559,14 @@ namespace XSharp.CodeDom
                     this.Indent++;
                     if (!this.IsCurrentInterface && ((e.Attributes & MemberAttributes.ScopeMask) != MemberAttributes.Abstract))
                     {
-                        this.GenerateStatements(e.Statements);
+                        if (e.Statements.Count == 0)
+                        {
+                            this.GenerateMethodReturnStatement(new CodeMethodReturnStatement());
+                        }
+                        else
+                        {
+                            this.GenerateStatements(e.Statements);
+                        }
                     }
                     this.Indent--;
                 }
@@ -612,6 +623,7 @@ namespace XSharp.CodeDom
         protected override void GenerateCompileUnitStart(CodeCompileUnit e)
         {
             bool generateComment = true;
+            this.Options.BlankLinesBetweenMembers = false;
             _using.Clear();
             base.GenerateCompileUnitStart(e);
             if (e.UserData.Contains(XSharpCodeConstants.USERDATA_NOHEADER))
@@ -641,6 +653,8 @@ namespace XSharp.CodeDom
                 entrypointCode = null;
             }
             base.GenerateCompileUnitEnd(e);
+            writeTrivia(e.UserData, true);
+
         }
 
         protected override void GenerateMethodReferenceExpression(CodeMethodReferenceExpression e)
@@ -677,6 +691,21 @@ namespace XSharp.CodeDom
             base.Output.WriteLine();
         }
 
+
+        private void writeTrivia(IDictionary userData, bool ending = false)
+        {
+            string key;
+            key = ending ? XSharpCodeConstants.USERDATA_ENDINGTRIVIA : XSharpCodeConstants.USERDATA_LEADINGTRIVIA;
+            if (userData.Contains(key))
+            {
+                String trivia = userData[key] as string;
+                this.Output.Write(trivia);
+                if (!trivia.EndsWith("\r\n"))
+                    this.Output.WriteLine("");
+            }
+
+        }
+
         private void writeCodeBefore(IDictionary userData)
         {
             if (userData.Contains(XSharpCodeConstants.USERDATA_CODEBEFORE))
@@ -691,14 +720,15 @@ namespace XSharp.CodeDom
 
         protected override void GenerateNamespace(CodeNamespace e)
         {
-            this.Options.BlankLinesBetweenMembers = false;
-                this.GenerateCommentStatements(e.Comments);
+            writeTrivia(e.UserData);
+            this.GenerateCommentStatements(e.Comments);
 
             // Generate Imports BEFORE the NameSpace
             writeCodeBefore(e.UserData);
             //
             this.GenerateNamespaceStart(e);
             //this.Output.WriteLine("");
+            this.GenerateNamespaceImports(e);
             this.GenerateTypes(e);
             this.GenerateNamespaceEnd(e);
         }
@@ -715,6 +745,7 @@ namespace XSharp.CodeDom
 
         protected override void GenerateNamespaceImport(CodeNamespaceImport e)
         {
+            writeTrivia(e.UserData);
             if (!_using.Contains(e.Namespace.ToLowerInvariant()))
             {
                 base.Output.Write("USING ");
@@ -750,6 +781,7 @@ namespace XSharp.CodeDom
         {
             if ((this.IsCurrentClass || this.IsCurrentStruct) || this.IsCurrentInterface)
             {
+                writeTrivia(e.UserData);
                 if (e.CustomAttributes.Count > 0)
                 {
                     this.GenerateAttributes(e.CustomAttributes);
@@ -863,6 +895,9 @@ namespace XSharp.CodeDom
 
         protected override void GenerateSnippetMember(CodeSnippetTypeMember e)
         {
+            // the base class resets indent for Snippet Members
+            this.Indent = this.indentSave;
+            writeTrivia(e.UserData);
             base.Output.Write(e.Text);
         }
 
@@ -922,6 +957,7 @@ namespace XSharp.CodeDom
         {
             if (this.IsCurrentClass || this.IsCurrentStruct)
             {
+                writeTrivia(e.UserData);
                 if (e.CustomAttributes.Count > 0)
                 {
                     this.GenerateAttributes(e.CustomAttributes);
@@ -939,6 +975,8 @@ namespace XSharp.CodeDom
             if (!this.IsCurrentDelegate)
             {
                 this.Indent--;
+                writeTrivia(e.UserData, true);
+
                 base.Output.WriteLine();
                 base.Output.Write("END ");
                 if (e.IsClass)
@@ -958,13 +996,12 @@ namespace XSharp.CodeDom
                     base.Output.Write("ENUM");
                 }
                 base.Output.WriteLine();
-                this.Options.BlankLinesBetweenMembers = false;
             }
         }
 
         protected override void GenerateTypeStart(CodeTypeDeclaration e)
         {
-            this.Options.BlankLinesBetweenMembers = true;
+            writeTrivia(e.UserData);
             writeCodeBefore(e.UserData);
             if (e.CustomAttributes.Count > 0)
             {
@@ -1075,6 +1112,7 @@ namespace XSharp.CodeDom
                 }
                 base.Output.WriteLine();
                 this.Indent++;
+                this.indentSave = this.Indent;
             }
             else
             {
@@ -1138,6 +1176,10 @@ namespace XSharp.CodeDom
         protected override string GetTypeOutput(CodeTypeReference typeRef)
         {
             string str = string.Empty;
+            if (typeRef.Options.HasFlag(CodeTypeReferenceOptions.GlobalReference))
+            {
+                str = "global::" ;
+            }
             CodeTypeReference arrayElementType = typeRef;
             if (typeRef.UserData.Contains(XSharpCodeConstants.USERDATA_CODE))
             {
@@ -1302,7 +1344,17 @@ namespace XSharp.CodeDom
 
         protected override void OutputType(CodeTypeReference typeRef)
         {
-            this.Output.Write(this.GetTypeOutput(typeRef));
+            // Fix problem where Windows Forms designer does not put the fully qualified path to the global
+            // resources in the typereference
+            string typeName = this.GetTypeOutput(typeRef);
+            if (typeName.EndsWith(".Resources") && ! typeName.EndsWith("Properties.Resources"))
+            {
+                if (typeName.ToLower().StartsWith("global::"))
+                {
+                    typeName = typeName.Replace(".Resources", ".Properties.Resources");
+                }
+            }
+            this.Output.Write(typeName);
         }
 
         protected override void OutputOperator(CodeBinaryOperatorType op)
@@ -1661,12 +1713,13 @@ namespace XSharp.CodeDom
             TypeAttributes typeAttributes = e.TypeAttributes;
             switch ((typeAttributes & TypeAttributes.VisibilityMask))
             {
-                case TypeAttributes.AutoLayout:
+
                 case TypeAttributes.NestedAssembly:
                 case TypeAttributes.NestedFamANDAssem:
                     base.Output.Write("INTERNAL ");
                     break;
 
+                case TypeAttributes.AutoLayout:
                 case TypeAttributes.Public:
                 case TypeAttributes.NestedPublic:
                     base.Output.Write("PUBLIC ");
@@ -1682,6 +1735,9 @@ namespace XSharp.CodeDom
 
                 case TypeAttributes.NestedFamORAssem:
                     base.Output.Write("PROTECTED INTERNAL ");
+                    break;
+                default:
+                    base.Output.Write("PUBLIC ");
                     break;
             }
         }

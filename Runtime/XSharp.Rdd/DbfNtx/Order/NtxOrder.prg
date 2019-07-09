@@ -135,6 +135,9 @@ BEGIN NAMESPACE XSharp.RDD.NTX
                 IF String.IsNullOrEmpty(Path.GetExtension(_fullPath))
                     SELF:_fullPath := Path.ChangeExtension(_fullPath, NTX_EXTENSION)
                 ENDIF
+                IF File(_fullPath)
+                    _fullPath := FPathName()
+                ENDIF
             END SET
         END PROPERTY
         
@@ -260,7 +263,9 @@ BEGIN NAMESPACE XSharp.RDD.NTX
             LOCAL oKey AS OBJECT
             evalOk := TRUE
             TRY
-                SELF:_KeyCodeBlock := SELF:_oRdd:Compile(SELF:_KeyExpr)
+                IF SELF:_KeyCodeBlock == NULL
+                    SELF:_KeyCodeBlock := SELF:_oRdd:Compile(SELF:_KeyExpr)
+                ENDIF
             CATCH ex AS Exception
                 SELF:_oRdd:_dbfError( ex, SubCodes.EDB_EXPRESSION, GenCode.EG_SYNTAX,"DBFNTX.Compile")
                 RETURN FALSE
@@ -305,7 +310,9 @@ BEGIN NAMESPACE XSharp.RDD.NTX
             SELF:_Conditional := FALSE
             IF SELF:_ForExpr:Length > 0
                 TRY
-                    SELF:_ForCodeBlock := SELF:_oRdd:Compile(SELF:_ForExpr)
+                    IF SELF:_ForCodeBlock == NULL
+                        SELF:_ForCodeBlock := SELF:_oRdd:Compile(SELF:_ForExpr)
+                    ENDIF
                 CATCH
                     SELF:_oRdd:_dbfError( SubCodes.EDB_EXPRESSION, GenCode.EG_SYNTAX,"DBFNTX.Compile")
                     RETURN FALSE
@@ -441,8 +448,7 @@ BEGIN NAMESPACE XSharp.RDD.NTX
             text := NULL
             chkDigits := FALSE
             // Float Value ?
-            IF toConvert IS  IFloat
-                VAR valueFloat := (IFloat) toConvert
+            IF toConvert IS  IFloat VAR valueFloat 
                 toConvert := valueFloat:Value
                 formatInfo:NumberDecimalDigits := valueFloat:Decimals
                 text := valueFloat:Value:ToString("F", formatInfo)
@@ -751,11 +757,9 @@ BEGIN NAMESPACE XSharp.RDD.NTX
                 sRecords:AppendLine("------------------------------")
                 DO WHILE ! _oRdd:EOF
                     VAR key := _oRdd:EvalBlock(SELF:_KeyCodeBlock)
-                    IF key IS IDate
-                        VAR d := key ASTYPE IDate
+                    IF key IS IDate VAR d
                         key := DateTime{d:Year, d:Month, d:Day}:ToString("yyyyMMdd")
-                    ELSEIF key IS IFLoat
-                        VAR f := key ASTYPE IFloat
+                    ELSEIF key IS IFLoat VAR f
                         key   :=  f:Value:ToString("F"+f:Decimals:ToString())
                     ENDIF
                     sRecords:AppendLine(String.Format("{0,10} {1}", _oRdd:Recno, key))

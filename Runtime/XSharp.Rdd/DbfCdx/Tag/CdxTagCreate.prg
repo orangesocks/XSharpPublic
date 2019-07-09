@@ -146,8 +146,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             RETURN result
 
         PRIVATE METHOD _HeaderCreate() AS LOGIC
-            SELF:_Header            := CdxTagHeader{_bag, -1 ,_orderName}
-            SELF:_Header:Tag        := SELF
+            SELF:_Header            := CdxTagHeader{_bag, -1 ,_orderName, SELF}
             SELF:_Header:Descending := SELF:_Descending
             SELF:_Header:Version    := 0
             SELF:_Header:Signature  := 1
@@ -181,15 +180,15 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             VAR type := SELF:_oRdd:_getUsualType(toConvert)
             SWITCH type
             CASE __UsualType.String
-                SELF:_keySize := (WORD) ((STRING)toConvert):Length
+                SELF:_sourceKeySize := SELF:_keySize := (WORD) ((STRING)toConvert):Length
             CASE __UsualType.Long
             CASE __UsualType.Float
             CASE __UsualType.Date
-                SELF:_keySize := 8      // all stored as numeric
+                SELF:_sourceKeySize := SELF:_keySize := 8      // all stored as numeric
             CASE __UsualType.Logic
-                SELF:_keySize := 1
+                SELF:_sourceKeySize := SELF:_keySize := 1
             OTHERWISE
-                SELF:_keySize := 0
+                SELF:_sourceKeySize := SELF:_keySize := 0
                 RETURN FALSE
             END SWITCH
             
@@ -222,7 +221,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                     // All overrules start record no
                     IF lUseOrder
                         // start from first record in index
-                        record := leadingOrder:_locateKey(NULL, 0, SearchMode.Top)
+                        record := leadingOrder:_locateKey(NULL, 0, SearchMode.Top,0)
                     ELSE
                         record := 1 // start from first record in file
                     ENDIF
@@ -307,8 +306,8 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             LOCAL error := FALSE AS LOGIC
             TRY
                 VAR res := SELF:_oRdd:EvalBlock(oBlock)
-                IF res IS LOGIC 
-                    isOk := (LOGIC) res
+                IF res IS LOGIC VAR ok
+                    isOk := ok
                 ELSEIF lMustBeLogic
                     error := TRUE
                 ELSE
@@ -399,7 +398,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             lRecCount := SELF:_oRdd:RecCount
             // create sorthelper
             SELF:_initSort(lRecCount)
-            SELF:_sorter:Unique := TRUE
+            SELF:_sorter:Unique := SELF:_Unique
             IF ordCondInfo:Active
                 RETURN SELF:_CondCreate(ordCondInfo)
             ENDIF
@@ -467,7 +466,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             //   when there was only one leaf page then we don't create a branch, otherwise
             //   we create as many branches as necessary.
             LOCAL oLeaf  AS CdxLeafPage
-            oLeaf       := _tag:Stack:Top:Page
+            oLeaf       := (CdxLeafPage) _tag:Stack:Top:Page
             VAR action  := CdxAction.ChangeParent(oLeaf)
             action      := _tag.Doaction(action)
             VAR root := _tag:Stack:Root?:Page

@@ -121,11 +121,19 @@ namespace XSharp.Project
                             // simplify things: take lowest and highest numbers and do all lines in between
                             int first = lines[0];
                             int last = lines[lines.Length - 1];
+                            if (last > snapshot.LineCount - 1)
+                            {
+                                last = snapshot.LineCount - 1;
+                            }
                             for (int nLine = first; nLine <= last; nLine++)
                             {
                                 ITextSnapshotLine line = snapshot.GetLineFromLineNumber(nLine);
                                 formatLineCase(editSession, line);
                             }
+                        }
+                        catch (Exception)
+                        {
+                            ;
                         }
                         finally
                         {
@@ -153,16 +161,20 @@ namespace XSharp.Project
             _completionBroker = completionBroker;
             _signatureBroker = signatureBroker;
             _aggregator = aggregator;
-            _buffer = TextView.TextBuffer;
-            _buffer.ChangedLowPriority += Textbuffer_Changed;
-            _file = _buffer.GetFile();
-            _parseoptions = _file.Project.ParseOptions;
             _linesToSync = new List<int>();
             var package = XSharpProjectPackage.Instance;
             _optionsPage = package.GetIntellisenseOptionsPage();
-            if (_buffer.CheckEditAccess())
+            //
+            _buffer = TextView.TextBuffer;
+            if (_buffer != null)
             {
-                formatCaseForWholeBuffer();
+                _buffer.ChangedLowPriority += Textbuffer_Changed;
+                _file = _buffer.GetFile();
+                _parseoptions = _file.Project.ParseOptions;
+                if (_buffer.CheckEditAccess())
+                {
+                    formatCaseForWholeBuffer();
+                }
             }
         }
 
@@ -238,6 +250,9 @@ namespace XSharp.Project
             if (token.Type == XSharpLexer.ID && IdentifierCase)
             {
                 var identifier = token.Text;
+                // Remove the @@ marker
+                if (identifier.StartsWith("@@"))
+                    identifier = identifier.Substring(2);
                 var lineNumber = currentLine;
                 XTypeMember currentMember = XSharpTokenTools.FindMember(lineNumber, _file);
                 //
@@ -519,7 +534,7 @@ namespace XSharp.Project
                                     FilterCompletionSession(ch);
                                 else
                                 {
-                                    if (completionWasSelected && ( _optionsPage.CommitChars.Contains( ch ) ))
+                                    if (completionWasSelected && (_optionsPage.CommitChars.Contains(ch)))
                                     {
                                         CompleteCompletionSession(true, ch);
                                     }
@@ -732,6 +747,12 @@ namespace XSharp.Project
             {
                 if ((_completionSession.SelectedCompletionSet.Completions.Count > 0) && (_completionSession.SelectedCompletionSet.SelectionStatus.IsSelected))
                 {
+                    //
+                    if (XSharp.CodeDom.XSharpKeywords.Contains(_completionSession.SelectedCompletionSet.SelectionStatus.Completion.InsertionText))
+                    {
+                        _completionSession.SelectedCompletionSet.SelectionStatus.Completion.InsertionText = "@@" + _completionSession.SelectedCompletionSet.SelectionStatus.Completion.InsertionText;
+                    }
+                    //
                     XSharpProjectPackage.Instance.DisplayOutPutMessage(" --> Commit");
                     _completionSession.Commit();
                     return true;
@@ -773,7 +794,7 @@ namespace XSharp.Project
                     }
                     XSharpProjectPackage.Instance.DisplayOutPutMessage(" --> Commit");
                     _completionSession.Commit();
-                    if ( moveBack && (caret != null))
+                    if (moveBack && (caret != null))
                     {
                         caret.MoveToPreviousCaretPosition();
                         StartSignatureSession(false);
@@ -1037,7 +1058,7 @@ namespace XSharp.Project
             int start = (int)_signatureSession.Properties["Start"];
             int pos = this.TextView.Caret.Position.BufferPosition.Position;
 
-            ((XSharpSignature)_signatureSession.SelectedSignature).ComputeCurrentParameter( pos - start - 1 );
+            ((XSharpSignature)_signatureSession.SelectedSignature).ComputeCurrentParameter(pos - start - 1);
 
 
             return true;
