@@ -2429,7 +2429,7 @@ BEGIN NAMESPACE XSharp.VO.Tests
         [Fact, Trait("Category", "DBF")];
 		METHOD CDX_OrdKeyCount() AS VOID
 			LOCAL aFields AS ARRAY
-			LOCAL dwCount AS DWORD
+			LOCAL dwCount AS INT
 			LOCAL cDBF AS STRING
 			
 			RddSetDefault("DBFCDX")
@@ -2458,7 +2458,7 @@ BEGIN NAMESPACE XSharp.VO.Tests
 
 			DbGoTop()
 			
-			DbCreateOrder( "ORDER1" , cDbf , "upper(LAST)" , { || Upper ( _Field->LAST) } )
+			DbCreateOrder( "ORDER1" , cDbf , "upper(LAST)" , { || Upper ( _FIELD->LAST) } )
 			
 			DbSetOrder ( 1 ) 
 			DbGoTop()
@@ -2510,7 +2510,7 @@ BEGIN NAMESPACE XSharp.VO.Tests
         [Fact, Trait("Category", "DBF")];
 		METHOD CDX_DbSetOrderCondition() AS VOID
 			LOCAL aFields AS ARRAY
-			LOCAL dwCount AS DWORD
+			LOCAL dwCount AS INT
 			LOCAL cDBF AS STRING
 			LOCAL n AS DWORD
 			
@@ -2532,12 +2532,12 @@ BEGIN NAMESPACE XSharp.VO.Tests
 		
 			DbSetOrderCondition (,,,,,,,600,,,,,,,)
 			DbGoTop()
-			DbCreateOrder( "ORDER1" , cDbf , "upper(LAST)" , { || Upper ( _Field->LAST) } )
+			DbCreateOrder( "ORDER1" , cDbf , "upper(LAST)" , { || Upper ( _FIELD->LAST) } )
 			Assert.Equal(600, (INT) OrdKeyCount() )
 
 			DbGoTop()
 			dwCount := 0
-			DO WHILE .not. eof()
+			DO WHILE .NOT. eof()
 				dwCount ++
 				DbSkip()
 			END DO
@@ -2545,6 +2545,169 @@ BEGIN NAMESPACE XSharp.VO.Tests
 	
 			DbCloseArea()
 		RETURN	
+
+
+        [Fact, Trait("Category", "DBF")];
+		METHOD CDX_OrdDescend() AS VOID
+			LOCAL cResult AS STRING
+			LOCAL cDBF AS STRING
+			
+			RddSetDefault("DBFCDX")
+			cDBF := GetTempFileName()
+			
+			DbfTests.CreateDatabase(cDbf , ;
+							{ { "LAST" , "C" , 20 , 0 }} , ;
+							{ "b" , "d" , "c", "e" , "g1" , "g3" , "g45" , "a" , "o" , "p" , "r"})
+
+			DbCreateOrder ( "ORDER1" , cDbf , "upper(LAST)" , { || Upper ( _FIELD->LAST) }  )  		
+			DbSetOrder ( 1 ) 
+			
+			OrdScope(TOPSCOPE,  "C")   
+			OrdScope(BOTTOMSCOPE, "O") 
+			DbGoTop() 
+			Assert.Equal(7, (INT) OrdKeyCount())
+			
+			cResult := ""
+			DO WHILE ! Eof()
+				cResult += AllTrim(FieldGet(1)) + " "
+				DbSkip ( 1)
+			ENDDO  
+			Assert.Equal( "c d e g1 g3 g45 o" , AllTrim(cResult) )
+
+			OrdDescend( , , TRUE)
+			DbGoTop()
+			Assert.Equal(7, (INT) OrdKeyCount())
+
+			cResult := ""
+			DO WHILE ! Eof()
+				cResult += AllTrim(FieldGet(1)) + " "
+				DbSkip ( 1)
+			ENDDO 
+			Assert.Equal( "o g45 g3 g1 e d c" , AllTrim(cResult) )
+			
+			DbCloseArea()
+		RETURN	
+
+
+        [Fact, Trait("Category", "DBF")];
+		METHOD CDX_Deleted() AS VOID
+			LOCAL cDBF AS STRING
+			LOCAL nCount := 0 AS INT
+			
+			RddSetDefault("DBFCDX")
+			cDBF := GetTempFileName()
+			
+			DbfTests.CreateDatabase(cDbf , ;
+							{ { "LAST" , "C" , 20 , 0 }} , ;
+							{ "e" , "o" , "g" })
+
+		  	DbSetOrderCondition ( "! DELETED()" , { || ! Deleted()  } )  
+			DbCreateOrder ( "ORDER1" , cDbf , "upper(LAST)" , { || Upper ( _FIELD->LAST) } ) 
+			DbSetOrder(1)
+			
+			DbGoTop() 
+			Assert.Equal(3, (INT) OrdKeyCount())
+			DbGoBottom()
+			Assert.True( DbDelete() )
+			DbGoTop()
+			Assert.Equal(2, (INT) OrdKeyCount())
+			
+			DO WHILE ! Eof()
+				nCount ++
+				DbSkip(1)
+			ENDDO 
+			Assert.Equal( 2 , nCount )
+			
+			DbCloseArea()
+		RETURN	
+
+
+        [Fact, Trait("Category", "DBF")];
+		METHOD CDX_DeletedScope() AS VOID
+			LOCAL nCount := 0 AS INT
+			LOCAL cDBF AS STRING
+			
+			RddSetDefault("DBFCDX")
+			cDBF := GetTempFileName()
+			
+			SetDeleted(TRUE)
+			
+			DbfTests.CreateDatabase(cDbf , ;
+							{ { "LAST" , "C" , 20 , 0 }} , ;
+							{ "d" , "c",  "o" , "r" , "go1" , "g" , "go2" , "g2" , "go3" } )
+
+			DbGoBottom()
+			DbDelete()
+
+			DbCreateOrder ( "ORDER1" , cDbf , "upper(LAST)" , { || Upper ( _Field->LAST) } )
+			DbSetOrder ( 1 )
+			
+			OrdScope ( TOPSCOPE, "GO" ) 
+			OrdScope ( BOTTOMSCOPE, "GO" ) 
+			
+			DbGoTop() 
+			DO WHILE ! Eof()
+				Assert.Equal( "go" , (STRING) Left(FieldGet(1) , 2) )
+				nCount ++
+				DbSkip (1)
+		 	ENDDO
+
+//		 	Assert.Equal(3 , nCount )
+//		 	Assert.Equal(3 , (INT) OrdKeyCount() )
+			#warning should it retuen 2 or 3?
+
+		 	Assert.True(nCount == 2 .or. nCount == 3)
+		 	LOCAL nOrdKey AS INT
+		 	nOrdKey := OrdKeyCount()
+		 	Assert.True(nOrdKey == 2 .or. nOrdKey == 3) // returns 0 when the test was added
+		 	
+		 	// make sure it still always gives the same result
+		 	Assert.Equal(nOrdKey , (INT) OrdKeyCount() )
+			DbGoTop()
+		 	Assert.Equal(nOrdKey , (INT) OrdKeyCount() )
+			DbSkip(-1)
+		 	Assert.Equal(nOrdKey , (INT) OrdKeyCount() )
+			DbGoBottom()
+		 	Assert.Equal(nOrdKey , (INT) OrdKeyCount() )
+			DbSkip()
+		 	Assert.Equal(nOrdKey , (INT) OrdKeyCount() )
+
+			DbCloseArea()
+
+			SetDeleted(FALSE)
+		RETURN	
+
+
+        [Fact, Trait("Category", "DBF")];
+		METHOD CDX_OrdKeyCount_at_EOF() AS VOID
+			LOCAL nCount := 0 AS INT
+			LOCAL cDBF AS STRING
+			
+			RddSetDefault("DBFCDX")
+			cDBF := GetTempFileName()
+			
+			SetDeleted(TRUE)
+			
+			DbfTests.CreateDatabase(cDbf , ;
+							{ { "LAST" , "C" , 20 , 0 }} , ;
+							{ "d" , "c",  "o" , "r" } )
+
+			DbCreateOrder ( "ORDER1" , cDbf , "upper(LAST)" , { || Upper ( _Field->LAST) } )
+
+			DbGoBottom() 
+			Assert.Equal(4, (INT) OrdKeyCount() )
+			DbSkip()
+			Assert.Equal(4, (INT) OrdKeyCount() )
+			DbGoTop() 
+			DbSkip(-1)
+			Assert.Equal(4, (INT) OrdKeyCount() )
+
+			DbCloseArea()
+			
+			SetDeleted(FALSE)
+		RETURN	
+
+
 
 		STATIC PRIVATE METHOD GetTempFileName() AS STRING
            STATIC nCounter AS LONG
