@@ -258,7 +258,7 @@ METHOD Append(lReleaseLock AS LOGIC) AS LOGIC
                     ENDIF   
                 NEXT
                 // Now, update state
-                SELF:_RecCount++
+                SELF:_UpdateRecCount(SELF:_RecCount+1)
                 SELF:_RecNo         := SELF:_RecCount
                 SELF:_EOF           := FALSE
                 SELF:_Bof           := FALSE
@@ -268,7 +268,6 @@ METHOD Append(lReleaseLock AS LOGIC) AS LOGIC
                 SELF:_NewRecord     := TRUE
                 // Mark RecordBuffer and Header as Hot
                 SELF:_Hot           := TRUE
-                SELF:_Header:isHot  := TRUE
                 // Now, Save
                 IF SELF:_HeaderLocked 
                     SELF:GoCold()
@@ -280,6 +279,13 @@ METHOD Append(lReleaseLock AS LOGIC) AS LOGIC
     ENDIF
 //
 RETURN isOk
+
+PRIVATE METHOD _UpdateRecCount(nCount AS LONG) as LOGIC
+    SELF:_RecCount := nCount
+    SELF:_Header:isHot  := TRUE
+    RETURN SELF:_writeHeader()
+    
+
 
 // Lock the "future" record (Recno+1) and the Header
 // Unlock the Header
@@ -713,7 +719,7 @@ METHOD Pack() AS LOGIC
         ENDDO
         //
         SELF:_Hot := FALSE
-        SELF:_RecCount := nTotal
+        SELF:_UpdateRecCount(nTotal)
         SELF:Flush()
         //
     ENDIF
@@ -740,9 +746,8 @@ METHOD Zap() AS LOGIC
     IF isOk
         SELF:Goto(0)
         // Zap means, set the RecCount to zero, so any other write with overwrite datas
-        SELF:_RecCount := 0
-        SELF:_Header:isHot := TRUE
-        SELF:_writeHeader()
+        SELF:_UpdateRecCount(0)
+        SELF:Flush()
         // Memo File ?
         IF SELF:_HasMemo 
             // Zap Memo
@@ -766,7 +771,7 @@ METHOD Close() 			AS LOGIC
     IF isOk 
         SELF:UnLock(0)
         //
-        IF !SELF:_ReadOnly 
+        IF !SELF:_ReadOnly
             SELF:Flush()
         ENDIF
         IF SELF:_HeaderLocked 
@@ -794,9 +799,11 @@ METHOD Close() 			AS LOGIC
 PRIVATE METHOD _putEndOfFileMarker() AS LOGIC
     // According to DBASE.com Knowledge base :
     // The end of the file is marked by a single byte, with the end-of-file marker, an OEM code page character value of 26 (0x1A).
-    LOCAL lOffset := SELF:_HeaderLength + SELF:_RecCount * SELF:_RecordLength AS LONG
-    LOCAL isOk := ( FSeek3( SELF:_hFile, lOffset, FS_SET ) == lOffset ) AS LOGIC
+    LOCAL lOffset   := SELF:_HeaderLength + SELF:_RecCount * SELF:_RecordLength AS LONG
     LOCAL eofMarker := <BYTE>{ 26 } AS BYTE[]
+    LOCAL isOk      AS LOGIC
+    // Note FoxPro does not write EOF character for files with 0 records
+    isOk := ( FSeek3( SELF:_hFile, lOffset, FS_SET ) == lOffset ) 
     IF isOk 
         isOk := ( FWrite3( SELF:_hFile, eofMarker, 1 ) == 1 )
         IF isOk
@@ -1115,7 +1122,7 @@ PRIVATE METHOD _writeHeader() AS LOGIC
     SELF:_Header:Month := (BYTE)dtInfo:Month
     SELF:_Header:Day := (BYTE)dtInfo:Day
     // Update the number of records
-    SELF:_Header:RecCount := SELF:RecCount
+    SELF:_Header:RecCount := SELF:_RecCount
     // Now Write
     // Go Top
     FSeek3( SELF:_hFile, 0, FS_SET )
@@ -1370,14 +1377,14 @@ INTERNAL METHOD _getUsualType(oValue AS OBJECT) AS __UsualType
     ELSE
     typeCde := Type.GetTypeCode(oValue:GetType())
     SWITCH typeCde
-CASE TypeCode.SByte
+    CASE TypeCode.SByte
     CASE TypeCode.Byte
-CASE TypeCode.Int16
-CASE TypeCode.UInt16
+    CASE TypeCode.Int16
+    CASE TypeCode.UInt16
     CASE TypeCode.Int32
         RETURN __UsualType.LONG
     CASE TypeCode.UInt32
-CASE TypeCode.Int64
+    CASE TypeCode.Int64
     CASE TypeCode.UInt64
     CASE TypeCode.Single
     CASE TypeCode.Double
@@ -1494,8 +1501,8 @@ METHOD Flush() 			AS LOGIC
             SELF:HeaderLock( DbLockMode.UnLock )
         ENDIF
     ENDIF
-    //
     FFlush( SELF:_hFile )
+    //
     IF SELF:HasMemo
         isOk := _Memo:Flush()
     ENDIF

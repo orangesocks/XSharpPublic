@@ -108,6 +108,19 @@ BEGIN NAMESPACE XSharp
 
     /// <summary>A value of any data type unused by the Error system.  It is provided as a user-definable slot, allowing arbitrary information to be attached to an Error object and retrieved later</summary>
     VIRTUAL PROPERTY Cargo              AS OBJECT AUTO
+    
+	PRIVATE _StackTrace AS STRING
+    VIRTUAL PROPERTY StackTrace         AS STRING
+    	GET
+    		IF String.IsNullOrEmpty(SELF:_StackTrace)
+    			RETURN SUPER:StackTrace
+    		END IF
+    		RETURN SELF:_StackTrace
+    	END GET
+    	SET
+    		SELF:_StackTrace := VALUE
+    	END SET
+    END PROPERTY
 
 
     PRIVATE METHOD setDefaultValues() AS VOID
@@ -144,6 +157,10 @@ BEGIN NAMESPACE XSharp
     ELSE
         SELF:Description := ex:Message
         SELF:GenCode     := EG_EXCEPTION
+        SELF:_StackTrace := ex:StackTrace
+    ENDIF
+    IF String.IsNullOrEmpty(SELF:StackTrace)
+        SELF:StackTrace  := System.Diagnostics.StackTrace{2,TRUE}:ToString()
     ENDIF
 
     /// <summary>Create an Error Object with the Innner Exception and other parameters</summary>
@@ -163,7 +180,7 @@ BEGIN NAMESPACE XSharp
     SELF:setDefaultValues()
     SELF:Gencode := dwGenCode
     SELF:Arg	 := cArg
-    
+
     /// <summary>Create an Error Object for a Gencode, Argument Name and Description.</summary>
     CONSTRUCTOR (dwgencode AS DWORD, cArg AS STRING, cDescription AS STRING)
     SUPER(cDescription)
@@ -189,48 +206,55 @@ BEGIN NAMESPACE XSharp
     SELF:Gencode := dwgencode
     SELF:SubCode := dwSubcode
     
-    
+
+    PRIVATE METHOD LangString(e as VOErrors) AS STRING
+        local cString := __CavoStr(e):Trim() as string
+        if cString:Endswith(":")
+            cString := cString:Substring(0, cString:Length-1):Trim()
+        endif
+        return cString+e" :\t"
+
     /// <inheritdoc />
     OVERRIDE METHOD ToString() AS STRING
       LOCAL sb AS StringBuilder
       LOCAL nGenCode AS GenCode
       nGenCode := (GenCode) SELF:GenCode
       sb := StringBuilder{}
-      sb:AppendLine( e"Description :\t" + SELF:Description)
-      sb:AppendLine( e"SubSystem :\t" 	+ SELF:SubSystem )
-      sb:AppendLine( e"GenCode :\t" 	+ nGenCode:ToString()  )
-      sb:AppendLine( e"GenCodeText :\t" + SELF:GenCodeText  )
+      
+      sb:AppendLine( LangString(VOErrors.ERROR_DESCRIPTION) + SELF:Description)
+      sb:AppendLine( LangString(VOErrors.ERROR_SUBSYSTEM) + SELF:SubSystem )
+      sb:AppendLine( LangString(VOErrors.ERROR_GENCODE) + nGenCode:ToString()  +" " +SELF:GenCodeText  )
       IF SELF:SubCode != 0
-        sb:AppendLine( e"SubCode :\t" 	+ SELF:SubCode:ToString() )
-        sb:AppendLine( e"SubCodeText :\t"	+ SELF:SubCodeText)
+        sb:AppendLine( LangString(VOErrors.ERROR_SUBCODE) + SELF:SubCode:ToString() +" "+SELF:SubCodeText)
       ENDIF
       IF SELF:OsCode != 0
-        sb:AppendLine(e"OsCode :\t" 	+ SELF:OsCode:ToString() )
-        sb:AppendLine(e"OsCodeText :\t" + SELF:OsCodeText )
+        sb:AppendLine( LangString(VOErrors.ERROR_OSCODE)  + SELF:OsCode:ToString() +" " +SELF:OsCodeText )
       ENDIF
-      sb:AppendLine(e"FuncSym :\t" 	+ SELF:FuncSym   )
+      IF !String.IsNullOrEmpty(SELF:FuncSym)
+        sb:AppendLine(LangString(VOErrors.ERROR_FUNCSYM) + SELF:FuncSym   )
+      ENDIF
       LOCAL sev := (Severity) SELF:Severity AS Severity
-      sb:AppendLine(e"Severity :\t" 	+ sev:ToString() )
-      sb:AppendLine(e"CanDefault :\t"	+ SELF:CanDefault:ToString())
-      sb:AppendLine(e"CanRetry :\t"	+ SELF:CanRetry:ToString() )
-      sb:AppendLine(e"CanSubstitute :\t" + SELF:CanSubstitute:ToString())
+      sb:AppendLine(LangString(VOErrors.ERROR_SEVERITY)     + sev:ToString() )
+      sb:AppendLine(LangString(VOErrors.ERROR_CANDEFAULT)   + SELF:CanDefault:ToString())
+      sb:AppendLine(LangString(VOErrors.ERROR_CANRETRY)     +SELF:CanRetry:ToString() )
+      sb:AppendLine(LangString(VOErrors.ERROR_CANSUBSTITUTE) +SELF:CanSubstitute:ToString())
       IF ! String.IsNullOrEmpty(SELF:Operation)
-        sb:AppendLine(e"Operation :\t" + SELF:Operation)
+        sb:AppendLine(LangString(VOErrors.ERROR_OPERATION) + SELF:Operation)
       ENDIF
       IF ! String.IsNullOrEmpty(SELF:FileName)
-        sb:AppendLine(e"FileName :\t"	+ SELF:FileName )
+        sb:AppendLine(LangString(VOErrors.ERROR_FILENAME) + SELF:FileName )
       ENDIF
       IF SELF:Tries != 0
-          sb:AppendLine(e"Tries :\t" 	+ SELF:Tries:ToString()    )
+          sb:AppendLine(LangString(VOErrors.ERROR_TRIES) + SELF:Tries:ToString()    )
      ENDIF              
       IF SELF:ArgType != 0
-        sb:AppendLine(e"ArgType :\t" 	+ TypeString(SELF:ArgType    ) )
+        sb:AppendLine(LangString(VOErrors.ERROR_ARGTYPE) 	+ TypeString(SELF:ArgType    ) )
       ENDIF 
       IF SELF:ArgNum != 0
-        sb:AppendLine(e"ArgNum :\t" 	+ SELF:ArgNum:ToString()    )
+        sb:AppendLine(LangString(VOErrors.ERROR_ARGNUM) 	+ SELF:ArgNum:ToString()    )
       ENDIF
-      IF SELF:Arg != NULL
-        sb:AppendLine(e"Arg :\t" 		+ SELF:Arg)
+      IF ! String.IsNullOrEmpty(SELF:Arg)
+        sb:AppendLine(LangString(VOErrors.ERROR_ARG)	+ SELF:Arg)
       ENDIF 
       LOCAL cArgs AS STRING
       IF SELF:Args != NULL .AND. SELF:Args:Length > 0
@@ -248,14 +272,16 @@ BEGIN NAMESPACE XSharp
                 lFirst := FALSE
             NEXT
             cArgs += "}"
-            sb:AppendLine(e"Args :\t" + cArgs)
+            sb:AppendLine(LangString(VOErrors.ERROR_ARGS)+ cArgs)
       ENDIF 
       IF SELF:ArgTypeReqType != NULL
-        sb:AppendLine(e"ArgTypeReq :\t" + SELF:ArgTypeReqType:FullName)
+        sb:AppendLine(LangString(VOErrors.ERROR_ARGTYPE_REQ) + SELF:ArgTypeReqType:FullName)
       ENDIF
       IF ! String.IsNullOrEmpty(SELF:CallFuncSym)
-        sb:AppendLine(e"CallFuncSym :\t" + SELF:CallFuncSym  )
+        sb:AppendLine(LangString(VOErrors.ERROR_CALLEDFROM) + SELF:CallFuncSym  )
       ENDIF
+      sb:AppendLine(LangString(VOErrors.ERROR_STACK))
+      sb:AppendLine(SELF:StackTrace  )
       RETURN sb:ToString()
       
       
@@ -517,68 +543,72 @@ BEGIN NAMESPACE XSharp
     ENDIF
     RETURN NULL
   END CLASS
-  /// <exclude />
+
+  /// <summary>This enum is used to describe the type of USUAL values in the X# Runtime. It is based on the original USUAL type values in the VO runtime.</summary>
   ENUM __UsualType AS BYTE
         // These numbers must match with the types defined in the compiler
         // They also match with the USUAL types in VO (BaseType.h)
-        /// <exclude/>	
+        /// <summary>The usual contains a NIL.</summary>
         MEMBER Void		:=0
-        /// <exclude/>	
+        /// <summary>The usual contains a LONG value</summary>
         MEMBER Long		:=1
-        /// <exclude/>	
+        /// <summary>The usual contains a DATE value</summary>
         MEMBER Date		:=2
-        /// <exclude/>	
-        MEMBER Float		:=3
-        /// <exclude/>	
-        MEMBER Fixed      := 4 // Note # 4 (FIXED) was defined but never used in VO
-        /// <exclude/>	
-        MEMBER Array		:=5
-        /// <exclude/>	
-        MEMBER Object		:=6
-        /// <exclude/>	
-        MEMBER String		:=7
-        /// <exclude/>	
-        MEMBER Logic		:=8
-        /// <exclude/>	
-        MEMBER Codeblock	:=9
-        /// <exclude/>	
-        MEMBER Symbol		:=10
+        /// <summary>The usual contains a FLOAT value</summary>
+        MEMBER Float	:=3
+        /// <summary>This value is NEVER used for USUALs (this was also defined in VO but never used).</summary>
+        MEMBER Fixed    := 4 
+        /// <summary>The usual contains an ARRAY value</summary>
+        MEMBER Array	:=5
+        /// <summary>The usual contains an OBJECT value</summary>
+        MEMBER Object	:=6
+        /// <summary>The usual contains an STRING value</summary>
+        MEMBER String	:=7
+        /// <summary>The usual contains an LOGIC value</summary>
+        MEMBER Logic	:=8
+        /// <summary>The usual contains an CODEBLOCK value</summary>
+        MEMBER Codeblock:=9
+        /// <summary>The usual contains an SYMBOL value</summary>
+        MEMBER Symbol	:=10
         // see below for missing values
         // The follow numbers are defined but never stored inside a USUAL in VO and Vulcan
-        /// <exclude/>	
+        /// <summary>This value is in the enum for completeness but never used inside a usual. Byte values are stored as LONG.</summary>
         MEMBER Byte		:=11
-        /// <exclude/>	
+        /// <summary>This value is in the enum for completeness but never used inside a usual. Short values are stored as LONG.</summary>
         MEMBER ShortInt	:=12
-        /// <exclude/>	
+        /// <summary>This value is in the enum for completeness but never used inside a usual. Word values are stored as LONG.</summary>
         MEMBER Word		:=13
-        /// <exclude/>	
-        MEMBER DWord		:=14
-        /// <exclude/>	
-        MEMBER Real4		:=15
-        /// <exclude/>	
-        MEMBER Real8		:=16
-        /// <exclude/>	
+        /// <summary>This value is in the enum for completeness but never used inside a usual. DWord values are stored as LONG or FLOAT.</summary>
+        MEMBER DWord	:=14
+        /// <summary>This value is in the enum for completeness but never used inside a usual. Real4 values are stored as FLOAT</summary>
+        MEMBER Real4	:=15
+        /// <summary>This value is in the enum for completeness but never used inside a usual. Real8 values are stored as FLOAT.</summary>
+        MEMBER Real8	:=16
+        /// <summary>This value is in the enum for completeness but never used inside a usual.</summary>
+        /// <summary>The usual contains an PSZ value</summary>
         MEMBER Psz		:=17
-        /// <exclude/>	
+        /// <summary>The usual contains an PTR value</summary>
         MEMBER Ptr		:=18
         /// <exclude/>	
-        MEMBER Usual		:=19	// USUAL by Ref, not implemented in Vulcan
+        MEMBER Usual	:=19	// USUAL by Ref, not implemented in Vulcan
+
         // 20 and 21 not used
-        /// <exclude/>	
+
+        /// <summary>The usual contains an INT64 value (new in Vulcan and X#).</summary>
         MEMBER Int64		:=22
-        /// <exclude/>	
+        /// <summary>The usual contains an UINT64 value (new in Vulcan and X#).</summary>
         MEMBER Uint64     :=23
-        /// <exclude/>	
+        /// <summary>This value is in the enum for completeness but never used inside a usual. Char values are stored as LONG</summary>
         MEMBER Char		:=24    // not stored in a usual
-        /// <exclude/>	
+        /// <summary>This value is in the enum for completeness but never used inside a usual. Dynamic values are stored as OBJECT</summary>
         MEMBER Dynamic    :=25
-        /// <exclude/>	
+        /// <summary>The usual contains an DateTime value (new in X#).</summary>
         MEMBER DateTime	:=26
-        /// <exclude/>	
+        /// <summary>The usual contains an Decimal value (new in X#).</summary>
         MEMBER Decimal	:=27
-        /// <exclude/>	
+        /// <summary>The usual contains an Memo value. This value is there for compatibility with VO but never used.</summary>
         MEMBER Memo		:=32	// Used in RDD system in VO
-        /// <exclude/>	
+        /// <summary>Invalid Usual Type.</summary>
         MEMBER Invalid    :=99
     END ENUM
 

@@ -297,7 +297,11 @@ BEGIN NAMESPACE XSharp.RDD
                 SELF:ClearNullValue()
             ENDIF
             IF oValue IS System.DateTime VAR dt
-                oValue := DbDate{dt:Year, dt:Month, dt:Day}
+                IF dt == DateTime.MinValue
+                    oValue := DbDate{0,0,0}
+                ELSE
+                    oValue := DbDate{dt:Year, dt:Month, dt:Day}
+                ENDIF
             ENDIF
             IF oValue IS IDate VAR dValue
                 LOCAL str AS STRING
@@ -496,7 +500,7 @@ BEGIN NAMESPACE XSharp.RDD
             RETURN TRUE
 
         OVERRIDE METHOD EmptyValue() AS OBJECT
-            RETURN ""
+            RETURN NULL
 
        OVERRIDE METHOD Validate() AS LOGIC
             RETURN (SELF:Length == 10 .OR. SELF:Length == 4)  .AND.  SELF:Decimals == 0 
