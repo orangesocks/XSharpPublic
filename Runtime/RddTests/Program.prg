@@ -4,9 +4,20 @@
 #include "dbcmds.vh"
 USING XSharp.RDD
 using System.IO
+using System.Threading
+
+
+
 [STAThread];
 FUNCTION Start() AS VOID
     TRY
+        TestTimeStamp()
+        //TestSeek()
+        //testDbfEncoding()
+        //testDateInc()
+        //TestEmptyDbf()
+        //TestAnotherOrdScope()
+        //TestFileGarbage()
         //TestPackNtx()
         //TestZapNtx()
         //TestNullDate()
@@ -120,6 +131,131 @@ FUNCTION Start() AS VOID
     END TRY
     WAIT
     RETURN
+
+FUNCTION TestTimeStamp() AS VOID
+	LOCAL c AS STRING
+	c := "c:\test\mytest.dbf"
+	IF .not. File.Exists(c)
+		DbCreate(c,{{"TEST","C",10,0}})
+		DbUseArea(,,c)
+		DbAppend()
+		DbCloseArea()
+		Thread.Sleep(1500)
+	END IF
+	? FileInfo{c}:LastWriteTime
+	DbUseArea(,,c)
+    DbGoTop()
+	//DbCloseArea()
+	? FileInfo{c}:LastWriteTime // different to above
+RETURN
+
+FUNCTION TestSeek() AS VOID
+    RddSetDefault("DBFNTX")
+    ? DbUseArea(TRUE,,"c:\Descartes\dbfseek\relatie.dbf")
+    ? DbSetIndex("c:\Descartes\dbfseek\RELATIE1.ntx")
+    ? DbSeek("BAV01")
+    ? Found()
+    ? DbCloseArea()
+    RddSetDefault("DBFCDX")
+    ? DbUseArea(TRUE,,"c:\Descartes\dbfseek\relatie.dbf")
+    ? DbCreateIndex("c:\Descartes\dbfseek\RELATIE1.cdx","RELATIENR")
+    ? DbSeek("BAV01")
+    ? Found()
+    ? DbCloseArea()
+    RETURN
+
+FUNCTION TestDbfEncoding() AS VOID
+	LOCAL c AS STRING
+	LOCAL cDbf AS STRING
+	cDbf := "C:\test\strasse"
+	c := "STRAßE"
+	? c //"STRAßE", ok
+	DbCreate(cDBF,{{c,"C",10,0} ,{"AÖÄÜ","C",10,0}})
+	DbUseArea(,,cDBF)
+	? FieldName(1) // "STRA?E"
+	? FieldName(2) // A???
+    DbCreateIndex("STRASSE", "STRAßE")
+	DbCloseArea()
+RETURN
+
+function TestDateInc() as void
+  LOCAL u AS USUAL
+  LOCAL d AS DATE
+
+  d := Today()
+  ? ++ d // ok
+  ? d ++ // ok
+  ? d -- // ok
+
+  u := Today()
+  ? u 
+  ? ++ u // exception
+  ? u ++ // exception
+  ? u -- // exception
+  ? -- u // exception
+  u := DateTime.Now
+  ? u 
+  ? ++ u // exception
+  ? u ++ // exception
+  ? u -- // exception
+  ? -- u // exception
+
+RETURN
+FUNCTION TestEmptyDbf as void
+    DbCreate("Test",{{"VELD","C",10,0}},"DBFVFP")
+    DbuseArea(TRUE,"DBFVFP","test")
+    DbCreateOrder("VELD","TEST","VELD")
+    DbCloseArea()
+    DbuseArea(TRUE,"DBFVFP","test")
+    ? Len(FieldGetSym("veld"))
+    DbCloseArea()
+    WAIT
+    RETURN
+FUNCTION TestAnotherOrdScope() AS VOID
+	LOCAL cDbf AS STRING
+	cDbf := "c:\test\mynewtest"
+	
+	RddSetDefault("DBFCDX")
+	DbCreate(cDbf , {{"LAST" , "C" , 10,0}})
+	
+	DbUseArea(,,cDbf)
+	DbCreateIndex(cDbf,"Upper(LAST)")
+	
+	LOCAL aValues AS ARRAY
+	aValues := {"A", "DD", "BBB", "CC", "EEE", "DDD", "AA", "CC", "BBB", "EEE1"}
+	FOR LOCAL n := 1 AS DWORD UPTO ALen(aValues)
+		DbAppend()
+		FieldPut(1,aValues[n])
+	NEXT
+
+	? OrdScope(TOPSCOPE, "A")
+	? OrdScope(BOTTOMSCOPE, "C")
+
+	// following is OK
+	DbGoTop()
+	DO WHILE .not. Eof()
+		? RecNo()
+		DbSkip()
+	END DO
+	? 
+	// this never ends, get's stuck at record 11 (records are 10 actually)
+	DO WHILE .not. Bof()
+		? RecNo()
+		DbSkip(-1)
+	END DO
+	? 
+	DbCloseArea()
+RETURN
+
+Function TestFileGarbage() as void
+LOCAL c AS STRING
+
+c := "D:\t?est\FileDoesnotExist.txt"  
+
+
+? File ( c ) 
+
+RETURN
 
 FUNCTION TestPackNtx() AS VOID
 	
