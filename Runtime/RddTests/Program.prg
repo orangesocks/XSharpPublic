@@ -5,24 +5,25 @@
 USING XSharp.RDD
 using System.IO
 using System.Threading
+    
+   
 
-
-
-[STAThread];
+[STAThread];     
 FUNCTION Start() AS VOID
     TRY
-        TestTimeStamp()
-        //TestSeek()
+        TestAdvantageSeek()
+        //TestTimeStamp()
+        //TestSeek()    
         //testDbfEncoding()
         //testDateInc()
         //TestEmptyDbf()
         //TestAnotherOrdScope()
         //TestFileGarbage()
-        //TestPackNtx()
+        //TestPackNtx()  
         //TestZapNtx()
         //TestNullDate()
         //TestZap3()
-        //SetNatDLL("TURKISH")
+        //SetNatDLL("TURKISH")    
         //TestZap2()
         //TestPack2()
         //DbSeekTest()
@@ -32,7 +33,7 @@ FUNCTION Start() AS VOID
         //FrankM()
         //Ticket118a()
         //Ticket118()
-        //Ticket120()
+        //Ticket120()   
         //Ticket103a()
         //Ticket103()
         //Ticket119()
@@ -132,6 +133,50 @@ FUNCTION Start() AS VOID
     WAIT
     RETURN
 
+FUNCTION TestAdvantageSeek() AS VOID
+	LOCAL cDbf AS STRING
+	LOCAL cValue AS STRING
+
+	cDbf := "C:\test\MyDbf"
+	cValue := "abc"
+
+	FErase(cDbf + ".dbf")
+	FErase(cDbf + ".cdx")
+	? DbCreate(cDbf , {{"TEST","C",10,0}})
+	? DbUseArea(,"DBFCDX",cDbf)
+	DbAppend()
+	FieldPut(1,"abc")
+	DbGoTop()
+	? DbCreateOrder("MYORDER", cDbf , "TEST")
+	? DbCloseArea()
+	
+
+	RddSetDefault("AXDBFCDX")
+	? XSharp.RDD.Functions.AX_SetServerType(FALSE,FALSE,TRUE)
+	? DbUseArea(,,cDbf)
+	OrdSetFocus("MYORDER")
+	TRY
+        ? "OrdName", OrdName()
+        ? "OrdKey", DbOrderInfo(DBOI_EXPRESSION)
+        DbGoTop()
+        ? "Key", DbOrderInfo(DBOI_KEYVAL)
+		? "DBSeek() returns:"
+		? DbSeek(padr(cValue,10))
+	CATCH e AS Exception
+		? "Exception occured!"
+		?
+		? "Message of exception:"
+		?
+		? e:Message
+		wait
+		?
+		? "Exception ToString():"
+		?
+		? e:ToString()
+	END TRY
+	? DbCloseArea()
+RETURN
+
 FUNCTION TestTimeStamp() AS VOID
 	LOCAL c AS STRING
 	c := "c:\test\mytest.dbf"
@@ -222,14 +267,17 @@ FUNCTION TestAnotherOrdScope() AS VOID
 	DbCreateIndex(cDbf,"Upper(LAST)")
 	
 	LOCAL aValues AS ARRAY
+    FOR var test := 1 to 1000
 	aValues := {"A", "DD", "BBB", "CC", "EEE", "DDD", "AA", "CC", "BBB", "EEE1"}
 	FOR LOCAL n := 1 AS DWORD UPTO ALen(aValues)
 		DbAppend()
 		FieldPut(1,aValues[n])
 	NEXT
+    NEXT
 
-	? OrdScope(TOPSCOPE, "A")
-	? OrdScope(BOTTOMSCOPE, "C")
+	//? OrdScope(TOPSCOPE, "A")
+	//? OrdScope(BOTTOMSCOPE, "C")
+    DbOrderInfo(DBOI_USER+42)
 
 	// following is OK
 	DbGoTop()
