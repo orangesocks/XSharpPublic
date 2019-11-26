@@ -10,6 +10,7 @@ BEGIN NAMESPACE XSharp
 	ENUM CollationMode
 		MEMBER Windows
 		MEMBER Clipper
+        MEMBER XPP      := CollationMode.Clipper
 		MEMBER Unicode
 		MEMBER Ordinal
 	END ENUM
@@ -379,8 +380,8 @@ BEGIN NAMESPACE XSharp.RDD.Enums
 		
 		
 		// advantage
-		MEMBER DBI_GET_ACE_TABLE_HANDLE  := 1110
-		MEMBER DBI_GET_ACE_STMT_HANDLE   := 1111
+		MEMBER DBI_GET_ACE_TABLE_HANDLE  := DBI_USER + 110
+		MEMBER DBI_GET_ACE_STMT_HANDLE   := DBI_USER + 111
 		
 		
 	END	 ENUM
@@ -807,6 +808,54 @@ BEGIN NAMESPACE XSharp.RDD.Enums
         MEMBER CanPutRec     := 2
     END ENUM
 
+
+    /// <summary>Enum that described the possible Notification messages that are sent to clients of workareas</summary>
+    /// <remarks>Clients that want to subscribe to these notifications can register themselves by calling DbRegisterClient() and must implement IDbNotify().</remarks>
+    /// <seealso cref="T:XSharp.IDbNotify"/>
+    /// <seealso cref="M:XSharp.Core.Functions.DbRegisterClient(XSharp.IDbNotify)"/>
+    /// <seealso cref="M:XSharp.Core.Functions.DbUnRegisterClient(XSharp.IDbNotify)"/>
+    Enum DbNotificationType
+        /// <summary>This message is sent after a file was created. The Data parameter is the name of the file that was opened.</summary>
+        MEMBER FileCreate             
+        /// <summary>This message is sent after a file was opened. The Data parameter is the name of the file that was opened.</summary>
+        MEMBER FileOpen             
+        /// <summary>This message is sent after a file is closed. The Data parameter is the name of the file that was closed.</summary>
+        MEMBER FileClose            
+        /// <summary>This message is sent after an index was created. The Data parameter is the name of the file that was opened.</summary>
+        MEMBER IndexCreate             
+        /// <summary>This message is sent after an index was deleted. The Data parameter is the name of the file that was opened.</summary>
+        MEMBER IndexDelete
+        /// <summary>This message is sent after an index was opened. The Data parameter is the name of the file that was opened.</summary>
+        MEMBER IndexOpen             
+        /// <summary>This message is sent after an index was closed. The Data parameter is the name of the file that was closed.</summary>
+        MEMBER IndexClose            
+        /// <summary>This message is sent before a build operation is started. The Data parameter is a description of the operation.</summary>
+        MEMBER BeforeBulkOperation   
+        /// <summary>This message is sent after a build operation was completed. The Data parameter is a description of the operation.</summary>
+        MEMBER AfterBulkOperation    
+        /// <summary>This message is sent after an order was changed. The Data parameter is the name of the new order.</summary>
+        MEMBER OrderChanged         
+        /// <summary>This message is sent after a field was updated The Data parameter is the fieldname of the field that was updated.</summary>
+        MEMBER BeforeFieldUpdate     
+        /// <summary>This message is sent after a field was updated The Data parameter is the fieldname of the field that was updated.</summary>
+        MEMBER AfterFieldUpdate     
+        /// <summary>This message is sent before the record pointer is moved. The Data parameter indicates the reason for the move</summary>
+        MEMBER BeforeMove          
+        /// <summary>This message is sent after the record pointer is moved. The Data parameter indicates the reason for the move</summary>
+        MEMBER AfterMove            
+        /// <summary>This message is sent after a new record has been appended. The Data parameter is the record number of the record.</summary>
+        MEMBER RecordAppended       
+        /// <summary>This message is sent after a record has been deleted. The Data parameter is the record number of the record.</summary>
+        MEMBER RecordDeleted        
+        /// <summary>This message is sent after a record has been recalled. The Data parameter is the record number of the record.</summary>
+        MEMBER RecordRecalled       
+        /// <summary>This message is sent after a record has been locked. The Data parameter is the record number of the record.</summary>
+        MEMBER RecordLocked
+        /// <summary>This message is sent after a record has been unlocked. The Data parameter is the record number of the record.</summary>
+        MEMBER RecordUnLocked
+        /// <summary>This message is sent after an operation failed. The Data parameter is the description of the operation.</summary>
+        MEMBER OperationFailed    := 99
+    END ENUM
 
 END NAMESPACE
 

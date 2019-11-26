@@ -12,10 +12,11 @@ USING XSharp.RDD.Enums
 USING XSharp.RDD.Support
 USING System.Globalization
 USING System.Collections.Generic
-
+USING System.Diagnostics
 
 BEGIN NAMESPACE XSharp.RDD
     /// <summary>DBF RDD. Usually not used 'stand alone'</summary>
+[DebuggerDisplay("DBF ({Alias,nq})")];
 PARTIAL CLASS DBF INHERIT Workarea IMPLEMENTS IRddSortWriter
 #region STATIC properties and fields
         STATIC PROTECT _Extension := ".DBF" AS STRING
@@ -32,45 +33,66 @@ PARTIAL CLASS DBF INHERIT Workarea IMPLEMENTS IRddSortWriter
 	PROTECT _HasMemo		AS LOGIC
 	PROTECT _wasChanged     AS LOGIC
 	
-        //PROTECT _HasTags		AS LOGIC
-        //PROTECT _HasAutoInc		AS LOGIC
-        //PROTECT _HasTimeStamp	AS LOGIC
-        //PROTECT _LastUpdate	    AS DateTime
-	    PROTECT _RecCount		AS LONG
-	    PROTECT _RecNo			AS LONG
-        //PROTECT _Temporary		AS LOGIC
-	    PROTECT _RecordChanged	AS LOGIC 	// Current record has changed ?
-	    PROTECT _Positioned		AS LOGIC 	//
-        //PROTECT _Appended		AS LOGIC	// Record has been added ?
-    	PROTECT _Deleted		AS LOGIC	// Record has been deleted ?
-        //PROTECT _HeaderDirty	AS LOGIC	// Header is dirty ?
-    	PROTECT _fLocked		AS LOGIC    // File Locked ?
-    	PROTECT _HeaderLocked	AS LOGIC
-        //PROTECT _PackMemo		AS LOGIC
-    	INTERNAL _OpenInfo		AS DbOpenInfo // current dbOpenInfo structure in OPEN/CREATE method
-    	PROTECT _Locks			AS List<LONG>
-        //PROTECT _DirtyRead		AS LONG
-        //PROTECT _HasTrigger		AS LOGIC
-        //PROTECT _Encrypted		AS LOGIC	// Current record Encrypted
-        //PROTECT _TableEncrypted 	AS LOGIC	// Whole table encrypted
-        //PROTECT _CryptKey		AS STRING
-        //PROTRECT _Trigger		as DbTriggerDelegate
-	    PROTECT _oIndex			AS BaseIndex
-	    PROTECT _Hot            AS LOGIC
-	    PROTECT _lockScheme     AS DbfLocking
-	    PROTECT _NewRecord      AS LOGIC
-        PROTECT INTERNAL _NullColumn    AS DbfNullColumn // Column definition for _NullFlags, used in DBFVFP driver
-        PROTECT INTERNAL _NullCount      := 0 AS LONG   // to count the NULL and Length bits for DBFVFP
+    //PROTECT _HasTags		AS LOGIC
+    //PROTECT _HasAutoInc		AS LOGIC
+    //PROTECT _HasTimeStamp	AS LOGIC
+    //PROTECT _LastUpdate	    AS DateTime
+	PROTECT _RecCount		AS LONG
+	PROTECT _RecNo			AS LONG
+    //PROTECT _Temporary		AS LOGIC
+	PROTECT _RecordChanged	AS LOGIC 	// Current record has changed ?
+	PROTECT _Positioned		AS LOGIC 	//
+    //PROTECT _Appended		AS LOGIC	// Record has been added ?
+    PROTECT _Deleted		AS LOGIC	// Record has been deleted ?
+    //PROTECT _HeaderDirty	AS LOGIC	// Header is dirty ?
+    PROTECT _fLocked		AS LOGIC    // File Locked ?
+    PROTECT _HeaderLocked	AS LOGIC
+    //PROTECT _PackMemo		AS LOGIC
+    INTERNAL _OpenInfo		AS DbOpenInfo // current dbOpenInfo structure in OPEN/CREATE method
+    PROTECT _Locks			AS List<LONG>
+    //PROTECT _DirtyRead		AS LONG
+    //PROTECT _HasTrigger		AS LOGIC
+    //PROTECT _Encrypted		AS LOGIC	// Current record Encrypted
+    //PROTECT _TableEncrypted 	AS LOGIC	// Whole table encrypted
+    //PROTECT _CryptKey		AS STRING
+    //PROTRECT _Trigger		as DbTriggerDelegate
+	PROTECT _oIndex			AS BaseIndex
+	PROTECT _Hot            AS LOGIC
+	PROTECT _lockScheme     AS DbfLocking
+	PROTECT _NewRecord      AS LOGIC
+    PROTECT INTERNAL _NullColumn    AS DbfNullColumn // Column definition for _NullFlags, used in DBFVFP driver
+    PROTECT INTERNAL _NullCount      := 0 AS LONG   // to count the NULL and Length bits for DBFVFP
 	
-        PROTECT INTERNAL PROPERTY FullPath AS STRING GET _FileName
-        PROTECT INTERNAL PROPERTY Header AS DbfHeader GET _Header
-        PROTECT INTERNAL _Ansi          AS LOGIC
-        PROTECT INTERNAL _Encoding      AS Encoding
-        PROTECT INTERNAL  _numformat AS NumberFormatInfo
-        PROTECT PROPERTY IsOpen AS LOGIC GET SELF:_hFile != F_ERROR
-        PROTECT PROPERTY HasMemo AS LOGIC GET SELF:_hasMemo
-        PROTECT PROPERTY Memo AS BaseMemo GET (BaseMemo) SELF:_Memo
-	
+    PROTECT INTERNAL PROPERTY FullPath AS STRING GET _FileName
+    PROTECT INTERNAL PROPERTY Header AS DbfHeader GET _Header
+    PROTECT INTERNAL _Ansi          AS LOGIC
+    PROTECT INTERNAL _Encoding      AS Encoding
+    PROTECT INTERNAL  _numformat AS NumberFormatInfo
+    PROTECT PROPERTY IsOpen AS LOGIC GET SELF:_hFile != F_ERROR
+    PROTECT PROPERTY HasMemo AS LOGIC GET SELF:_hasMemo
+    PROTECT PROPERTY Memo AS BaseMemo GET (BaseMemo) SELF:_Memo
+
+INTERNAL METHOD _CheckEofBof() AS VOID
+    IF SELF:RecCount == 0
+        SELF:_SetEOF(TRUE)
+        SELF:_SetBOF(TRUE)
+    ENDIF
+
+
+INTERNAL METHOD _SetBOF(lNewValue as LOGIC) AS VOID
+    IF lNewValue != SELF:_BoF
+        SELF:_BoF := lNewValue
+    ENDIF
+
+
+INTERNAL METHOD _SetEOF(lNewValue as LOGIC) AS VOID
+    IF lNewValue != SELF:_EoF
+        SELF:_EoF := lNewValue
+        IF lNewValue
+            Array.Copy(SELF:_BlankBuffer, SELF:_RecordBuffer, SELF:_RecordLength)
+        ENDIF
+    ENDIF
+    
 PRIVATE METHOD _AllocateBuffers() AS VOID
 	SELF:_RecordBuffer  := BYTE[]{ SELF:_RecordLength}
 	SELF:_BlankBuffer   := BYTE[]{ SELF:_RecordLength}
@@ -101,8 +123,10 @@ METHOD GoTop() AS LOGIC
 			SELF:_Bottom := FALSE
 			SELF:_BufferValid := FALSE
                 // Apply Filter and SetDeleted
-			RETURN SkipFilter(1)
-		END LOCK
+			VAR result := SkipFilter(1)
+            SELF:_CheckEofBof()
+            RETURN result
+        END LOCK
 	ENDIF
 RETURN FALSE
 
@@ -115,8 +139,10 @@ METHOD GoBottom() AS LOGIC
 			SELF:_Bottom := TRUE
 			SELF:_BufferValid := FALSE
             // Apply Filter and SetDeleted
-			RETURN SkipFilter(-1)
-		END LOCK
+			VAR result := SkipFilter(-1)
+            SELF:_CheckEofBof()
+            RETURN result
+        END LOCK
 	ENDIF
 RETURN FALSE
 
@@ -135,31 +161,35 @@ METHOD GoTo(nRec AS LONG) AS LOGIC
                 // Normal positioning
                 // VO does not set _Found to TRUE for a succesfull Goto. It does set _Found to false for a failed Goto
 				SELF:_RecNo := nRec
-				SELF:_EOF := FALSE
-				SELF:_Bof := FALSE
+				SELF:_SetEOF(FALSE)
+                SELF:_SetBOF(FALSE)
                 //SELF:_Found :=TRUE    
 				SELF:_BufferValid := FALSE
 				SELF:_isValid := TRUE
-			ELSEIF nRec < 0 .and. nCount > 0
+			ELSEIF nRec < 0 .AND. nCount > 0
                 // skip to BOF. Move to record 1. 
 				SELF:_RecNo := 1
-				SELF:_EOF := FALSE
-				SELF:_Bof := TRUE
+				SELF:_SetEOF(FALSE)
+                SELF:_SetBOF(TRUE)
 				SELF:_Found :=FALSE
 				SELF:_BufferValid := FALSE
 				SELF:_isValid := FALSE
 			ELSE
                 // File empty, or move after last record
 				SELF:_RecNo := nCount + 1
-				SELF:_EOF   := TRUE
-				SELF:_Bof   := nCount == 0
+				SELF:_SetEOF(TRUE)
+                SELF:_SetBOF(nCount == 0)
 				SELF:_Found := FALSE
 				SELF:_BufferValid := FALSE
 				SELF:_isValid := FALSE
-			ENDIF
+            ENDIF
+            IF SELF:_Relations:Count != 0
+                SELF:SyncChildren()
+            ENDIF
+            SELF:_CheckEofBof()
 			RETURN TRUE
 		END LOCK
-	ENDIF
+    ENDIF
 RETURN FALSE
 
 /// <inheritdoc />
@@ -173,7 +203,8 @@ METHOD GoToId(oRec AS OBJECT) AS LOGIC
 			SELF:_dbfError(ex, SubCodes.EDB_GOTO,GenCode.EG_DATATYPE,  "DBF.GoToId") 
 			result := FALSE
 		END TRY
-	END LOCK
+    END LOCK
+    SELF:_CheckEofBof()
 RETURN result
 
 /// <inheritdoc />
@@ -201,12 +232,13 @@ METHOD Skip(nToSkip AS INT) AS LOGIC
 				SELF:_Bof := TRUE
 			ENDIF
 			IF nToSkip < 0 
-				SELF:_Eof := FALSE
+				SELF:_SetEOF(FALSE)
 			ELSEIF nToSkip > 0 
 				SELF:_Bof := FALSE
 			ENDIF
-		ENDIF
+        ENDIF
 	ENDIF
+    SELF:_CheckEofBof()
 RETURN result
 
 
@@ -220,17 +252,18 @@ METHOD SkipRaw(nToSkip AS INT) AS LOGIC
 		LOCAL currentBof := SELF:_Bof AS LOGIC
 		LOCAL currentEof := SELF:_EOF AS LOGIC
 		SELF:Goto( SELF:_Recno )
-		SELF:_Bof := currentBof
-		SELF:_Eof := currentEof
+		SELF:_SetBof(currentBof)
+        SELF:_SetEOF(currentEof)
 	ELSE
         nNewRec := SELF:_RecNo + nToSkip
         IF nNewRec != 0
 		    isOk := SELF:Goto( SELF:_RecNo + nToSkip )
         ELSE
             isOk := SELF:Goto( 1 )
-            SELF:_Bof := TRUE
+            SELF:_SetBOF(TRUE)
         ENDIF
-	ENDIF
+    ENDIF
+    SELF:_CheckEofBof()
 RETURN isOK 
 
 
@@ -266,7 +299,7 @@ METHOD Append(lReleaseLock AS LOGIC) AS LOGIC
                     // Now, update state
 					SELF:_UpdateRecCount(SELF:_RecCount+1)
 					SELF:_RecNo         := SELF:_RecCount
-					SELF:_EOF           := FALSE
+					SELF:_SetEOF(FALSE)
 					SELF:_Bof           := FALSE
 					SELF:_Deleted       := FALSE
 					SELF:_BufferValid   := TRUE
@@ -639,7 +672,7 @@ METHOD Delete() AS LOGIC
 			ENDIF
 		ELSE
         // VO does not report an error when deleting on an invalid record
-			isOk := TRUE // SELF:_DbfError( ERDD.READ, XSharp.Gencode.EG_READ )
+			isOk := TRUE // SELF_DbfError( ERDD.READ, XSharp.Gencode.EG_READ )
 		ENDIF
 	END LOCK
 RETURN isOk
@@ -729,6 +762,7 @@ METHOD Pack() AS LOGIC
 		SELF:_Hot := FALSE
 		SELF:_UpdateRecCount(nTotal)
 		SELF:Flush()
+        SELF:_CheckEofBof()
         //
 	ENDIF
 RETURN isOk
@@ -765,7 +799,8 @@ METHOD Zap() AS LOGIC
 				RETURN SUPER:Zap()
 			ENDIF
 		ENDIF
-	ENDIF
+        SELF:_CheckEofBof()
+    ENDIF
 RETURN isOk
 
     // Open and Close
@@ -871,7 +906,17 @@ METHOD Create(info AS DbOpenInfo) AS LOGIC
         // Convert the Windows CodePage to a DBF CodePage
 		SELF:_Header:CodePage := CodePageExtensions.ToHeaderCodePage( (OsCodePage)codePage ) 
         // Init Header version, should it be a parameter ?
-		IF SELF:_Ansi
+        LOCAL lSupportAnsi := FALSE AS LOGIC
+        SWITCH RuntimeState.Dialect
+            CASE XSharpDialect.VO
+            CASE XSharpDialect.Vulcan
+            CASE XSharpDialect.Core
+                lSupportAnsi := TRUE
+            OTHERWISE
+                lSupportAnsi := FALSE
+        END SWITCH
+         
+		IF SELF:_Ansi .and. lSupportAnsi
 			SELF:_Header:Version := IIF(SELF:_HasMemo, DBFVersion.VOWithMemo , DBFVersion.VO )
 		ELSE
 			SELF:_Header:Version := IIF(SELF:_HasMemo, DBFVersion.FoxBaseDBase3WithMemo , DBFVersion.FoxBaseDBase3NoMemo )
@@ -1365,20 +1410,26 @@ INTERNAL METHOD _dbfError(ex AS Exception, iSubCode AS DWORD, iGenCode AS DWORD,
 	LOCAL oError AS RddError
     //
 	IF ex != NULL
-		oError := RddError{ex}
+		oError := RddError{ex,iGenCode, iSubCode}
 	ELSE
-		oError := RddError{}
+		oError := RddError{iGenCode, iSubCode}
 	ENDIF
-	oError:SubCode := iSubCode
-	oError:Gencode := iGenCode
 	oError:SubSystem := SELF:Driver
 	oError:Severity := iSeverity
 	oError:FuncSym  := IIF(strFunction == NULL, "", strFunction) // code in the SDK expects all string properties to be non-NULL
 	oError:FileName := SELF:_FileName
 	IF String.IsNullOrEmpty(strMessage)  .AND. ex != NULL
 		strMessage := ex:Message
-	ENDIF
-	oError:Description := IIF(strMessage == NULL , "", strMessage)
+    ENDIF
+    IF String.IsNullOrEmpty(strMessage)
+        IF oError:SubCode != 0
+            oError:Description := oError:GenCodeText + " (" + oError:SubCodeText+")"
+        ELSE
+            oError:Description := oError:GenCodeText 
+        ENDIF
+    ELSE
+	    oError:Description := strMessage
+    ENDIF
 	RuntimeState.LastRDDError := oError
     //
 	THROW oError
@@ -1423,23 +1474,29 @@ INTERNAL VIRTUAL METHOD _GetColumn(nFldPos AS LONG) AS DbfColumn
 	LOCAL nArrPos := nFldPos AS LONG
 	IF __ARRAYBASE__ == 0
 		nArrPos -= 1
-	ENDIF
+    ENDIF
+    IF nArrPos >= 0 .AND. nArrPos < SELF:_Fields:Length
     //
-RETURN (DbfColumn) SELF:_Fields[ nArrPos ]
-
+        RETURN (DbfColumn) SELF:_Fields[ nArrPos ]
+    ENDIF
+    SELF:_dbfError(EDB_FIELDINDEX, EG_ARG)
+    RETURN NULL
 
     // Indicate if a Field is a Memo
     // At DBF Level, TRUE only for DbFieldType.Memo
 INTERNAL VIRTUAL METHOD _isMemoField( nFldPos AS LONG ) AS LOGIC
-	VAR oColumn := SELF:_GetColumn(nFldPos) 
-RETURN oColumn:IsMemo
+	VAR oColumn := SELF:_GetColumn(nFldPos)
+    IF oColumn != NULL
+        RETURN oColumn:IsMemo
+    ENDIF
+    RETURN FALSE
 
     // Retrieve the BlockNumber as it is written in the DBF
 OVERRIDE METHOD _getMemoBlockNumber( nFldPos AS LONG ) AS LONG
 	LOCAL blockNbr := 0 AS LONG
 	SELF:ForceRel()
 	VAR oColumn := SELF:_GetColumn(nFldPos)
-	IF oColumn:IsMemo
+	IF oColumn != NULL .AND. oColumn:IsMemo
 		IF SELF:_readRecord()
 			blockNbr := (LONG) oColumn:GetValue(SELF:_RecordBuffer)
 		ENDIF
@@ -1452,6 +1509,10 @@ METHOD GetValue(nFldPos AS LONG) AS OBJECT
 	SELF:ForceRel()
     // Read Record to Buffer
 	VAR oColumn := SELF:_GetColumn(nFldPos)
+    IF oColumn == NULL
+        // Getcolumn already sets the error
+        RETURN NULL
+    ENDIF
 	IF SELF:_readRecord()
         //
 		IF oColumn:IsMemo
@@ -1469,7 +1530,7 @@ METHOD GetValue(nFldPos AS LONG) AS OBJECT
             // do not call _Memo for empty values. Memo columns return an empty string for the empty value
 			ret := oColumn:EmptyValue()
 		ELSE
-			SELF:_DbfError( ERDD.READ, XSharp.Gencode.EG_READ )
+			SELF:_DbfError( Subcodes.ERDD_READ, XSharp.Gencode.EG_READ ,"DBF.GetValue")
 		ENDIF
 	ENDIF
 RETURN ret
@@ -1508,6 +1569,8 @@ METHOD Flush() 			AS LOGIC
 	IF isOk .and. SELF:_wasChanged
 		IF SELF:Shared 
 			SELF:HeaderLock( DbLockMode.Lock )
+            // Another workstation may have added another record, so make sure we update the reccount
+            SELF:_RecCount := SELF:_calculateRecCount()
 		ENDIF
 		SELF:_putEndOfFileMarker()
 		SELF:_writeHeader()
@@ -1582,31 +1645,47 @@ PROPERTY IsNewRecord AS LOGIC GET SELF:_NewRecord
 	
 /// <inheritdoc />
 METHOD PutValue(nFldPos AS LONG, oValue AS OBJECT) AS LOGIC
-	SELF:ForceRel()
+    LOCAL ret := FALSE AS LOGIC
+    IF SELF:_ReadOnly
+        SELF:_dbfError(ERDD.READONLY, XSharp.Gencode.EG_READONLY )
+    ENDIF
+    SELF:ForceRel()
 	IF SELF:_readRecord()
         // GoHot() must be called first because this saves the current index values
+    	ret := TRUE
 		IF ! SELF:_Hot
 			SELF:GoHot()
 		ENDIF
 		VAR oColumn := SELF:_GetColumn(nFldPos)
-		IF oColumn:IsMemo
-			IF SELF:HasMemo
-				IF _Memo:PutValue(nFldPos, oValue)
-                    // Update the Field Info with the new MemoBlock Position
-					oColumn:PutValue(SELF:Memo:LastWrittenBlockNumber, SELF:_RecordBuffer)
-				ENDIF
-			ELSE
-				RETURN SUPER:PutValue(nFldPos, oValue)
-			ENDIF
-		ELSE
-			oColumn:PutValue(oValue, SELF:_RecordBuffer)
-		ENDIF
-	ENDIF
-RETURN TRUE
+        IF oColumn != NULL
+		    IF oColumn:IsMemo
+			    IF SELF:HasMemo
+				    IF _Memo:PutValue(nFldPos, oValue)
+                        // Update the Field Info with the new MemoBlock Position
+					    oColumn:PutValue(SELF:Memo:LastWrittenBlockNumber, SELF:_RecordBuffer)
+				    ENDIF
+			    ELSE
+				    ret := SUPER:PutValue(nFldPos, oValue)
+			    ENDIF
+		    ELSE
+			    ret := oColumn:PutValue(oValue, SELF:_RecordBuffer)
+            ENDIF
+        ELSE
+            // Getcolumn already sets the error
+            RETURN FALSE
+        ENDIF
+    ENDIF
+    IF ! ret
+        SELF:_dbfError(Subcodes.ERDD_WRITE, Gencode.EG_WRITE,"DBF.PutValue")
+    ENDIF
+RETURN ret
 
     /// <inheritdoc />
 METHOD PutValueFile(nFldPos AS LONG, fileName AS STRING) AS LOGIC
-	IF SELF:HasMemo
+    IF SELF:_ReadOnly
+        SELF:_dbfError(ERDD.READONLY, XSharp.Gencode.EG_READONLY )
+    ENDIF
+    IF SELF:HasMemo
 		RETURN _Memo:PutValueFile(nFldPos, fileName)
 	ELSE
 		RETURN SUPER:PutValue(nFldPos, fileName)
@@ -1700,11 +1779,14 @@ METHOD OrderListRebuild() AS LOGIC
 	ENDIF
     /// <inheritdoc />
 METHOD Seek(info AS DbSeekInfo) AS LOGIC
+    LOCAL result as LOGIC
 	IF _oIndex != NULL
-		RETURN _oIndex:Seek(info)
+		result := _oIndex:Seek(info)
 	ELSE
-		RETURN SUPER:Seek(info)
-	ENDIF
+		result := SUPER:Seek(info)
+    ENDIF
+    SELF:_CheckEofBof()
+    RETURN result
 	
     // Relations
     /// <inheritdoc />
@@ -1745,7 +1827,7 @@ METHOD ForceRel() AS LOGIC
 		ENDIF
 		isOk := SELF:Goto( gotoRec )
 		SELF:_Found := SELF:_isValid
-		SELF:_Bof := FALSE
+		SELF:_SetBOF(FALSE)
 	ENDIF
 RETURN isOk
 
@@ -1775,7 +1857,11 @@ VIRTUAL METHOD Compile(sBlock AS STRING) AS ICodeblock
 	LOCAL result AS ICodeblock
 	result := SUPER:Compile(sBlock)
 	IF result == NULL
-		SELF:_dbfError( SubCodes.EDB_EXPRESSION, GenCode.EG_SYNTAX,"DBF.Compile")
+        var msg := "Could not compile epression '"+sBlock+"'"
+        if (runtimestate:LastRddError != NULL_OBJECT)
+            msg += "("+runtimestate:LastRddError:Message+")"
+        ENDIF
+		SELF:_dbfError( SubCodes.EDB_EXPRESSION, GenCode.EG_SYNTAX,"DBF.Compile", msg )
 	ENDIF
 RETURN result
 

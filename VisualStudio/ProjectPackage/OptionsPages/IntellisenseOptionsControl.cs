@@ -29,19 +29,17 @@ namespace XSharp.Project.OptionsPages
             chkCompletionListtabs.Checked = optionsPage.CompletionListTabs;
             chkKeywordsInAll.Checked = optionsPage.KeywordsInAll;
             chkDotAsUniversalSelector.Checked = optionsPage.UseDotAsUniversalSelector;
-            //chkShowAfterChar.Checked = optionsPage.ShowAfterChar;
-            chkShowAfterChar.Visible = false;
-            chkShowAfterChar.Checked = false;
+            chkShowAfterChar.Checked = optionsPage.ShowAfterChar;
             grpCase.Enabled = true;
             switch (optionsPage.KeywordCase)
             {
-                case 1:
+                case KeywordCase.Upper:
                     rbUpper.Checked = true;
                     break;
-                case 2:
+                case KeywordCase.Lower:
                     rbLower.Checked = true;
                     break;
-                case 3:
+                case KeywordCase.Title:
                     rbTitle.Checked = true;
                     break;
                 default:
@@ -77,19 +75,19 @@ namespace XSharp.Project.OptionsPages
         {
             if (rbNone.Checked)
             {
-                optionsPage.KeywordCase = 0;
+                optionsPage.KeywordCase = KeywordCase.None;
             }
             else if (rbUpper.Checked)
             {
-                optionsPage.KeywordCase = 1;
+                optionsPage.KeywordCase = KeywordCase.Upper;
             }
             else if (rbLower.Checked)
             {
-                optionsPage.KeywordCase = 2;
+                optionsPage.KeywordCase = KeywordCase.Lower;
             }
             else if (rbTitle.Checked)
             {
-                optionsPage.KeywordCase = 3;
+                optionsPage.KeywordCase = KeywordCase.Title;
             }
         }
 
@@ -125,8 +123,7 @@ namespace XSharp.Project.OptionsPages
 
         private void chkShowAfterChar_CheckedChanged(object sender, EventArgs e)
         {
-            //optionsPage.ShowAfterChar = chkShowAfterChar.Checked;
-            optionsPage.ShowAfterChar = false;
+            optionsPage.ShowAfterChar = chkShowAfterChar.Checked;
         }
 
         private void Control_CheckedChanged(object sender, EventArgs e)

@@ -394,11 +394,11 @@ INTERNAL STATIC CLASS OOPHelpers
 		IF t == NULL
 			RETURN NULL_ARRAY
 		ENDIF
-		
-		VAR aFields := t:GetFields( BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic )
+		// Note that VO only returns PUBLIC properties and fields
+		VAR aFields := t:GetFields( BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
 		VAR list := List<STRING>{}
 		FOREACH fi AS FieldInfo IN aFields
-			IF fi:IsPublic || fi:IsFamily 
+			IF fi:IsPublic || (fi:IsFamily  .and. fi:IsDefined(typeof(IsInstanceAttribute), false))
 				VAR name := fi:Name:ToUpper()
 				IF ! list:Contains(name)
 					list:Add(name)
@@ -659,6 +659,8 @@ INTERNAL STATIC CLASS OOPHelpers
                 RETURN (ARRAY) uValue
             ELSEIF uValue:IsObject .OR. uValue:IsCodeBlock
                 RETURN (OBJECT) uValue
+            ELSEIF uValue:IsPtr .and. totype == typeof(PTR)
+                return IntPtr{(PTR) uValue}
             ENDIF
       		
       		LOCAL oRet AS OBJECT
@@ -673,11 +675,10 @@ INTERNAL STATIC CLASS OOPHelpers
 	STATIC METHOD DoSend(oObject AS OBJECT, cMethod AS STRING, args AS USUAL[] ) AS USUAL
 		LOCAL result AS USUAL
 		IF ! SendHelper(oObject, cMethod, args, OUT result)
-			LOCAL nomethodArgs := USUAL[]{ args:Length + 1 } AS USUAL[]
+			LOCAL nomethodArgs := USUAL[]{ args:Length } AS USUAL[]
 			cMethod := cMethod:ToUpperInvariant()
 			RuntimeState.NoMethod := cMethod   // For NoMethod() function
-			noMethodArgs[__ARRAYBASE__] := cMethod
-			Array.Copy( args, 0, noMethodArgs, 1, args:Length )
+			Array.Copy( args, 0, noMethodArgs, 0, args:Length )
 			IF ! SendHelper(oObject, "NoMethod" , noMethodArgs, OUT result)
                 VAR oerror := Error.VOError( EG_NOMETHOD, __ENTITY__, nameof(cMethod), 2, <OBJECT>{oObject, cMethod, args} )
                 oError:Description  := oError:Message + " '"+cMethod+"'"
@@ -861,10 +862,14 @@ FUNCTION IsInstanceOf(oObject AS OBJECT,symClassName AS STRING) AS LOGIC
 	
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/isinstanceofusual/*" />
 FUNCTION IsInstanceOfUsual(uObject AS USUAL,symClassName AS STRING) AS LOGIC
-	IF ! uObject:IsObject
-		RETURN FALSE
-	ENDIF
-	RETURN IsInstanceOf(uObject, symClassName)
+    SWITCH uObject:Type
+    CASE __UsualType.Object
+    CASE __UsualType.CodeBlock
+    CASE __UsualType.Array
+    CASE __UsualType.Decimal
+    	RETURN IsInstanceOf(uObject, symClassName)
+    END SWITCH
+    RETURN FALSE
 	
 	
 	

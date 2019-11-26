@@ -31,6 +31,7 @@ using System.Linq;
 using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Project;
 using LanguageService.CodeAnalysis.XSharp;
+using Microsoft;
 
 namespace XSharp.Project
 {
@@ -51,6 +52,7 @@ namespace XSharp.Project
         IBufferTagAggregatorFactoryService _aggregator;
         OptionsPages.IntellisenseOptionsPage _optionsPage;
         List<int> _linesToSync;
+        bool _suspendSync = false;
         private static System.Globalization.TextInfo txtInfo = new System.Globalization.CultureInfo("en-US", false).TextInfo;
 
 
@@ -74,8 +76,11 @@ namespace XSharp.Project
         {
             if (_buffer.Properties.ContainsProperty(typeof(XSharpClassifier)))
             {
-                _classifier = (XSharpClassifier)_buffer.Properties.GetProperty(typeof(XSharpClassifier));
-                _classifier.ClassificationChanged += _classifier_ClassificationChanged;
+                if (_classifier == null)
+                {
+                    _classifier = (XSharpClassifier)_buffer.Properties.GetProperty(typeof(XSharpClassifier));
+                    _classifier.ClassificationChanged += _classifier_ClassificationChanged;
+                }
             }
             else
             {
@@ -96,6 +101,18 @@ namespace XSharp.Project
         private void _classifier_ClassificationChanged(object sender, ClassificationChangedEventArgs e)
         {
             XSharpProjectPackage.Instance.DisplayOutPutMessage("CommandFilter.ClassificationChanged()");
+            if (_suspendSync)
+                return;
+            if (_keywordCase == KeywordCase.None)
+            {
+                return;
+            }
+            // do not update buffer from background thread
+            if (!_buffer.CheckEditAccess())
+            {
+                return;
+            }
+
             if (_linesToSync.Count > 0)
             {
                 int[] lines;
@@ -107,28 +124,27 @@ namespace XSharp.Project
                     Array.Sort(lines);
                 }
 
-                var snapshot = _buffer.CurrentSnapshot;
                 // wait until we can work
                 while (_buffer.EditInProgress)
                 {
                     System.Threading.Thread.Sleep(100);
                 }
+
                 UIThread.DoOnUIThread(delegate ()
                     {
                         var editSession = _buffer.CreateEdit();
+                        var snapshot = editSession.Snapshot;
                         try
                         {
-                            // simplify things: take lowest and highest numbers and do all lines in between
-                            int first = lines[0];
-                            int last = lines[lines.Length - 1];
-                            if (last > snapshot.LineCount - 1)
-                            {
-                                last = snapshot.LineCount - 1;
-                            }
-                            for (int nLine = first; nLine <= last; nLine++)
+                            var end = DateTime.Now + new TimeSpan(0,0,2);
+                            int counter = 0;
+                            foreach (int nLine in lines)
                             {
                                 ITextSnapshotLine line = snapshot.GetLineFromLineNumber(nLine);
                                 formatLineCase(editSession, line);
+                                // when it takes longer than 2 seconds, then abort
+                                if (++counter > 100 && DateTime.Now > end)
+                                    break;
                             }
                         }
                         catch (Exception)
@@ -147,6 +163,8 @@ namespace XSharp.Project
                             }
                         }
                     });
+
+
             }
         }
         public CommandFilter(IWpfTextView textView, ICompletionBroker completionBroker, ITextStructureNavigator nav, ISignatureHelpBroker signatureBroker, IBufferTagAggregatorFactoryService aggregator)
@@ -170,10 +188,14 @@ namespace XSharp.Project
             {
                 _buffer.ChangedLowPriority += Textbuffer_Changed;
                 _file = _buffer.GetFile();
-                _parseoptions = _file.Project.ParseOptions;
+                if (_file.Project != null)
+                    _parseoptions = _file.Project.ParseOptions;
+                else
+                    _parseoptions = XSharpParseOptions.Default;
+
                 if (_buffer.CheckEditAccess())
                 {
-                    formatCaseForWholeBuffer();
+                    //formatCaseForWholeBuffer();
                 }
             }
         }
@@ -188,11 +210,11 @@ namespace XSharp.Project
         {
             switch (KeywordCase)
             {
-                case 1:
+                case KeywordCase.Upper:
                     return keyword.ToUpper();
-                case 2:
+                case KeywordCase.Lower:
                     return keyword.ToLower();
-                case 3:
+                case KeywordCase.Title:
                     return txtInfo.ToTitleCase(keyword.ToLower());
             }
             return keyword;
@@ -269,7 +291,7 @@ namespace XSharp.Project
                 if (element == null)
                 {
                     // then Locals
-                    var locals = currentMember.GetLocals(TextView.TextSnapshot, lineNumber);
+                    var locals = currentMember.GetLocals(TextView.TextSnapshot, lineNumber, _file.Project.Dialect);
                     if (locals != null)
                     {
                         element = locals.Where(x => XSharpTokenTools.StringEquals(x.Name, identifier)).FirstOrDefault();
@@ -315,11 +337,13 @@ namespace XSharp.Project
         {
             if (XSharpProjectPackage.Instance.DebuggerIsRunning)
                 return;
+            getEditorPreferences(TextView);
+            if (_keywordCase == KeywordCase.None)
+                return;
             XSharpProjectPackage.Instance.DisplayOutPutMessage($"CommandFilter.formatLineCase({line.LineNumber + 1})");
             // get classification of the line.
             // when the line is part of a multi line comment then do nothing
             // to detect that we take the start of the line and check if it is in
-            getEditorPreferences(TextView);
             int lineStart = line.Start.Position;
             if (line.Length == 0)
                 return;
@@ -328,7 +352,7 @@ namespace XSharp.Project
             if (spans.Count > 0)
             {
                 var type = spans[0].ClassificationType;
-                if (type.Classification == "comment")
+                if ( (type.Classification == "comment") || (type.Classification == "text") )
                 {
                     return;
                 }
@@ -363,10 +387,13 @@ namespace XSharp.Project
 
         private void registerLineForCaseSync(int line)
         {
-            lock (_linesToSync)
+            if (!_suspendSync && _keywordCase != KeywordCase.None)
             {
-                if (!_linesToSync.Contains(line))
-                    _linesToSync.Add(line);
+                lock (_linesToSync)
+                {
+                    if (!_linesToSync.Contains(line))
+                        _linesToSync.Add(line);
+                }
             }
         }
         private void Textbuffer_Changed(object sender, TextContentChangedEventArgs e)
@@ -393,11 +420,13 @@ namespace XSharp.Project
         {
             if (XSharpProjectPackage.Instance.DebuggerIsRunning)
                 return;
-            bool changed = false;
+
             getEditorPreferences(TextView);
             if (_optionsPage.KeywordCase != 0)
             {
                 XSharpProjectPackage.Instance.DisplayOutPutMessage("--> CommandFilter.formatCaseForBuffer()");
+                /*
+                bool changed = false;
                 // wait until we can work
                 while (_buffer.EditInProgress)
                 {
@@ -426,6 +455,8 @@ namespace XSharp.Project
                     }
                 }
                 if (changed && _buffer.Properties.ContainsProperty(typeof(XSharpClassifier)))
+                */
+                if ( _buffer.Properties.ContainsProperty(typeof(XSharpClassifier)))
                 {
                     var classify = _buffer.Properties.GetProperty<XSharpClassifier>(typeof(XSharpClassifier));
                     classify.Classify();
@@ -577,9 +608,7 @@ namespace XSharp.Project
                                         StartSignatureSession(true);
                                         break;
                                     default:
-                                        //if (_optionsPage.ShowAfterChar)
-                                        //    if (Char.IsLetterOrDigit(ch) || ch == '_')
-                                        //        StartCompletionSession(nCmdID, '\0');
+                                        completeCurrentToken(nCmdID, ch);
                                         break;
                                 }
                             }
@@ -589,7 +618,23 @@ namespace XSharp.Project
                             break;
 #if SMARTINDENT
                         case VSConstants.VSStd2KCmdID.FORMATDOCUMENT:
-                            FormatDocument();
+                            try
+                            {
+                                lock (_linesToSync)
+                                {
+                                    _suspendSync = true;
+                                    _linesToSync.Clear();
+                                }
+                                FormatDocument();
+                            }
+                            finally
+                            {
+                                lock (_linesToSync)
+                                {
+                                    _linesToSync.Clear();
+                                    _suspendSync = false;
+                                }
+                            }
                             break;
 #endif
                         case VSConstants.VSStd2KCmdID.RETURN:
@@ -648,7 +693,7 @@ namespace XSharp.Project
                     currentNS = currentNamespace.Name;
                 }
                 //
-                CompletionType cType = XSharpTokenTools.RetrieveType(file, tokenList, member, currentNS, stopToken, out gotoElement, snapshot, lineNumber);
+                CompletionType cType = XSharpTokenTools.RetrieveType(file, tokenList, member, currentNS, stopToken, out gotoElement, snapshot, lineNumber, file.Project.Dialect);
                 //
                 if (gotoElement != null)
                 {
@@ -677,7 +722,7 @@ namespace XSharp.Project
                 {
                     // try again with just the last element in the list
                     tokenList.RemoveRange(0, tokenList.Count - 1);
-                    cType = XSharpTokenTools.RetrieveType(file, tokenList, member, currentNS, stopToken, out gotoElement, snapshot, lineNumber);
+                    cType = XSharpTokenTools.RetrieveType(file, tokenList, member, currentNS, stopToken, out gotoElement, snapshot, lineNumber, file.Project.Dialect);
                 }
                 if ((gotoElement != null) && (gotoElement.XSharpElement != null))
                 {
@@ -705,6 +750,46 @@ namespace XSharp.Project
         #endregion
 
         #region Completion Session
+        private void completeCurrentToken(uint nCmdID, char ch)
+        {
+            if (!_optionsPage.ShowAfterChar)
+                return;
+            SnapshotPoint caret = TextView.Caret.Position.BufferPosition;
+            if (cursorIsInStringorComment(caret))
+            {
+                return;
+            }
+            if (Char.IsLetterOrDigit(ch) || ch == '_' )
+            {
+                 var line = caret.GetContainingLine();
+
+                var lineText = line.GetText();
+                var pos = caret.Position - line.Start.Position;
+                int chars = 0;
+                bool done = false;
+                // count the number of characters in the current word. When > 2 then trigger completion
+                for (int i = pos-1; i >= 0; i--)
+                {
+                    switch (lineText[i])
+                    {
+                        case ' ':
+                        case '\t':
+                            done = true;
+                            break;
+                    }
+                    if (done)
+                        break;
+                    chars++;
+                    if (chars > 2)
+                        break;
+                }
+                if (chars > 2)
+                {
+                    StartCompletionSession(nCmdID, '\0');
+                }
+            }
+        }
+
         private void FilterCompletionSession(char ch)
         {
             XSharpProjectPackage.Instance.DisplayOutPutMessage("CommandFilter.FilterCompletionSession()");
@@ -743,31 +828,91 @@ namespace XSharp.Project
             return true;
         }
 
+        void formatKeyword(Completion completion , char nextChar)
+        {
+            switch (_optionsPage.KeywordCase)
+            {
+                case KeywordCase.Upper:     // Upper
+                    completion.InsertionText = completion.InsertionText.ToUpper();
+                    break;
+                case KeywordCase.Lower:     // Lower
+                    completion.InsertionText = completion.InsertionText.ToLower();
+                    break;
+                case KeywordCase.Title:     // Proper
+                    completion.InsertionText = Char.ToUpper(completion.InsertionText[0]) + completion.InsertionText.Substring(1).ToLower();
+                    break;
+            }
+            if (nextChar != ' ' && nextChar != '\t')
+            {
+                completion.InsertionText += " ";
+            }
+        }
+
         bool CompleteCompletionSession(bool force = false, char ch = ' ')
         {
             if (_completionSession == null)
             {
                 return false;
             }
+            bool commit = false;
+            bool moveBack = false;
+            ITextCaret caret = null;
             XSharpProjectPackage.Instance.DisplayOutPutMessage("CommandFilter.CompleteCompletionSession()");
             if (_completionSession.SelectedCompletionSet != null)
             {
                 if ((_completionSession.SelectedCompletionSet.Completions.Count > 0) && (_completionSession.SelectedCompletionSet.SelectionStatus.IsSelected))
                 {
-                    //
-                    if (XSharp.CodeDom.XSharpKeywords.Contains(_completionSession.SelectedCompletionSet.SelectionStatus.Completion.InsertionText))
+                     if (_optionsPage.AutoPairs)
                     {
-                        _completionSession.SelectedCompletionSet.SelectionStatus.Completion.InsertionText = "@@" + _completionSession.SelectedCompletionSet.SelectionStatus.Completion.InsertionText;
+                        caret = _completionSession.TextView.Caret;
+                        Kind kind = Kind.Unknown;
+                        var completion = _completionSession.SelectedCompletionSet.SelectionStatus.Completion;
+                        if (completion is XSCompletion)
+                        {
+                            kind = ((XSCompletion)completion).Kind;
+                        }
+                        if (kind == Kind.Keyword)
+                        {
+                            formatKeyword(completion, '\0');
+                        }
+                        XSharpProjectPackage.Instance.DisplayOutPutMessage(" --> select "+completion.InsertionText);
+                        if (completion.InsertionText.EndsWith("("))
+                        {
+                            moveBack = true;
+                            completion.InsertionText += ")";
+                        }
+                        else if (completion.InsertionText.EndsWith("{"))
+                        {
+                            moveBack = true;
+                            completion.InsertionText += "}";
+                        }
+                        else if (completion.InsertionText.EndsWith("["))
+                        {
+                            moveBack = true;
+                            completion.InsertionText += "]";
+                        }
+                        else
+                        {
+                            switch (kind)
+                            {
+                                case Kind.Method:
+                                case Kind.Function:
+                                case Kind.Procedure:
+                                case Kind.VODLL:
+                                    moveBack = true;
+                                    completion.InsertionText += "()";
+                                    break;
+                                case Kind.Constructor:
+                                    moveBack = true;
+                                    completion.InsertionText += "{}";
+                                    break;
+                            }
+                        }
                     }
-                    //
-                    XSharpProjectPackage.Instance.DisplayOutPutMessage(" --> Commit");
-                    _completionSession.Commit();
-                    return true;
+                    commit = true;
                 }
                 else if (force)
                 {
-                    bool moveBack = false;
-                    ITextCaret caret = null;
                     if (completionWas != null)
                     {
                         _completionSession.SelectedCompletionSet.SelectionStatus = completionWas;
@@ -775,62 +920,85 @@ namespace XSharp.Project
                     //
                     if (_completionSession.SelectedCompletionSet.SelectionStatus.Completion != null)
                     {
+                        var completion = _completionSession.SelectedCompletionSet.SelectionStatus.Completion;
+                        if (completion is XSCompletion  && ((XSCompletion) completion).Kind == Kind.Keyword)
+                        {
+                            formatKeyword(completion, ch);
+                        }
                         // Push the completion char into the InsertionText if needed
-                        if (!_completionSession.SelectedCompletionSet.SelectionStatus.Completion.InsertionText.EndsWith(ch.ToString()))
-                            _completionSession.SelectedCompletionSet.SelectionStatus.Completion.InsertionText += ch;
-                        //
+                        if (!completion.InsertionText.EndsWith(ch.ToString()))
+                        {
+                            completion.InsertionText += ch;
+                        }
                         if (_optionsPage.AutoPairs)
                         {
                             caret = _completionSession.TextView.Caret;
                             if (ch == '(')
                             {
-                                _completionSession.SelectedCompletionSet.SelectionStatus.Completion.InsertionText += ')';
+                                completion.InsertionText += ')';
                                 moveBack = true;
                             }
                             else if (ch == '{')
                             {
-                                _completionSession.SelectedCompletionSet.SelectionStatus.Completion.InsertionText += '}';
+                                completion.InsertionText += '}';
                                 moveBack = true;
                             }
                             else if (ch == '[')
                             {
-                                _completionSession.SelectedCompletionSet.SelectionStatus.Completion.InsertionText += ']';
+                                completion.InsertionText += ']';
                                 moveBack = true;
                             }
                         }
                     }
-                    XSharpProjectPackage.Instance.DisplayOutPutMessage(" --> Commit");
-                    _completionSession.Commit();
-                    if (moveBack && (caret != null))
-                    {
-                        caret.MoveToPreviousCaretPosition();
-                        StartSignatureSession(false);
-                    }
-                    return true;
+                    commit = true;
                 }
             }
+            if (commit)
+            {
+                XSharpProjectPackage.Instance.DisplayOutPutMessage(" --> Commit");
+                _completionSession.Commit();
+                if (moveBack && (caret != null))
+                {
+                    caret.MoveToPreviousCaretPosition();
+                    StartSignatureSession(false);
+                }
+                return true;
+            }
+
             XSharpProjectPackage.Instance.DisplayOutPutMessage(" --> Dismiss");
             _completionSession.Dismiss();
             return false;
         }
 
-        private bool cursorIsAfterSLComment(SnapshotPoint caret)
+        private string getClassification(SnapshotPoint caret)
         {
-
-            ////////////////////////////////////////////
-            //
-
             var line = caret.GetContainingLine();
-
             SnapshotSpan lineSpan = new SnapshotSpan(line.Start, caret.Position - line.Start);
             var tagAggregator = _aggregator.CreateTagAggregator<IClassificationTag>(this.TextView.TextBuffer);
             var tags = tagAggregator.GetTags(lineSpan);
             var tag = tags.LastOrDefault();
-            if (tag != null && tag.Tag.ClassificationType.Classification.ToLower() == "comment")
+            return tag?.Tag?.ClassificationType?.Classification;
+        }
+        private bool cursorIsInStringorComment(SnapshotPoint caret)
+        {
+            var classification = getClassification(caret);
+            if (classification != null)
             {
-                return true;
+                switch (classification.ToLower())
+                {
+                    case "string":
+                    case "comment":
+                    case "xsharp.text":
+                        return true;
+                }
             }
             return false;
+        }
+        private bool cursorIsAfterSLComment(SnapshotPoint caret)
+        {
+
+            var classification = getClassification(caret);
+            return classification != null && classification.ToLower() == "comment";
         }
 
 
@@ -940,32 +1108,34 @@ namespace XSharp.Project
             // we can then simply lookup the method and that is it.
             // Also no need to filter on visibility since that has been done in the completionlist already !
             XSharpLanguage.CompletionElement gotoElement = null;
+            // First, where are we ?
+            int caretPos;
+            int lineNumber = startLineNumber;
+            //
+            do
+            {
+                if (ssp.Position == 0)
+                    break;
+                ssp = ssp - 1;
+                char leftCh = ssp.GetChar();
+                if ((leftCh == '(') || (leftCh == '{'))
+                    break;
+                lineNumber = ssp.GetContainingLine().LineNumber;
+            } while (startLineNumber == lineNumber);
+            //
+            caretPos = ssp.Position;
+            var snapshot = this.TextView.TextBuffer.CurrentSnapshot;
+            XSharpModel.XFile file = this.TextView.TextBuffer.GetFile();
+            if (file == null)
+                return false;
+            //
             if (cType != null && methodName != null)
             {
-                XSharpLanguage.XSharpTokenTools.SearchMethodTypeIn(cType, methodName, XSharpModel.Modifiers.Private, false, out gotoElement);
+                XSharpLanguage.XSharpTokenTools.SearchMethodTypeIn(cType, methodName, XSharpModel.Modifiers.Private, false, out gotoElement, file.Project.Dialect );
             }
             else
             {
-                // First, where are we ?
-                int caretPos;
-                int lineNumber = startLineNumber;
-                //
-                do
-                {
-                    if (ssp.Position == 0)
-                        break;
-                    ssp = ssp - 1;
-                    char leftCh = ssp.GetChar();
-                    if ((leftCh == '(') || (leftCh == '{'))
-                        break;
-                    lineNumber = ssp.GetContainingLine().LineNumber;
-                } while (startLineNumber == lineNumber);
-                //
-                caretPos = ssp.Position;
-                var snapshot = this.TextView.TextBuffer.CurrentSnapshot;
-                XSharpModel.XFile file = this.TextView.TextBuffer.GetFile();
-                if (file == null)
-                    return false;
+
                 // Then, the corresponding Type/Element if possible
                 IToken stopToken;
                 // Check if we can get the member where we are
@@ -980,7 +1150,7 @@ namespace XSharp.Project
                     currentNS = currentNamespace.Name;
                 }
                 // We don't care of the corresponding Type, we are looking for the gotoElement
-                XSharpTokenTools.RetrieveType(file, tokenList, member, currentNS, stopToken, out gotoElement, snapshot, startLineNumber);
+                XSharpTokenTools.RetrieveType(file, tokenList, member, currentNS, stopToken, out gotoElement, snapshot, startLineNumber, file.Project.Dialect);
             }
             //
             if ((gotoElement != null) && (gotoElement.IsInitialized))
@@ -1003,11 +1173,11 @@ namespace XSharp.Project
                 //}
 
                 SnapshotPoint caret = TextView.Caret.Position.BufferPosition;
-                ITextSnapshot snapshot = caret.Snapshot;
+                ITextSnapshot caretsnapshot = caret.Snapshot;
                 //
                 if (!_signatureBroker.IsSignatureHelpActive(TextView))
                 {
-                    _signatureSession = _signatureBroker.CreateSignatureHelpSession(TextView, snapshot.CreateTrackingPoint(caret, PointTrackingMode.Positive), true);
+                    _signatureSession = _signatureBroker.CreateSignatureHelpSession(TextView, caretsnapshot.CreateTrackingPoint(caret, PointTrackingMode.Positive), true);
                 }
                 else
                 {
@@ -1027,6 +1197,7 @@ namespace XSharp.Project
                 _signatureSession.Properties["Start"] = ssp.Position;
                 _signatureSession.Properties["Length"] = TextView.Caret.Position.BufferPosition.Position - ssp.Position;
                 _signatureSession.Properties["Comma"] = comma;
+                _signatureSession.Properties["File"] = file;
 
                 try
                 {
@@ -1176,10 +1347,10 @@ namespace XSharp.Project
         DEFINE_GUID(GUID_VsSymbolScope_Solution, 0xb1ba9461, 0xfc54, 0x45b3, 0xa4, 0x84, 0xcb, 0x6d, 0xd0, 0xb9, 0x5c, 0x94);
         */
 
-        /// <summary>
-        ///     If Visual Studio's recognizes the given member and knows where its source code is, goes to the source code.
-        ///     Otherwise, opens the "Find Symbols" ToolWindow.
-        /// </summary>
+                /// <summary>
+                ///     If Visual Studio's recognizes the given member and knows where its source code is, goes to the source code.
+                ///     Otherwise, opens the "Find Symbols" ToolWindow.
+                /// </summary>
         public static void GotoMemberDefinition(string memberName, uint searchOptions = (uint)_VSOBSEARCHOPTIONS.VSOBSO_LOOKINREFS)
         {
             gotoDefinition(memberName, _LIB_LISTTYPE.LLT_MEMBERS, searchOptions);
@@ -1310,6 +1481,7 @@ namespace XSharp.Project
         {
             System.IServiceProvider provider = XSharpProjectPackage.Instance;
             IVsFindSymbol searcher = provider.GetService(typeof(SVsObjectSearch)) as IVsFindSymbol;
+            Assumes.Present(searcher);
             var guidSymbolScope = new Guid(XSharpConstants.Library);
             return HResult.Succeeded(searcher.DoSearch(ref guidSymbolScope, createSearchCriteria(memberName, searchOptions)));
         }
@@ -1318,6 +1490,7 @@ namespace XSharp.Project
         {
             System.IServiceProvider provider = XSharpProjectPackage.Instance;
             IVsFindSymbol searcher = provider.GetService(typeof(SVsObjectSearch)) as IVsFindSymbol;
+            Assumes.Present(searcher);
             var guidSymbolScope = ObjectBrowserHelper.GUID_VsSymbolScope_All;
             //
             return HResult.Succeeded(searcher.DoSearch(ref guidSymbolScope, createSearchCriteria(memberName, searchOptions)));

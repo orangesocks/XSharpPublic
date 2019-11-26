@@ -81,17 +81,22 @@ BEGIN NAMESPACE XSharp
         MEMBER EpochYear     := 71		// Numeric
         MEMBER DateFormatNet := 72		// String
         MEMBER DateFormatEmpty := 73    // String
+        /// <sumary>Not used.</sumary>
         MEMBER OPTIONVO11	:= 74	// Logic
+        /// <sumary>Not used.</sumary>
         MEMBER OPTIONOVF	:= 75	// Logic
         MEMBER NOMETHOD		:= 76	// STRING
+        /// <sumary>Not used.</sumary>
         MEMBER APPMODULE	:= 77	// System.Reflection.Module
         MEMBER PATHARRAY    := 78	// String[]
         MEMBER NatDLL		:= 79   // string
         MEMBER CollationTable := 80  // byte[]
         MEMBER ErrorLevel   := 81  // DWORD
         MEMBER ErrorBlock   := 82  // Codeblock
+        /// <sumary>Not used.</sumary>
         MEMBER OPTIONVO13	:= 83	// Logic
         MEMBER LastRddError := 84   // Exception object
+        /// <sumary>Not used.</sumary>
         MEMBER Dialect      := 85   // XSharpDialect value
         // 86 - 97 unused
         MEMBER DICT        := 98	// LOGIC
@@ -102,28 +107,31 @@ BEGIN NAMESPACE XSharp
         MEMBER MEMOBLOCKSIZE:= 101		// INT
         MEMBER DEFAULTRDD	:= 102		// STRING
         MEMBER MEMOEXT	    := 103		// STRING
-        MEMBER AUTOOPEN     := 104		// LOGIC
-        MEMBER AUTOORDER    := 105		// LOGIC
+        MEMBER AutoOpen     := 104		// LOGIC
+        MEMBER AutoOrder    := 105		// 0 or 1
         MEMBER HPLOCKING    := 106      // LOGIC 
         MEMBER NEWINDEXLOCK := 107      // LOGIC 
-        MEMBER AUTOSHARE    := 108		// LOGIC
+        MEMBER AUTOSHARE    := 108		// 0 or 1
         MEMBER STRICTREAD   := 109		// LOGIC
         MEMBER BLOBCIRCREF	:= 110		// LOGIC
         MEMBER OPTIMIZE     := 111		// LOGIC
         MEMBER FOXLOCK      := 112		// LOGIC
         MEMBER WINCODEPAGE	:= 113		// Numeric
         MEMBER DOSCODEPAGE	:= 114		// Numeric
-        MEMBER COLLATIONMODE:= 115		// COLLATIONMODE (STRING)
+        MEMBER COLLATIONMODE:= 115		// COLLATIONMODE 
 
         // FoxPro settings
-        MEMBER TextMerge    := 130      // Logic Is Textmerge enabled 
-        MEMBER FullPath     := 131      // Logic Should CDX() and similar functions return full paths
-        MEMBER Space        := 132      // Logic Space between ? and ?? field expressions
+        /// <summary>FoxPro: Is Textmerge enabled.</summary>
+        MEMBER TextMerge    := 130      // Logic 
+        /// <summary>FoxPro: Should CDX() and similar functions return full paths</summary>
+        MEMBER FullPath     := 131      // Logic 
+        /// <summary>FoxPro: Add Space between ? and ?? field expressions</summary>
+        MEMBER Space        := 132      // Logic 
         
         MEMBER FoxCollate   := 133
         MEMBER Near         := 134
         MEMBER MemoWidth    := 135
-	MEMBER SqlAnsi      := 136
+        MEMBER SqlAnsi      := 136
 
         // Xbase++ defines
         MEMBER CharSet          := 160
@@ -135,6 +143,8 @@ BEGIN NAMESPACE XSharp
         MEMBER Rushmore         := 165
         MEMBER SmartFilter      := 166
         MEMBER NullValue        := 167
+        MEMBER Collation        := 168  // XPP Collation Number
+        MEMBER Lexical          := 169  // Not implemented 
 
 
         // 180 - 197 Harbour extensions
@@ -419,6 +429,12 @@ DEFINE  _SET_RUSHMORE    := Set.Rushmore
 DEFINE  _SET_SMARTFILTER := Set.SmartFilter
 /// <include file="CoreComments.xml" path="Comments/Set/*" />
 DEFINE  _SET_NULLVALUE   := Set.NullValue
+
+/// <include file="CoreComments.xml" path="Comments/Set/*" />
+DEFINE  _SET_COLLATION   := Set.Collation
+/// <include file="CoreComments.xml" path="Comments/Set/*" />
+DEFINE  _SET_LEXICAL    := Set.Lexical
+
 
     
 #endregion

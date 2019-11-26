@@ -68,7 +68,7 @@ FUNCTION ReadCommandLine(asParams AS STRING[]) AS VOID
 			DO CASE
 			CASE cUpper:StartsWith("/S:")
 				cFileName := cParam:Substring(3)
-				IF SafeFileExists(cFileName) .or. SafeFolderExists(cFileName)
+				IF SafeFileExists(cFileName) .OR. SafeFolderExists(cFileName)
 					DefaultSourceFolder := cFileName
 				END IF
 			CASE cUpper:StartsWith("/D:")
@@ -102,34 +102,52 @@ FUNCTION ReadIni() AS VOID
 				LOCAL cKey,cValue AS STRING
 				cKey := cLine:Substring(0 , nIndex):Trim():ToUpper()
 				cValue := cLine:Substring(nIndex + 1):Trim()
-				DO CASE
-				CASE cKey == "OUTPUTFOLDER"
-					DefaultOutputFolder := cValue
-				CASE cKey == "SOURCEFOLDER"
-					DefaultSourceFolder := cValue
-				CASE cKey == "VOFOLDER"
-					VOFolder.Set(cValue)
-				CASE cKey == "SDKDEFINESDLL"
-					SDKDefines_FileName := cValue
-				CASE cKey == "NOWARNINGSCREEN"
-					NoWarningScreen := cValue == "1"
-				CASE cKey == "_VOOLECONTAINER"
-					Replace_VOOleContainer := cValue
-				CASE cKey == "RUNTIMELOCATION"
-					RuntimeFolder := cValue
-				END CASE
+				SWITCH cKey
+					CASE "OUTPUTFOLDER"
+						DefaultOutputFolder := cValue
+					CASE "SOURCEFOLDER"
+						DefaultSourceFolder := cValue
+					CASE "VOFOLDER"
+						VOFolder.Set(cValue)
+					CASE "SDKDEFINESDLL"
+						SDKDefines_FileName := cValue
+					CASE "NOWARNINGSCREEN"
+						NoWarningScreen := cValue == "1"
+					CASE "_VOOLECONTAINER"
+						Replace_VOOleContainer := cValue
+					CASE "RUNTIMELOCATION"
+						RuntimeFolder := cValue
+					CASE "EXTRAKEYWORDS"
+						TRY
+							LOCAL aKeywords AS STRING[]
+							aKeywords := cValue:Split(<Char>{',',';',' '})
+							FOREACH cKeyword AS STRING IN aKeywords
+								IF .not. String.IsNullOrWhiteSpace(cKeyword)
+									IF .not. xPorter.NewKeywordsInXSharp:ContainsKey(cKeyword:ToUpperInvariant())
+										xPorter.NewKeywordsInXSharp:Add(cKeyword:ToUpperInvariant() , cKeyword)
+									ENDIF
+								END IF
+							NEXT
+						END TRY
+					CASE "USEWINFORMSIVARPREFIX"
+						xPorter.UseWinFormsIVarPrefix := cValue == "1"
+					CASE "EXPORTTOIDE"
+						cValue := cValue:ToUpper()
+						xPorter.ExportToXide := cValue:Contains("XIDE") .or. .not. cValue:Contains("VS")
+						xPorter.ExportToVS := cValue:Contains("VS") .or. .not. cValue:Contains("XIDE")
+				END SWITCH
 			END IF
 		NEXT
 	END IF
 
-	IF String.IsNullOrWhiteSpace(SDKDefines_FileName) .or. .not. File.Exists(SDKDefines_FileName)
+	IF String.IsNullOrWhiteSpace(SDKDefines_FileName) .OR. .NOT. File.Exists(SDKDefines_FileName)
 		IF File.Exists(Application.StartupPath + "\SDK_Defines.dll")
 			SDKDefines_FileName := Application.StartupPath + "\SDK_Defines.dll"
 		END IF
 	END IF
 
 	TRY
-		IF .not. VOFolder.IsValid()
+		IF .NOT. VOFolder.IsValid()
 			LOCAL vo,ver AS Microsoft.Win32.RegistryKey
 			vo := Microsoft.Win32.Registry.LocalMachine:OpenSubKey("Software\GrafX\Visual Objects")
 			IF vo != NULL
@@ -175,7 +193,7 @@ CLASS WarningDialog INHERIT Form
 	RETURN
 	PROTECTED METHOD OnClosing(e AS System.ComponentModel.CancelEventArgs) AS VOID
 		SUPER:OnClosing(e)
-		IF .not. SELF:lAllowClose .and. Control.ModifierKeys != Keys.Control
+		IF .NOT. SELF:lAllowClose .AND. Control.ModifierKeys != Keys.Control
 			e:Cancel := TRUE
 			SELF:oTimer:Stop()
 			MessageBox.Show("Please read this important information!" , ToolName , MEssageBoxButtons.OK , MessageBoxIcon.Exclamation)
@@ -204,14 +222,14 @@ CLASS VOFolder
 	STATIC METHOD IsValid() AS LOGIC
 		LOCAL lValid := FALSE AS LOGIC
 		TRY
-			lValid := .not. (String.IsNullOrEmpty(_scFolder) .or. .not. Directory.Exists(_scFolder))
+			lValid := .NOT. (String.IsNullOrEmpty(_scFolder) .OR. .NOT. Directory.Exists(_scFolder))
 		END TRY
 	RETURN lValid
 	STATIC METHOD Get() AS STRING
 		STATIC LOCAL lChecked := FALSE AS LOGIC
-		IF .not. lChecked
+		IF .NOT. lChecked
 			lChecked := TRUE
-			IF .not. VOFolder.IsValid()
+			IF .NOT. VOFolder.IsValid()
 				MessageBox.Show(e"Could not find VO installation folder, macros in code like %cavosamplesrootdir% will not be translated directly.\r\n\r\nYou can manually set the VO folder in xPorter.ini." , ToolName)
 			END IF
 		END IF
@@ -248,10 +266,14 @@ CLASS xPorter
 	STATIC EXPORT Options AS xPorterOptions
 	STATIC EXPORT uiForm AS xPorterUI
 
-	STATIC EXPORT ExportXideBinaries := TRUE AS LOGIC
+	STATIC EXPORT ExportToXide := TRUE AS LOGIC
+	STATIC EXPORT ExportToVS := TRUE AS LOGIC
+	STATIC EXPORT NewKeywordsInXSharp AS Dictionary<STRING,STRING>
 
 
 	STATIC PROPERTY OverWriteProjectFiles AS LOGIC AUTO
+	STATIC PROPERTY GenerateWinForms AS LOGIC AUTO
+	STATIC PROPERTY UseWinFormsIVarPrefix AS LOGIC AUTO
 
 	STATIC PROTECT _aFoundDefines := SortedList<STRING,STRING>{} AS SortedList<STRING,STRING>
 	STATIC PROTECT _aSDKDefines AS Dictionary<STRING,STRING>
@@ -260,6 +282,11 @@ CLASS xPorter
 	STATIC CONSTRUCTOR()
 
 //		MessageBox.Show("loading file : " + Environment.CurrentDirectory + "\SDK_Defines.dll")
+		NewKeywordsInXSharp := Dictionary<STRING,STRING>{}
+		FOREACH cKeyword AS STRING IN gaNewKeywordsInXSharp
+			NewKeywordsInXSharp:Add(cKeyword:ToUpper(),cKeyword)
+		NEXT
+		
 
 		TRY
 			LOCAL oAssembly AS Assembly
@@ -275,8 +302,8 @@ CLASS xPorter
 			aFields := oType:GetFields()
 			_aSDKDefines := Dictionary<STRING,STRING>{aFields:Length}
 			FOREACH oField AS FieldInfo IN aFields
-				IF (oField:FieldType == TypeOf(INT) .or. oField:FieldType == TypeOf(DWORD)).and. ;
-					.not. _aSDKDefines:ContainsKey(oField:Name:ToUpper())
+				IF (oField:FieldType == TypeOf(INT) .OR. oField:FieldType == TypeOf(DWORD)).AND. ;
+					.NOT. _aSDKDefines:ContainsKey(oField:Name:ToUpper())
 					_aSDKDefines:Add(oField:Name:ToUpper() , oField:GetValue(NULL):ToString())
 				END IF
 			NEXT
@@ -399,6 +426,7 @@ CLASS VOProjectDescriptor
 	PROPERTY Guid AS STRING GET SELF:_cGuid
 	PROPERTY Applications AS List<ApplicationDescriptor> GET SELF:_aApplications
 	PROPERTY ProjectFolder AS STRING GET SELF:_cProjectFolder
+	PROPERTY WinFormsFolder AS STRING GET SELF:_cProjectFolder + "\Windows.Forms"
 	PROPERTY Solution_SDKDefines_Filename AS STRING GET SELF:_cSolution_SDKDefines_Filename
 
 	CONSTRUCTOR(cName AS STRING , cGuid AS STRING)
@@ -409,6 +437,9 @@ CLASS VOProjectDescriptor
 
 	METHOD SetName(cName AS STRING) AS VOID
 		SELF:_cName := cName
+	RETURN
+	METHOD SetProjectFolder(cFolder AS STRING) AS VOID
+		SELF:_cProjectFolder := cFolder
 	RETURN
 
 	METHOD AddApplication(oApp AS ApplicationDescriptor) AS ApplicationDescriptor
@@ -445,9 +476,14 @@ CLASS VOProjectDescriptor
 		Directory.CreateDirectory(cOutputFolder)
 		IF File.Exists(SDKDefines_FileName)
 			SELF:_cSolution_SDKDefines_Filename := cOutputFolder + "\" + GetFilename(SDKDefines_FileName)
-			IF .not. File.Exists(SELF:_cSolution_SDKDefines_Filename) .and. .not. xPorter.Options:UseXSharpRuntime
+			IF .NOT. File.Exists(SELF:_cSolution_SDKDefines_Filename) .AND. .NOT. xPorter.Options:UseXSharpRuntime
 				File.Copy(SDKDefines_FileName , SELF:_cSolution_SDKDefines_Filename)
 			END IF
+		END IF
+		
+		IF xPorter.GenerateWinForms
+			Directory.CreateDirectory(SELF:WinFormsFolder)
+			Directory.CreateDirectory(SELF:WinFormsFolder + "\tmp")
 		END IF
 
 		xPorter.uiForm:SetProgressBarRange(SELF:CountModules() * 2) // analysis and export
@@ -459,8 +495,16 @@ CLASS VOProjectDescriptor
 			END IF
 		NEXT
 
-		SELF:CreateSolutionFile(cOutputFolder , TRUE)
-		SELF:CreateSolutionFile(cOutputFolder , FALSE)
+		IF xPorter.GenerateWinForms
+			WinFormsConverter.Convert(SELF, SELF:WinFormsFolder)
+		END IF
+
+		IF xPorter.ExportToXide
+			SELF:CreateSolutionFile(cOutputFolder , TRUE)
+		ENDIF
+		IF xPorter.ExportToVS
+			SELF:CreateSolutionFile(cOutputFolder , FALSE)
+		ENDIF
 
 		xPorter.Message("Finished xPorting!")
 	RETURN
@@ -472,7 +516,7 @@ CLASS VOProjectDescriptor
 		NEXT
 	RETURN
 
-	PROTECTED METHOD CreateSolutionFile(cFolder AS STRING , lXide AS LOGIC) AS VOID
+	METHOD CreateSolutionFile(cFolder AS STRING , lXide AS LOGIC) AS VOID
 		LOCAL oTemplate AS StreamReader
 		LOCAL oOutput AS StreamWriter
 		LOCAL cTemplate AS STRING
@@ -481,12 +525,12 @@ CLASS VOProjectDescriptor
 
 		cSolutionName := SELF:Name //+ "_xported"
 
-		xPorter.Message("Creating solution file for " + iif(lXide , "XIDE" , "VS"))
+		xPorter.Message("Creating solution file for " + IIF(lXide , "XIDE" , "VS"))
 
 		IF lXide
 			cFileName := cFolder + "\" + MakePathLegal( cSolutionName ) + ".viproj"
 
-			IF .not. xPorter.OverWriteProjectFiles .and. File.Exists(cFileName)
+			IF .NOT. xPorter.OverWriteProjectFiles .AND. File.Exists(cFileName)
 				xPorter.Message("XIDE solution file already exists.")
 				RETURN
 			END IF
@@ -503,7 +547,7 @@ CLASS VOProjectDescriptor
 			END IF
 		ELSE
 			cFileName := cFolder + "\" + MakePathLegal( cSolutionName ) + ".sln"
-			IF .not. xPorter.OverWriteProjectFiles .and. File.Exists(cFileName)
+			IF .NOT. xPorter.OverWriteProjectFiles .AND. File.Exists(cFileName)
 				xPorter.Message("VS solution file already exists.")
 				RETURN
 			END IF
@@ -517,9 +561,9 @@ CLASS VOProjectDescriptor
 			DO CASE
 			CASE cTemplate:StartsWith(";")
 				LOOP
-			CASE cTemplate == "%applications%" .or. cTemplate == "%projects%"
+			CASE cTemplate == "%applications%" .OR. cTemplate == "%projects%"
 				FOREACH oApp AS ApplicationDescriptor IN SELF:_aApplications
-					IF .not. oApp:Saved
+					IF .NOT. oApp:Saved
 						LOOP
 					END IF
 					IF lXide
@@ -561,8 +605,6 @@ END ENUM
 CLASS ApplicationDescriptor
 	PROTECT _cName AS STRING
 	PROTECT _cGuid AS STRING
-//	PROTECT _cAppFile_VS AS STRING
-//	PROTECT _cAppFile_XIDE AS STRING
 	PROTECT _lLoaded AS LOGIC
 	PROTECT _lSaved AS LOGIC
 	PROTECT _eType AS ApplicationType
@@ -580,6 +622,9 @@ CLASS ApplicationDescriptor
 	PROTECT _lOptionIntDiv AS LOGIC
 
 	PROTECT _oProject AS VOProjectDescriptor
+	
+	PROTECT _lIsWinForms AS LOGIC
+	PROTECT _cAppSubFolder AS STRING
 
 	CONSTRUCTOR(cName AS STRING , oProject AS VOProjectDescriptor)
 		SELF(cName , NewGuid() , oProject)
@@ -602,16 +647,15 @@ CLASS ApplicationDescriptor
 
 		SELF:xPortOptions := xPorter.Options
 
-//		SELF:_cAppFile_XIDE := SELF:AppFolder + "\" + SELF:Name + ".viapp"
-//		SELF:_cAppFile_VS := SELF:AppFolder + "\" + SELF:Name + ".xsproj"
-
-		IF xPorter.Options:UseXSharpRuntime
-			SELF:AddRuntimeReference("XSharp.Core")
-            SELF:AddRuntimeReference("XSharp.RT")
-			SELF:AddRuntimeReference("XSharp.VO")
-		ELSE
-			SELF:AddRuntimeReference("VulcanRT")
-			SELF:AddRuntimeReference("VulcanRTFuncs")
+		IF .not. SELF:_lIsWinForms
+			IF xPorter.Options:UseXSharpRuntime
+				SELF:AddRuntimeReference("XSharp.Core")
+	            SELF:AddRuntimeReference("XSharp.RT")
+				SELF:AddRuntimeReference("XSharp.VO")
+			ELSE
+				SELF:AddRuntimeReference("VulcanRT")
+				SELF:AddRuntimeReference("VulcanRTFuncs")
+			END IF
 		END IF
 
 	RETURN
@@ -626,9 +670,7 @@ CLASS ApplicationDescriptor
 	PROPERTY BrowseReferences AS List<STRING> GET SELF:_aBrowseReferences
 	PROPERTY ProjectReferences AS List<STRING> GET SELF:_aProjectReferences
 
-//	PROPERTY AppFile_XIDE AS STRING GET SELF:_cAppFile_XIDE
 	PROPERTY AppFile_XIDE AS STRING GET SELF:AppFolder + "\" + SELF:PathValidName + ".viapp"
-//	PROPERTY AppFile_VS AS STRING GET SELF:_cAppFile_VS
 	PROPERTY AppFile_VS AS STRING GET SELF:AppFolder + "\" + SELF:PathValidName + ".xsproj"
 
 	PROPERTY OptionOverflow AS LOGIC GET SELF:_lOptionOverflow
@@ -639,25 +681,33 @@ CLASS ApplicationDescriptor
 
 	EXPORT xPortOptions AS xPorterOptions
 
-	PROPERTY AppFolder AS STRING GET SELF:Project:ProjectFolder + "\" + SELF:PathValidName
+	PROPERTY AppFolder AS STRING 
+		GET 
+			IF SELF:_cAppSubFolder == NULL
+				SELF:_cAppSubFolder := SELF:PathValidName
+			END IF
+			RETURN SELF:Project:ProjectFolder + "\" + SELF:_cAppSubFolder
+		END GET
+	END PROPERTY
 
 	PROPERTY ModulesCount AS INT GET SELF:_aModules:Count
 
-/*	METHOD SetProject(oProject AS VOProjectDescriptor) AS VOID
-		SELF:_oProject := oProject
-	RETURN*/
+	METHOD SetWinForms() AS VOID
+		SELF:_lSaved := TRUE
+		SELF:_lIsWinForms := TRUE
+	RETURN
 
 	METHOD AddRuntimeReference(cReference AS STRING) AS VOID
 		LOCAL lAddAsDll := FALSE AS LOGIC
 		TRY
-			IF .not. String.IsNullOrWhiteSpace(RuntimeFolder) .and. Directory.Exists(RuntimeFolder)
+			IF .NOT. String.IsNullOrWhiteSpace(RuntimeFolder) .AND. Directory.Exists(RuntimeFolder)
 				LOCAL cDll AS STRING
 				cDll := RuntimeFolder
-				IF .not. cDll:EndsWith("\")
+				IF .NOT. cDll:EndsWith("\")
 					cDll += "\"
 				END IF
 				cDll += cReference
-				IF .not. cReference:ToLower():EndsWith(".dll")
+				IF .NOT. cReference:ToLower():EndsWith(".dll")
 					cDll += ".dll"
 				END IF
 				IF File.Exists(cDll)
@@ -666,7 +716,7 @@ CLASS ApplicationDescriptor
 				END IF
 			END IF
 		END TRY
-		IF .not. lAddAsDll
+		IF .NOT. lAddAsDll
 			SELF:_aGACReferences:Add(cReference)
 		END IF
 	RETURN
@@ -722,7 +772,7 @@ CLASS ApplicationDescriptor
 	RETURN NULL
 
 	METHOD RegisterCallback(cFunction AS STRING) AS VOID
-		IF cFunction:ToUpper() == "__CONNECTFUNC" .or. cFunction:ToUpper() == "WINSOCKEXIT"
+		IF cFunction:ToUpper() == "__CONNECTFUNC" .OR. cFunction:ToUpper() == "WINSOCKEXIT"
 			RETURN
 		END IF
 		SELF:_aCallbacks:Add(cFunction:ToUpper())
@@ -747,7 +797,7 @@ CLASS ApplicationDescriptor
 
 		oApp := ApplicationDescriptor{cAppName , oProject}
 		DO CASE
-		CASE oAef:IsDLL .or. oAef:IsLibrary
+		CASE oAef:IsDLL .OR. oAef:IsLibrary
 			oApp:_eType := ApplicationType.Library
 		CASE oAef:IsConsole
 			oApp:_eType := ApplicationType.Exe
@@ -765,24 +815,24 @@ CLASS ApplicationDescriptor
 			LOCAL cGAC := NULL AS STRING
 			SWITCH cLibrary
 			CASE "Console Classes"
-				cGAC := iif(xPorter.Options:UseXSharpRuntime, "VOConsoleClasses", "VulcanVOConsoleClasses")
+				cGAC := IIF(xPorter.Options:UseXSharpRuntime, "VOConsoleClasses", "VulcanVOConsoleClasses")
 			CASE "Terminal Lite"
-				cGAC := iif(xPorter.Options:UseXSharpRuntime, "VOConsoleClasses", "VulcanVOConsoleClasses")
+				cGAC := IIF(xPorter.Options:UseXSharpRuntime, "VOConsoleClasses", "VulcanVOConsoleClasses")
 			CASE "GUI Classes"
-				cGAC := iif(xPorter.Options:UseXSharpRuntime, "VOGUIClasses", "VulcanVOGUIClasses")
+				cGAC := IIF(xPorter.Options:UseXSharpRuntime, "VOGUIClasses", "VulcanVOGUIClasses")
 //				lGUI := TRUE
 			CASE "Internet"
-				cGAC := iif(xPorter.Options:UseXSharpRuntime, "VOInternetClasses", "VulcanVOInternetClasses")
+				cGAC := IIF(xPorter.Options:UseXSharpRuntime, "VOInternetClasses", "VulcanVOInternetClasses")
 			CASE "RDD Classes"
-				cGAC := iif(xPorter.Options:UseXSharpRuntime, "VORDDClasses", "VulcanVORDDClasses")
+				cGAC := IIF(xPorter.Options:UseXSharpRuntime, "VORDDClasses", "VulcanVORDDClasses")
 			CASE "Report Classes"
-				cGAC := iif(xPorter.Options:UseXSharpRuntime, "VOReportClasses", "VulcanVOReportClasses")
+				cGAC := IIF(xPorter.Options:UseXSharpRuntime, "VOReportClasses", "VulcanVOReportClasses")
 			CASE "SQL Classes"
-				cGAC := iif(xPorter.Options:UseXSharpRuntime, "VOSQLClasses", "VulcanVOSQLClasses")
+				cGAC := IIF(xPorter.Options:UseXSharpRuntime, "VOSQLClasses", "VulcanVOSQLClasses")
 			CASE "System Classes"
-				cGAC := iif(xPorter.Options:UseXSharpRuntime, "VOSystemClasses", "VulcanVOSystemClasses")
+				cGAC := IIF(xPorter.Options:UseXSharpRuntime, "VOSystemClasses", "VulcanVOSystemClasses")
 			CASE "Win32 API Library"
-				cGAC := iif(xPorter.Options:UseXSharpRuntime, "VOWin32APILibrary", "VulcanVOWin32APILibrary")
+				cGAC := IIF(xPorter.Options:UseXSharpRuntime, "VOWin32APILibrary", "VulcanVOWin32APILibrary")
 				lWin32API := TRUE
 			OTHERWISE
 				oApp:ProjectReferences:Add(cLibrary)
@@ -796,8 +846,8 @@ CLASS ApplicationDescriptor
 		// looks like VO always uses Win32 library and its defines...argh!
 //		IF lGUI .and. .not. lWin32API
 //		IF lAnySDK .and. .not. lWin32API
-			IF .not. lWin32API
-			oApp:AddRuntimeReference(iif(xPorter.Options:UseXSharpRuntime, "VOWin32APILibrary", "VulcanVOWin32APILibrary"))
+			IF .NOT. lWin32API
+			oApp:AddRuntimeReference(IIF(xPorter.Options:UseXSharpRuntime, "VOWin32APILibrary", "VulcanVOWin32APILibrary"))
 			ENDIF
 //		END IF
 
@@ -805,7 +855,7 @@ CLASS ApplicationDescriptor
 /*			IF .not. String.IsNullOrWhiteSpace(SDKDefines_FileName) .and. File.Exists(SDKDefines_FileName)
 				oApp:BrowseReferences:Add(SDKDefines_FileName)
 			END IF*/
-			IF .not. xPorter.Options:UseXSharpRuntime
+			IF .NOT. xPorter.Options:UseXSharpRuntime
 				oApp:BrowseReferences:Add("%SDKDefinesFilename%")
 			ENDIF
 //		END IF
@@ -864,7 +914,7 @@ CLASS ApplicationDescriptor
 	METHOD AddModule(cName AS STRING , aCode AS STRING[]) AS ModuleDescriptor
 		LOCAL oModule AS ModuleDescriptor
 		cName := cName:TrimStart()
-		FOREACH c AS Char IN e"/?:&\*\"<>|#%"
+		FOREACH c AS CHAR IN e"/?:&\*\"<>|#%"
 			cName := cName:Replace(c,'_')
 		NEXT
 		DO WHILE SELF:ContainsModuleName(cName)
@@ -880,7 +930,7 @@ CLASS ApplicationDescriptor
 
 		aFiles := Directory.GetFiles(cFolder , "*.prg")
 		FOREACH cFileName AS STRING IN aFiles
-			IF cFileName:ToUpper():EndsWith("Funcs Coder.prg":ToUpper()) .and. File.Exists(cFolder + "\FuncsDeCoder.prg")
+			IF cFileName:ToUpper():EndsWith("Funcs Coder.prg":ToUpper()) .AND. File.Exists(cFolder + "\FuncsDeCoder.prg")
 				LOOP
 			END IF
 			SELF:AddModuleFromFile(cFileName)
@@ -902,11 +952,11 @@ CLASS ApplicationDescriptor
         FOREACH VAR cFile IN aFiles
             VAR cSource := System.IO.Path.Combine(cVoFolder, cFile)
             VAR cDest   := System.IO.Path.Combine(cFolder+"\Properties", cFile)
-            IF System.IO.File.Exists(cSource) .and. ! System.IO.File.Exists(cDest)
+            IF System.IO.File.Exists(cSource) .AND. ! System.IO.File.Exists(cDest)
                 System.IO.File.Copy(cSource, cDest, TRUE)
                 SELF:_aOtherFiles:Add("Properties\"+System.IO.Path.GetFileName(cDest))
             ENDIF
-            IF cFile == "cavowed.inf" .and. System.IO.File.Exists(cSource)
+            IF cFile == "cavowed.inf" .AND. System.IO.File.Exists(cSource)
                 // open file and read [SupplementalFiles] section
                 VAR aLines := System.IO.File.ReadAllLines(cSource)
                 VAR lSupplemental := FALSE
@@ -919,12 +969,12 @@ CLASS ApplicationDescriptor
                     ENDIF
                     IF lSupplemental
                         IF cLine:Trim():ToUpper():Startswith("FILE")
-                            VAR aElements := cLine:Trim():Split(<Char>{'='})
+                            VAR aElements := cLine:Trim():Split(<CHAR>{'='})
                             IF aElements:Length >= 2
                                 VAR cAdditional := aElements[2]
                                 cSource := System.IO.Path.Combine(cVoFolder, cAdditional)
                                 cDest   := System.IO.Path.Combine(cFolder+"\Properties", cAdditional)
-                                IF System.IO.File.Exists(cSource) .and. ! System.IO.File.Exists(cDest)
+                                IF System.IO.File.Exists(cSource) .AND. ! System.IO.File.Exists(cDest)
                                     System.IO.File.Copy(cSource, cDest, TRUE)
                                 ENDIF
                                 IF System.IO.File.Exists(cDest)
@@ -955,7 +1005,7 @@ CLASS ApplicationDescriptor
 
 			xPorter.uiForm:AdvanceProgressbar()
 
-			IF .not. xPorter.AllowModule(oModule)
+			IF .NOT. xPorter.AllowModule(oModule)
 				LOOP
 			END IF
 
@@ -967,7 +1017,7 @@ CLASS ApplicationDescriptor
 				File.WriteAllLines(cFolder + "\" + oModule:PathValidName + ".prg" , oCode:GetContents() , System.Text.Encoding.Default)
 			END IF
 
-			IF xPorter.ExportXideBinaries
+			IF xPorter.ExportToXide
 				TRY
 					LOCAL cWedFile AS STRING
 					cWedFile := cFolder + "\" + oModule:PathValidName + ".prg.wed"
@@ -977,45 +1027,124 @@ CLASS ApplicationDescriptor
 				END TRY
 			ENDIF
 
-			FOREACH oDesigner AS Designer IN oModule:Designers
-				IF oDesigner:MustExport
-					LOCAL cBinary AS STRING
-					LOCAL cModule AS STRING
-					LOCAL cPrg AS STRING
-					cModule := cFolder + "\" + oModule:PathValidName
-					cPrg := cModule + ".prg"
-					cBinary := cModule + "." + oDesigner:FileName
-					File.WriteAllBytes(cBinary , oDesigner:Bytes)
-					IF xPorter.ExportXideBinaries
-						TRY
-							DO CASE
-							CASE oDesigner:Type == 10
-								VOWindowEditor.ProjectImportVNFrm(cPrg , cBinary)
-							CASE oDesigner:Type == 16
-								VOMenuEditor.ProjectImportVNMnu(cPrg , cBinary)
-							END CASE
-						END TRY
-					END IF
-				ENDIF
-			NEXT
+			BEGIN SCOPE // designers
+				LOCAL oModuleFieldSpecs AS XSharp.VODesigners.VOFieldSpecDescription
+				LOCAL aXideFieldSpecs AS List<STRING>
+				LOCAL aXideDBServers AS List<STRING>
+				LOCAL aFilesToDel AS List<STRING>
+				LOCAL cModule AS STRING
+				LOCAL cPrg AS STRING
+				cModule := cFolder + "\" + oModule:PathValidName
+				cPrg := cModule + ".prg"
+				oModuleFieldSpecs := XSharp.VODesigners.VOFieldSpecDescription{}
+				aXideFieldSpecs := List<STRING>{}
+				aXideDBServers := List<STRING>{}
+				aFilesToDel := List<STRING>{}
+				
+				LOCAL aDBServers AS SortedList<STRING,BYTE[]>
+				aDBServers := SortedList<STRING,BYTE[]>{}
 
-			IF .not. xPorter.Options:ExportOnlyDefines
+				FOREACH oDesigner AS Designer IN oModule:Designers
+					IF oDesigner:MustExport .or. oDesigner:IsDedHelper
+						LOCAL cBinary AS STRING
+						cBinary := cModule + "." + oDesigner:FileName
+						IF oDesigner:Type == BINARY_FED // FieldSpec
+							oModuleFieldSpecs:LoadFromBinary(oDesigner:Bytes, oDesigner:Name)
+						ELSEIF oDesigner:Type == BINARY_FLD
+//							MessageBox.Show(oDesigner:Name , "FIELD")
+							XSharp.VODesigners.DBServerBinary.Add(oDesigner:Name , XSharp.VODesigners.DBServerItemType.Field , oDesigner:Bytes)
+						ELSEIF oDesigner:Type == BINARY_IND
+//							MessageBox.Show(oDesigner:Name , "INDEX")
+							XSharp.VODesigners.DBServerBinary.Add(oDesigner:Name , XSharp.VODesigners.DBServerItemType.Index , oDesigner:Bytes)
+						ELSEIF oDesigner:Type == BINARY_ORD
+//							MessageBox.Show(oDesigner:Name , "ORDER")
+							XSharp.VODesigners.DBServerBinary.Add(oDesigner:Name , XSharp.VODesigners.DBServerItemType.Order , oDesigner:Bytes)
+						ELSEIF oDesigner:Type == BINARY_DED
+//							MessageBox.Show(oDesigner:Name , "DBSERVER")
+							aDBServers:Add(cBinary, oDesigner:Bytes)
+						ELSE
+							// Necessary for both VS and XIDE, deleteded later if not needed anymore for VS
+							File.WriteAllBytes(cBinary , oDesigner:Bytes)
+						ENDIF
+						IF xPorter.ExportToXide
+							TRY
+								DO CASE
+								CASE oDesigner:Type == BINARY_WED
+									VOWindowEditor.ProjectImportVNFrm(cPrg , cBinary)
+								CASE oDesigner:Type == BINARY_MED
+									VOMenuEditor.ProjectImportVNMnu(cPrg , cBinary)
+								CASE oDesigner:Type == BINARY_FED
+									File.WriteAllBytes(cBinary , oDesigner:Bytes)
+									aXideFieldSpecs:Add(cBinary)
+									aFilesToDel:Add(cBinary)
+								CASE oDesigner:Type == BINARY_DED
+									File.WriteAllBytes(cBinary , oDesigner:Bytes)
+									aXideDBServers:Add(cBinary)
+								CASE oDesigner:IsDedHelper
+									File.WriteAllBytes(cBinary , oDesigner:Bytes)
+									aFilesToDel:Add(cBinary)
+								END CASE
+							END TRY
+						END IF
+						IF xPorter.GenerateWinForms
+							IF oDesigner:Type == BINARY_WED
+								LOCAL cWF AS STRING
+								cWf := SELF:Project:WinFormsFolder + "\tmp\" + SELF:Name + "." + oDesigner:Name
+								SafeFileDelete(cWf + ".wed")
+								VOWindowEditor.ProjectImportVNFrm(cWf , cBinary)
+							END IF
+						END IF
+						IF .not. xPorter.ExportToVS
+							aFilesToDel:Add(cBinary)
+						END IF
+					ENDIF
+				NEXT
+				
+				// FieldSpecs:
+				IF .not. oModuleFieldSpecs:IsEmpty
+					IF xPorter.ExportToVS
+						LOCAL cBinary AS STRING
+						cBinary := cFolder + "\" + oModule:PathValidName + ".FieldSpecs.xsfs"
+						oModuleFieldSpecs:SaveToDocument(cBinary)
+					END IF
+					IF xPorter.ExportToXide .and. aXideFieldSpecs:Count != 0
+						VOFieldSpecEditor.ProjectImportVNFs(cPrg , aXideFieldSpecs:ToArray())
+					END IF
+				END IF
+				
+				// DBServers:
+				IF xPorter.ExportToVS
+					FOREACH oDBServer AS KeyValuePair<STRING,BYTE[]> IN aDBServers
+						LOCAL oDBDescr AS XSharp.VODesigners.VODBServerDescription
+						oDBDescr := XSharp.VODesigners.VODBServerDescription.LoadFromBinary(oDBServer:Value)
+						oDBDescr:SaveToDocument(oDBServer:Key)
+					NEXT
+				END IF
+				IF xPorter.ExportToXide .and. aXideDBServers:Count != 0
+					FOREACH cDBServer AS STRING IN aXideDBServers
+						VODBServerEditor.ProjectImportVNDbs(cPrg , cDBServer)
+					NEXT
+				ENDIF
+				FOREACH cFileName AS STRING IN aFilesToDel
+					SafeFileDelete(cFileName)
+				NEXT
+			END SCOPE
+
+			IF .NOT. xPorter.Options:ExportOnlyDefines
 				LOCAL aResources AS SortedList<STRING,OutputCode>
 				aResources := oModule:GenerateResources()
 				IF aResources:Count != 0
-					LOCAL cResFileName AS STRING
 					LOCAL oXideResources, oWedResources AS OutputCode
 					oXideResources := OutputCode{}
 					oWedResources := OutputCode{}
                     FOREACH oPair AS KeyValuePair<STRING , OutputCode> IN aResources
 
-						// For VS:
 						LOCAL cName, cUpperName AS STRING
                         LOCAL cRcSource AS STRING
 						cName := oPair:Key
 						cUpperName := cName:ToUpperInvariant()
 
-						#warning WTF, the following never executes!
+						#warning Need to investigate, the following never executes
 						DO CASE
 						CASE cUpperName:StartsWith("IDM_")
 							cName := cName:Substring(4)
@@ -1025,57 +1154,66 @@ CLASS ApplicationDescriptor
 							cUpperName := cName:ToUpperInvariant()
 						END CASE
 
-						cResFileName := oModule:PathValidName + "." + cName + ".rc"
-                        VAR aContents := oPair:Value:GetContents():ToArray()
-                        cRcSource     := aContents[1]
-
-						cRcSource := SELF:AdjustResource(cRcSource,cFolder,TRUE)
-						aContents[1] := cRcSource
-
-						File.WriteAllLines(cFolder + "\" + cResFileName , aContents , System.Text.Encoding.Default)
-						oModule:AddVSrc(cResFileName)
+						// For VS:
+						IF xPorter.ExportToVS
+							LOCAL cResFileName AS STRING
+							cResFileName := oModule:PathValidName + "." + cName + ".rc"
+	                        VAR aContents := oPair:Value:GetContents():ToArray()
+	                        cRcSource     := aContents[1]
+	
+							cRcSource := SELF:AdjustResource(cRcSource,cFolder,TRUE)
+							aContents[1] := cRcSource
+	
+							File.WriteAllLines(cFolder + "\" + cResFileName , aContents , System.Text.Encoding.Default)
+							oModule:AddVSrc(cResFileName)
+						END IF
 
 						// For XIDE:
-						LOCAL lWedRc := FALSE AS LOGIC
-						FOREACH oDesigner AS Designer IN oModule:Designers
-							IF cUpperName == oDesigner:Name:ToUpperInvariant() .or. cUpperName == oDesigner:Name:ToUpperInvariant() + "_ACCELERATOR"
-								lWedRc := TRUE
-								EXIT
+						IF xPorter.ExportToXide
+							LOCAL lWedRc := FALSE AS LOGIC
+							FOREACH oDesigner AS Designer IN oModule:Designers
+								IF cUpperName == oDesigner:Name:ToUpperInvariant() .OR. cUpperName == oDesigner:Name:ToUpperInvariant() + "_ACCELERATOR"
+									lWedRc := TRUE
+									EXIT
+								END IF
+							NEXT
+							IF lWedRc
+								oWedResources:Combine(oPair:Value)
+							ELSE
+								oXideResources:Combine(oPair:Value)
 							END IF
-						NEXT
-						IF lWedRc
-							oWedResources:Combine(oPair:Value)
-						ELSE
-							oXideResources:Combine(oPair:Value)
 						END IF
 
 					NEXT
 
 					// For XIDE:
-					IF xPorter.ExportXideBinaries
-						IF .not. oXideResources:IsEmpty()
+					IF xPorter.ExportToXide
+						IF TRUE // if we generate XIDE binaries
+							LOCAL cResFileName AS STRING
 							cResFileName := oModule:PathValidName + ".rc"
-                            LOCAL aResult   := List<STRING>{} AS List<STRING>
-                            FOREACH cLinex AS STRING IN oXideResources:GetContents():ToArray()
-                            	// in XIDE, all resource of one file are included in a single
-                            	// buffer, so we need to check every line for resource markers
-                            	// Probably need to redesign this...
-                            	VAR cLine := SELF:AdjustResource(cLinex, cFolder , FALSE)
-                                aResult:Add(cLine)
-                            NEXT
-							File.WriteAllLines(cFolder + "\" + cResFileName , aResult , System.Text.Encoding.Default)
-							oModule:AddXIDErc(cResFileName)
+							IF .NOT. oXideResources:IsEmpty()
+	                            LOCAL aResult   := List<STRING>{} AS List<STRING>
+	                            FOREACH cLinex AS STRING IN oXideResources:GetContents():ToArray()
+	                            	// in XIDE, all resource of one file are included in a single
+	                            	// buffer, so we need to check every line for resource markers
+	                            	// Probably need to redesign this...
+	                            	VAR cLine := SELF:AdjustResource(cLinex, cFolder , FALSE)
+	                                aResult:Add(cLine)
+	                            NEXT
+								File.WriteAllLines(cFolder + "\" + cResFileName , aResult , System.Text.Encoding.Default)
+								oModule:AddXIDErc(cResFileName)
+							END IF
+	
+							IF .NOT. oWedResources:IsEmpty()
+								cResFileName := oModule:PathValidName + ".prg.rc"
+								File.WriteAllLines(cFolder + "\" + cResFileName , oWedResources:GetContents() , System.Text.Encoding.Default)
+							END IF
+	/*					ELSE // otherwise make it simple:
+							oXideResources:Combine(oWedResources)
+							cResFileName := oModule:PathValidName + ".rc"
+							File.WriteAllLines(cFolder + "\" + cResFileName , oXideResources:GetContents() , System.Text.Encoding.Default)
+							oModule:AddXIDErc(cResFileName)*/
 						END IF
-
-						IF .not. oWedResources:IsEmpty()
-							cResFileName := oModule:PathValidName + ".prg.rc"
-							File.WriteAllLines(cFolder + "\" + cResFileName , oWedResources:GetContents() , System.Text.Encoding.Default)
-						END IF
-					ELSE
-						oXideResources:Combine(oWedResources)
-						cResFileName := oModule:PathValidName + ".rc"
-						File.WriteAllLines(cFolder + "\" + cResFileName , oXideResources:GetContents() , System.Text.Encoding.Default)
-						oModule:AddXIDErc(cResFileName)
 					END IF
 				END IF
 			END IF
@@ -1085,15 +1223,19 @@ CLASS ApplicationDescriptor
 
 		SELF:_lSaved := TRUE
 
-		SELF:CreateAppFile(cFolder , TRUE)
-		SELF:CreateAppFile(cFolder , FALSE)
+		IF xPorter.ExportToXide
+			SELF:CreateAppFile(cFolder , TRUE)
+		ENDIF
+		IF xPorter.ExportToVS
+			SELF:CreateAppFile(cFolder , FALSE)
+		ENDIF
 	RETURN
 
     METHOD AdjustResource(cLine AS STRING,cFolder AS STRING,lAddToOtherFiles AS LOGIC) AS STRING
         LOCAL aElements AS STRING[]
         LOCAL lHasFile  AS LOGIC
         LOCAL cResourcesFolder := cFolder+"\Resources" AS STRING
-        aElements := cLine:Split(<Char>{' '},StringSplitOptions.RemoveEmptyEntries)
+        aElements := cLine:Split(<CHAR>{' '},StringSplitOptions.RemoveEmptyEntries)
         IF aElements:Length > 2
             // Element 1 = Name
             // Element 2 = Type
@@ -1119,7 +1261,7 @@ CLASS ApplicationDescriptor
                 LOCAL cFileName  := cLine:SubString(nPos) AS STRING
                 LOCAL lHasQuotes := FALSE AS LOGIC
                 cFileName := cFileName:Trim()
-                IF cFileName:StartsWith(e"\"") .and. cFileName:EndsWith(e"\"") .and. cFileName:Length > 2
+                IF cFileName:StartsWith(e"\"") .AND. cFileName:EndsWith(e"\"") .AND. cFileName:Length > 2
                 	lHasQuotes := TRUE
                     cFileName := cFileName:Substring(1, cFileName:Length-2)
                 ENDIF
@@ -1139,7 +1281,7 @@ CLASS ApplicationDescriptor
                 		cDestName := Path.GetFullPath(cFileName)
                 	ENDIF
                 	// always surround filenames with quotes, to make sure we have no issues with spaces in filenames
-					IF .not. lHasQuotes
+					IF .NOT. lHasQuotes
 						cDestName := e"\"" + cDestName + e"\""
 					ENDIF
 					// when filenames are inside quotes, then backslashes need to be doubled, otherwise are being seen as escape sequences
@@ -1162,7 +1304,7 @@ CLASS ApplicationDescriptor
 			cAppTypeTag := SELF:_eType:ToString()
 		END IF
 
-		IF .not. xPorter.OverWriteProjectFiles
+		IF .NOT. xPorter.OverWriteProjectFiles
 			IF lXide
 				IF File.Exists(SELF:AppFile_XIDE)
 					RETURN
@@ -1189,7 +1331,12 @@ CLASS ApplicationDescriptor
 				LOOP
 			CASE cTemplate == "%appfiles%"
 				FOREACH oModule AS ModuleDescriptor IN SELF:_aModules
-					IF .not. oModule:Generated
+					IF .NOT. oModule:Generated
+						IF .not. SELF:_lIsWinForms
+							LOOP
+						END IF
+					END IF
+					IF lXide .and. oModule:IsDesignerChild
 						LOOP
 					END IF
 					LOCAL cName AS STRING
@@ -1198,9 +1345,20 @@ CLASS ApplicationDescriptor
 						oOutput:WriteLine("File = %AppPath%\" + cName)
 						oOutput:WriteLine("FileGUID = " + NewGuid())
 						oOutput:WriteLine("FileType = Code")
+						IF oModule:HasDesignerChild
+							oOutput:WriteLine("DesignerFileGUID = " + NewGuid())
+						END IF
 					ELSE
 						oOutput:WriteLine(String.Format(e"<Compile Include=\"{0}\">" , cName))
-						oOutput:WriteLine("  <SubType>Code</SubType>")
+						IF SELF:_lIsWinForms
+							IF oModule:IsDesignerChild
+								oOutput:WriteLine(String.Format("  <DependentUpon>{0}</DependentUpon>", cName:Replace(".Designer.",".")) )
+							ELSE
+								oOutput:WriteLine("  <SubType>Form</SubType>")
+							END IF
+						ELSE
+							oOutput:WriteLine("  <SubType>Code</SubType>")
+						END IF
 						oOutput:WriteLine("</Compile>")
 					END IF
 
@@ -1218,9 +1376,21 @@ CLASS ApplicationDescriptor
 							NEXT
 						END IF
 						IF oModule:Designers:Count != 0
+							LOCAL lAddedFieldSpec := FALSE AS LOGIC
 							FOREACH oDesigner AS Designer IN oModule:Designers
 								IF oDesigner:MustExport
-									oOutput:WriteLine(String.Format(e"<VOBinary Include=\"{0}\">" ,  oModule:PathValidName + "." +oDesigner:Name+oDesigner:Extension))
+									LOCAL cFileName AS STRING
+									IF oDesigner:Type == 14 // FieldSpec
+										IF lAddedFieldSpec
+											LOOP
+										ELSE
+											lAddedFieldSpec := TRUE
+										END IF
+										cFileName := oModule:PathValidName + ".FieldSpecs" + oDesigner:Extension
+									ELSE
+										cFileName := oModule:PathValidName + "." +oDesigner:Name+oDesigner:Extension
+									END IF
+									oOutput:WriteLine(String.Format(e"<VOBinary Include=\"{0}\">" , cFileName))
 									oOutput:WriteLine(String.Format(e"  <DependentUpon>{0}</DependentUpon>" , cName))
 									oOutput:WriteLine(String.Format(e"</VOBinary>" , ""))
 								ENDIF
@@ -1313,9 +1483,9 @@ CLASS ApplicationDescriptor
 				cTemplate := cTemplate:Replace("%rootnamespace%", SELF:PathValidName:Replace(" ",""))
 				cTemplate := cTemplate:Replace("%apptype%" , cAppTypeTag)
 
-				IF cTemplate:Contains("%option_overflow%") .or. cTemplate:Contains("%option_intdiv%")
-					cTemplate := cTemplate:Replace("%option_overflow%" , iif(SELF:OptionOverflow , iif(lXide , "1" , "true") , iif(lXide , "0" , "false") ) )
-					cTemplate := cTemplate:Replace("%option_intdiv%" , iif(SELF:OptionIntDiv , iif(lXide , "1" , "true") , iif(lXide , "0" , "false") ) )
+				IF cTemplate:Contains("%option_overflow%") .OR. cTemplate:Contains("%option_intdiv%")
+					cTemplate := cTemplate:Replace("%option_overflow%" , IIF(SELF:OptionOverflow , IIF(lXide , "1" , "true") , IIF(lXide , "0" , "false") ) )
+					cTemplate := cTemplate:Replace("%option_intdiv%" , IIF(SELF:OptionIntDiv , IIF(lXide , "1" , "true") , IIF(lXide , "0" , "false") ) )
 				END IF
 
 //				#warning make path relative
@@ -1355,7 +1525,7 @@ CLASS ApplicationDescriptor
 		cClass := cClass:ToUpper()
 		FOREACH oModule AS ModuleDescriptor IN SELF:_aModules
 			FOREACH oClass AS ClassDescriptor IN oModule:Classes
-				IF oClass:Name:ToUpper() == cClass .and. oClass:HasDeclaration
+				IF oClass:Name:ToUpper() == cClass .AND. oClass:HasDeclaration
 					RETURN TRUE
 				END IF
 			NEXT
@@ -1427,6 +1597,8 @@ CLASS ModuleDescriptor
 	PROPERTY Generated AS LOGIC GET SELF:_lGenerated
 	PROPERTY VSrc AS List<STRING> GET SELF:_aVSrc
 	PROPERTY XIDErc AS STRING GET SELF:_cXIDErc
+	PROPERTY HasDesignerChild AS LOGIC AUTO
+	PROPERTY IsDesignerChild AS LOGIC AUTO
 
 	PROPERTY Designers AS List<Designer> GET SELF:_aDesigners
 
@@ -1448,9 +1620,9 @@ CLASS ModuleDescriptor
 				nTest := nAt
 				DO WHILE nTest > 0
 					nTest --
-					IF cLine[nTest] == '/' .and. cLine[nTest + 1] == '/'
+					IF cLine[nTest] == '/' .AND. cLine[nTest + 1] == '/'
 						nCommentMarker := nTest
-						DO WHILE nCommentMarker > 0 .and. (cLine[nCommentMarker - 1] == ' ' .or. cLine[nCommentMarker - 1] == '\t')
+						DO WHILE nCommentMarker > 0 .AND. (cLine[nCommentMarker - 1] == ' ' .OR. cLine[nCommentMarker - 1] == '\t')
 							nCommentMarker --
 						END DO
 						EXIT
@@ -1517,7 +1689,7 @@ CLASS ModuleDescriptor
 		FOREACH oLine AS LineObject IN SELF:_aLines
 			nLine ++
 			IF oLine:oEntity != NULL
-				IF .not. xPorter.AllowEntity(oLine:oEntity , SELF)
+				IF .NOT. xPorter.AllowEntity(oLine:oEntity , SELF)
 					oCurrentEntity := NULL
 					LOOP
 				END IF
@@ -1536,12 +1708,12 @@ CLASS ModuleDescriptor
 						END IF
 					END IF
 				END IF
-				IF oLine:oEntity:eType == EntityType._Function .or. oLine:oEntity:eType == EntityType._Procedure
+				IF oLine:oEntity:eType == EntityType._Function .OR. oLine:oEntity:eType == EntityType._Procedure
 					SELF:_oApp:AddFunction(oLine:oEntity:cName:ToUpper())
 				ENDIF
 
 				IF xPorter.Options:AddMissingConstrutors
-					IF oLine:oEntity:eType == EntityType._Method .and. oLine:oEntity:cName:ToUpper() == "INIT"
+					IF oLine:oEntity:eType == EntityType._Method .AND. oLine:oEntity:cName:ToUpper() == "INIT"
 						SELF:_aConstructors:Add(oLine:oEntity:cShortClassName:ToUpper())
 					ENDIF
 				ENDIF
@@ -1617,13 +1789,13 @@ CLASS ModuleDescriptor
 			CASE oEntity:Type == EntityType._TextBlock
 				oTextblocks:Combine(oEntity:Generate())
 			CASE oEntity:Type == EntityType._Define
-				IF xPorter.Options:ExportOnlyDefines .and. oEntity:IsStatic
+				IF xPorter.Options:ExportOnlyDefines .AND. oEntity:IsStatic
 					LOOP
 				END IF
 				oDefines:Combine(oEntity:Generate())
 			CASE oEntity:Type == EntityType._Global
 				oGlobals:Combine(oEntity:Generate())
-			CASE oEntity:Type == EntityType._Function .or. oEntity:Type == EntityType._Procedure
+			CASE oEntity:Type == EntityType._Function .OR. oEntity:Type == EntityType._Procedure
 				IF SELF:_oApp:ContainsCallback(oEntity:Name)
 					oFuncs:Combine(oEntity:GenerateDelegateFromFunction())
 				END IF
@@ -1639,7 +1811,7 @@ CLASS ModuleDescriptor
 			oCode:Combine(oDefines)
 		ELSE
 			oCode:Combine(oTextblocks)
-			IF .not. oDefines:IsEmpty()
+			IF .NOT. oDefines:IsEmpty()
 				oCode:AddLine("#region DEFINES")
 				oCode:Combine(oDefines)
 				oCode:AddLine("#endregion")
@@ -1651,7 +1823,7 @@ CLASS ModuleDescriptor
 			oCode:Combine(oRest)
 		END IF
 
-		IF .not. (xPorter.Options:DontGenerateEmptyFiles .and. oCode:IsEmpty() .and. .not. SELF:HasResources())
+		IF .NOT. (xPorter.Options:DontGenerateEmptyFiles .AND. oCode:IsEmpty() .AND. .NOT. SELF:HasResources())
 			SELF:_lGenerated := TRUE
 		ENDIF
 
@@ -1735,7 +1907,7 @@ CLASS ClassDescriptor
 			SELF:_oDeclaration:PartialClass := lPartial
 			oCode:Combine(SELF:_oDeclaration:Generate())
 			IF xPorter.Options:AddMissingConstrutors
-				IF SELF:_oDeclaration:HasInherit .and. .not. SELF:_oModule:Application:ConstructorExists(SELF:Name)
+				IF SELF:_oDeclaration:HasInherit .AND. .NOT. SELF:_oModule:Application:ConstructorExists(SELF:Name)
 //					oCode:AddLine("")
 					oCode:AddLine("// constructor inserted by xPorter, remove superfluous arguments")
 					oCode:AddLine("CONSTRUCTOR(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9) CLIPPER")
@@ -1769,13 +1941,13 @@ CLASS ClassDescriptor
 				oCode:AddLine(e"\tEND TRY")
 				oCode:AddLine(e"RETURN 0")
 				oCode:AddLine(e"")
-				oCode:AddLine(iif(lPartial , "PARTIAL " , "") + "CLASS " + SELF:_cName + " INHERIT App")
+				oCode:AddLine(IIF(lPartial , "PARTIAL " , "") + "CLASS " + SELF:_cName + " INHERIT App")
 			ELSE
 				IF SELF:_oModule:Application:ClassDeclarationExists(SELF:Name)
-					oCode:AddLine(iif(lPartial , "PARTIAL " , "") + "CLASS " + SELF:_cName)
+					oCode:AddLine(IIF(lPartial , "PARTIAL " , "") + "CLASS " + SELF:_cName)
 				ELSE
 					oCode:AddLine("#warning The following method did not include a CLASS declaration")
-					oCode:AddLine(iif(lPartial , "PARTIAL " , "") + "CLASS " + SELF:_cName + "_external_class" + " INHERIT " + SELF:_cName)
+					oCode:AddLine(IIF(lPartial , "PARTIAL " , "") + "CLASS " + SELF:_cName + "_external_class" + " INHERIT " + SELF:_cName)
 				ENDIF
 			END IF
 		END IF
@@ -1815,11 +1987,11 @@ CLASS EntityDescriptor
 	PROPERTY ClassName AS STRING GET SELF:_cClass
 	PROPERTY Lines AS List<LineObject> GET SELF:_aLines
 	PROPERTY IsClassOrMember AS LOGIC GET;
-			SELF:_eType == EntityType._Class .or. SELF:_eType == EntityType._Method .or. ;
-			SELF:_eType == EntityType._Access .or. SELF:_eType == EntityType._Assign
+			SELF:_eType == EntityType._Class .OR. SELF:_eType == EntityType._Method .OR. ;
+			SELF:_eType == EntityType._Access .OR. SELF:_eType == EntityType._Assign
 	PROPERTY PartialClass AS LOGIC AUTO
 	PROPERTY IsStatic AS LOGIC GET SELF:_lIsStatic
-	PROPERTY HasInherit AS LOGIC GET .not. (System.String.IsNullOrWhiteSpace(SELF:_cInherit) .or. SELF:_cInherit:ToUpper() == "VOBJECT")
+	PROPERTY HasInherit AS LOGIC GET .NOT. (System.String.IsNullOrWhiteSpace(SELF:_cInherit) .OR. SELF:_cInherit:ToUpper() == "VOBJECT")
 
 	METHOD AddLine(oLine AS LineObject) AS VOID
 		SELF:_aLines:Add(oLine)
@@ -1829,7 +2001,7 @@ CLASS EntityDescriptor
 		LOCAL oCode AS OutputCode
 		oCode := OutputCode{}
 		FOREACH oLine AS LineObject IN SELF:_aLines
-			IF oLine:oEntity == NULL .and. .not. oLine:lInAmpersand
+			IF oLine:oEntity == NULL .AND. .NOT. oLine:lInAmpersand
 				EXIT
 			END IF
 			LOCAL cLine AS STRING
@@ -1846,7 +2018,7 @@ CLASS EntityDescriptor
 				IF cUpper == ")"
 					lAfterCloseParen := TRUE // we're after the parameters list
 				ELSEIF lAfterCloseParen
-					IF cUpper == "STRICT" .or. cUpper == "PASCAL" .or. cUpper == "_WINCALL" .or. cUpper == "CALLBACK"
+					IF cUpper == "STRICT" .OR. cUpper == "PASCAL" .OR. cUpper == "_WINCALL" .OR. cUpper == "CALLBACK"
 						LOOP
 					END IF
 				ENDIF
@@ -1906,11 +2078,11 @@ CLASS EntityDescriptor
 				oCurrentEntity := oLine:oEntity
 			ENDIF
 
-			IF xPorter.Options:RemoveDeclareMethod .and. oCurrentEntity != NULL .and. ;
+			IF xPorter.Options:RemoveDeclareMethod .AND. oCurrentEntity != NULL .AND. ;
 				oCurrentEntity:eType == EntityType._Class
-				#warning DECLAREs recognition needs to be improved as well
-				IF cLine:ToUpper():Contains("DECLARE METHOD") .or. ;
-					cLine:ToUpper():Contains("DECLARE ACCESS") .or. ;
+				#warning Need to improve DECLAREs recognition
+				IF cLine:ToUpper():Contains("DECLARE METHOD") .OR. ;
+					cLine:ToUpper():Contains("DECLARE ACCESS") .OR. ;
 					cLine:ToUpper():Contains("DECLARE ASSIGN")
 					LOOP
 				END IF
@@ -1931,7 +2103,7 @@ CLASS EntityDescriptor
 				END IF
 			ENDIF*/
 
-			#warning Ouch, Init/Axit/Super tokens are still specified like that? Need changing ASAP!
+			#warning Need to improve recognition of Init/Axit/Super tokens
 			IF xPorter.Options:ChangeInitAxitToCtorDtor
 				IF oLine:oEntity == NULL
 					LOCAL cUpper AS STRING
@@ -1942,8 +2114,8 @@ CLASS EntityDescriptor
 						cLine := cLine:Substring(0 , nIndex) + "SUPER(" + cLine:Substring(nIndex + 11)
 					END IF
 				ELSE
-					IF oLine:oEntity:eType == EntityType._Method .and. ;
-						(oLine:oEntity:cName:ToUpper() == "INIT" .or. oLine:oEntity:cName:ToUpper() == "AXIT")
+					IF oLine:oEntity:eType == EntityType._Method .AND. ;
+						(oLine:oEntity:cName:ToUpper() == "INIT" .OR. oLine:oEntity:cName:ToUpper() == "AXIT")
 						LOCAL cUpper AS STRING
 						LOCAL nIndex AS INT
 						cUpper := cLine:ToUpper()
@@ -1967,7 +2139,7 @@ CLASS EntityDescriptor
 			IF lCommentEntity
 				oCode:AddLine("// " + cLine)
 			ELSE
-				IF SELF:_eType == EntityType._Define .and. String.IsNullOrWhiteSpace(cLine)
+				IF SELF:_eType == EntityType._Define .AND. String.IsNullOrWhiteSpace(cLine)
 					NOP
 				ELSE
 					oCode:AddLine(cLine)
@@ -1991,17 +2163,17 @@ CLASS EntityDescriptor
 		cLine := oLine:LineText
 		cLineUpper := cLine:ToUpper():Trim()
 
-		IF cLineUpper:StartsWith("VTRACE") .or. cLineUpper:StartsWith("VMETHOD")
+		IF cLineUpper:StartsWith("VTRACE") .OR. cLineUpper:StartsWith("VMETHOD")
 			cLine := "// " + cLine
 			RETURN cLine
 		END IF
-		IF SELF:Type== EntityType._Class .and. cLineUpper:Trim():StartsWith("INSTANCE")
+		IF SELF:Type== EntityType._Class .AND. cLineUpper:Trim():StartsWith("INSTANCE")
 			LOCAL cTemp AS STRING
 			cTemp := cLineUpper:Trim()
 			IF cTemp:Length > 9
 				cTemp := cTemp:Substring(9):Trim()
 				// The WED generates single instance vars per line, we do not want to touch user created ones
-				IF cTemp:Length > 0 .and. cTemp:IndexOf(',') == -1 .and. cTemp:IndexOf(' ') == -1
+				IF cTemp:Length > 0 .AND. cTemp:IndexOf(',') == -1 .AND. cTemp:IndexOf(' ') == -1
 					IF SELF:_oModule:ContainsEntity(cTemp, SELF:Name)
 						cLine := "// " + cLine
 						RETURN cLine
@@ -2010,14 +2182,14 @@ CLASS EntityDescriptor
 			END IF
 		ENDIF
 
-		IF xPorter.Options:RemoveExportLocalClause .and. oLine:HasExportLocalClause
+		IF xPorter.Options:RemoveExportLocalClause .AND. oLine:HasExportLocalClause
 			IF oLine:oMoreInfo:ExportLocalClause:Begins != 0
 				IF oLine:oMoreInfo:ExportLocalClause:Ends != 0
 					cLine := cLine:Substring(0 , oLine:oMoreInfo:ExportLocalClause:Begins - 1) + cLine:Substring(oLine:oMoreInfo:ExportLocalClause:Ends - 1)
 				END IF
 			END IF
 		END IF
-		IF xPorter.Options:RemoveClassClause .and. oLine:HasClassClause
+		IF xPorter.Options:RemoveClassClause .AND. oLine:HasClassClause
 			IF oLine:oMoreInfo:ClassClause:Begins != 0
 				IF oLine:oMoreInfo:ClassClause:Ends != 0
 					cLine := cLine:Substring(0 , oLine:oMoreInfo:ClassClause:Begins - 1) + cLine:Substring(oLine:oMoreInfo:ClassClause:Ends - 1)
@@ -2035,7 +2207,7 @@ CLASS EntityDescriptor
 		aWords := AnalyzeLine(cLine)
 		sLine := System.Text.StringBuilder{cLine:Length + 5}
 
-		IF SELF:PartialClass .and. oLine:oEntity != NULL .and. oLine:oEntity:eType == EntityType._Class
+		IF SELF:PartialClass .AND. oLine:oEntity != NULL .AND. oLine:oEntity:eType == EntityType._Class
 			sLine:Append("PARTIAL ")
 		END IF
 
@@ -2067,26 +2239,26 @@ CLASS EntityDescriptor
 
 			DO CASE
 
-			CASE cWord == "%" .and. oNextNextWord != NULL .and. oNextNextWord:cWord == "%" .and. oNextWord:cWord:ToUpper() == "CAVOSAMPLESROOTDIR"
+			CASE cWord == "%" .AND. oNextNextWord != NULL .AND. oNextNextWord:cWord == "%" .AND. oNextWord:cWord:ToUpper() == "CAVOSAMPLESROOTDIR"
 				cWord := ""
 				oNextWord:cWord := VOFolder.Get() + "\Samples"
 				oNextNextWord:cWord := ""
 
-			CASE cWord == "." .and. oNextNextWord != NULL .and. oNextNextWord:cWord == "." .and. (oNextWord:cWord:ToUpper() == "AND" .or. oNextWord:cWord:ToUpper() == "OR") .and. oWord:eStatus != WordStatus.Comment // can be literal, if the parser thinks 1.and.2 is a numeric
+			CASE cWord == "." .AND. oNextNextWord != NULL .AND. oNextNextWord:cWord == "." .AND. (oNextWord:cWord:ToUpper() == "AND" .OR. oNextWord:cWord:ToUpper() == "OR") .AND. oWord:eStatus != WordStatus.Comment // can be literal, if the parser thinks 1.and.2 is a numeric
 				cWord := " " + cWord
-			CASE cWord == "." .and. oPrevWord != NULL .and. (oPrevWord:cWord:ToUpper() == "AND" .or. oPrevWord:cWord:ToUpper() == "OR") .and. oNextWord != NULL .and. oNextWord:cWord:Trim():Length != 0 .and. oWord:eStatus != WordStatus.Comment // as above
+			CASE cWord == "." .AND. oPrevWord != NULL .AND. (oPrevWord:cWord:ToUpper() == "AND" .OR. oPrevWord:cWord:ToUpper() == "OR") .AND. oNextWord != NULL .AND. oNextWord:cWord:Trim():Length != 0 .AND. oWord:eStatus != WordStatus.Comment // as above
 				cWord := cWord + " "
 
 			CASE oWord:eStatus == WordStatus.Text // no literals or comments
 				cWordUpper := cWord:ToUpper()
 				DO CASE
-				CASE cWordUpper:StartsWith("STRU") .and. oWord:eSubStatus == WordSubStatus.TextReserved .and. oLine:oEntity != NULL
+				CASE cWordUpper:StartsWith("STRU") .AND. oWord:eSubStatus == WordSubStatus.TextReserved .AND. oLine:oEntity != NULL
 					cWord := "VOSTRUCT"
-				CASE gaNewKeywordsInXSharp:Contains(cWordUpper) .and. (oPrevWord == NULL .or. .not. oPrevWord:cWord:StartsWith("@"))
+				CASE xPorter.NewKeywordsInXSharp:ContainsKey(cWordUpper) .AND. (oPrevWord == NULL .OR. .NOT. oPrevWord:cWord:StartsWith("@"))
 					cWord := "@@" + cWord
-				CASE cWordUpper == "_NC" .or. cWordUpper == "_CO"
+				CASE cWordUpper == "_NC" .OR. cWordUpper == "_CO"
 					cWord := ""
-				CASE cWordUpper == "@" .and. (oNextWord != NULL .and. SELF:_oModule:Application:ContainsCallback(oNextWord:cWord))
+				CASE cWordUpper == "@" .AND. (oNextWord != NULL .AND. SELF:_oModule:Application:ContainsCallback(oNextWord:cWord))
 //					MessageBox.Show(oNextWord:cWord , "Callback!")
 					cCallBack := oNextWord:cWord
 				END CASE
@@ -2097,13 +2269,13 @@ CLASS EntityDescriptor
 						lInBracketString := FALSE
 						cWord := e"\""
 					ELSE
-						IF cWord == e"\"" .or. cWord == "\"
+						IF cWord == e"\"" .OR. cWord == "\"
 							cWord := "\" + cWord
 						END IF
 					END IF
 				ELSE
 					IF cWord == "["
-						IF oPrevWord == NULL .or. oPrevWord:eStatus != WordStatus.Literal
+						IF oPrevWord == NULL .OR. oPrevWord:eStatus != WordStatus.Literal
 							lInBracketString := TRUE
 							cWord := e"e\""
 						END IF
@@ -2111,20 +2283,20 @@ CLASS EntityDescriptor
 				ENDIF
 			END CASE
 
-			IF lInIndexedProperty .and. oWord:eStatus == WordStatus.Text .and. oWord:cWord == ","
+			IF lInIndexedProperty .AND. oWord:eStatus == WordStatus.Text .AND. oWord:cWord == ","
 				sLine:Append('[')
 				lInIndexedProperty := FALSE
 				lLastWasColon := FALSE
 				LOOP // don't add the first comma
 			ENDIF
-			IF lLastWasColon .and. oWord:eStatus == WordStatus.Text .and. oWord:cWord == "["
+			IF lLastWasColon .AND. oWord:eStatus == WordStatus.Text .AND. oWord:cWord == "["
 				lInIndexedProperty := TRUE
 				lLastWasColon := FALSE
 				LOOP // do not add the "[" now
 			END IF
-			IF oWord:eStatus == WordStatus.Text .and. oWord:cWord == ":"
+			IF oWord:eStatus == WordStatus.Text .AND. oWord:cWord == ":"
 				lLastWasColon := TRUE
-			ELSEIF .not. oWord:IsWhiteSpace
+			ELSEIF .NOT. oWord:IsWhiteSpace
 				lLastWasColon := FALSE
 			END IF
 
@@ -2193,20 +2365,20 @@ CLASS EntityDescriptor
 				oWord := aWords[nWord]
 				cWord := oWord:cWord
 				cUpper := cWord:ToUpper()
-				cNextWord := iif(nWord < aWords:Count - 1 , aWords[nWord+1]:cWord , "")
+				cNextWord := IIF(nWord < aWords:Count - 1 , aWords[nWord+1]:cWord , "")
 
-				IF cWord == ":" .and. cNextWord == "\"
+				IF cWord == ":" .AND. cNextWord == "\"
 					lInFilename := TRUE
 				END IF
 
-				IF oLine:oEntity != NULL .and. cUpper == "RESOURCE"
+				IF oLine:oEntity != NULL .AND. cUpper == "RESOURCE"
 					cPrevWord := cWord
 					LOOP
 				END IF
 
 				DO CASE
 
-				CASE oWord:cWord == " " .or. oWord:cWord == e"\t"
+				CASE oWord:cWord == " " .OR. oWord:cWord == e"\t"
 					NOP
 
 				CASE oWord:eStatus == WordStatus.Text // no literals or comments
@@ -2215,21 +2387,21 @@ CLASS EntityDescriptor
 					STATIC LOCAL tag_samples := tag + "CAVOSAMPLESROOTDIR" + tag AS STRING
 					STATIC LOCAL tag_cavodir := tag + "CAVODIR" + tag AS STRING
 					DO CASE
-					CASE cUpper == "STRINGTABLE" .and. lFirstLine
+					CASE cUpper == "STRINGTABLE" .AND. lFirstLine
 						lStringTableLine := TRUE
 						EXIT
-					CASE cUpper == "__VERSION__" .or. cUpper == tag_version
+					CASE cUpper == "__VERSION__" .OR. cUpper == tag_version
 						cWord := "1"
 /*					CASE cUpper == "VS_VERSION_INFO"
 						cWord := "1"*/
-					CASE cUpper == "__APPWIZDIR__" .or. cUpper == tag_appwiz
+					CASE cUpper == "__APPWIZDIR__" .OR. cUpper == tag_appwiz
 						cWord := VOFolder.Get() + "\Appwiz"
-					CASE cUpper == "__CAVOSAMPLESROOTDIR__" .or. cUpper == tag_samples
+					CASE cUpper == "__CAVOSAMPLESROOTDIR__" .OR. cUpper == tag_samples
 						cWord := VOFolder.Get() + "\Samples"
-					CASE cUpper == "__CAVODIR__" .or. cUpper == tag_cavodir
+					CASE cUpper == "__CAVODIR__" .OR. cUpper == tag_cavodir
 						cWord := VOFolder.Get()
 //					CASE lFirstLine .and. (cPrevWord == "\" .or. cPrevWord == "." .or. cPrevWord == ":")
-					CASE lFirstLine .and. lInFilename
+					CASE lFirstLine .AND. lInFilename
 						// do not allow below to replace defines in part of filenames that are not surrounded by quotes
 						NOP
 					CASE SELF:_oModule:Application:HasDefine(cUpper)
@@ -2239,7 +2411,7 @@ CLASS EntityDescriptor
 							cLine += cValue
 						ELSE
 							cLine += cWord
-							IF .not. aDefines:ContainsKey(cUpper)
+							IF .NOT. aDefines:ContainsKey(cUpper)
 								aDefines:Add(cUpper , String.Format("#define {0} {1}" , cWord , cValue))
 							END IF
 						END IF
@@ -2256,15 +2428,15 @@ CLASS EntityDescriptor
 					CASE xPorter.SDKDefines:ContainsKey(cUpper)
 						LOCAL cValue AS STRING
 						cValue := xPorter.SDKDefines[cUpper]
-						IF xPorter.Options:ReplaceResourceDefinesWithValues .or. (cValue:Contains("'") .or. cValue:Contains('"'))
-							#warning Need to check here
+						IF xPorter.Options:ReplaceResourceDefinesWithValues .OR. (cValue:Contains("'") .OR. cValue:Contains('"'))
+							#warning Need to review handling of VERSION resource
 							// need to check where this is needed and when not
 							// as it is now, it replaces defines for VERSION resource like VOVER_FILE_VERSION_TXT
 							// from '""' as defined manually above, to an empty string without quotes
 							cLine += cValue:Replace(e"\"" , ""):Replace("'" , "")
 						ELSE
 							cLine += cWord
-							IF .not. aDefines:ContainsKey(cUpper)
+							IF .NOT. aDefines:ContainsKey(cUpper)
 								aDefines:Add(cUpper , String.Format("#define {0} {1}" , cWord , cValue))
 							END IF
 						ENDIF
@@ -2273,7 +2445,7 @@ CLASS EntityDescriptor
 					END CASE
 
 				CASE oWord:eStatus == WordStatus.Literal
-					IF cUpper == "_VOOLECONTAINER" .and. .not. String.IsNullOrEmpty(Replace_VOOleContainer)
+					IF cUpper == "_VOOLECONTAINER" .AND. .NOT. String.IsNullOrEmpty(Replace_VOOleContainer)
 						cWord := Replace_VOOleContainer
 					END IF
 
@@ -2289,7 +2461,7 @@ when file paths are included in quotes we need to double the slashes, because th
 strings and if there are escape sequences inside (like \t), the resource compiler will not find the file
 Probably we need to do that also to every other string in every line in the resource?
 */
-				IF lFirstLine .and. cWord == "\" .and. oWord:eStatus == WordStatus.Literal .and. cPrevWord != "\" .and. cNextWord != "\"
+				IF lFirstLine .AND. cWord == "\" .AND. oWord:eStatus == WordStatus.Literal .AND. cPrevWord != "\" .AND. cNextWord != "\"
 					cLine += "\"
 				END IF
 
@@ -2401,7 +2573,7 @@ CLASS OutputCode
 	METHOD GetContents() AS IEnumerable<STRING>
 	RETURN SELF:_aLines
 	METHOD IsEmpty() AS LOGIC
-	RETURN SELF:_aLines:Count == 0 .or. (SELF:_aLines:Count == 1 .and. SELF:_aLines[0] == "")
+	RETURN SELF:_aLines:Count == 0 .OR. (SELF:_aLines:Count == 1 .AND. SELF:_aLines[0] == "")
 
 END CLASS
 
@@ -2411,7 +2583,7 @@ RETURN System.Guid.NewGuid():ToString():ToUpper()
 FUNCTION GetRelativePath(cSourceDir AS STRING , cTarget AS STRING) AS STRING
 	LOCAL oSource , oTarget , oRelative AS Uri
 	LOCAL cRelative AS STRING
-	IF .not. cSourceDir:EndsWith("\")
+	IF .NOT. cSourceDir:EndsWith("\")
 		cSourceDir += "\"
 	END IF
 	oSource := System.Uri{cSourceDir}
@@ -2462,6 +2634,17 @@ FUNCTION SafeFolderExists(cFolder AS STRING) AS LOGIC
 		lRet := Directory.Exists(cFolder)
 	END TRY
 RETURN lRet
-
-
+PROCEDURE SafeFileDelete(cFileName AS STRING)
+	TRY
+		File.Delete(cFileName)
+	END TRY
+RETURN
+PROCEDURE SafeDirectoryDelete(cFolder AS STRING)
+	TRY
+		FOREACH cFileName AS STRING IN Directory.GetFiles(cFolder, "*.wed")
+			SafeFileDelete(cFileName)
+		NEXT
+		Directory.Delete(cFolder)
+	END TRY
+RETURN
 

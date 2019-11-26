@@ -6,8 +6,9 @@ using VO
 FUNCTION MyThrow(e as Exception)
     THROW e
 
-function Start as void
+function xStart as void
     TRY
+    
     DbUseArea(TRUE,"AXDBFCDX","c:\download\test\adssql\TagMenu","TagMenu",TRUE,FALSE)
     DbSetIndex("c:\download\test\adssql\TagMenu1")
     DbSetIndex("c:\download\test\adssql\TagMenu2")
@@ -82,7 +83,7 @@ function GetADSHandle( cPath as string ) as IntPtr pascal
 
 CLASS AdsSQLServer INHERIT DBServer
 	
-CONSTRUCTOR ( oFile, lShareMode, lReadOnlyMode, xDriver, aRdd, @@params ) 
+CONSTRUCTOR ( oFile, lShareMode, lReadOnlyMode, xDriver, aRdd, parameters ) 
    LOCAL cTemp AS STRING
    LOCAL cFileName AS STRING
 
@@ -95,11 +96,11 @@ CONSTRUCTOR ( oFile, lShareMode, lReadOnlyMode, xDriver, aRdd, @@params )
 	// The array should be an array of parameter names and parameter values.
 	// For example:
 	//  {{ "lastname", "Smith" }, { "ID", 25 }}
-	IF ( IsNil( params ) )
+	IF ( IsNil( parameters ) )
 		// Pass in an empty array.  Passing in NIL doesn't get to the RDD.
 		RDDINFO( _SET_SQL_PARAMETERS, {} )
 	ELSE
-      RDDINFO( _SET_SQL_PARAMETERS, @@params )
+      RDDINFO( _SET_SQL_PARAMETERS, parameters)
 	ENDIF
    
    // Some VO libraries have trouble with the alias as is.  So for the SQL RDDS,
@@ -143,15 +144,15 @@ CONSTRUCTOR ( oFile, lShareMode, lReadOnlyMode, xDriver, aRdd, @@params )
 RETURN 
 
 
-METHOD Refresh( @@params ) 
+METHOD Refresh( parameters ) 
 	// This version of Refresh() accepts an array of SQL parameters
 	// for the query.  The array should be an array of parameter names and
 	// parameter values. For example:
 	//  {{ "lastname", "Smith" }, { "ID", 25 }}
 	
 	// Set the parameters if provided.
-	IF params != nil
-      RDDINFO( _SET_SQL_PARAMETERS, @@params )
+	IF parameters != nil
+      RDDINFO( _SET_SQL_PARAMETERS, parameters )
 	ENDIF
 
    return SUPER:Refresh()
@@ -159,3 +160,32 @@ METHOD Refresh( @@params )
 END CLASS
 
 
+
+
+function start as void       
+LOCAL cDbf AS STRING
+	cDbf := "C:\adstest\memodbf"
+	FErase(cDbf + ".cdx")
+	FErase(cDbf + ".fpt")
+	FErase(cDbf + ".dbf")
+	RDDINFO(SET.MEMOBLOCKSIZE, 512)
+
+	RddSetDefault("DBFCDX")
+	DbCreate(cDbf, {{"FLD1" , "C" , 10 , 0} , {"FLDM" , "M" , 10 , 0}})
+	DbUseArea(,,cDbf)
+	DbAppend()
+	FieldPut(1, "abc") 
+	DbAppend()
+	FieldPut(2, "this is a somewhat long text")
+	DbCloseArea()
+	 
+	
+	RddSetDefault("AXDBFCDX")
+	? XSharp.RDD.Functions.AX_SetServerType(FALSE,FALSE,TRUE)
+	? DbUseArea(,,cDbf)
+	? FieldGet(2)
+	DbSkip()
+	? FieldGet(2)
+	? DbCloseArea()
+    wait
+RETURN

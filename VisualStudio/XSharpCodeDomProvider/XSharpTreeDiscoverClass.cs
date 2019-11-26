@@ -173,29 +173,30 @@ namespace XSharp.CodeDom
                 System.Type t = typeof(void);
                 var tm = element as XTypeMember;
                 t = findType(tm?.TypeName);
+                var typeName = element.ParentName;
                 switch (element.Kind)
                 {
                     case Kind.Field:
                         result = (mtype | MemberTypes.Field) != 0;
-                        addClassMember(new XMemberType(name, MemberTypes.Field, true, t, t?.FullName));
+                        addClassMember(new XMemberType(name, MemberTypes.Field, true, t, typeName));
                         break;
                     case Kind.Property:
                     case Kind.Access:
                     case Kind.Assign:
                         result = (mtype | MemberTypes.Property) != 0;
-                        addClassMember(new XMemberType(name, MemberTypes.Property, true, t, t?.FullName));
+                        addClassMember(new XMemberType(name, MemberTypes.Property, true, t, typeName));
                         break;
                     case Kind.Method:
                         result = (mtype | MemberTypes.Method) != 0;
-                        addClassMember(new XMemberType(name, MemberTypes.Method, true, t, t?.FullName));
+                        addClassMember(new XMemberType(name, MemberTypes.Method, true, t, typeName));
                         break;
                     case Kind.Event:
                         result = (mtype | MemberTypes.Event) != 0;
-                        addClassMember(new XMemberType(name, MemberTypes.Event, true, t, t?.FullName));
+                        addClassMember(new XMemberType(name, MemberTypes.Event, true, t, typeName));
                         break;
                     case Kind.Constructor:
                         result = (mtype | MemberTypes.Constructor) != 0;
-                        addClassMember(new XMemberType(name, MemberTypes.Constructor, true, t, t?.FullName));
+                        addClassMember(new XMemberType(name, MemberTypes.Constructor, true, t, typeName));
                         break;
                 }
             }
@@ -680,11 +681,11 @@ namespace XSharp.CodeDom
             _locals.Clear();
             var newMethod = new XCodeMemberMethod();
             writeTrivia(newMethod, context);
-            newMethod.Name = context.Id.GetCleanText();
+            newMethod.Name = context.Sig.Id.GetCleanText();
             newMethod.Attributes = MemberAttributes.Public;
-            newMethod.Parameters.AddRange(GetParametersList(context.ParamList));
+            newMethod.Parameters.AddRange(GetParametersList(context.Sig.ParamList));
             FillCodeDomDesignerData(newMethod, context.Start.Line, context.Start.Column);
-            var returnType = BuildDataType(context.Type);
+            var returnType = BuildDataType(context.Sig.Type);
             newMethod.ReturnType = returnType;
             //
             if (context.Modifiers != null)

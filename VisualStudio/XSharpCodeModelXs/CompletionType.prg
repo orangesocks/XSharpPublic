@@ -18,6 +18,7 @@ BEGIN NAMESPACE XSharpModel
 		PRIVATE _stype	 AS System.Type
 		PRIVATE _xtype	 AS XType
 
+
 		// Methods
 		CONSTRUCTOR()
 			SUPER()
@@ -125,9 +126,15 @@ BEGIN NAMESPACE XSharpModel
 			ENDIF
 
 		PRIVATE METHOD CheckType(typeName AS STRING, xFile AS XFile, usings AS IList<STRING>) AS VOID
+			LOCAL isArray AS LOGIC
 			//
 			SELF:_file := xFile
 			LOCAL stype AS System.Type
+			//
+			IF typeName.EndsWith("[]")
+				typeName := typeName.Substring(0, typeName.Length - 2)
+				isArray := TRUE
+			ENDIF
 			// prevent lookup from simple types
 			stype := SimpleTypeToSystemType(typeName)
 			IF sType != NULL
@@ -156,6 +163,9 @@ BEGIN NAMESPACE XSharpModel
 			IF ! String.IsNullOrEmpty(defaultNS)
 				usings:Add(defaultNS)
 			ENDIF
+            FOREACH var ns in xFile:Project:ImplicitNamespaces
+                usings:AddUnique(ns)
+            NEXT
             // For fully qualified typenames, search without usings first. That is usually faster
             IF typename:Contains(".")
                 SELF:CheckType(typeName, xFile, List<STRING>{})
@@ -184,16 +194,16 @@ BEGIN NAMESPACE XSharpModel
 					CASE "uint32"
 					CASE "system.uint32"
 						typeName := "system.uint32"
-					
+
 					CASE "int64"
 					CASE "system.int64"
 						typeName := "system.int64"
-					
+
 					CASE "int16"
 					CASE "shortint"
 					CASE "short"
 					CASE "system.int16"
-						typeName := "system.uint32"
+						typeName := "system.uint16"
 
 					CASE "longint"
 					CASE "long"
@@ -220,10 +230,10 @@ BEGIN NAMESPACE XSharpModel
 						typeName := "system.char"
 
 					CASE "real4"
-						RETURN TYPEOF(REAL4)
+						typeName :=  "system.single"
 
 					CASE "real8"
-						RETURN TYPEOF(REAL8)
+						typeName :=  "system.double"
 
 					CASE "uint64"
 					CASE "system.uint64"
@@ -237,7 +247,19 @@ BEGIN NAMESPACE XSharpModel
 					CASE "system.sbyte"
 						typeName := "system.sbyte"
 
+
+					CASE "ptr"
+						typeName := "system.intptr"
+                    case "array"
+                    case "date"
+                    case "float"
+                    case "symbol"
+                    case "psz`"
+                    case "usual"
+                        typeName := kw
+
 				END SWITCH
+
 				IF ( String.IsNullOrEmpty( typeName ) )
 					RETURN NULL
 				ENDIF
@@ -253,6 +275,9 @@ BEGIN NAMESPACE XSharpModel
 
 		// Properties
 		PROPERTY File AS XFile GET SELF:_file
+
+		PROPERTY IsArray AS LOGIC AUTO
+		PROPERTY ElementType AS CompletionType AUTO
 
 		PROPERTY FullName AS STRING
 			GET
