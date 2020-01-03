@@ -12,6 +12,9 @@ namespace XSharp.MacroCompiler
 
     partial class Parser
     {
+        // Lexer to generate input
+        Lexer _Lexer;
+
         // Input source
         IList<Token> _Input;
 
@@ -22,9 +25,10 @@ namespace XSharp.MacroCompiler
         // State
         int _index = 0;
 
-        internal Parser(IList<Token> input, MacroOptions options)
+        internal Parser(Lexer lexer, MacroOptions options)
         {
-            _Input = input;
+            _Lexer = lexer;
+            _Input = lexer.AllTokens();
             _options = options;
         }
 
@@ -157,6 +161,7 @@ namespace XSharp.MacroCompiler
                 case TokenType.REAL_CONST:
                 case TokenType.INT_CONST:
                 case TokenType.DATE_CONST:
+                case TokenType.DATETIME_CONST:
                 case TokenType.NIL:
                 case TokenType.NULL:
                 case TokenType.NULL_ARRAY:
@@ -270,6 +275,7 @@ namespace XSharp.MacroCompiler
                 case TokenType.REAL_CONST:
                 case TokenType.INT_CONST:
                 case TokenType.DATE_CONST:
+                case TokenType.DATETIME_CONST:
                 case TokenType.NIL:
                 case TokenType.NULL:
                 case TokenType.NULL_ARRAY:
@@ -316,7 +322,7 @@ namespace XSharp.MacroCompiler
                 case TokenType.LPAREN:
                     return ParseParenExpr();
                 case TokenType.LCURLY:
-                    return ParseLiteralArray();
+                    return ParseLiteralArrayOrCodeblock();
                 case TokenType.LT:
                     return ParseTypedLiteralArray();
                 case TokenType.IF:
@@ -684,7 +690,7 @@ namespace XSharp.MacroCompiler
 
             Require(Expect(TokenType.RCURLY) || AllowMissingSyntax, ErrorCode.Expected, "}");
 
-            return new Codeblock(p,l);
+            return new Codeblock(p, l);
         }
 
         internal Codeblock ParseMacro()
@@ -695,7 +701,7 @@ namespace XSharp.MacroCompiler
 
             var l = ParseExprList();
             if (l != null)
-                return RequireEnd(new Codeblock(null,l), ErrorCode.Unexpected, Lt());
+                return RequireEnd(new Codeblock(null, l), ErrorCode.Unexpected, Lt());
 
             return null;
         }
@@ -731,6 +737,21 @@ namespace XSharp.MacroCompiler
             Require(Expect(TokenType.RCURLY) || AllowMissingSyntax, ErrorCode.Expected, "}");
 
             return new LiteralArray(e, t);
+        }
+
+        internal Expr ParseLiteralArrayOrCodeblock()
+        {
+            if (La(2) == TokenType.OR || La(2) == TokenType.PIPE)
+            {
+                var s = Lt();
+                var cb = ParseCodeblock();
+                var e = Lt();
+                var cbt = new Token(TokenType.CODEBLOCK, TokenType.LAST, s.start, e.start - s.start, null, Channel.DEFOUTCHANNEL);
+                cbt.value = _Lexer.GetText(cbt);
+                return new CodeblockExpr(cbt, cb);
+            }
+            else
+                return ParseLiteralArray();
         }
 
         internal Expr ParseTypedLiteralArray()

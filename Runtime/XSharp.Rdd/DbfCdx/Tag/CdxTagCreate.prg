@@ -111,7 +111,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             #ifdef SHOWTIMES
             ? DateTime.Now, "Read"
             #endif
-            IF !SELF:Unique .AND. !SELF:_Conditional .AND. !_ordCondInfo:Scoped .AND. ! _ordCondInfo:Custom
+            IF !SELF:_Unique .AND. !SELF:_Conditional .AND. !_ordCondInfo:Scoped .AND. ! _ordCondInfo:Custom
                 isOk := SELF:_CreateNormalIndex()
             ELSE
                 isOk := SELF:_CreateUnique(_ordCondInfo )
@@ -166,11 +166,8 @@ BEGIN NAMESPACE XSharp.RDD.CDX
         PRIVATE METHOD _HeaderCreate() AS LOGIC
             SELF:_Header            := CdxTagHeader{_bag, -1 ,_orderName, SELF}
             SELF:_Header:Descending := SELF:_Descending
-            SELF:_Header:Version    := 0
             SELF:_Header:Signature  := 1
             SELF:_Header:RootPage   := 0
-            SELF:_Header:FreeList   := 0
-            SELF:_Header:Version    := 0
             SELF:_Header:KeySize    := _keySize
             SELF:_Header:KeyExprPos := 0
             SELF:_Header:KeyExprLen := (WORD) _KeyExpr:Length + 1
@@ -315,7 +312,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                     ENDIF
                 ENDDO
             ELSE
-                DO WHILE TRUE
+                DO WHILE !_oRdd:_Eof
                     // Only conditions, nothing else
                     includeRecord := SELF:_EvalBlock(ordCondInfo:ForBlock, TRUE)
                     IF includeRecord
@@ -324,9 +321,6 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                         ENDIF
                     ENDIF
                     SELF:_oRdd:__Goto( SELF:_RecNo + 1)
-                    IF SELF:_oRdd:_Eof 
-                        EXIT
-                    ENDIF
                 ENDDO
             ENDIF
             // evaluate the block once more at eof
@@ -461,6 +455,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             RETURN TRUE
             
     END CLASS
+    
     INTERNAL SEALED CLASS CdxSortHelper INHERIT RddSortHelper
         INTERNAL PROPERTY SourceIndex    AS INT AUTO
         INTERNAL PROPERTY Ascii          AS LOGIC AUTO
@@ -512,8 +507,14 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             DO WHILE oPage IS CdxBranchPage VAR oBranch
                 VAR nLast := oPage:NumKeys-1
                 VAR nPage := oBranch:GetChildPage(nLast)
-                oBranch:SetData(nLast, oLast:Recno, nPage, oLast:KeyBytes)
                 oPage := SELF:_tag:GetPage(nPage)
+                DO WHILE oPage:HasRight
+                    nPage := oPage:RightPtr
+                    oPage := SELF:_tag:GetPage(nPage)
+                ENDDO                    
+                
+                oBranch:SetData(nLast, oLast:Recno, nPage, oLast:KeyBytes)
+                oBranch:Write()
             ENDDO
                 
             SELF:Clear()

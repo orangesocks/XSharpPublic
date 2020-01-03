@@ -13,7 +13,6 @@ USING System.Collections.Generic
 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/select/*" />
-/// <returns>A number from 0 to 4096.  0 is returned if xValue does not identify a valid work area or does not correspond to a valid alias.</returns>
 FUNCTION Select(uWorkArea) AS USUAL CLIPPER
     LOCAL sSelect   AS DWORD
 	LOCAL sCurrent  AS DWORD
@@ -23,9 +22,7 @@ FUNCTION Select(uWorkArea) AS USUAL CLIPPER
 	RETURN sSelect
 
 
-
-/// <include file="VoFunctionDocs.xml" path="Runtimefunctions/select/*" />/// <returns>A number from 0 to 4096.  0 is returned if cValue does not identify a valid work area or does not correspond to a valid alias.</returns>
-
+/// <include file="VoFunctionDocs.xml" path="Runtimefunctions/select/*" />
 FUNCTION _SelectString(uWorkArea AS STRING) AS DWORD
     LOCAL nSelect := 0 AS DWORD
     uWorkArea := AllTrim(uWorkArea)
@@ -46,7 +43,6 @@ FUNCTION _SelectString(uWorkArea AS STRING) AS DWORD
     
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/select/*" />
-/// <returns>A number from 0 to 4096.  0 is returned if xValue does not identify a valid work area or does not correspond to a valid alias.</returns>
 FUNCTION _Select(uWorkArea) AS USUAL CLIPPER
     LOCAL nSelect           AS DWORD
     LOCAL xType             AS DWORD
@@ -512,7 +508,8 @@ FUNCTION DbSetDriver(cNewSetting) AS STRING CLIPPER
     
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/dbsetfilter/*" /> 
 FUNCTION DbSetFilter(cbCondition, cCondition) AS LOGIC CLIPPER
-    local sCondition as string
+    LOCAL sCondition AS STRING
+    LOCAL cbCond AS CODEBLOCK
     if PCount() == 0 .or. (cbCondition:IsNil .and. cCondition:IsNil)
         return DbClearFilter()
     endif
@@ -532,7 +529,7 @@ FUNCTION DbSetFilter(cbCondition, cCondition) AS LOGIC CLIPPER
         else
             cbCondition := &(cCondition)
         endif
-    endif
+    ENDIF
     // Todo : Extract the string from compiled codeblocks
     if cCondition:IsNil
         local oBlock as Object
@@ -548,8 +545,13 @@ FUNCTION DbSetFilter(cbCondition, cCondition) AS LOGIC CLIPPER
         else
             cCondition := "UNKNOWN"
         endif
-    endif
-    return _DbThrowErrorOnFailure(__FUNCTION__, VoDb.SetFilter(cbCondition, cCondition) )
+    ENDIF
+    IF cbCondition:IsCodeBlock
+        cbCond := cbCondition
+    ELSE
+        cbCond := NULL
+    ENDIF
+    RETURN _DbThrowErrorOnFailure(__FUNCTION__, VoDb.SetFilter(cbCond, cCondition) )
     
     
     
@@ -560,7 +562,7 @@ FUNCTION DbSetRelation  (xAlias, cbKey, cKey, cName) AS LOGIC CLIPPER
 
     LOCAL nSelect   AS DWORD
     LOCAL cAlias    AS STRING
-    
+    LOCAL cbRelation AS CODEBLOCK
     DEFAULT(REF cName, "")
     
     IF xAlias:IsString
@@ -575,8 +577,12 @@ FUNCTION DbSetRelation  (xAlias, cbKey, cKey, cName) AS LOGIC CLIPPER
     ELSE
         cAlias := ALIAS(xAlias)
     ENDIF
-
-    RETURN _DbThrowErrorOnFailure(__FUNCTION__, VoDb.SetRelation(cAlias, cbKey, cKey, cName) )
+    IF cbKey:IsCodeBlock
+        cbRelation := cbKey
+    ELSE
+        cbRelation := NULL
+    ENDIF
+    RETURN _DbThrowErrorOnFailure(__FUNCTION__, VoDb.SetRelation(cAlias, cbRelation, cKey, cName) )
    
 
     
@@ -657,22 +663,22 @@ FUNCTION FieldGet(nFieldPos) AS USUAL CLIPPER
 
 /// <summary>Read an array of bytes direct from the workarea buffer.</summary>
 /// <remarks>This will only work for DBF based workareas (not for Advantage workareas)</remarks>
-FUNCTION FieldGetBytes(nPos ) AS BYTE[] CLIPPER
+FUNCTION FieldGetBytes(nFieldPos ) AS BYTE[] CLIPPER
     LOCAL bRetVal := NULL AS BYTE[]
-    IF ! IsNumeric(nPos)
-        THROW Error.ArgumentError(__FUNCTION__, nameof(nPos), __CavoStr(VoErrors.ARGNOTNUMERIC), 1 ,<OBJECT> {nPos})
+    IF ! IsNumeric(nFieldPos)
+        THROW Error.ArgumentError(__FUNCTION__, nameof(nFieldPos), __CavoStr(VoErrors.ARGNOTNUMERIC), 1 ,<OBJECT> {nFieldPos})
     ENDIF
-    _DbThrowErrorOnFailure(__FUNCTION__, VoDb.FieldGetBytes(nPos, REF bRetVal))
+    _DbThrowErrorOnFailure(__FUNCTION__, VoDb.FieldGetBytes(nFieldPos, REF bRetVal))
     RETURN bRetVal
 
 
 /// <summary>Write an array of bytes direct to the workarea buffer.</summary>
 /// <remarks>This will only work for DBF based workareas (not for Advantage workareas)</remarks>
-FUNCTION FieldPutBytes(nPos AS USUAL, aBytes AS BYTE[]) AS LOGIC
-    IF ! IsNumeric(nPos)
-        THROW Error.ArgumentError(__FUNCTION__, nameof(nPos), __CavoStr(VoErrors.ARGNOTNUMERIC), 1 ,<OBJECT> {nPos,aBytes})
+FUNCTION FieldPutBytes(nFieldPos AS USUAL, aBytes AS BYTE[]) AS LOGIC
+    IF ! IsNumeric(nFieldPos)
+        THROW Error.ArgumentError(__FUNCTION__, nameof(nFieldPos), __CavoStr(VoErrors.ARGNOTNUMERIC), 1 ,<OBJECT> {nFieldPos,aBytes})
     ENDIF
-    _DbThrowErrorOnFailure(__FUNCTION__, VoDb.FieldPutBytes(nPos, aBytes))
+    _DbThrowErrorOnFailure(__FUNCTION__, VoDb.FieldPutBytes(nFieldPos, aBytes))
     RETURN TRUE
 
 

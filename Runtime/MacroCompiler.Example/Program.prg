@@ -329,9 +329,10 @@ BEGIN NAMESPACE MacroCompilerTest
 
     FUNCTION RunTests(mc AS XSharp.Runtime.MacroCompiler) AS VOID
         Console.WriteLine("Running tests ...")
-
+  
         TestParse(mc, e"{|a,b| +a[++b] += 100, a[2]}", "{|a, b|((+a((++b)))+='100'), a('2')}")
         TestMacro(mc, e"{|a,b| asdgfafd(123) }", Args(), NULL, NULL,ErrorCode.NotAMethod)
+
         mc:Options:UndeclaredVariableResolution := VariableResolution.Error
         TestMacro(mc, e"{|a,b| testtest__() }", Args(1,2,3), NULL, NULL, ErrorCode.IdentifierNotFound)
         TestMacro(mc, e"{|a,b,c| a[b,c] }", Args({{42,43,44},{45,46,47}},1,1) ,42, typeof(LONG))
@@ -343,7 +344,19 @@ BEGIN NAMESPACE MacroCompilerTest
         TestMacro(mc, e"{|a| a:Nested:Item()}", Args(TestWithItem{}), 42,typeof(LONG))
         TestMacro(mc, e"{|a| a:Item}", Args(TestWithItem2{}), 42,typeof(LONG))
         TestMacro(mc, e"{|a| a:Nested:Item}", Args(TestWithItem2{}), 42,typeof(LONG))
+        TestMacro(mc, e"{|o| eval({|a| eval({|q|q*q},a)+1 },o) }", Args(5), 26, typeof(INT))
+        TestMacro(mc, e"{|o| eval( iif(o, {||42},{||-42})) }", Args(TRUE), 42, typeof(INT))
+        TestMacro(mc, e"{|o| eval( iif(o, {||42},{||-42})) }", Args(FALSE), -42, typeof(INT))
         
+        
+        mc:Options:UndeclaredVariableResolution := VariableResolution.TreatAsFieldOrMemvar
+        TestMacro(mc, e"{|| eval({||true}) }", Args(), true, typeof(logic))
+        TestMacro(mc, e"{|o| eval({|a|a},o) }", Args(true), true, typeof(logic))
+        TestMacro(mc, e"{|o| eval({|a|a},o) }", Args(false), false, typeof(logic))
+        TestMacro(mc, e"{|| x := 42, eval({||x}) }", Args(), 42, typeof(int))
+        TestMacro(mc, e"{|| x := true, eval({||x := 42}), x }", Args(), 42, typeof(int))
+        TestMacro(mc, e"{|o| eval({|q|q*q},o) + eval({|a| a+1 },o) }", Args(5), 31, typeof(int))
+
         mc:Options:UndeclaredVariableResolution := VariableResolution.GenerateLocal
         TestMacro(mc, e"{|a| a() }", Args((@@Func<INT>){ => 1234}), 1234, typeof(INT))
         TestMacro(mc, "#HELLo", Args(), #hello, typeof(SYMBOL))
@@ -379,7 +392,7 @@ BEGIN NAMESPACE MacroCompilerTest
         TestMacro(mc, "2018.12.31 != 2018.1.1", Args(), TRUE, typeof(LOGIC))
         TestMacro(mc, "null", Args(), NULL, typeof(OBJECT))
         TestMacro(mc, "null_object", Args(), NULL_OBJECT, NULL)
-        TestMacro(mc, "null_string", Args(), NULL_STRING, NULL)
+        TestMacro(mc, "null_string", Args(), null_string, NULL)
         TestMacro(mc, "null_psz = psz._NULL_PSZ", Args(), TRUE, typeof(LOGIC))
         TestMacro(mc, "null_symbol", Args(), NULL_SYMBOL, typeof(SYMBOL))
         TestMacro(mc, "null_date", Args(), NULL_DATE, typeof(DATE))
@@ -682,6 +695,16 @@ BEGIN NAMESPACE MacroCompilerTest
         TestMacro(mc, e"System.Collections.ArrayList{}:GetType():FullName", Args(), "System.Collections.ArrayList", typeof(string))
         TestMacro(mc, e"TestNS.Nested.TestClass{}:GetType():FullName", Args(), "TestNS.Nested.TestClass", typeof(string))
         TestMacro(mc, e"TestNS2.TestClass{}:GetType():FullName", Args(), "TestNS2.TestClass", typeof(string))
+        TestMacro(mc, e"{|a| a == 1 }", Args((INT)1) ,true, typeof(LOGIC))
+        TestMacro(mc, e"{|a| a == 1 }", Args((DWORD)1) ,true, typeof(LOGIC))
+        TestMacro(mc, e"{|a| a == 1 }", Args((BYTE)1) ,true, typeof(LOGIC))
+        TestMacro(mc, e"{|a| a == 1 }", Args((SBYTE)1) ,true, typeof(LOGIC))
+        TestMacro(mc, e"{|a| a == 1 }", Args((WORD)1) ,true, typeof(LOGIC))
+        TestMacro(mc, e"{|a| a == 1 }", Args((INT64)1) ,true, typeof(LOGIC))
+        TestMacro(mc, e"{|a| a == 1 }", Args((UINT64)1) ,true, typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a == b }", Args((INT64)1,(INT)1) ,true, typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a == b }", Args((INT)1,(UINT64)1) ,true, typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a == b }", Args((INT64)1,(UINT64)1) ,true, typeof(LOGIC))
 
         Compilation.Override(WellKnownMembers.XSharp_RT_Functions___MemVarGet, "MyMemVarGet")
         Compilation.Override(WellKnownMembers.XSharp_RT_Functions___MemVarPut, "MyMemVarPut")
@@ -754,6 +777,49 @@ BEGIN NAMESPACE MacroCompilerTest
         TestMacro(mc, e"{|| @@M.NAME}", Args(), "FieldGet(M,NAME)", typeof(STRING))
         TestMacro(mc, e"{|| @@M.NAME := \"Nikos\"}", Args(), "FieldSet(M,NAME):Nikos", typeof(STRING))
         TestMacro(mc, e"{|| Alltrim('abc')}", Args(), "MyAlltrim()", typeof(STRING))
+
+        // FoxPro literal dates and datetimes. For simplicity we return them all as DateTime
+        TestMacro(mc, e"{|| {^ 2019-12-31}", Args(), DateTime{2019,12,31}, typeof(DateTime))
+        TestMacro(mc, e"{|| {^ 2019-12-31 11:12:13}", Args(), DateTime{2019,12,31,11,12,13}, typeof(DateTime))
+        TestMacro(mc, e"{|| {^ 2019-12-31 11:12:13AM}", Args(), DateTime{2019,12,31,11,12,13}, typeof(DateTime))
+        TestMacro(mc, e"{|| {^ 2019-12-31 11:12:13PM}", Args(), DateTime{2019,12,31,23,12,13}, typeof(DateTime))
+        TestMacro(mc, e"{|| {^ 2019-12-31 11:12:13 PM}", Args(), DateTime{2019,12,31,23,12,13}, typeof(DateTime))
+        // ForPro Logical operators, only works when main app is in FoxPro mode.
+        TestMacro(mc, e"{|a,b| a AND b }", Args(TRUE, TRUE), TRUE, typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a AND b }", Args(FALSE, TRUE), FALSE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a AND b }", Args(TRUE, FALSE), FALSE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a AND b }", Args(FALSE, FALSE), FALSE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a OR b }", Args(TRUE, TRUE), TRUE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a OR b }", Args(FALSE, TRUE), TRUE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a OR b }", Args(TRUE, FALSE), TRUE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a OR b }", Args(FALSE, FALSE), FALSE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| NOT a }", Args(TRUE, TRUE), FALSE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| NOT a }", Args(FALSE, TRUE), TRUE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| NOT b }", Args(TRUE, FALSE), TRUE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| NOT b }", Args(FALSE, FALSE), TRUE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a XOR b }", Args(TRUE, FALSE), TRUE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a XOR b }", Args(FALSE, TRUE), TRUE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a XOR b }", Args(TRUE, FALSE), TRUE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a XOR b }", Args(FALSE, FALSE), FALSE,typeof(LOGIC))
+        // Normal logical operators
+        TestMacro(mc, e"{|a,b| a .AND. b }", Args(TRUE, TRUE), TRUE, typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a .AND. b }", Args(FALSE, TRUE), FALSE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a .AND. b }", Args(TRUE, FALSE), FALSE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a .AND. b }", Args(FALSE, FALSE), FALSE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a .OR. b }", Args(TRUE, TRUE), TRUE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a .OR. b }", Args(FALSE, TRUE), TRUE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a .OR. b }", Args(TRUE, FALSE), TRUE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a .OR. b }", Args(FALSE, FALSE), FALSE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| .NOT. a }", Args(TRUE, TRUE), FALSE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| .NOT. a }", Args(FALSE, TRUE), TRUE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| .NOT. b }", Args(TRUE, FALSE), TRUE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| .NOT. b }", Args(FALSE, FALSE), TRUE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a .XOR. b }", Args(TRUE, FALSE), TRUE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a .XOR. b }", Args(FALSE, TRUE), TRUE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a .XOR. b }", Args(TRUE, FALSE), TRUE,typeof(LOGIC))
+        TestMacro(mc, e"{|a,b| a .XOR. b }", Args(FALSE, FALSE), FALSE,typeof(LOGIC))
+
+
         Console.WriteLine("Total pass: {0}/{1}", TotalSuccess, TotalTests)
         RETURN
 
@@ -782,7 +848,12 @@ BEGIN NAMESPACE MacroCompilerTest
         TRY
             TotalTests += 1
             Console.Write("Test: '{0}' ", src)
+
+            //local isCb, memVars as logic
+            //VAR rtc := mc:Compile(src, true, null, ref isCb, ref memVars)
+            //VAR cb := XSharp._Codeblock{rtc, src, isCb, memVars}
             VAR cb := mc:Compile(src)
+            
             VAR res := cb:EvalBlock(args)
             LOCAL match AS LOGIC
             IF IsArray(expect)
@@ -795,7 +866,7 @@ BEGIN NAMESPACE MacroCompilerTest
             ELSEIF t != NULL .AND. t:IsArray
                 LOCAL e := expect AS OBJECT
                 match := e:Length = res:Length .AND. t == res?:GetType()
-                LOCAL m := t:GetMethod("GetValue",<Type>{typeof(INT)}) AS System.Reflection.MethodInfo
+                LOCAL m := t:GetMethod("GetValue",<Type>{typeof(INT)}) AS System.Reflection.MethodInfo 
                 FOR VAR i := 1 TO e:Length
                     VAR ve := m:Invoke(e,<OBJECT>{i-1})
                     VAR vr := m:Invoke(res,<OBJECT>{i-1})

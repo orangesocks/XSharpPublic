@@ -5,6 +5,7 @@
 //
 
 // Use UDC below to standardize the NULL checks for the array arguments
+#command ARRAYNULL_RETURNZERO <aArray>    => IF <aArray> == NULL ; return 0 ; ENDIF
 #command ARRAYNOTNULL <aArray> => IF <aArray> == NULL ; THROW Error.NullArgumentError(__FUNCTION__,nameof(<aArray>), 1) ; ENDIF
 #command ARRAYNULL <aArray>    => IF <aArray> == NULL ; return <aArray> ; ENDIF
 
@@ -45,8 +46,7 @@ INTERNAL STATIC CLASS ArrayHelpers
         
         
     STATIC METHOD AScan( aTarget AS USUAL, x AS USUAL, uStart AS USUAL, uCount AS USUAL, lExact AS LOGIC ) AS DWORD
-        LOCAL nSize		AS DWORD
-        IF ! ArrayHelpers.ValidateArrayParams(REF aTarget, REF uStart, REF uCount, OUT nSize)
+        IF ! ArrayHelpers.ValidateArrayParams(REF aTarget, REF uStart, REF uCount, OUT VAR nSize)
             RETURN 0
         ENDIF
         LOCAL a := aTarget AS ARRAY
@@ -399,7 +399,7 @@ FUNCTION ADim(a AS ARRAY) AS DWORD
         /// <param name="a"></param>
     /// <returns>String that displays the dimensions in an array</returns>
 FUNCTION ADimPic(a AS ARRAY) AS STRING
-RETURN repl("[]", aDim(a))
+RETURN Repl("[]", ADim(a))
 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/ains/*" /> 
@@ -515,36 +515,36 @@ FUNCTION ArraySwap<T>(aTarget AS __ArrayBase<T>,dwElement AS DWORD,uNewValue AS 
     
     /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/ascan/*" /> 
 FUNCTION AScan(aTarget AS ARRAY, uSearch AS USUAL,nStart := NIL AS USUAL,nCount := NIL AS USUAL) AS DWORD
-    ARRAYNOTNULL aTarget
+    ARRAYNULL_RETURNZERO aTarget
     RETURN ArrayHelpers.AScan( aTarget, uSearch, nStart, nCount, SetExact()) 
     
     
     /// <inheritdoc cref='M:XSharp.RT.Functions.AScan(XSharp.__Array,XSharp.__Usual,XSharp.__Usual,XSharp.__Usual)'/>
 FUNCTION AScan(aTarget AS ARRAY, uSearch AS USUAL,nStart AS USUAL) AS DWORD 
-    ARRAYNOTNULL aTarget
+    ARRAYNULL_RETURNZERO aTarget
     RETURN ArrayHelpers.AScan( aTarget, uSearch, nStart, NIL, SetExact()) 
     
     
     /// <inheritdoc cref='M:XSharp.RT.Functions.AScan(XSharp.__Array,XSharp.__Usual,XSharp.__Usual,XSharp.__Usual)'/>
 FUNCTION AScan(aTarget AS ARRAY, uSearch AS USUAL) AS DWORD 
-    ARRAYNOTNULL aTarget
+    ARRAYNULL_RETURNZERO aTarget
     RETURN ArrayHelpers.Ascan( aTarget, uSearch, 1, NIL, SetExact()) 
     
     /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/ascanexact/*" /> 
 FUNCTION AScanExact( aTarget AS ARRAY, uSearch AS USUAL, nStart := NIL AS USUAL, nCount := NIL AS USUAL) AS DWORD
-    ARRAYNOTNULL aTarget
+    ARRAYNULL_RETURNZERO aTarget
     RETURN ArrayHelpers.Ascan( aTarget, uSearch, nStart, nCount, TRUE )
     
     
     /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/ascanexact/*" /> 
 FUNCTION AScanExact( aTarget AS ARRAY, uSearch AS USUAL, nStart AS USUAL) AS DWORD 
-    ARRAYNOTNULL aTarget
+    ARRAYNULL_RETURNZERO aTarget
     RETURN ArrayHelpers.Ascan( aTarget, uSearch, nStart, NIL, TRUE )
     
     
     /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/ascanexact/*" /> 
 FUNCTION AScanExact( aTarget AS ARRAY, uSearch AS USUAL) AS DWORD 
-    ARRAYNOTNULL aTarget
+    ARRAYNULL_RETURNZERO aTarget
     RETURN ArrayHelpers.Ascan( aTarget, uSearch, 1, NIL, TRUE )
     
     
@@ -731,7 +731,12 @@ FUNCTION ArrayBuild() AS ARRAY
 FUNCTION ArrayNew() AS ARRAY
     RETURN ArrayNew(0)
     
-    /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/arraynew/*" />  
+/// <include file="VoFunctionDocs.xml" path="Runtimefunctions/arraynew/*" /> 
+FUNCTION @@Array() AS ARRAY
+    RETURN ArrayNew(0)
+
+
+/// <include file="VoFunctionDocs.xml" path="Runtimefunctions/arraynew/*" />  
 FUNCTION ArrayNew(wElementList PARAMS USUAL[]) AS ARRAY
     LOCAL aDimInt AS INT[]
     LOCAL i AS INT
@@ -741,10 +746,14 @@ FUNCTION ArrayNew(wElementList PARAMS USUAL[]) AS ARRAY
     NEXT
     RETURN __Array.ArrayCreate(aDimInt)
     
+
+/// <include file="VoFunctionDocs.xml" path="Runtimefunctions/arraynew/*" />  
+FUNCTION @@Array(wElementList PARAMS USUAL[]) AS ARRAY
+    RETURN ArrayNew(wElementList)
+
     
-    
-    /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/arraynew/*" /> 
-    /// <typeparam name="T">The type of the array elements</typeparam>
+/// <include file="VoFunctionDocs.xml" path="Runtimefunctions/arraynew/*" /> 
+/// <typeparam name="T">The type of the array elements</typeparam>
 FUNCTION ArrayNew<T>(wElementList AS DWORD) AS __ArrayBase<T> WHERE T IS NEW()
     RETURN __ArrayBase<T>{wElementList}
     
@@ -813,10 +822,10 @@ FUNCTION ASort(aTarget AS ARRAY, nStart := NIL AS USUAL,nCount := NIL AS USUAL,c
     ENDIF
     
     
-    IF cbOrder == NIL
-        aTarget:Sort( nStart, nCount, NULL ) // this uses __Usual.ICompareTo()
-    ELSE
+    IF IsCodeBlock(cbOrder )
         aTarget:Sort( nStart, nCount, ArraySortComparer{ cbOrder } )
+    ELSE
+        aTarget:Sort( nStart, nCount, NULL ) // this uses __Usual.ICompareTo()
     ENDIF   
     
     RETURN aTarget
@@ -828,7 +837,7 @@ INTERNAL STRUCTURE ArraySortComparer  IMPLEMENTS System.Collections.Generic.ICom
 
     PRIVATE _cb AS ICodeblock
     
-    CONSTRUCTOR( cb AS ICodeblock)
+    CONSTRUCTOR( cb AS CODEBLOCK)
         _cb := cb
         RETURN
         

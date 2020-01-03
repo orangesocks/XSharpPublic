@@ -123,6 +123,19 @@ STATIC METHOD Select(nNew AS DWORD,riOld REF USUAL) AS LOGIC
     riOld := nOld
     RETURN lResult
 
+ 
+/// <inheritdoc cref='M:XSharp.CoreDb.SetFilter(XSharp.ICodeBlock,System.String)'/>
+/// <remarks> <note type="tip">The difference between VoDb.SetFilter and CoreDb.SetFilter is that VoDb.SetFilter takes a USUAL parameter</note></remarks>
+STATIC METHOD SetFilter(oBlock AS USUAL,cFilter AS STRING) AS LOGIC
+    LOCAL cb AS ICodeBlock
+    IF oBlock:IsCodeBlock
+       cb := (ICodeBlock) oBlock
+    ELSE
+        cb := NULL
+    ENDIF
+    RETURN CoreDb.SetFilter(cb, cFilter)
+ 
+
     INTERNAL STATIC METHOD ParamError(cFuncSym AS STRING, dwArgNum  AS DWORD ,   dwArgType AS DWORD) AS Error 
     
         LOCAL oError    AS Error

@@ -209,7 +209,7 @@ CLASS XSharp.CoreDb
     INTERNAL STATIC METHOD Fail(e AS Exception) AS VOID
         RuntimeState.LastRDDError := e
         VAR oRDD := RuntimeState.Workareas:CurrentWorkArea
-        LOCAL procName := Procname(1) AS STRING
+        LOCAL procName := ProcName(1) AS STRING
         IF procName == "COREDB:DO"
             procName := ProcName(2)
         ENDIF
@@ -588,7 +588,11 @@ CLASS XSharp.CoreDb
         STATIC METHOD Dbf AS STRING
             LOCAL oRDD := CoreDb.CWA("DBF", FALSE) AS IRDD
             IF oRDD != NULL
-                RETURN oRDD:Alias
+                IF XSharp.Runtimestate.Dialect == XSharpDialect.FoxPro
+                   RETURN (STRING) oRDD:Info(DBI_FULLPATH, NULL)
+                ELSE
+                   RETURN oRDD:Alias
+                ENDIF
             ENDIF                            
             RETURN String.Empty
             
@@ -1364,7 +1368,7 @@ CLASS XSharp.CoreDb
             info:BagName := cBagName
             info:Order   := oOrder
             VAR result := oRDD:OrderListFocus(info)
-            RAISE OrderChanged oRDD:OrderInfo(DBOI_NAME,NULL)
+            RAISE OrderChanged oRDD:OrderInfo(DBOI_NAME,info)
             RETURN  result
         CATCH e AS Exception
             Fail(e)
@@ -1721,8 +1725,8 @@ CLASS XSharp.CoreDb
         /// <summary>
         /// Set a filter condition.
         /// </summary>
-        /// <param name="oBlock"></param>
-        /// <param name="cFilter"></param>
+        /// <param name="oBlock">Codeblock that defines the filter. Please note that some RDDs (such as Advangate) will NOT use this compiled codeblock.</param>
+        /// <param name="cFilter">String version of the filter. Some RDDs (such as Advantage) use this condition instead of the codeblock</param>
         /// <returns>TRUE if successful; otherwise, FALSE.</returns>
         /// <remarks>This function is like DBSetFilter() but strongly typed.
         /// <include file="CoreComments.xml" path="Comments/LastError/*" />
@@ -2134,7 +2138,7 @@ CLASS XSharp.CoreDb
                     LOCAL dboi := DbOpenInfo{} AS DbOpenInfo
                     LOCAL uiArea AS DWORD
                     uiArea := workareas:CurrentWorkAreaNO
-                    dboi:FileName     := Path.ChangeExtension( cName, NULL )
+                    dboi:FileName     := Path.Combine(path.GetDirectoryName(cName),Path.GetFileNameWithoutExtension(cName))
                     dboi:Extension    := Path.GetExtension( cName )
                     dboi:Shared      := lShare
                     dboi:ReadOnly    := lReadOnly

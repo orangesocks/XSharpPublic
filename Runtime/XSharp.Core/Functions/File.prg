@@ -6,6 +6,7 @@
 USING System
 USING System.Collections
 USING System.Collections.Generic
+USING System.Collections.Concurrent
 USING System.IO
 USING System.Linq
 USING System.Runtime.InteropServices
@@ -177,48 +178,47 @@ BEGIN NAMESPACE XSharp.IO
 	/// <exclude />
 	INTERNAL STATIC CLASS File
         /// <exclude />
-        PUBLIC STATIC errorCode	:= 0 AS DWORD
-        PUBLIC STATIC lastException := NULL AS Exception
-        /// <exclude />
-		PUBLIC STATIC LastFound AS STRING
-		PRIVATE STATIC streams AS Dictionary<IntPtr, FileCacheElement >
+		PRIVATE STATIC streams AS ConcurrentDictionary<IntPtr, FileCacheElement >
 		PRIVATE STATIC random AS Random
 		
 	    /// <exclude />
         STATIC CONSTRUCTOR
-			streams := Dictionary<IntPtr, FileCacheElement >{}
+			streams := ConcurrentDictionary<IntPtr, FileCacheElement >{}
 			random := Random{}
 		
 		STATIC INTERNAL METHOD findStream(pStream AS IntPtr) AS Stream
             LOCAL element := NULL AS FileCacheElement
-            IF streams:TryGetValue(pStream, OUT element)
-                RETURN element:stream
-            ENDIF
+            BEGIN LOCK streams
+                IF streams:TryGetValue(pStream, OUT element)
+                    RETURN element:stream
+                ENDIF
+            END LOCK
 			RETURN NULL
 		
 		STATIC PRIVATE METHOD hasStream(pStream AS Intptr) AS LOGIC
 			RETURN streams:ContainsKey(pStream)
 		
 		STATIC PRIVATE METHOD addStream(pStream AS Intptr, oStream AS Stream, attributes AS DWORD) AS LOGIC
-			IF ! streams:ContainsKey(pStream)
-				streams:Add(pStream, FileCacheElement {oStream, attributes})
-				RETURN TRUE
-			ENDIF
+            BEGIN LOCK streams
+			    IF ! streams:ContainsKey(pStream)
+				    RETURN streams:TryAdd(pStream, FileCacheElement {oStream, attributes})
+                ENDIF
+            END LOCK
 			RETURN FALSE
             
 		STATIC INTERNAL METHOD setStream(pStream AS IntPtr, oStream AS Stream) AS LOGIC
             LOCAL element := NULL AS FileCacheElement
-            IF streams:TryGetValue(pStream, OUT element)
-                element:Stream := oStream
-                RETURN TRUE
-            ENDIF
+            BEGIN LOCK streams
+                IF streams:TryGetValue(pStream, OUT element)
+                    element:Stream := oStream
+                    RETURN TRUE
+                ENDIF
+            END LOCK
 			RETURN FALSE
 		
 		STATIC PRIVATE METHOD removeStream(pStream AS Intptr) AS LOGIC
-
 			IF streams:ContainsKey(pStream)
-				streams:Remove(pStream)
-				RETURN TRUE
+				RETURN streams:TryRemove(pStream, OUT NULL)
 			ENDIF
 			RETURN FALSE
 		
@@ -236,17 +236,17 @@ BEGIN NAMESPACE XSharp.IO
             
         [MethodImpl(MethodImplOptions.AggressiveInlining)];            
         STATIC METHOD ClearErrorState() AS VOID
-            lastException := NULL
-            errorCode := 0
+            RuntimeState.FileException := NULL
+            RuntimeState.FileError     := 0
             RETURN
             
 		STATIC METHOD SetErrorState ( o AS Exception ) AS VOID
             LOCAL e AS Error
             e := Error{o}
             e:StackTrace := o:StackTrace+Environment.NewLine+System.Diagnostics.StackTrace{1,TRUE}:ToString()
-            lastException := e
-            errorCode := _AND ( (DWORD) System.Runtime.InteropServices.Marshal.GetHRForException ( o ) , 0x0000FFFF )
-            e:OsCode := errorCode
+            RuntimeState.FileException := e
+            RuntimeState.FileError := _AND ( (DWORD) System.Runtime.InteropServices.Marshal.GetHRForException ( o ) , 0x0000FFFF )
+            e:OsCode := RuntimeState.FileError 
             RETURN
             
 		STATIC INTERNAL METHOD CreateFile(cFIle AS STRING, oMode AS VOFileMode) AS IntPtr
@@ -260,49 +260,56 @@ BEGIN NAMESPACE XSharp.IO
 			ENDIF
 			
 			oStream := createManagedFileStream(cFile, oMode)
-			IF oStream != NULL
-				hFile := (IntPtr) random:Next(1, Int32.MaxValue)
-				DO WHILE streams:ContainsKey(hFile)
-					hFile := (IntPtr) random:Next(1, Int32.MaxValue)
-				ENDDO
+	        IF oStream != NULL
+                BEGIN LOCK streams
+                    DO WHILE TRUE
+				        hFile := (IntPtr) random:Next(1, Int32.MaxValue)
+				        DO WHILE streams:ContainsKey(hFile)
+					        hFile := (IntPtr) random:Next(1, Int32.MaxValue)
+                        ENDDO
+                        IF addStream(hFile, oStream, oMode:Attributes)
+                            EXIT
+                        ENDIF
+                    ENDDO
+                END LOCK
 			ELSE
 				hFile := F_ERROR
 			ENDIF
-			//endif
-			IF hFile != F_ERROR
-				addStream(hFile, oStream, oMode:Attributes)
-			ENDIF
 			RETURN hFile
 		
-		STATIC INTERNAL METHOD GetBuffer(pStream AS IntPtr, nSize AS INT) AS BYTE[]		
-			IF hasStream(pStream)
-				LOCAL element := streams[pStream] AS FileCacheElement
-				IF element:Bytes == NULL .OR. element:Bytes:Length < nSize
-					element:Bytes := BYTE[]{nSize}
-				ENDIF
-				RETURN element:Bytes
-			ENDIF
+		STATIC INTERNAL METHOD GetBuffer(pStream AS IntPtr, nSize AS INT) AS BYTE[]
+            BEGIN LOCK streams
+			    IF hasStream(pStream)
+				    LOCAL element := streams[pStream] AS FileCacheElement
+				    IF element:Bytes == NULL .OR. element:Bytes:Length < nSize
+					    element:Bytes := BYTE[]{nSize}
+				    ENDIF
+				    RETURN element:Bytes
+                ENDIF
+            END LOCK
 			RETURN NULL
 		
 		STATIC INTERNAL METHOD close(pStream AS IntPtr) AS LOGIC
-			IF hasStream(pStream)
-				LOCAL oStream      := streams[pStream]:Stream AS Stream
-				LOCAL dwAttributes := streams[pStream]:Attributes AS DWORD
-				removeStream(pStream)
-                TRY
-                    clearErrorState()
-				    oStream:Flush()
-				    oStream:Close()
-				    IF dwAttributes != 0 .AND. oStream IS FileStream VAR oFileStream
-					    VAR fi := FileInfo{oFileStream:Name}
-					    fi:Attributes := (FileAttributes) dwAttributes
-				    ENDIF
-				    oStream:Dispose()
-				RETURN TRUE
-                CATCH e AS Exception
-                    setErrorState(e)
-                END TRY
-			ENDIF
+            BEGIN LOCK streams
+			    IF hasStream(pStream)
+				    LOCAL oStream      := streams[pStream]:Stream AS Stream
+				    LOCAL dwAttributes := streams[pStream]:Attributes AS DWORD
+				    removeStream(pStream)
+                    TRY
+                        clearErrorState()
+				        oStream:Flush()
+				        oStream:Close()
+				        IF dwAttributes != 0 .AND. oStream IS FileStream VAR oFileStream
+					        VAR fi := FileInfo{oFileStream:Name}
+					        fi:Attributes := (FileAttributes) dwAttributes
+				        ENDIF
+				        oStream:Dispose()
+				    RETURN TRUE
+                    CATCH e AS Exception
+                        setErrorState(e)
+                    END TRY
+                ENDIF
+            END LOCK
 			RETURN FALSE
 		
 		INTERNAL STATIC METHOD read(pFile AS Intptr, refC OUT STRING, iCount AS INT, lOem2Ansi AS LOGIC) AS INT
@@ -411,8 +418,9 @@ BEGIN NAMESPACE XSharp.IO
 		INTERNAL STATIC METHOD writeLine(pFile AS IntPtr,c AS STRING, nLen AS INT) AS INT
 			IF c:Length > nLen
 				c := c:Substring(0, nLen)
-			ENDIF
-			RETURN Write(pFile, c + e"\r\n", nLen+2, TRUE)
+            ENDIF
+            c += RuntimeState.Eol
+			RETURN Write(pFile, c , c:Length, TRUE)
 		
 		
 		INTERNAL STATIC METHOD lock(pFile AS IntPtr,iOffset AS INT64,iLength AS INT64, lLock AS LOGIC) AS LOGIC
@@ -497,7 +505,7 @@ BEGIN NAMESPACE XSharp.IO
         INTERNAL STATIC  METHOD ConvertToMemoryStream(pFile AS IntPtr) AS VOID
 			VAR oStream := XSharp.IO.File.findStream(pFile)
 			IF oStream != NULL_OBJECT
-                  LOCAL oNewStream AS Stream
+                 LOCAL oNewStream AS Stream
                  IF oStream IS XsMemoryStream
                         RETURN
                  ENDIF
@@ -574,8 +582,8 @@ END NAMESPACE
 /// <returns>The previous errorcode from the last file operation.</returns>
 FUNCTION FError(nErrorCode AS DWORD) AS DWORD
 	LOCAL nOldError AS DWORD
-	nOldError := XSharp.IO.File.errorCode
-	XSharp.IO.File.errorCode := nErrorCode
+	nOldError := RuntimeState.FileError
+	RuntimeState.FileError := nErrorCode
 	RETURN nOldError
 
 
@@ -585,7 +593,7 @@ FUNCTION FError(nErrorCode AS DWORD) AS DWORD
 /// <returns>The error from the last file operation or the last user-specified setting.  If there was no error, FError() returns 0.</returns>
 FUNCTION FError() AS DWORD
 	LOCAL nOldError AS DWORD
-	nOldError := XSharp.IO.File.errorCode
+	nOldError := RuntimeState.FileError
 	RETURN nOldError
 
 
@@ -594,7 +602,7 @@ FUNCTION FError() AS DWORD
 /// </summary>
 /// <returns>The exception from the last file operation or the last user-specified setting.  If there was no exception, FException() returns null.</returns>
 FUNCTION FException() AS Exception
-	RETURN XSharp.IO.File.lastException
+	RETURN RuntimeState.FileException
 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/fchsize/*" />
@@ -620,8 +628,22 @@ FUNCTION FEof(ptrHandle AS IntPtr) AS LOGIC
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/fflock/*" />
 /// <include file="CoreComments.xml" path="Comments/File/*" />
-FUNCTION FFLock(ptrHandle AS IntPtr,dwOffset AS DWORD,dwLength AS DWORD) AS LOGIC
-	RETURN XSharp.IO.File.lock(ptrHandle, (INT64) dwOffset, (INT64) dwLength, TRUE)
+FUNCTION FFLock(ptrHandle AS IntPtr,offset AS DWORD,length AS DWORD) AS LOGIC
+	VAR lResult := XSharp.IO.File.lock(ptrHandle, (INT64) offset, (INT64) length, TRUE)
+//    IF ! lResult
+//        ? "DWLock", dwOffset, dwLength, lResult
+//    ENDIF
+    RETURN lResult
+
+/// <include file="VoFunctionDocs.xml" path="Runtimefunctions/fflock/*" />
+/// <include file="CoreComments.xml" path="Comments/File/*" />
+FUNCTION FFLock64(ptrHandle AS IntPtr,offset AS INT64, length AS INT64) AS LOGIC
+    VAR lResult := XSharp.IO.File.lock(ptrHandle, offset, length, TRUE)
+//    IF ! lResult
+//    ? "I64Lock", iOffset, iLength, lResult
+//    ENDIF
+    //? ProcName(1), ProcName(2), ProcName(3)
+    RETURN lResult
 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/fflush/*" />
@@ -632,8 +654,19 @@ FUNCTION FFlush(ptrHandle AS IntPtr) AS LOGIC
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/ffunlock/*" />
 /// <inheritdoc cref="M:XSharp.Core.Functions.FFLock(System.IntPtr,System.UInt32,System.UInt32)" />"
-FUNCTION FFUnLock(ptrHandle AS IntPtr,dwOffset AS DWORD,dwLength AS DWORD) AS LOGIC
-	RETURN XSharp.IO.File.lock(ptrHandle, (INT64) dwOffset, (INT64) dwLength, FALSE)
+FUNCTION FFUnLock(ptrHandle AS IntPtr,offset AS DWORD,length AS DWORD) AS LOGIC
+	VAR lResult := XSharp.IO.File.lock(ptrHandle, (INT64) offset, (INT64) length, FALSE)
+    //? "DWUnLock", dwOffset, dwLength, lResult
+    RETURN lResult
+
+
+/// <include file="VoFunctionDocs.xml" path="Runtimefunctions/ffunlock/*" />
+/// <inheritdoc cref="M:XSharp.Core.Functions.FFLock(System.IntPtr,System.UInt32,System.UInt32)" />"
+FUNCTION FFUnLock64(ptrHandle AS IntPtr,offset AS INT64,length AS INT64) AS LOGIC
+	VAR lResult := XSharp.IO.File.lock(ptrHandle,  offset,  length, FALSE)
+    //? "I64UnLock", iOffset, iLength, lResult
+    //? ProcName(1), ProcName(2), ProcName(3)
+    RETURN lResult
 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/fgets/*" />
@@ -781,7 +814,8 @@ FUNCTION FWrite4(ptrHandle AS IntPtr,ptrBuffer AS BYTE[],dwBytes AS DWORD,lAnsi 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/fwriteline/*" />
 FUNCTION FWriteLine(ptrHandle AS IntPtr,cBuffer AS STRING) AS DWORD
-	RETURN (DWORD) XSharp.IO.File.write(ptrHandle, cBuffer + e"\r\n",cBuffer:Length+2, TRUE)
+    cBuffer += RuntimeState.EOL
+	RETURN (DWORD) XSharp.IO.File.write(ptrHandle, cBuffer ,cBuffer:Length, TRUE)
 
 /// <overloads>
 /// <summary>

@@ -127,7 +127,7 @@ BEGIN NAMESPACE XSharp.VO.Tests
 			DbCreate(cFileName , { {"CFIELD","C",10,0} })
 			DbUseArea(,,cFileName)
 			DbAppend()
-			
+			Assert.Equal(1, (LONG) RecNo())
 			LOCAL u := NIL AS USUAL
 			VoDbSkip(-1)
 			
@@ -2272,10 +2272,11 @@ BEGIN NAMESPACE XSharp.VO.Tests
 			
 			
 			DbUseArea(,,cDBF )
-			DbSetOrder(2)
+			DbSetOrder(2)       // Last
 			DbGoBottom()
 			
-			FieldPut(2, "a")
+			FieldPut(2, "a")    // Change Z to "a"  Note that at this moment the DeleteKey fails
+           
 			DbSkip(-5)
 			FieldPut(2, "d")
 			DbSkip(5)
@@ -2287,10 +2288,12 @@ BEGIN NAMESPACE XSharp.VO.Tests
 			DbGoTop()
 			DO WHILE .NOT. EoF()
 				nCount ++
+                VAR cCurrent := FieldGet(2)
 				IF cPrev != NULL
-					Assert.True( cPrev <= FieldGet(2) )
+                    
+					Assert.True( cPrev <=  cCurrent)
 				END IF
-				cPrev := FieldGet(2)
+				cPrev := cCurrent
 				DbSkip()
 			END DO
 			Assert.Equal( nCount, (INT) ALen(aValues) )
@@ -2842,6 +2845,117 @@ BEGIN NAMESPACE XSharp.VO.Tests
 		RETURN	
 
 
+
+
+		// TECH-9JPUGAOV3L , NTX problem with EoF after sequence of commands
+		[Fact, Trait("Category", "DBFCDX")];
+		METHOD Cdx_SoftSeek_Test_Numeric() AS VOID
+			LOCAL cDbf AS STRING
+			LOCAL cCdx AS STRING
+			
+			RddSetDefault("DBFCDX")
+
+			cDbf := __FUNCTION__
+			cCdx := cDbf + ".cdx"
+			
+			DbCreate( cDbf , {{"NFIELD" , "N" , 5 , 0 }})
+			DbUseArea(,,cDbf,,FALSE)
+			DbAppend()
+			FieldPut(1,123)
+			DbAppend()
+			FieldPut(1,456)
+			DbCreateIndex(cCdx, "NFIELD")
+			DbCloseArea()
+			DbUseArea(,,cDbf,,FALSE)
+			DbSetIndex(cCdx)
+           SET(_SET_SOFTSEEK, "on")
+            DbSeek(100)
+            Assert.Equal(123, (INT)FieldGet(1))
+            Assert.Equal(FALSE, Eof())
+            Assert.Equal(FALSE, Found())
+            DbSeek(200)
+            Assert.Equal(456, (INT)FieldGet(1))
+            Assert.Equal(FALSE, Eof())
+            Assert.Equal(FALSE, Found())
+            SetSoftSeek(FALSE)
+            DbSeek(200)
+            Assert.Equal(0, (INT)FieldGet(1))
+            Assert.Equal(TRUE, Eof())
+            Assert.Equal(FALSE, Found())
+            SetSoftSeek(TRUE)
+            DbSeek(100)
+            Assert.Equal(123, (INT)FieldGet(1))
+            Assert.Equal(FALSE, Eof())
+            Assert.Equal(FALSE, Found())
+            DbSeek(200)
+            Assert.Equal(456, (INT)FieldGet(1))
+            Assert.Equal(FALSE, Eof())
+            Assert.Equal(FALSE, Found())
+           SET(_SET_SOFTSEEK, "off")
+            DbSeek(200)
+            Assert.Equal(0, (INT)FieldGet(1))
+            Assert.Equal(TRUE, Eof())
+            Assert.Equal(FALSE, Found())
+            RETURN
+            
+   		// TECH-9JPUGAOV3L , NTX problem with EoF after sequence of commands
+		[Fact, Trait("Category", "DBFCDX")];
+		METHOD CDX_SoftSeek_Test_String() AS VOID
+			LOCAL cDbf AS STRING
+			LOCAL cCdx AS STRING
+			
+			RddSetDefault("DBFCDX")
+
+			cDbf := __FUNCTION__
+			cCdx := cDbf + ".cdx"
+			
+			DbCreate( cDbf , {{"CFIELD" , "C" , 5 , 0 }})
+			DbUseArea(,,cDbf,,FALSE)
+			DbAppend()
+			FieldPut(1,"bbbbb")
+			DbAppend()
+			FieldPut(1,"kkkkk")
+			DbCreateIndex(cCdx, "CFIELD")
+			DbCloseArea()
+			DbUseArea(,,cDbf,,FALSE)
+			DbSetIndex(cCdx)
+            SetSoftSeek(TRUE)
+            DbSeek("aaaaa")
+            Assert.Equal("bbbbb", (STRING)FieldGet(1))
+            Assert.Equal(FALSE, Eof())
+            Assert.Equal(FALSE, Found())
+            DbSeek("ccccc")
+            Assert.Equal("kkkkk", (STRING)FieldGet(1))
+            Assert.Equal(FALSE, Eof())
+            Assert.Equal(FALSE, Found())
+            SetSoftSeek(FALSE)
+            DbSeek("ccccc")
+            Assert.Equal("     ", (STRING)FieldGet(1))
+            Assert.Equal(TRUE, Eof())
+            Assert.Equal(FALSE, Found())
+
+           SET(_SET_SOFTSEEK, "on")
+            DbSeek("aaaaa")
+            Assert.Equal("bbbbb", (STRING)FieldGet(1))
+            Assert.Equal(FALSE, Eof())
+            Assert.Equal(FALSE, Found())
+            DbSeek("ccccc")
+            Assert.Equal("kkkkk", (STRING)FieldGet(1))
+            Assert.Equal(FALSE, Eof())
+            Assert.Equal(FALSE, Found())
+           SET(_SET_SOFTSEEK, "off")
+            DbSeek("ccccc")
+            Assert.Equal("     ", (STRING)FieldGet(1))
+            Assert.Equal(TRUE, Eof())
+            Assert.Equal(FALSE, Found())
+
+RETURN
+            
+
+
+		// TECH-9JPUGAOV3L , NTX problem with EoF after sequence of commands
+
+
         [Fact, Trait("Category", "DBF")];
 		METHOD SetDeleted_SetDeleted_and_OrdScope1() AS VOID
 			LOCAL aValues AS ARRAY
@@ -3123,7 +3237,7 @@ BEGIN NAMESPACE XSharp.VO.Tests
 
         [Fact, Trait("Category", "DBF")];
 		METHOD ZapTest() AS VOID
-			FOR LOCAL i := 1 AS INT UPTO 3
+			FOR LOCAL i := 0 AS INT UPTO 5
 				ZapTest_helper(i)
 			NEXT
 		END METHOD
@@ -3140,31 +3254,41 @@ BEGIN NAMESPACE XSharp.VO.Tests
 			DbfTests.CreateDatabase(cDbf , { { "LAST" , "C" , 20 , 0 } } , { "a1" , "g1", "g2" , "o5"  } )
 			
 			DO CASE
-			CASE  nType == 1
+			CASE  nType % 3 == 0
 				? "testing with no index:"
-			CASE nType == 2
+			CASE nType % 3 == 1
 				? "testing with NTX:"
 				RddSetDefault ( "DBFNTX" )
-			CASE nType == 3
+			CASE nType % 3 == 2
 				? "testing with CDX:"
 				RddSetDefault ( "DBFCDX" )
 			END CASE
 			
-			IF nType != 1
+			IF nType % 3 != 0
 				DbUseArea( ,,cDBF , , TRUE )
 				DbCreateOrder ( "ORDER1" , cDbf , "upper(LAST)" , { || Upper ( _Field->LAST) } )
 				DbCloseAll()              
 			END IF
 			
 			DbUseArea( ,,cDBF , , FALSE )
-			IF nType != 1
+			IF nType >= 3
+				DbAppend()
+				FieldPut(1,"testing")
+				DbAppend()
+				FieldPut(1,"some")
+				DbAppend()
+				FieldPut(1,"values")
+				DbAppend()
+				FieldPut(1,"last one")
+			END IF
+			IF nType % 3 != 0
 				DbSetIndex ( cDBF )
 			ENDIF
 			Assert.True( DbZap() )
 			DbCloseAll()
 		
 			DbUseArea( ,,cDBF , , TRUE )
-			IF nType != 1
+			IF nType % 3 != 0
 				DbSetIndex ( cDBF )
 				DbSetOrder ( 1 )
 			ENDIF
@@ -3180,6 +3304,7 @@ BEGIN NAMESPACE XSharp.VO.Tests
 				DbSkip ( 1)
 			ENDDO
 			Assert.Equal( 0 , nCount )
+			DbCloseArea()
 
 		END METHOD
 
@@ -3231,6 +3356,7 @@ BEGIN NAMESPACE XSharp.VO.Tests
 				DbSkip ( 1)
 			ENDDO
 			Assert.Equal("a1g2o5" , cRet )
+			DbCloseArea()
 
 		END METHOD
 
@@ -3324,6 +3450,289 @@ BEGIN NAMESPACE XSharp.VO.Tests
 			DbCloseArea()
 		END METHOD
 
+
+        [Fact, Trait("Category", "DBF")];
+		METHOD Check_numeric_values() AS VOID
+			LOCAL cDbf AS STRING
+			LOCAL aValues AS ARRAY
+			RddSetDefault("DBFCDX")
+			cDBF := GetTempFileName()
+			
+			aValues := {123.45, 894837823.0, -323212, 564342.99, -54323.11, 0, 0.00, -0.02, -442, -42523423.7, 12345678, 4324, -6653342.16,;
+						-5563423.44, 64346542.11, 566666.1, -1, -1.5, -5555, 1000000, -432423, 53453, 111, 9999999.99, -999999.99}
+			
+			DbfTests.CreateDatabase(cDbf , { { "NFIELD" , "N" , 12 , 0 } , { "NFIELDDEC" , "N" , 12 , 2 } } )
+			DbUseArea(TRUE,  , cDbf)
+			DbCreateIndex(cDbf , "NFIELDDEC")
+			FOR LOCAL n := 1 AS INT UPTO ALen(aValues)
+				DbAppend()
+				FieldPut(1, aValues[n])
+				FieldPut(2, aValues[n])
+			NEXT
+			
+			aValues := ASort(aValues , , , {|a,b| a < b})
+			DbGoTop()
+			LOCAL nCount := 0 AS INT
+			DO WHILE .not. EOF()
+				nCount ++
+				Assert.True(FieldGet(1) == Round(aValues[nCount] , 0))
+				Assert.True(FieldGet(2) == aValues[nCount])
+				DbSkip()
+			END DO
+			Assert.Equal(nCount, (INT)ALen(aValues))
+			
+			DbCloseArea()
+		RETURN
+
+
+        [Fact, Trait("Category", "DBF")];
+		METHOD ZapTest2() AS VOID
+			LOCAL cDbf AS STRING
+			RddSetDefault("DBFCDX")
+
+			cDBF := GetTempFileName()
+			FErase ( cDbf + IndexExt() )
+			
+			DbCreate( cDBF , { { "LAST" , "C" , 20 , 0 } } )
+			DbUseArea( ,,cDBF )	 	
+			DbAppend() 
+			FieldPut ( 1 , "ÁBC" ) 
+			DbCreateOrder ( "ORDER1"  , cDbf , "upper(LAST)" , { || Upper ( _Field->LAST) } )
+			
+			DbCloseArea() 
+			DbUseArea( ,,cDBF)
+//			DbOrderInfo(DBOI_KEYCOUNT)
+
+			? DbZap()		
+			
+			? DbGoTop()	 // <-----------  ArgumentNullException
+
+			Assert.True( Eof() )
+			Assert.True( Bof() )
+			Assert.True( DbOrderInfo(DBOI_KEYCOUNT) == 0 )
+			
+			DbCloseArea()
+		END METHOD
+
+
+        [Fact, Trait("Category", "DBF")];
+		METHOD ZapTest3() AS VOID
+			LOCAL cDbf AS STRING
+			RddSetDefault("DBFCDX")
+
+			cDBF := GetTempFileName()
+			FErase ( cDbf + IndexExt() )
+			
+			DbCreate( cDBF , { { "LAST" , "C" , 20 , 0 } } )
+			DbUseArea( ,,cDBF )	 	
+			DbAppend() 
+			FieldPut ( 1 , "here" ) 
+			DbAppend() 
+			FieldPut ( 1 , "are" ) 
+			DbAppend() 
+			FieldPut ( 1 , "some" ) 
+			DbAppend() 
+			FieldPut ( 1 , "values" ) 
+			DbCreateOrder ( "ORDER1"  , cDbf , "upper(LAST)" , { || Upper ( _Field->LAST) } )
+			
+//			DbCloseArea() 
+//			DbUseArea( ,,cDBF)
+			Assert.Equal( 4, (INT) DbOrderInfo(DBOI_KEYCOUNT) )
+
+			Assert.True( DbZap() )
+			
+			? DbGoTop()	 // <-----------  ArgumentNullException
+
+			Assert.True( Eof() )
+			Assert.True( Bof() )
+			Assert.True( DbOrderInfo(DBOI_KEYCOUNT) == 0 )
+			
+			DbCloseArea()
+		END METHOD
+
+
+        [Fact, Trait("Category", "DBF")];
+		METHOD LongIndexTest() AS VOID
+			LOCAL cPrev, cCurrent AS USUAL
+			LOCAL nRecords AS INT
+			LOCAL nCount AS INT
+			LOCAL cDbf AS STRING
+
+			RddSetDefault("DBFCDX")
+			SetCollation(#CLIPPER)
+
+			cDBF := GetTempFileName()
+			FErase ( cDbf + IndexExt() )
+			
+			nRecords := 500
+
+			DbCreate( cDBF , { { "LAST" , "C" , 200 , 0 } })
+			DbUseArea( ,,cDBF , , FALSE )  // open shared               
+			FOR LOCAL n := 1 AS DWORD UPTO nRecords
+				DbAppend()
+				FieldPut ( 1 , Replicate( Chr(50 + n % 50) , 50 + n % 80) )
+			NEXT
+			DbCreateIndex ( cDBF , "LAST" , {||_FIELD->LAST})
+			DbGoBottom()
+		
+			FOR LOCAL n := 1 AS DWORD UPTO 500
+				DbGoto((n * 17) % (nRecords - 10) + 2)
+				FieldPut(1, Replicate( Chr((n * 6) % 50 + 40) , n % 80 + 10 ))
+				DbGoto((n * 37) % (nRecords - 10) + 2)
+				FieldPut(1, Replicate( Chr((n * 6) % 50 + 40) , n % 80 + 10 ))
+				DbGoto((n * 97) % (nRecords - 10) + 2)
+				FieldPut(1, Replicate( Chr((n * 6) % 50 + 40) , n % 80 + 10 ))
+				
+				cPrev := NIL
+				nCount := 0
+				DbGoTop()
+				DO WHILE .NOT. EoF()
+					nCount ++
+					cCurrent := FieldGet(1)
+					IF cPrev != NIL
+						Assert.True(cPrev <=  cCurrent)
+						IF .not. cPrev <=  cCurrent
+							? "Failed at values:" , n
+							? Left(cPrev,10)
+							? Left(cCurrent,10)
+						END IF
+					END IF
+					cPrev := cCurrent
+					DbSkip()
+				END DO
+				Assert.Equal(500, nCount)
+			NEXT
+			
+			DbCloseArea()			
+		END METHOD
+
+
+        [Fact, Trait("Category", "DBF")];
+		METHOD UniqeTest() AS VOID
+			LOCAL cDbf AS STRING
+			LOCAL nCount AS INT
+
+			RddSetDefault("DBFCDX")
+			SetCollation(#CLIPPER)
+
+			cDBF := GetTempFileName()
+
+			DbfTests.CreateDatabase(cDbf , { { "LAST" , "C" , 20 , 0 } } , { "g1" , "o5" , "g2", "g1" , "g8" , "g1"} )
+			DbCreateOrder ( "ORDER1" , cDbf , "upper(LAST)" , { || Upper ( _Field->LAST) } , TRUE) // Unique
+
+			Assert.Equal(TRUE , (LOGIC)DbOrderInfo(DBOI_UNIQUE))
+			
+			nCount := 0
+			DbGoTop()
+			DO WHILE .not. Eof()
+				? RecNo(), FieldGet(1)
+				nCount ++
+				DbSkip()
+			END DO
+			Assert.Equal(4 , nCount)
+			DbCloseArea()
+
+			DbUseArea( ,,cDBF , , FALSE )    // open not shared
+			Assert.Equal(TRUE , (LOGIC)DbOrderInfo(DBOI_UNIQUE))
+		
+			DbPack()
+//			DBZap()
+//			DbReindex()
+		
+			Assert.Equal(TRUE , (LOGIC)DbOrderInfo(DBOI_UNIQUE))
+			nCount := 0
+			DbGoTop()
+			DO WHILE .not. Eof()
+				nCount ++
+				DbSkip()
+			END DO
+			Assert.Equal(4 , nCount)
+			DbCloseArea()
+			
+			DbUseArea( ,,cDBF , , FALSE ) // FALSE, wrong
+			Assert.Equal(TRUE , (LOGIC)DbOrderInfo(DBOI_UNIQUE))
+			nCount := 0
+			DbGoTop()
+			DO WHILE .not. Eof()
+				nCount ++
+				DbSkip()
+			END DO
+			Assert.Equal(TRUE , (LOGIC)DbOrderInfo(DBOI_UNIQUE))
+			DbCloseArea()
+		END METHOD
+
+
+        [Fact, Trait("Category", "DBF")];
+		METHOD PackZapReindexTest() AS VOID
+			PackZapReindexTest_helper(1)
+			PackZapReindexTest_helper(2)
+			PackZapReindexTest_helper(3)
+		END METHOD
+
+		METHOD PackZapReindexTest_helper(nWitch AS INT) AS VOID
+			LOCAL cDbf AS STRING
+			LOCAL nCount AS INT
+
+			RddSetDefault("DBFCDX")
+			SetCollation(#CLIPPER)
+
+			cDBF := GetTempFileName()
+
+			DbfTests.CreateDatabase(cDbf , { { "LAST" , "C" , 20 , 0 } } , { "g1" , "o5" , "g2", "g1" , "g8" , "g1"} )
+			DbGoto(2)
+			DbDelete()
+			DbGoto(4)
+			DbDelete()
+
+			DBClearOrderCondition () // descend + condition + unique       order
+			DbSetOrderCondition( "Upper(LAST) = 'G'", {||Upper(_Field->LAST) = "G" } ,,,,,,,,, TRUE)
+			DbCreateOrder ( "ORDER1" , cDbf , "upper(LAST)" , { || Upper ( _Field->LAST) } , TRUE)
+			
+			DBClearOrderCondition ()
+			DbSetOrderCondition(,,,,,,,,,,,,, TRUE) // custom + unique    order
+			DbCreateOrder ( "ORDER2" , cDbf , "upper(LAST)" , { || Upper ( _Field->LAST) } , TRUE )
+			
+			DbCloseArea()
+			
+			DbUseArea( ,,cDBF , , FALSE )    // open not shared
+			DbSetOrder ( 1 ) 
+			Assert.True((LOGIC) DbOrderInfo(DBOI_ISDESC))
+			Assert.True((LOGIC) DbOrderInfo(DBOI_ISCOND))
+			Assert.True((LOGIC) DbOrderInfo(DBOI_UNIQUE))
+			DbSetOrder ( 2 )
+			Assert.True((LOGIC) DbOrderInfo(DBOI_CUSTOM))
+			Assert.True((LOGIC) DbOrderInfo(DBOI_UNIQUE))
+
+			SWITCH nWitch
+			CASE 1
+				DbPack()
+			CASE 2
+				DbZap()
+			CASE 3
+				DbReindex() 
+			END SWITCH
+			
+			DbSetOrder ( 1 ) 
+			Assert.True((LOGIC) DbOrderInfo(DBOI_ISDESC))
+			Assert.True((LOGIC) DbOrderInfo(DBOI_ISCOND))
+			Assert.True((LOGIC) DbOrderInfo(DBOI_UNIQUE))
+			DbSetOrder ( 2 )
+			Assert.True((LOGIC) DbOrderInfo(DBOI_CUSTOM))
+			Assert.True((LOGIC) DbOrderInfo(DBOI_UNIQUE))
+
+			DbCloseArea()
+			DbUseArea( ,,cDBF , , FALSE )    // open shared               
+			
+			DbSetOrder ( 1 ) 
+			Assert.True((LOGIC) DbOrderInfo(DBOI_ISDESC))
+			Assert.True((LOGIC) DbOrderInfo(DBOI_ISCOND))
+			Assert.True((LOGIC) DbOrderInfo(DBOI_UNIQUE))
+			DbSetOrder ( 2 )
+			Assert.True((LOGIC) DbOrderInfo(DBOI_CUSTOM))
+			Assert.True((LOGIC) DbOrderInfo(DBOI_UNIQUE))
+		
+			DbCloseArea()
+		END METHOD
 
 
 		STATIC PRIVATE METHOD GetTempFileName() AS STRING
