@@ -74,7 +74,7 @@ CLASS XSharp.OleAutoObject
 	CONSTRUCTOR(oObject AS OBJECT, _type AS System.Type)
 		SELF()
 		oComObject	:=  OleUnWrapObject(oObject)
-		oType		:= _Type
+		oType		:= _type
 		lOk			:= oComObject != NULL
 		RETURN
 			
@@ -84,14 +84,14 @@ CLASS XSharp.OleAutoObject
 			
 	// ? oObject:Property
 	    /// <exclude />   
-    METHOD NoIVarGet(cName ) AS USUAL CLIPPER
+    METHOD NoIVarGet(cName AS STRING ) AS USUAL STRICT
 		LOCAL oRet AS OBJECT
 		oRet := OleAutoObject.__OleIvarGet(oComObject,oType, cName, NULL)
 		RETURN OleAutoObject.OleWrapObject(oRet, lDateTimeAsDate)
 			
 		// oObject:Property := Value
 	    /// <exclude />   
-	METHOD NoIvarPut(cName, uValue) AS VOID CLIPPER
+	METHOD NoIvarPut(cName AS STRING, uValue AS USUAL) AS VOID STRICT
 		OleAutoObject.__OleIVarPut(oComObject, oType, cName , uValue, NULL)
 		RETURN 
 			
@@ -150,8 +150,8 @@ CLASS XSharp.OleAutoObject
 		ENDIF
 		RETURN 0
 			
-	ASSIGN dwFuncs(dwNew AS LONG) 
-		SELF:_liFuncs := dwNew
+	ASSIGN dwFuncs(value AS LONG) 
+		SELF:_liFuncs := value
 		RETURN
 			
 	    /// <exclude />   
@@ -225,7 +225,7 @@ CLASS XSharp.OleAutoObject
 					uResult := XSharp.__Date{oD}
 				ELSE
 					oDt := (DateTime) oObject
-					uResult := oDT
+					uResult := oDt
 				ENDIF
 			ELSE
 				IF t:IsCOMObject
@@ -519,13 +519,13 @@ STATIC METHOD  OleSend(oComObject AS OBJECT, oType AS System.Type, cName AS STRI
 						lOk    := TRUE
 					CATCH AS ArgumentException
 						THROW Error.VOError(EG_ARG,  cMethod, cMethod, 1, <OBJECT>{args})
-						lOk := FALSE                                  
+						//lOk := FALSE                                  
 					CATCH AS TargetException
 						THROW Error.VOError(EG_ARG,  cMethod, cMethod, 1, <OBJECT>{args} )
-						lOk := FALSE                                  
+						//lOk := FALSE                                  
 					CATCH AS MissingMethodException
 						THROW Error.VOError(EG_NOMETHOD,  cMethod, "cName", 2, <OBJECT>{cName}  )
-						lOk := FALSE                                  
+						//lOk := FALSE                                  
 					CATCH AS Exception
 						lOk := FALSE              
 					END TRY

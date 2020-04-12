@@ -17,7 +17,7 @@ INTERNAL STATIC CLASS ArrayHelpers
         ARRAYNOTNULL aTarget
         nLen := (INT) aTarget:Length
         FOR nItem := nStart TO nLen
-            IF object.Equals(aTarget[ nItem], element)
+            IF Object.Equals(aTarget[ nItem], element)
                 RETURN (DWORD) nItem
             ENDIF
             nCount -= 1  
@@ -107,7 +107,7 @@ INTERNAL STATIC CLASS ArrayHelpers
         dwHigh := (DWORD) ALen(a)
         iSave := dwRet := 0
         iComp := 0
-        lIsCodeblock := IsCodeBlock( seekVal )
+        lIsCodeBlock := IsCodeBlock( seekVal )
         IF lIsCodeBlock
             cb := seekVal
         ELSEIF lExact
@@ -185,7 +185,7 @@ INTERNAL STATIC CLASS ArrayHelpers
         ENDIF
         ARRAYNOTNULL aArray
         IF nStart == 0
-            THROW  Error.ArgumentError( __FUNCTION__, nameof(nStart), 3, __CavoStr( VOErrors.ArgCannotBeZero ), { nStart } )
+            THROW  Error.ArgumentError( __FUNCTION__, nameof(nStart), 3, __CavoStr( VOErrors.ARGCANNOTBEZERO ), { nStart } )
         ENDIF
         
         IF nCount != 0
@@ -294,13 +294,13 @@ FUNCTION ArrayInit(wElements AS DWORD, avalues REF USUAL[]) AS ARRAY
     LOCAL aTemp AS ARRAY
     LOCAL x AS DWORD
     
-    IF wElements > (DWORD) aValues:Length
+    IF wElements > (DWORD) avalues:Length
         THROW Error.ArgumentError( __FUNCTION__, NAMEOF(wElements), "Element too big")
     ENDIF
     
-    aTemp := ArrayNew(aValues:Length)
-    FOR x := 1 UPTO aValues:Length
-        aTemp [x] := aValues[x] 
+    aTemp := ArrayNew(avalues:Length)
+    FOR x := 1 UPTO avalues:Length
+        aTemp [x] := avalues[x] 
     NEXT
     RETURN aTemp
     
@@ -485,7 +485,7 @@ FUNCTION ArrayStore(aSource AS ARRAY,Buff AS USUAL PTR,dwLen AS DWORD) AS DWORD
     nLen := ALen(aSource)
     dwLen := Math.Min(dwLen, nLen)
     FOR i := 1 TO dwLen
-        buff[i] := aSource[i]
+        Buff[i] := aSource[i]
     NEXT
     RETURN dwLen
     
@@ -497,7 +497,7 @@ FUNCTION ArrayStore<T>(aSource AS __ArrayBase<T>,Buff AS T PTR,dwLen AS DWORD) A
     nLen := aSource:Length
     dwLen := Math.Min(dwLen, nLen)
     FOR i := 1 TO dwLen
-        buff[i] := aSource[(INT) i]
+        Buff[i] := aSource[(INT) i]
     NEXT
     RETURN dwLen
     
@@ -528,24 +528,24 @@ FUNCTION AScan(aTarget AS ARRAY, uSearch AS USUAL,nStart AS USUAL) AS DWORD
     /// <inheritdoc cref='M:XSharp.RT.Functions.AScan(XSharp.__Array,XSharp.__Usual,XSharp.__Usual,XSharp.__Usual)'/>
 FUNCTION AScan(aTarget AS ARRAY, uSearch AS USUAL) AS DWORD 
     ARRAYNULL_RETURNZERO aTarget
-    RETURN ArrayHelpers.Ascan( aTarget, uSearch, 1, NIL, SetExact()) 
+    RETURN ArrayHelpers.AScan( aTarget, uSearch, 1, NIL, SetExact()) 
     
     /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/ascanexact/*" /> 
 FUNCTION AScanExact( aTarget AS ARRAY, uSearch AS USUAL, nStart := NIL AS USUAL, nCount := NIL AS USUAL) AS DWORD
     ARRAYNULL_RETURNZERO aTarget
-    RETURN ArrayHelpers.Ascan( aTarget, uSearch, nStart, nCount, TRUE )
+    RETURN ArrayHelpers.AScan( aTarget, uSearch, nStart, nCount, TRUE )
     
     
     /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/ascanexact/*" /> 
 FUNCTION AScanExact( aTarget AS ARRAY, uSearch AS USUAL, nStart AS USUAL) AS DWORD 
     ARRAYNULL_RETURNZERO aTarget
-    RETURN ArrayHelpers.Ascan( aTarget, uSearch, nStart, NIL, TRUE )
+    RETURN ArrayHelpers.AScan( aTarget, uSearch, nStart, NIL, TRUE )
     
     
     /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/ascanexact/*" /> 
 FUNCTION AScanExact( aTarget AS ARRAY, uSearch AS USUAL) AS DWORD 
     ARRAYNULL_RETURNZERO aTarget
-    RETURN ArrayHelpers.Ascan( aTarget, uSearch, 1, NIL, TRUE )
+    RETURN ArrayHelpers.AScan( aTarget, uSearch, 1, NIL, TRUE )
     
     
     /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/ascanbin/*" />
@@ -562,29 +562,29 @@ FUNCTION AScanBinExact(aTarget AS ARRAY,uSearch AS USUAL) AS DWORD
     /// <typeparam name="T">The type of the array elements</typeparam>
 FUNCTION AScan<T>(aTarget AS __ArrayBase<T>, uSearch AS T) AS DWORD WHERE T IS NEW()
     ARRAYNOTNULL aTarget
-    RETURN ArrayHelpers.Ascan( aTarget, uSearch,1, (INT) aTarget:Length) 
+    RETURN ArrayHelpers.AScan( aTarget, uSearch,1, (INT) aTarget:Length) 
     
     /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/ascan/*" /> 
-        /// <typeparam name="T">The type of the array elements</typeparam>
+    /// <typeparam name="T">The type of the array elements</typeparam>
     /// <param name="act">A lambda expression that will be evaluated for every element in the array.</param>
 FUNCTION AScan<T>(aTarget AS __ArrayBase<T>, act AS @@Func<T,LOGIC>) AS DWORD WHERE T IS NEW()
     ARRAYNOTNULL aTarget
-    RETURN ArrayHelpers.Ascan( aTarget, act,1, (INT) aTarget:Length) 
+    RETURN ArrayHelpers.AScan( aTarget, act,1, (INT) aTarget:Length) 
     
     
     /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/ascan/*" /> 
     /// <typeparam name="T">The type of the array elements</typeparam>
 FUNCTION AScan<T>(aTarget AS __ArrayBase<T>, uSearch AS T, nStart AS LONG) AS DWORD WHERE T IS NEW()
     ARRAYNOTNULL aTarget
-    RETURN ArrayHelpers.Ascan( aTarget, uSearch, nStart, (INT) aTarget:Length- nStart +1) 
+    RETURN ArrayHelpers.AScan( aTarget, uSearch, nStart, (INT) aTarget:Length- nStart +1) 
     
     
     /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/ascan/*" /> 
-        /// <typeparam name="T">The type of the array elements</typeparam>
+    /// <typeparam name="T">The type of the array elements</typeparam>
     /// <param name="act">A lambda expression that will be evaluated for every element in the array.</param>
 FUNCTION AScan<T>(aTarget AS __ArrayBase<T>, act AS @@Func<T,LOGIC>, nStart AS LONG) AS DWORD WHERE T IS NEW()
     ARRAYNOTNULL aTarget
-    RETURN ArrayHelpers.Ascan( aTarget, act, nStart, (INT) aTarget:Length - nStart +1) 
+    RETURN ArrayHelpers.AScan( aTarget, act, nStart, (INT) aTarget:Length - nStart +1) 
     
     
     
@@ -592,13 +592,13 @@ FUNCTION AScan<T>(aTarget AS __ArrayBase<T>, act AS @@Func<T,LOGIC>, nStart AS L
     /// <typeparam name="T">The type of the array elements</typeparam>
 FUNCTION AScan<T>(aTarget AS __ArrayBase<T>, uSearch AS T, nStart AS LONG, nCount AS LONG) AS DWORD WHERE T IS NEW()
     ARRAYNOTNULL aTarget
-    RETURN ArrayHelpers.Ascan( aTarget, uSearch, nStart, nCount) 
+    RETURN ArrayHelpers.AScan( aTarget, uSearch, nStart, nCount) 
     
     /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/ascan/*" /> 
     /// <typeparam name="T">The type of the array elements</typeparam>
 FUNCTION AScan<T>(aTarget AS __ArrayBase<T>, act AS @@Func<T,LOGIC>, nStart AS LONG, nCount  AS LONG) AS DWORD WHERE T IS NEW()
     ARRAYNOTNULL aTarget
-    RETURN ArrayHelpers.Ascan( aTarget, act, nStart, nCount) 
+    RETURN ArrayHelpers.AScan( aTarget, act, nStart, nCount) 
     
     /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/asize/*" /> 
 FUNCTION ASize(aTarget AS ARRAY,dwLength AS DWORD) AS ARRAY
@@ -627,9 +627,9 @@ FUNCTION ATail<T>(aTarget AS __ArrayBase<T>) AS T WHERE T IS NEW()
     
     /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/acopy/*" /> 
 FUNCTION ACopy(aSource ,aTarget ,nStart ,nCount ,nTargetPos ) AS ARRAY CLIPPER
-    LOCAL sourceLen  AS DWORD
-    LOCAL start AS DWORD
-    LOCAL count AS DWORD
+    LOCAL sourceLen  AS LONG
+    LOCAL start AS LONG
+    LOCAL count AS LONG
     IF !aSource:IsArray
         THROW Error.ArgumentError( __FUNCTION__, NAMEOF(aSource), 1, <OBJECT>{ aSource } )
     ENDIF
@@ -638,10 +638,16 @@ FUNCTION ACopy(aSource ,aTarget ,nStart ,nCount ,nTargetPos ) AS ARRAY CLIPPER
         THROW Error.ArgumentError( __FUNCTION__, NAMEOF(aTarget), 2, <OBJECT>{ aTarget } )
     ENDIF
     start := 1
-    sourceLen  := ALen(aSource)
+    sourceLen  := (LONG) ALen(aSource)
     IF pCount() > 2
         IF nStart:IsNumeric
             start := nStart
+        ELSEIF nStart:IsNil
+            IF pCount() >= 4 .and. nCount:IsNumeric .and. nCount < 0
+                start := (LONG) ALen(aSource) -1
+            ELSE
+                start := 1
+            END IF
         ELSE
             THROW Error.ArgumentError( __FUNCTION__, NAMEOF(nStart), 3, <OBJECT>{ nStart } )
         ENDIF
@@ -651,7 +657,7 @@ FUNCTION ACopy(aSource ,aTarget ,nStart ,nCount ,nTargetPos ) AS ARRAY CLIPPER
             start := Math.Min(start, sourceLen)
         ENDIF
     ENDIF
-    IF pCount() > 3
+    IF pCount() > 3 .and. .not. nCount:IsNil
         IF nCount:IsNumeric
             count := nCount
         ELSE
@@ -663,9 +669,9 @@ FUNCTION ACopy(aSource ,aTarget ,nStart ,nCount ,nTargetPos ) AS ARRAY CLIPPER
             sourceLen := Math.Max(1, start+count-1)
         ENDIF
     ENDIF
-    LOCAL offSet		:= 1 AS DWORD
-    LOCAL targetLen	:= ALen(aTarget) AS DWORD
-    IF pCount() > 4
+    LOCAL offSet		:= 1 AS LONG
+    LOCAL targetLen	    := (LONG) ALen(aTarget) AS LONG
+    IF pCount() > 4 .and. .not. nTargetPos:IsNil
         IF nTargetPos:IsNumeric
             offSet := nTargetPos
             offSet := Math.Min( offSet, targetLen )
@@ -716,7 +722,15 @@ FUNCTION AFill(aTarget AS ARRAY,uValue := NIL AS USUAL, nStart := NIL AS USUAL, 
         END IF
         
         FOR LOCAL x := nStart AS INT UPTO nStart + nCount - 1
-            aTarget[(DWORD) x] := uValue
+            IF XSharp.RuntimeState.Dialect == XSharpDialect.FoxPro
+                if IsArray(aTarget[(DWORD) x])
+                    AFill(aTarget[(DWORD) x], uValue)
+                ELSE
+                    aTarget[(DWORD) x] := uValue
+                ENDIF
+            ELSE
+                aTarget[(DWORD) x] := uValue
+            ENDIF
         NEXT
     ENDIF
     RETURN aTarget
@@ -777,6 +791,7 @@ FUNCTION AReplicate(xFill AS USUAL,nElements AS DWORD) AS ARRAY
     /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/asort/*" /> 
 FUNCTION ASort(aTarget AS ARRAY, nStart := NIL AS USUAL,nCount := NIL AS USUAL,cbOrder := NIL AS USUAL) AS ARRAY 
     LOCAL nLen AS DWORD
+    LOCAL oBlock as OBJECT
     DEFAULT( REF nStart, 1 )
     
     nLen := ALen(aTarget) 
@@ -808,13 +823,17 @@ FUNCTION ASort(aTarget AS ARRAY, nStart := NIL AS USUAL,nCount := NIL AS USUAL,c
     
     
     IF cbOrder != NIL
-        VAR ok := cbOrder:IsCodeBlock
-        IF ok
+        IF cbOrder:IsCodeblock
             VAR cb := (CODEBLOCK) cbOrder
-            ok := cb:PCount() >= 2
-            IF ! Ok
+            IF cb:PCount() < 2
                 THROW Error.ArgumentError( __FUNCTION__, nameof(cbOrder), "ASort Codeblock must have at least 2 arguments" )
             ENDIF
+        ELSEIF cbOrder:IsObject
+            IF ! IsMethod(cbOrder, "Eval")
+                THROW Error.ArgumentError( __FUNCTION__, nameof(cbOrder), "ASort Sort Object must have an Eval method" )
+            ENDIF
+            oBlock := cbOrder
+            cbOrder := {|a,b|  Send(oBlock,"Eval",a,b) }
         ELSE
             THROW Error.ArgumentError( __FUNCTION__, nameof(cbOrder), 4, <OBJECT>{ cbOrder } )
         ENDIF

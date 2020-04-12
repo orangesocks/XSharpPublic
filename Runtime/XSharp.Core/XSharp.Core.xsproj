@@ -10,20 +10,13 @@
     <Dialect>Core</Dialect>
     <OutputName>XSharp.Core</OutputName>
     <AZ>true</AZ>
-    <CS>false</CS>
-    <LB>false</LB>
-    <OVF>false</OVF>
-    <Unsafe>false</Unsafe>
-    <INS>false</INS>
-    <NS>false</NS>
+    <CS>true</CS>
     <VulcanCompatibleResources>True</VulcanCompatibleResources>
     <XSharpProjectversion>2.0.6.2</XSharpProjectversion>
-    <NamedArgs>false</NamedArgs>
-    <MemVar>false</MemVar>
-    <Undeclared>false</Undeclared>
     <IncludePaths>$(CommonInclude)</IncludePaths>
     <Nostandarddefs>true</Nostandarddefs>
     <XSharpProjectExtensionsPath>$(MSBuildExtensionsPath)\XSharp\</XSharpProjectExtensionsPath>
+    <StandardDefs />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'" Label="Configuration">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -35,7 +28,7 @@
     <WarningLevel>4</WarningLevel>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <UseSharedCompilation>true</UseSharedCompilation>
-    <DisabledWarnings>162</DisabledWarnings>
+	<DisabledWarnings />
     <SignAssembly>true</SignAssembly>
     <DelaySign>false</DelaySign>
   </PropertyGroup>
@@ -49,7 +42,7 @@
     <WarningLevel>4</WarningLevel>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <UseSharedCompilation>true</UseSharedCompilation>
-    <DisabledWarnings>162</DisabledWarnings>
+	<DisabledWarnings />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Documentation|AnyCPU'">
     <EmitDebugInformation>true</EmitDebugInformation>
@@ -60,7 +53,7 @@
     <WarningLevel>4</WarningLevel>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <UseSharedCompilation>true</UseSharedCompilation>
-    <DisabledWarnings>162,171,553,1591</DisabledWarnings>
+    <DisabledWarnings>171,553,1591</DisabledWarnings>
     <DocumentationFile>XSharp.Core.Xml</DocumentationFile>
     <CommandLineOption>/noclipcall</CommandLineOption>
   </PropertyGroup>
@@ -144,6 +137,8 @@
     <Compile Include="Types\ErrorEnums.prg" />
     <Compile Include="Types\Interfaces.prg" />
     <Compile Include="Types\MacroSupport.prg" />
+    <Compile Include="Types\Streams.prg" />
+    <Compile Include="Types\UsualType.prg" />
     <Compile Include="Types\WrappedException.prg" />
   </ItemGroup>
   <ItemGroup>
@@ -261,12 +256,12 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
     <PreBuildEvent />
     <PostBuildEvent />
-    <RunPostBuildEvent>OnBuildSuccess</RunPostBuildEvent>
+    <RunPostBuildEvent />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
     <PreBuildEvent />
     <PostBuildEvent />
-    <RunPostBuildEvent>Always</RunPostBuildEvent>
+    <RunPostBuildEvent />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Documentation|AnyCPU'">
     <PreBuildEvent>copy $(Solutiondir)Runtime\XSharp.RT\VoFunctionDocs.xml $(Solutiondir)Runtime\XSharp.Core\VoFunctionDocs.xml &gt;NUL</PreBuildEvent>

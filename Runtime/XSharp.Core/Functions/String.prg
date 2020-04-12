@@ -110,11 +110,11 @@ FUNCTION AtC2(cSearch AS STRING,cTarget AS STRING) AS DWORD
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/atcline/*" />
 FUNCTION ATCLine(cSearch AS STRING,cTarget AS STRING) AS DWORD
-	RETURN AtLine( cSearch:ToUpper(), cTarget:ToUpper() )
+	RETURN ATLine( cSearch:ToUpper(), cTarget:ToUpper() )
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/atcline2/*" />
 FUNCTION ATCLine2(cSearch AS STRING,cTarget AS STRING) AS DWORD
-	RETURN AtLine2( cSearch:ToUpper(), cTarget:ToUpper() )
+	RETURN ATLine2( cSearch:ToUpper(), cTarget:ToUpper() )
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/atline/*" />
 FUNCTION ATLine(cSearch AS STRING,cTarget AS STRING) AS DWORD
@@ -129,7 +129,7 @@ FUNCTION ATLine(cSearch AS STRING,cTarget AS STRING) AS DWORD
 	IF (nPos > 0)
 		cTarget := Left( cTarget, nPos - 1 )
 		nPos := MemLines( cTarget)
-		IF cTarget:EndsWith(RuntimeState.EOL)
+		IF cTarget:EndsWith(RuntimeState.Eol)
 			nPos++
 		ENDIF
 	ENDIF
@@ -138,7 +138,7 @@ FUNCTION ATLine(cSearch AS STRING,cTarget AS STRING) AS DWORD
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/atline2/*" />
 FUNCTION ATLine2(cSearch AS STRING,cTarget AS STRING) AS DWORD
-	RETURN AtLine(cSearch, cTarget)
+	RETURN ATLine(cSearch, cTarget)
 
 /// <summary>This function is not implemented yet</summary>
 /// <param name="c"></param>
@@ -146,7 +146,7 @@ FUNCTION ATLine2(cSearch AS STRING,cTarget AS STRING) AS DWORD
 /// </returns>
 FUNCTION B64EncFile(c AS STRING) AS STRING
 	THROW NotImplementedException{}
-	RETURN String.Empty   
+	//RETURN String.Empty   
 
 /// <summary>This function is not implemented yet</summary>
 /// <param name="cIn"></param>
@@ -154,7 +154,7 @@ FUNCTION B64EncFile(c AS STRING) AS STRING
 /// </returns>
 FUNCTION B64EncString(cIn AS STRING) AS STRING
 	THROW NotImplementedException{}
-	RETURN String.Empty   
+	//RETURN String.Empty   
 
 
 
@@ -168,8 +168,8 @@ FUNCTION Buffer(dwSize AS DWORD) AS STRING
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/chareven/*" />
 FUNCTION CharEven(cString AS STRING) AS STRING
 	LOCAL evenChars:=NULL AS STRING
-    LOCAL c := cString as STRING
-	IF ( !string.IsNullOrEmpty(c) ) 
+    LOCAL c := cString AS STRING
+	IF ( !String.IsNullOrEmpty(c) ) 
 		//local chars  := c:ToCharArray() as char[]
 		LOCAL isEven := FALSE AS  LOGIC
 		LOCAL sb     := System.Text.StringBuilder{} AS System.Text.StringBuilder
@@ -214,8 +214,8 @@ FUNCTION CharMix(cOdd AS STRING,cEven AS STRING) AS STRING
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/charodd/*" />
 FUNCTION CharOdd(cString AS STRING) AS STRING
 	LOCAL oddChars:=NULL AS STRING
-    LOCAL c := cString as STRING
-	IF ( !string.IsNullOrEmpty(c) ) 
+    LOCAL c := cString AS STRING
+	IF ( !String.IsNullOrEmpty(c) ) 
 		//local chars  := c:ToCharArray() as char[]
 		LOCAL isOdd  := TRUE AS  LOGIC
 		LOCAL sb     := System.Text.StringBuilder{} AS System.Text.StringBuilder
@@ -233,9 +233,9 @@ FUNCTION CharOdd(cString AS STRING) AS STRING
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/charpos/*" />
 FUNCTION CharPos(cString AS STRING, wPosition AS DWORD) AS STRING
-	LOCAL result := string.Empty AS STRING
+	LOCAL result := String.Empty AS STRING
 	IF ( wPosition >= 1 .AND. wPosition <= (DWORD) cString:Length )
-		result := cString:SubString((INT)wPosition-1,1)
+		result := cString:Substring((INT)wPosition-1,1)
 	ENDIF
 	RETURN result
 
@@ -594,17 +594,17 @@ FUNCTION Proper(cText AS STRING) AS STRING
 			VAR cToAdd := ch
 			IF inside
 				IF Char.IsLetterOrDigit(ch)
-					cToAdd := char.ToLower(ch)
+					cToAdd := Char.ToLower(ch)
 				ELSE
 					inside := FALSE
 				ENDIF
 			ELSE
 				IF Char.IsLetterOrDigit(ch)
-					cToAdd := char.ToUpper(ch)
+					cToAdd := Char.ToUpper(ch)
 					inside := TRUE
 				ENDIF
 			ENDIF
-			sb:append(cToAdd)
+			sb:Append(cToAdd)
 		NEXT
 		cText := sb:ToString()
 	ENDIF
@@ -622,7 +622,7 @@ FUNCTION ProperA(cName REF STRING) AS STRING
 /// </returns>
 FUNCTION QPEncString(cIn AS STRING) AS STRING
 	THROW NotImplementedException{}
-	RETURN String.Empty   
+	//RETURN String.Empty   
 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/rat/*" />
@@ -798,7 +798,7 @@ INTERNAL FUNCTION _SoundExChar( c AS CHAR ) AS CHAR
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/strevaluate/*" />
 FUNCTION StrEvaluate(cString AS STRING) AS STRING
 	THROW NotImplementedException{}
-	RETURN String.Empty   
+	//RETURN String.Empty   
 
 
 
@@ -807,7 +807,7 @@ FUNCTION StrEvaluate(cString AS STRING) AS STRING
 FUNCTION Stuff(cTarget AS STRING,dwStart AS DWORD,dwDelete AS DWORD,cInsert AS STRING) AS STRING
 	LOCAL result := cInsert AS STRING
 	IF cTarget != NULL
-		IF string.IsNullOrEmpty(cInsert)
+		IF String.IsNullOrEmpty(cInsert)
 			cInsert := ""
 		ENDIF
 		IF dwStart > 0
@@ -819,7 +819,7 @@ FUNCTION Stuff(cTarget AS STRING,dwStart AS DWORD,dwDelete AS DWORD,cInsert AS S
 		ENDIF
 		LOCAL part2 := "" AS STRING
 		VAR iOffSet := (INT) (dwStart + dwDelete)
-		IF  iOffSet  < cTarget:length 
+		IF  iOffSet  < cTarget:Length 
 			part2 := cTarget:Substring( iOffSet )
 		ENDIF
 		result := part1 + cInsert + part2
@@ -897,7 +897,7 @@ FUNCTION UpperA(cString REF STRING) AS STRING
 /// </returns>
 FUNCTION UUDecodeLine(cLine AS STRING,hfOut AS IntPtr) AS DWORD
 	THROW NotImplementedException{}
-RETURN 0   
+//RETURN 0   
 
 /// <summary>This function is not implemented yet</summary>
 /// <param name="c"></param>
@@ -905,7 +905,7 @@ RETURN 0
 /// </returns>
 FUNCTION UUEncFile(c AS STRING) AS STRING
 	THROW NotImplementedException{}
-	RETURN String.Empty   
+	//RETURN String.Empty   
 
 /// <summary>This function is not implemented yet</summary>
 /// <param name="c"></param>
@@ -913,7 +913,7 @@ FUNCTION UUEncFile(c AS STRING) AS STRING
 /// </returns>
 FUNCTION UUEncLine(c AS STRING) AS STRING
 	THROW NotImplementedException{}
-	RETURN String.Empty   
+	//RETURN String.Empty   
 
 
 
@@ -968,7 +968,7 @@ FUNCTION IsXDigit(pszString AS STRING) AS LOGIC
 	IF ! String.IsNullOrEmpty( pszString )
 		LOCAL c AS CHAR
 		c := pszString[0]
-		IF char.IsDigit(c) .OR. ;
+		IF Char.IsDigit(c) .OR. ;
 			(c >= 'A' .AND. c <= 'F') .OR. ;
 			(c >= 'a' .AND. c <= 'f')
 			ret := TRUE
@@ -978,17 +978,19 @@ FUNCTION IsXDigit(pszString AS STRING) AS LOGIC
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/isspace/*" />
 FUNCTION IsSpace(pszString AS STRING) AS LOGIC
-	LOCAL ret := FALSE AS LOGIC
-	switch (int) pszString[0]
-		CASE 9
-        CASE 10
-        CASE 11
-        CASE 12
-        CASE 13
-        CASE 32
-            ret := true
-    end switch
-	RETURN ret
+    LOCAL ret := FALSE AS LOGIC
+    IF .not. String.IsNullOrEmpty(pszString)
+        SWITCH (INT) pszString[0]
+            CASE 9
+            CASE 10
+            CASE 11
+            CASE 12
+            CASE 13
+            CASE 32
+                ret := TRUE
+        END SWITCH
+    ENDIF
+    RETURN ret
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/isupper/*" />
 FUNCTION IsUpper(pszString AS STRING) AS LOGIC
@@ -1064,8 +1066,11 @@ FUNCTION _Like(sWildCard AS STRING, sSource AS STRING) AS LOGIC
 /// <summary>Determine if a string matches a wildcard pattern (like the wildcard pattern for the DIR command in the OS).</summary>
 /// <param name="sWildCard">The wildcard to use. '*' matches 0 or more characters until the next non-wildcard character, '?' matches any character, all other characters must match exactly.</param>
 /// <param name="sSource">The string to examine.</param>
-/// <remarks>This function is case INsensitive. If you want to do a case sensitive compare, use _Like()</remarks>
+/// <remarks>This function is case INsensitive in all dialects except FoxPro.
+/// If you want to do a case sensitive compare in these dialects, use _Like()</remarks>
 /// <seealso cref='M:XSharp.Core.Functions._Like(System.String,System.String)' >_Like</seealso>
 FUNCTION Like(sWildCard AS STRING, sSource AS STRING) AS LOGIC
+    IF XSharp.RuntimeState.Dialect == XSharpDialect.FoxPro
+        RETURN _Like(sWildCard, sSource)
+    ENDIF
     RETURN _Like(Upper(sWildCard), Upper(sSource))
-

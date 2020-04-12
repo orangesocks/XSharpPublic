@@ -53,6 +53,8 @@ namespace XSharp.Project.OptionsPages
         public bool DisableForeignProjectReferences { get; set; }
         public bool DisableXSharpProjectReferences { get; set; }
         public bool EnableOutputPane { get; set; }
+
+        public bool HideAdvancemembers { get; set; } // not on control. Is already on another page.
         protected override IWin32Window Window
         {
             get
@@ -134,7 +136,7 @@ namespace XSharp.Project.OptionsPages
 
         public string SyncKeyword(string original)
         {
-            if (string.IsNullOrEmpty(original))
+            if (string.IsNullOrEmpty(original) || string.Equals(original, "value", StringComparison.OrdinalIgnoreCase))
                 return original;
             return CaseSync(original);
         }

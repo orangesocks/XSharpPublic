@@ -68,12 +68,17 @@ BEGIN NAMESPACE XSharp.RDD.Enums
 		MEMBER DBS_DEC				:= 4
         /// <summary>Returns and optionally changes an alternate name (or alias) by which a field can be referenced (by default, same as DBS_NAME).  </summary>
 		MEMBER DBS_ALIAS			:= 5
+        /// <summary>Returns the field flags for a field (a value from the DBFFieldFlags enum)  </summary>
+		MEMBER DBS_FLAGS			:= 6
         /// <summary>Harbour extension: Returns the flag that indicates if a field is Nullable.</summary>
 		MEMBER DBS_ISNULL			:= 11
         /// <summary>Harbour extension: Returns the next available value for autoincrement fields.</summary>
 		MEMBER DBS_COUNTER			:= 12
         /// <summary>Harbour extension: Returns the step value for autoincrement fields.</summary>
 		MEMBER DBS_STEP				:= 13
+
+        /// <summary>Foxpro extension: Returns the field caption.</summary>
+		MEMBER DBS_CAPTION 		    := 14
 
         /// <summary>Gets a BLOB value.</summary>
 		MEMBER DBS_BLOB_GET			:= 101
@@ -95,7 +100,7 @@ BEGIN NAMESPACE XSharp.RDD.Enums
         /// or DBFieldInfo(DBS_BLOB_POINTER, &lt;nFieldPos&gt;).
         ///</summary>
 		MEMBER DBS_BLOB_DIRECT_LEN	:= 223
-        /// <summary></summary>
+        /// <summary>Return the RDD FieldInfo structure</summary>
 		MEMBER DBS_STRUCT			:= 998
         /// <summary>Returns the number of properties defined for a field.</summary>
 		MEMBER DBS_PROPERTIES		:= 999
@@ -410,6 +415,10 @@ BEGIN NAMESPACE XSharp.RDD.Enums
         /// <summary>Alias for DBOI_BAGEXT</summary>
 		MEMBER DBOI_INDEXEXT  	:= 8	
 		
+        /// <summary>FoxPro CDX Index collation</summary>
+		MEMBER DBOI_COLLATION  	:= 10
+
+
 		// 14-19 missing
         /// <summary>String: The full path to the index file (Bag)</summary>
 		MEMBER DBOI_FULLPATH 	:= 20   
@@ -533,13 +542,20 @@ BEGIN NAMESPACE XSharp.RDD.Enums
     [Flags];
     ENUM DBFFieldFlags AS BYTE
         MEMBER None             := 0x00
+        /// <summary>System Field ?</summary>
         MEMBER System           := 0x01
+        /// <summary>Field is Nullable</summary>
         MEMBER Nullable         := 0x02
+        /// <summary>Field is Binary</summary>
         MEMBER Binary           := 0x04
+        /// <summary>Field is AutoIncrement</summary>
         MEMBER AutoIncrement    := 0x08
         // Harbour additions
+        /// <summary>Field is Compressed (not used yet, for compatibility with Harbour)</summary>
         MEMBER Compressed       := 0x10
+        /// <summary>Field is Encrypted (not used yet, for compatibility with Harbour)</summary>
         MEMBER Encrypted        := 0x20
+        /// <summary>Field contains Unicode text</summary>
         MEMBER Unicode          := 0x40
         
     END ENUM
@@ -561,32 +577,28 @@ BEGIN NAMESPACE XSharp.RDD.Enums
 		MEMBER VOObject		:= 79  	
 		// FoxPro types in 'Name' order
 
-        /// <summary>'W' = Blob 4 or 10 bytes</summary>
+        /// <summary>'W' = Blob 4 or 10 bytes VFP type</summary>
 		MEMBER Blob			:= 87
         //MEMBER Character 		:= 67 	 
-        /// <summary> 'Y'	8 byte FOX Type</summary>
+        /// <summary> 'Y'	VFP Type 8 byte </summary>
 		MEMBER Currency		:= 89
-        // MEMBER Date	 		:= 68 	 
-        /// <summary>'B'	FOX Type, also '8'</summary>
+        /// <summary>'B'	VFP Type, also '8'</summary>
 		MEMBER Double		:= 66  	 
-        /// <summary>'T'	FOX Type can be 4 or 8 bytes</summary>
+        /// <summary>'T'	VFP Type can be 4 or 8 bytes</summary>
 		MEMBER DateTime		:= 84  	 
-        /// <summary>'F'	FOX Type, uses len and dec</summary>
+        /// <summary>'F'	VFP Type, uses len and dec</summary>
 		MEMBER Float		:= 70  	 
-        /// <summary>'G' = Ole 4 or 10 bytes</summary>
+        /// <summary>'G'    VFP type Ole 4 or 10 bytes </summary>
 		MEMBER General		:= 71	 
-        /// <summary>'I'	FOX Type , autoInc</summary>
+        /// <summary>'I'	VFP Type , may be autoInc</summary>
 		MEMBER Integer		:= 73  	 
-        /// <summary>'P'	FOX Type, 4 or 10 bytes</summary>
-        // MEMBER Logic   		:= 76
-        // MEMBER Number    		:= 78  	 
+        /// <summary>'P'	VFP Type, 4 or 10 bytes</summary>
 		MEMBER Picture		:= 80  	 
-        /// <summary>'Q' = VarBinary , between 1 and 255 </summary>
+        /// <summary>'Q'    VFP Type=, between 1 and 255 </summary>
 		MEMBER VarBinary		:= 81	 
-        /// <summary>'V' = Any</summary>
+        /// <summary>'V'    VFP Type </summary>
 		MEMBER VarChar      := 86	 
-
-        /// <summary>'0' = Null Flags</summary>
+        /// <summary>'0'    VFP Type, contains Null Flags</summary>
         MEMBER NullFlags        := 48
 
         // other types for Harbour will be supported later
@@ -770,6 +782,7 @@ BEGIN NAMESPACE XSharp.RDD.Enums
 		
 	END ENUM
 
+    /// <summary>Flags that describe how a DbSort operation can be done.</summary>
     [Flags];
     ENUM DbSortFlags
 	    /// <summary>An ascending sort (default)   </summary>
@@ -798,7 +811,7 @@ BEGIN NAMESPACE XSharp.RDD.Enums
     END ENUM
 
 
-    /// <summary>Enum that described the possible Notification messages that are sent to clients of workareas</summary>
+    /// <summary>Enum that described the possible Notification messages that are sent to clients of Workareas</summary>
     /// <remarks>Clients that want to subscribe to these notifications can register themselves by calling DbRegisterClient() and must implement IDbNotify().</remarks>
     /// <seealso cref="T:XSharp.IDbNotify"/>
     /// <seealso cref="M:XSharp.Core.Functions.DbRegisterClient(XSharp.IDbNotify)"/>
@@ -842,6 +855,8 @@ BEGIN NAMESPACE XSharp.RDD.Enums
         MEMBER RecordLocked
         /// <summary>This message is sent after a record has been unlocked. The Data parameter is the record number of the record.</summary>
         MEMBER RecordUnLocked
+        /// <summary>This message is sent after a Workarea was commited. The Data parameter is the file name of area.</summary>
+        MEMBER FileCommit 
         /// <summary>This message is sent after an operation failed. The Data parameter is the description of the operation.</summary>
         MEMBER OperationFailed    := 99
     END ENUM

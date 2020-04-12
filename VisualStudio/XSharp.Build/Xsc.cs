@@ -304,6 +304,13 @@ namespace XSharp.Build
             get { return base.GetBoolParameterWithDefault(nameof(ReportAnalyzer), false); }
         }
 
+        public bool UseNativeVersion
+        {
+            set { base.Bag[nameof(UseNativeVersion)] = value; }
+            get { return (bool)base.Bag[nameof(UseNativeVersion)]; }
+
+        }
+
         public bool VulcanCompatibleResources
         {
             set { base.Bag[nameof(VulcanCompatibleResources)] = value; }
@@ -481,6 +488,7 @@ namespace XSharp.Build
             var commandLine = new XSharpCommandLineBuilder(false);
             commandLine.AppendWhenTrue("/noconfig", base.Bag, nameof(NoConfig));
             commandLine.AppendWhenTrue("/shared", base.Bag, nameof(UseSharedCompilation));
+            commandLine.AppendWhenTrue("/cs", base.Bag, nameof(CS));
             return commandLine.ToString();
         }
 
@@ -679,10 +687,11 @@ namespace XSharp.Build
                 commandline.AppendSwitch("/ns:" + this.RootNameSpace);
             }
             commandline.AppendPlusOrMinusSwitch("/az", base.Bag, nameof(AZ));
-            //commandline.AppendPlusOrMinusSwitch("/cs", base.Bag, nameof(CS));
+            commandline.AppendPlusOrMinusSwitch("/cs", base.Bag, nameof(CS));
             commandline.AppendPlusOrMinusSwitch("/initlocals", base.Bag, nameof(InitLocals));
             commandline.AppendPlusOrMinusSwitch("/ins", base.Bag, nameof(INS));
             commandline.AppendPlusOrMinusSwitch("/lb", base.Bag, nameof(LB));
+            commandline.AppendPlusOrMinusSwitch("/usenativeversion", base.Bag, nameof(UseNativeVersion));
             commandline.AppendPlusOrMinusSwitch("/namedarguments", base.Bag, nameof(NamedArgs));
             if (Dialect.ToLower() != "core" && Dialect.ToLower() != "vulcan")
             {

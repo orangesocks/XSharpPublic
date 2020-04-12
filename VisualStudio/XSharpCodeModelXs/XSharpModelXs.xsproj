@@ -136,6 +136,13 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\Common\commonAssemblyInfo.prg" >
+      <Link>Properties\commonAssemblyInfo.prg</Link>
+    </Compile>
+	
+    <Compile Include="..\..\Common\constants.prg">
+      <Link>Properties\constants.prg</Link>
+    </Compile>
     <Compile Include="CompletionType.prg" />
     <Compile Include="ExtensionMethods.prg" />
     <Compile Include="Interfaces.prg" />
@@ -157,6 +164,7 @@
     <Compile Include="Walker\ModelWalker.prg" />
     <Compile Include="Walker\Parser.prg" />
     <Compile Include="Walker\ParseResult.prg" />
+    <Compile Include="Walker\ParserV2.prg" />
     <Compile Include="Walker\SourceWalker.prg" />
     <Compile Include="XError.prg" />
     <Compile Include="XFileTypeHelpers.prg" />

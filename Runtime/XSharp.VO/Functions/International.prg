@@ -40,12 +40,12 @@ FUNCTION MBAtC2(cMBSearch AS STRING,cMBTarget AS STRING) AS DWORD
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/mbatline/*" />
 /// <remarks><note type="tip">This function is the same as AtLine() since .Net has unicode strings</note></remarks>
 FUNCTION MBAtLine(cMBSearch AS STRING,cMBTarget AS STRING) AS LONGINT
-	RETURN (LONG) AtLine(cMBSearch, cMBTarget)   
+	RETURN (LONG) ATLine(cMBSearch, cMBTarget)   
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/mbatline2/*" />
 /// <remarks><note type="tip">This function is the same as AtLine2() since .Net has unicode strings</note></remarks>
 FUNCTION MBAtLine2(cMBSearch AS STRING,cMBTarget AS STRING) AS DWORD
-	RETURN AtLine2(cMBSearch, cMBTarget)   
+	RETURN ATLine2(cMBSearch, cMBTarget)   
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/mbleft/*" />
 /// <remarks><note type="tip">This function is the same as Left() since .Net has unicode strings</note></remarks>
@@ -75,7 +75,7 @@ FUNCTION MBRat2(cMBSearch AS STRING,cMBTarget AS STRING) AS DWORD
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/mbrat3/*" />
 /// <remarks><note type="tip">This function is the same as Rat3() since .Net has unicode strings</note></remarks>
 FUNCTION MBRat3(cMBSearch AS STRING,cMBTarget AS STRING,wOffset AS DWORD) AS DWORD
-	RETURN RAt3(cMBSearch, cMBTarget, wOffSet)
+	RETURN RAt3(cMBSearch, cMBTarget, wOffset)
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/mbright/*" />
 /// <remarks><note type="tip">This function is the same as Right() since .Net has unicode strings</note></remarks>
@@ -137,7 +137,7 @@ FUNCTION SetAppLocaleID(uiNewLocale AS DWORD) AS DWORD
 /// </returns>
 FUNCTION SetClipCompFunc(pFunc AS OBJECT) AS IntPtr
 	THROW NotImplementedException{}
-	RETURN IntPtr.Zero
+	//RETURN IntPtr.Zero
 
 
 /// <summary>This function is not implemented yet</summary>
@@ -146,7 +146,7 @@ FUNCTION SetClipCompFunc(pFunc AS OBJECT) AS IntPtr
 /// </returns>
 FUNCTION SetWinCompFlags(n AS OBJECT) AS LONG
 	THROW NotImplementedException{}
-	RETURN 0   
+	//RETURN 0   
 
 /// <summary>This function is not implemented yet</summary>
 /// <summary>
@@ -156,7 +156,7 @@ FUNCTION SetWinCompFlags(n AS OBJECT) AS LONG
 /// </returns>
 FUNCTION SetWinCompFunc(pFunc AS OBJECT) AS IntPtr
 	THROW NotImplementedException{}
-	RETURN IntPtr.Zero
+	//RETURN IntPtr.Zero
 
 /// <exclude />
 [Obsolete];
@@ -172,7 +172,7 @@ FUNCTION NationExit() AS INT
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/nversion/*" />
 FUNCTION NVersion() AS STRING
 	THROW NotImplementedException{}
-	RETURN String.Empty 
+	//RETURN String.Empty 
 
 /// <exclude />
 FUNCTION MAKELANGID( p AS WORD, s AS WORD ) AS WORD

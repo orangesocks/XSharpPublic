@@ -159,7 +159,15 @@ BEGIN NAMESPACE XSharp.VO.Tests
 			Assert.Equal( 0, (INT) a[1])
 			Assert.Equal( 8, (INT) a[6])
 
+			a := {8,2,1,4,3,0}
+			ASort(a , 0 , 100,IntegerSorter{})
+			Assert.Equal( 0, (INT) a[1])
+			Assert.Equal( 8, (INT) a[6])
 
+			ASort(a , 0 , 100,{|a,b| b < a})
+			Assert.Equal( 0, (INT) a[6])
+			Assert.Equal( 8, (INT) a[1])
+        
 		[Trait("Category", "Array")];
 		[Fact];
 		METHOD AscanTest() AS VOID
@@ -276,6 +284,75 @@ BEGIN NAMESPACE XSharp.VO.Tests
 			ACopy(aValues, aDest)
 			Assert.Equal( 1, (INT) aDest[1])
 			Assert.Equal( 2, (INT) aDest[2])
+
+
+		[Trait("Category", "Array")];
+		[Fact];
+		METHOD ACopyTestsNew() AS VOID
+			LOCAL aValues AS ARRAY
+			LOCAL aDest   AS ARRAY
+
+			aValues := {1,2}
+			
+			aDest   := {NIL,NIL,NIL}
+			ACopy(aValues, aDest)
+			Assert.True( aDest[1] == 1)
+			Assert.True( aDest[2] == 2)
+			Assert.True( aDest[3] == NIL)
+
+			aDest   := {NIL,NIL,NIL}
+			ACopy(aValues, aDest,,,)
+			Assert.True( aDest[1] == 1)
+			Assert.True( aDest[2] == 2)
+			Assert.True( aDest[3] == NIL)
+
+			aDest   := {NIL,NIL,NIL}
+			ACopy(aValues, aDest,,,1)
+			Assert.True( aDest[1] == 1)
+			Assert.True( aDest[2] == 2)
+			Assert.True( aDest[3] == NIL)
+
+			aDest   := {NIL,NIL,NIL}
+			ACopy(aValues, aDest,,,2)
+			Assert.True( aDest[1] == NIL)
+			Assert.True( aDest[2] == 1)
+			Assert.True( aDest[3] == 2)
+
+			aDest   := {NIL,NIL,NIL}
+			ACopy(aValues, aDest,2)
+			Assert.True( aDest[1] == 2)
+			Assert.True( aDest[2] == NIL)
+			Assert.True( aDest[3] == NIL)
+
+			aDest   := {NIL,NIL,NIL}
+			ACopy(aValues, aDest,-1)
+			Assert.True( aDest[1] == 2)
+			Assert.True( aDest[2] == NIL)
+			Assert.True( aDest[3] == NIL)
+
+			aDest   := {NIL,NIL,NIL}
+			ACopy(aValues, aDest,-2)
+			Assert.True( aDest[1] == 2)
+			Assert.True( aDest[2] == NIL)
+			Assert.True( aDest[3] == NIL)
+
+			aDest   := {NIL,NIL,NIL}
+			ACopy(aValues, aDest, ,1)
+			Assert.True( aDest[1] == 1)
+			Assert.True( aDest[2] == NIL)
+			Assert.True( aDest[3] == NIL)
+
+			aDest   := {NIL,NIL,NIL}
+			ACopy(aValues, aDest, ,2)
+			Assert.True( aDest[1] == 1)
+			Assert.True( aDest[2] == 2)
+			Assert.True( aDest[3] == NIL)
+
+			aDest   := {NIL,NIL,NIL}
+			ACopy(aValues, aDest, ,-1)
+			Assert.True( aDest[1] == 1)
+			Assert.True( aDest[2] == NIL)
+			Assert.True( aDest[3] == NIL)
 
 
 		[Trait("Category", "Array")];
@@ -408,4 +485,9 @@ BEGIN NAMESPACE XSharp.VO.Tests
 	
 
 	END CLASS
+    CLASS IntegerSorter
+        METHOD Eval(a,b)
+            RETURN a <= b
+
+    END CLASS
 END NAMESPACE // XSharp.Runtime.Tests

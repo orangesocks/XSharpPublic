@@ -310,11 +310,16 @@ METHOD SetMdiClientWindow(hNewMdiClientWnd)
 	RETURN NIL
 END CLASS
 
+/// <exclude/>
 GLOBAL gatomVOObjPtr AS DWORD
+/// <exclude/>
 GLOBAL gdwDragListMsg AS DWORD
+/// <exclude/>
 GLOBAL glCAPaintInit := FALSE AS LOGIC
 
+/// <exclude/>
 GLOBAL gpfnInitCommonControlsEx AS InitCommonControlsEx PTR
+/// <exclude/>
 GLOBAL gsymBrowserDef AS SYMBOL
 
 PROCEDURE __InitFunctionPointer() _INIT3
@@ -326,29 +331,33 @@ PROCEDURE __InitFunctionPointer() _INIT3
 	IF hModule == NULL_PTR
 		hModule := LoadLibrary(String2Psz("COMCTL32.DLL"))
 	ENDIF
-	gpfnInitCommonControlsEx := GetProcAddress(hModule, String2Psz("InitCommonControlsEx"))
+	if hModule != NULL_PTR
+		gpfnInitCommonControlsEx := GetProcAddress(hModule, String2Psz("InitCommonControlsEx"))
 
-	IF (gpfnInitCommonControlsEx != NULL_PTR)
-		icex:dwSize := _SIZEOF(_winINITCOMMONCONTROLSEX)
-		icex:dwICC := _OR(ICC_WIN95_CLASSES, ICC_DATE_CLASSES, ICC_USEREX_CLASSES, ICC_COOL_CLASSES, ICC_INTERNET_CLASSES, ICC_LINK_CLASS)
-		IF !PCALL(gpfnInitCommonControlsEx, @icex)
-			icex:dwICC := _AND(icex:dwICC, DWORD(_NOT(ICC_LINK_CLASS)))
+		IF (gpfnInitCommonControlsEx != NULL_PTR)
+			icex:dwSize := _SIZEOF(_winINITCOMMONCONTROLSEX)
+			icex:dwICC := _OR(ICC_WIN95_CLASSES, ICC_DATE_CLASSES, ICC_USEREX_CLASSES, ICC_COOL_CLASSES, ICC_INTERNET_CLASSES, ICC_LINK_CLASS)
 			IF !PCALL(gpfnInitCommonControlsEx, @icex)
-				icex:dwICC := _AND(icex:dwICC, _NOT(ICC_INTERNET_CLASSES))
+				icex:dwICC := _AND(icex:dwICC, DWORD(_NOT(ICC_LINK_CLASS)))
 				IF !PCALL(gpfnInitCommonControlsEx, @icex)
-					gpfnInitCommonControlsEx := NULL_PTR
+					icex:dwICC := _AND(icex:dwICC, _NOT(ICC_INTERNET_CLASSES))
+					IF !PCALL(gpfnInitCommonControlsEx, @icex)
+						gpfnInitCommonControlsEx := NULL_PTR
+					ENDIF
 				ENDIF
 			ENDIF
 		ENDIF
-	ENDIF
 
-	IF (gpfnInitCommonControlsEx == NULL_PTR)
-		InitCommonControls()                                    
-	ENDIF
+		IF (gpfnInitCommonControlsEx == NULL_PTR)
+			InitCommonControls()                                    
+		ENDIF
 
-	gdwDragListMsg := RegisterWindowMessage(String2Psz(DRAGLISTMSGSTRING))
-	gatomVOObjPtr 	:= GlobalAddAtom(String2Psz("__VOObjPtr"))
-	gsymBrowserDef := IIF(File("CATO3CNT.DLL"), #DataBrowser, #DataListView)
+		gdwDragListMsg := RegisterWindowMessage(String2Psz(DRAGLISTMSGSTRING))
+		gatomVOObjPtr 	:= GlobalAddAtom(String2Psz("__VOObjPtr"))
+		gsymBrowserDef := IIF(File("CATO3CNT.DLL"), #DataBrowser, #DataListView)
+	// else 
+	// should throw an error here ?
+	endif
 	RETURN
 
 GLOBAL oApp AS App

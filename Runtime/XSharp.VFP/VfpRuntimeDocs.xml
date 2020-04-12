@@ -1,0 +1,491 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Runtimefunctions>
+  <addbs>
+    <summary>Adds a backslash (if needed) to a path expression.</summary>
+    <param name="cPath">Specifies the path name to which to add the backslash.</param>
+    <returns>Character</returns>
+    <examples>
+       <code language="X#">
+        *-- Both print C:\Windows\
+        ? AddBs( "C:\Windows" )
+        ? AddBs( "C:\Windows\" )
+      </code>
+    </examples>
+  </addbs>
+  <justcommon>
+    <seealso cref='M:XSharp.VFP.Functions.AddBs(System.String)' />
+    <seealso cref='M:XSharp.VFP.Functions.JustDrive(System.String)' />
+    <seealso cref='M:XSharp.VFP.Functions.JustExt(System.String)' />
+    <seealso cref='M:XSharp.VFP.Functions.JustFName(System.String)' />
+    <seealso cref='M:XSharp.VFP.Functions.JustPath(System.String)' />
+    <seealso cref='M:XSharp.VFP.Functions.JustStem(System.String)' />
+
+    <param name="cPath">
+      Specifies the name, which may include the full path, of the file for which you want to extract information.
+      The maximum length of the string passed to cPath is determined by the Operating System.
+    </param>
+    <returns>String</returns>
+    <example>
+      <code language="X#">
+        ? JustDrive("C:\Folder\test.txt")  // C:
+        ? JustExt("C:\Folder\test.txt")    // .txt
+        ? JustPath("C:\Folder\test.txt")   // C:\Folder
+        ? JustFName("C:\Folder\test.txt")  // test.txt
+        ? JustStem("C:\Folder\test.txt")   // test
+      </code>
+    </example>
+  </justcommon>
+
+  <justdrive>
+    <summary>Returns the drive letter from a complete path.</summary>
+  </justdrive>
+  <justext>
+    <summary>Returns the characters of a file extension from a complete path.</summary>
+  </justext>
+  <justfname>
+    <summary>Returns the file name portion of a complete path and file name.</summary>
+  </justfname>
+  <justpath>
+    <summary>Returns the path portion of a complete path and file name.</summary>
+  </justpath>
+  <juststem>
+    <summary>Returns the stem name (the file name before the extension) from a complete path and file name.</summary>
+  </juststem>
+  <at>
+    <summary>Returns the beginning numeric position of the first occurrence of a character expression or memo field within another character expression or memo field, counting from the leftmost character.</summary>
+    <param name="cSearchExpression">Specifies the character expression that At( ) searches for in cExpressionSearched.</param>
+    <param name="cExpressionSearched">Specifies the character expression cSearchExpression searches for.<br/>Both cSearchExpression and cExpressionSearched can be memo fields of any size.</param>
+    <param name="nOccurrence">Specifies which occurrence (first, second, third, and so on) of cSearchExpression is searched for in cExpressionSearched. By default, At( ) searches for the first occurrence of cSearchExpression (nOccurrence = 1). Including nOccurrence lets you search for additional occurrences of cSearchExpression in cExpressionSearched. AT_C( ) returns 0 if nOccurrence is greater than the number of times cSearchExpression occurs in cExpressionSearched.</param>
+    <returns>Numeric</returns>
+    <remarks>
+      At( ) searches the second character expression for the first occurrence of the first character expression. It then returns an integer indicating the position of the first character in the character expression found. If the character expression isn't found, At( ) returns 0.<br/>
+      The search performed by At( ) is case-sensitive. To perform a search that isn't case-sensitive, use AtC( ).
+    </remarks>
+  </at>
+  <at_c>
+    <summary>This is an alias for the At() function. X# works with unicode and the difference between single byte and multi byte characters does not exist in Unicode</summary>
+    <seealso cref="M:XSharp.VFP.Functions.At(System.String,System.String,System.UInt32)">At</seealso>
+  </at_c>
+  <atc>
+    <summary>Returns the beginning numeric position of the first occurrence of a character expression or memo field within another character expression or memo field, without regard for the case of these two expressions.</summary>
+    <param name="cSearchExpression">Specifies the character expression that AtC( ) searches for in cExpressionSearched.</param>
+    <param name="cExpressionSearched">Specifies the character expression cSearchExpression searches for. <br/>
+      Both cSearchExpression and cExpressionSearched can be memo fields of any size.</param>
+    <param name="nOccurrence">
+      Specifies which occurrence (first, second, third, and so on) of cSearchExpression is searched for in cExpressionSearched. <br/>
+      By default, AtcC( ) searches for the first occurrence of cSearchExpression (nOccurrence = 1). Including nOccurrence lets you search for additional occurrences of cSearchExpression in cExpressionSearched.</param>
+    <returns>Numeric</returns>
+  </atc>
+  <atcc>
+    <summary>This is an alias for the AtC() function. X# works with unicode and the difference between single byte and multi byte characters does not exist in Unicode</summary>
+    <seealso cref="M:XSharp.VFP.Functions.AtC(System.String,System.String,System.UInt32)">AtC</seealso>
+  </atcc>
+  <dtot>
+    <summary>
+      Returns a DateTime value from a Date expression.
+    </summary>
+    <param name="dDateExpression">
+      Specifies the Date expression from which a DateTime value is returned.
+    </param>
+    <returns>
+      DateTime
+    </returns>
+    <remarks>
+      The format of the DateTime value DToT( ) returns depends on the current SET DATE and SET MARK settings. If a century isn't supplied, the twentieth century is assumed.
+      DToT( ) adds a default time of 12:00:00 AM (if SET HOURS is 12) or 00:00:00 (if SET HOURS is 24) to the date to produce a valid DateTime value.
+    </remarks>
+    <example>
+       <code language="X#">
+        SET HOURS TO 12
+        ? DToT({^2004-02-16}) &amp;&amp; Displays 02/16/2004 12:00:00 AM
+      </code>
+    </example>
+  </dtot>
+  <hour>
+    <summary>
+      Returns the hour portion from a DateTime expression.
+    </summary>
+    <param name="tExpression">
+      Specifies a DateTime expression from which Hour( ) returns the hour.
+    </param>
+    <returns>
+      Numeric
+    </returns>
+    <remarks>
+      Hour( ) returns a numeric value based on a 24 hour format, and is not affected by the current setting of SET HOURS. For example, if SET HOURS is 12 or 24, the following command returns 13:
+       <code language="X#">? Hour({^1998-02-16 1:00p})</code>
+    </remarks>
+    <example>
+       <code language="X#">
+        CLEAR
+        ? Hour(DateTime( ))
+        ? Hour({^1998-02-16 10:42a})  &amp;&amp; Displays 10
+      </code>
+    </example>
+  </hour>
+  <minute>
+    <summary>
+      Returns the minute portion from a DateTime expression.
+    </summary>
+    <param name="tExpression">
+      Specifies the DateTime expression from which the minute portion is returned.
+    </param>
+    <returns>
+      Numeric
+    </returns>
+    <example>
+       <code language="X#">
+        CLEAR
+        ? Minute(DateTime( ))
+        ? Minute({^1998-02-16 10:42a})  &amp;&amp; Displays 42
+      </code>
+    </example>
+  </minute>
+  <sec>
+    <summary>
+      Returns the seconds portion from a DateTime expression.
+    </summary>
+    <param name="tExpression">
+      Specifies the DateTime expression from which SEC( ) returns the second. If tExpression contains only a date and not a time, X# adds a default time of 12:00:00 AM (if SET HOURS is 12) or 00:00:00 (if SET HOURS is 24) to tExpression to produce a valid DateTime value.
+    </param>
+    <returns>
+      Numeric
+    </returns>
+    <example>
+       <code language="X#">
+        CLEAR
+        ? SEC(DateTime( ))
+        ? SEC({^2004-02-16 10:42:16AM})  &amp;&amp; Displays 16
+      </code>
+    </example>
+  </sec>
+  <ttod>
+    <summary>
+      Returns a Date value from a DateTime expression.
+    </summary>
+    <param name="tExpression">
+      Specifies a date and time expression from which TToD( ) returns a Date value. tExpression must evaluate to a valid DateTime. If tExpression contains only a time, X# adds the default date of 12/30/1899 to tExpression and returns this default date.
+    </param>
+    <returns>
+      Date
+    </returns>
+    <example>
+       <code language="X#">
+        STORE DateTime( ) TO gtDtime  &amp;&amp; Creates a Datetime type memory variable
+        CLEAR
+        ? "gtDtime is type: "
+        ?? Type('gtDtime')  &amp;&amp; Displays T, Datetime type value
+        gtDtime = TToD(gtDtime)     &amp;&amp;  Converts gtDtime to a date value
+        ? "gtDtime is now type: "
+        ?? Type('gtDtime')  &amp;&amp; Displays D, character type value
+      </code>
+    </example>
+  </ttod>
+  <leftc>
+    <summary>
+      Returns a specified number of characters from a character expression, starting with the leftmost character.
+    </summary>
+    <param name="cExpression">
+      Specifies the character expression from which <b>LeftC( )</b> returns characters.
+    </param>
+    <param name="nExpression">
+      Specifies the number of characters returned from the character expression. If nExpression is greater than the length of cExpression, all of the character expression is returned. The empty string is returned if nExpression is negative or 0.
+    </param>
+    <returns>
+      Character
+    </returns>
+    <remarks>
+      <b>LeftC( )</b> is designed for expressions containing double-byte characters. If the expression contains only single-byte characters, <b>LeftC( )</b> is equivalent to <b>LEFT( )</b>.
+      <b>LeftC( )</b> returns a specified number of characters from a character expression containing any combination of single-byte and double-byte characters.
+      <b>LeftC( )</b> is identical to <b>SubStrC( )</b> with a starting position of 1.
+      This function is useful for manipulating double-byte character sets for languages such as Hiragana and Katakana.
+    </remarks>
+  </leftc>
+  <lenc>
+    <summary>
+      Returns the number of characters in a character expression or memo field.
+    </summary>
+    <param name="cExpression">
+      Specifies the character expression for which <b>LenC( )</b> returns the number of characters.
+    </param>
+    <returns>
+      Numeric
+    </returns>
+    <remarks>
+      <b>LenC( )</b> is designed for expressions containing double-byte characters. If the expression contains only single-byte characters, <b>LenC( )</b> is equivalent to <b>LEN( )</b>.
+      <b>LenC( )</b> returns the number of characters in a character expression or memo field containing any combination of single-byte and double-byte characters.
+      This function is useful for manipulating double-byte character sets for languages such as Hiragana and Katakana.
+    </remarks>
+  </lenc>
+  <likec>
+    <summary>
+      Determines whether a character expression matches another character expression.
+    </summary>
+    <param name="cExpression1">
+      Specifies the character expression that <b>LikeC( )</b> compares with cExpression2. cExpression1 can contain wild cards such as * and ?. A question mark (?) matches any single character in cExpression2 and an asterisk (*) matches any number of characters. You can mix any number of wild cards in any combination in cExpression1.
+    </param>
+    <param name="cExpression2">
+      Specifies the character expression <b>LikeC( )</b> compares with cExpression1. cExpression2 must match cExpression1 character for character in order for <b>LIKE(</b> <b>)</b> to return true (.T.).
+    </param>
+    <returns>
+      Logical
+    </returns>
+    <remarks>
+      <b>LikeC( )</b> is designed for expressions containing double-byte characters. If the expression contains only single-byte characters, LikeC( ) is equivalent to LIKE( ).
+      <b>LikeC( )</b> determines if a character expression matches another character expression. <b>LikeC( )</b> returns true (.T.) if cExpression1 matches cExpression2; otherwise, it returns false (.F.).
+      <b>SET COMPATIBLE</b> determines how <b>LikeC( )</b> compares blanks in cExpression1 and cExpression2. If <b>SET COMPATIBLE</b> is set to ON or DB4, all trailing blanks are removed from cExpression1 and cExpression2 before they are compared. If <b>SET COMPATIBLE</b> is set to OFF or FOXPLUS, any trailing blanks in cExpression1 and cExpression2 are used in the comparison.
+      This function is useful for manipulating double-byte character sets for languages such as Hiragana and Katakana.
+    </remarks>
+  </likec>
+  <rightc>
+    <summary>
+      Returns the specified number of rightmost characters from a character string.
+    </summary>
+    <param name="cExpression">
+      Specifies the character expression whose rightmost characters are returned.
+    </param>
+    <param name="nCharacters">
+      Specifies the number of characters returned from the character expression. RightC( ) returns the entire character expression if nCharacters is greater than the length of cExpression. RightC( ) returns an empty string if nCharacters is negative or 0.
+    </param>
+    <returns>
+      Character
+    </returns>
+    <remarks>
+      RightC( ) is designed for expressions containing double-byte characters. If the expression contains only single-byte characters, RightC( ) is equivalent to RIGHT( ).
+      Characters are returned beginning with the last character on the right and continuing for nCharacters.
+      This function is useful for manipulating double-byte character sets for languages such as Hiragana and Katakana.
+    </remarks>
+  </rightc>
+  <stuffc>
+    <summary>
+      Returns a character string created by replacing a specified number of characters in a character expression with another character expression.
+    </summary>
+    <param name="cExpression">
+
+      Specify the character expression in which the replacement occurs.
+
+    </param>
+    <param name="nStartReplacement">
+      Specifies the character position in cExpression where the replacement begins.
+    </param>
+    <param name="nCharactersReplaced">
+      Specifies the number of characters to be replaced. If nCharactersReplaced is 0, the entire replacement string cReplacement is inserted into cExpression.
+    </param>
+    <param name="cReplacement">
+
+      Specifies the replacement character expression. If cReplacement is the empty string, 
+      the number of characters specified by nCharactersReplaced are removed from cExpression.
+    </param>
+    <returns>
+      Character
+    </returns>
+    <remarks>
+      StuffC( ) is designed for expressions containing double-byte characters. 
+      If the expression contains only single-byte characters, StuffC( ) is equivalent to Stuff( ).<br/>
+      StuffC( ) returns a character string created by replacing a specified number of characters in a character expression 
+      with another character expression. The character expressions can consist of any combination of single-byte and double-byte characters.<br/>
+      This function is useful for manipulating double-byte character sets for languages such as Hiragana and Katakana.
+    </remarks>
+  </stuffc>
+  <substrc>
+    <summary>
+      Returns a character string from the given character expression or memo field.
+    </summary>
+    <param name="cExpression">
+      Specifies the character expression or memo field from which the character string is returned.
+    </param>
+    <param name="nStartPosition">
+      Specifies the position in the character expression or memo field cExpression from where the character string is returned. The first character of cExpression is position 1.
+      If TALK is set to ON and nStartPosition is greater than the number of characters in cExpression, X# generates an error message. If TALK is set to OFF, the empty string is returned.
+    </param>
+    <param name="nCharactersReturned">
+      Specifies the number of characters to return from cExpression. If you omit nCharactersReturned, characters are returned until the end of the character expression is reached.
+    </param>
+    <returns>
+      Character
+    </returns>
+    <remarks>
+      SubStrC( ) is designed for expressions containing double-byte characters. If the expression contains only single-byte characters, SubStrC( ) is equivalent to SUBSTR( ).
+      SubStrC( ) returns a character string from the given character expression or memo field. The character expression or memo field can contain any combination of single-byte and double-byte characters.
+      SubStrC( ) will not return a value for a memo field when issued in the Debug window. To return a value in the Debug window, place the memo field name within ALLTRIM( ), and place ALLTRIM( ) within SubStrC( ).
+      This function is useful for manipulating double-byte character sets for languages such as Hiragana and Katakana.
+    </remarks>
+  </substrc>
+  <fldcount>
+    <summary>
+      This function is a synonym to FCount() Function.
+    </summary>
+    <seealso cref='M:XSharp.RT.Functions.FCount' />
+    <seealso cref='M:XSharp.RT.Functions.FCount(XSharp.__Usual)' />
+  </fldcount>
+  <mton>
+    <summary>
+      Returns a Numeric value from a Currency expression.
+    </summary>
+    <param name="mExpression">
+
+      Specifies a Currency expression whose value MToN( ) returns. mExpression must evaluate to a valid Currency value or X# generates an error.
+      Currency values are created by placing a dollar sign ($) prefix immediately before a Numeric value.
+    </param>
+    <returns>
+      Numeric type. MToN( ) returns a value of Numeric type with four decimal places.
+    </returns>
+    <example>
+       <code language="X#">
+        STORE $24.95 TO gyMoney  &amp;&amp; Creates a currency type memory variable
+        CLEAR
+        ? "gyMoney is type: "
+        ?? Type('gyMoney')  &amp;&amp; Displays Y, currency type value
+        gyMoney = MToN(gyMoney)     &amp;&amp;  Converts gyMoney to a numeric value
+        ? "gyMoney is now type: "
+        ?? Type('gyMoney')  &amp;&amp; Displays N, numeric type value
+      </code>
+    </example>
+    <seealso cref='M:XSharp.VFP.Functions.NToM(XSharp.__Float)' />
+  </mton>
+  <ntom>
+    <summary>
+      Returns a Currency value from a Numeric expression.
+    </summary>
+    <param name="nExpression">
+
+      Specifies a numeric expression whose Currency value NToM( ) returns. If nExpression has more than four decimal places, it is rounded to four decimal places. If nExpression has less than four decimals places, it is padded with zeros until four decimal places are created.
+    </param>
+    <returns>
+      Currency type. NToM( ) returns a value of Currency type with four decimal places.
+    </returns>
+    <example>
+       <code language="X#">
+        STORE 24.95 TO gnNumeric  &amp;&amp; Creates a numeric type memory variable
+        CLEAR
+        ? "gnNumeric is type: "
+        ?? Type('gnNumeric')  &amp;&amp; Displays N, numeric type value
+        gnNumeric= NToM(gnNumeric)     &amp;&amp;  Converts gnNumeric to a currency value
+        ? "gnNumeric is now type: "
+        ?? Type('gnNumeric')  &amp;&amp; Displays Y, currency type value
+      </code>
+    </example>
+    <seealso cref='M:XSharp.VFP.Functions.MToN(XSharp.__Currency)' />
+  </ntom>
+  <sign>
+    <summary>
+      Returns a numeric value of 1, –1, or 0 if the specified numeric expression evaluates to a positive, negative, or 0 value.
+    </summary>
+    <param name="nExpression">
+
+      Specifies the numeric expression Sign( ) evaluates. Sign( ) returns 1 if nExpression evaluates to a positive number, –1 if nExpression evaluates to a negative number, and 0 if nExpression evaluates to 0.
+    </param>
+    <returns>
+      Numeric
+    </returns>
+    <example>
+       <code language="X#">
+        STORE 10 TO gnNum1
+        STORE -10 TO gnNum2
+        STORE 0 TO gnZero
+        CLEAR
+        ? Sign(gnNum1)  &amp;&amp; Displays 1
+        ? Sign(gnNum2)  &amp;&amp; Displays -1
+        ? Sign(gnZero)  &amp;&amp; Displays 0
+      </code>
+    </example>
+  </sign>
+  <iscolor>
+    <summary>
+      Determines whether a computer can display color.
+    </summary>
+    <returns>
+      IsColor( )Return Value
+      Logical
+    </returns>
+    <remarks>
+      IsColor( ) returns true (.T.) if the computer has color capability (whether or not a color monitor is actually being used). 
+      If the computer doesn't provide color support, IsColor( ) returns false (.F.).
+    </remarks>
+  </iscolor>
+  <ismouse>
+    <summary>
+      Returns true (.T.) if mouse hardware is present.
+    </summary>
+    <remarks>
+      IsMouse( )Remarks
+      IsMouse( ) returns true (.T.) if mouse hardware is present; otherwise it returns false (.F.).
+    </remarks>
+    <example>
+       <code language="X#">
+        CLEAR
+        ? 'Mouse hardware present? '
+        ?? IsMouse( )
+      </code>
+    </example>
+  </ismouse>
+  <forcepath>
+    <summary>
+      Returns a file name with a new path name substituted for the old one.
+    </summary>
+    <param name="cFileName">
+      Specifies the file name (with or without a path or extension), which will get a new path.
+    </param>
+    <param name="cPath">
+      Specifies the new path for cFileName.
+    </param>
+    <returns>
+      Character
+    </returns>
+  </forcepath>
+  <forceext>
+    <summary>
+      Returns a string with the old file name extension replaced by a new extension.
+    </summary>
+    <param name="cFileName">
+      Specifies the file name (with or without a path or extension), which will get a new extension.
+    </param>
+    <param name="cExtension">
+      Specifies the new extension (without a period) for cFileName.
+    </param>
+    <returns>
+      Character
+    </returns>
+  </forceext>
+  <icase>
+    <summary>
+      Evaluates the results from a list of conditions (upto 100 pairs are supported).
+    </summary>
+    <param name="lCondition">Specifies a condition as a logical expression to evaluate.<br/>
+      If lCondition evaluates to False (.F.), <b>ICase( )</b> continues to evaluate the next condition and returns the corresponding eResult for that 
+      condition if it evaluates to True (.T.). <br/>
+      If lCondition evaluates to null (.NULL.), X# treats lCondition as if it evaluated to False (.F.).
+    </param>
+    <param name="eResult">Specifies a result to return if lCondition evaluates to True (.T.).</param>
+    <param name="lCondition2">
+      Specifies a condition as a logical expression to evaluate.<br/>
+      If lCondition2 evaluates to False (.F.), <b>ICase( )</b> continues to evaluate the next condition and returns the corresponding eResult for that 
+      condition if it evaluates to True (.T.). <br/>
+      If lCondition evaluates to null (.NULL.), X# treats lCondition as if it evaluated to False (.F.).
+  </param>
+    <param name="eResult2">Specifies a result to return if lCondition2 evaluates to True (.T.).</param>
+    <param name="eOtherwiseResult">Contains the result returned if all conditions evaluate to False (.F.).</param>
+    <returns>
+      <b>ICase( )</b> returns the first eResult as soon as lCondition evaluates to True (.T.).
+      If all conditions evaluate to False (.F.), <b>ICase( )</b> returns eOtherwiseResult.
+      If eOtherwiseResult is omitted, and all conditions evaluate to False (.F.), <b>ICase( )</b> returns null (.NULL.).
+    </returns>
+    <remarks>
+      You must always pass a set of two parameters to <b>ICase( )</b>. <br/>
+      If you pass an odd number of parameters, the last parameter is treated as the return value for eOtherwiseResult.<br/>
+      You can pass up to 100 pairs of parameters for <b>ICase( )</b>.
+      If you use a long <b>ICase( )</b> expression in a filter expression, such as in a <b>FOR</b> or <b>WHERE</b> clause, 
+      make sure that <b>Sys(3055)</b> is set to an appropriate complexity level to avoid generating an error. <br/>
+      For more information, see Sys(3055) - FOR and WHERE Clause Complexity.
+    </remarks>
+    <example>
+      The following example demonstrates different scenarios using <b>ICase( )</b> to evaluate expressions and returning certain values based on the results of those expressions.
+      The following line of code displays "First is true" because the first expression evaluates to True (.T.).
+       <code language="X#">? ICase(1+1=2,"First is true",1+1=3,"Second is false","None are true")</code>
+      The following line of code displays "Second is true" because the first expression evaluates to False (.F.), but the second expression evaluates to True (.T.).
+       <code language="X#">? ICase(1+2=2,"First is false",1+2=3,"Second is true","None are true")</code>
+      The following line of code displays "None are true", which is the last result specified, because the first and second expressions evaluate to False (.F.).
+       <code language="X#">? ICase(1+2=2,"First is false",1+1=3,"Second is false","None are true")</code>
+    </example>
+  </icase>
+</Runtimefunctions>

@@ -158,11 +158,11 @@ CLASS VOBitmaps
         
     STATIC METHOD Process(hWnd AS IntPtr, cFileName AS STRING, cTitle AS STRING, stretch AS LOGIC) AS LOGIC
         LOCAL bRet := FALSE AS LOGIC
-        LOCAL oBitMap := VOBitmaps{} AS VOBitMaps
+        LOCAL oBitMap := VOBitmaps{} AS VOBitmaps
         IF hWnd == IntPtr.Zero
             hWnd := GetFocus()
         ENDIF
-        LOCAL wOperation := IIF( stretch, STRETCHDIB, SETDIB ) AS WORD
+        LOCAL wOperation := (WORD) IIF( stretch, STRETCHDIB, SETDIB ) AS WORD
         IF oBitMap:InitDIB( hWnd,  wOperation, cTitle, cFileName )
             oBitMap:PaintDIB( hWnd, wOperation, cFileName )
             bRet := TRUE
@@ -448,7 +448,7 @@ CLASS VOBitmaps
         LOCAL i AS DWORD
             
         IF lpBmpInfo:biClrUsed != 0
-            lpPalInfo := (BITMAPINFOHEADER PTR) MemAlloc( (WORD)lpBmpInfo:biSize + (WORD)lpBmpInfo:biClrUsed * sizeof(WORD) )
+            lpPalInfo := (BITMAPINFOHEADER PTR) MemAlloc((DWORD)  (WORD)lpBmpInfo:biSize + (WORD)lpBmpInfo:biClrUsed * sizeof(WORD) )
                 
             IF lpPalInfo != IntPtr.Zero
                 MemCopy( lpPalInfo, lpBmpInfo, sizeof( BITMAPINFOHEADER ) ) // *lpPalInfo := *lpBmpInfo;
@@ -471,9 +471,9 @@ END CLASS
     
 #endregion
 
-STATIC CLASS Win32
+INTERNAL STATIC CLASS Win32
      CONST SW_SHOWNORMAL  := 1 AS LONG 
-    [DllImport("kernel32.dll", Charset := Charset.Ansi )];
+    [DllImport("kernel32.dll", CharSet := CharSet.Ansi )];
     STATIC INTERNAL METHOD WinExec(lpCmdLine AS STRING, uCmdShow AS DWORD) AS DWORD   
 END CLASS 
 FUNCTION _Run (cProg AS STRING) AS DWORD PASCAL

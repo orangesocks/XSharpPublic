@@ -116,7 +116,14 @@ FUNCTION Days(nSeconds AS REAL8) AS INT
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/seconds/*" />
 FUNCTION Seconds() AS REAL8
 	VAR dt := DateTime.Now
-	RETURN dt:Hour * 3600 + dt:Minute * 60 + dt:Second + Math.Round( (REAL8) dt:Millisecond/1000,2)
+    LOCAL result as REAL8
+    result := dt:Hour * 3600 + dt:Minute * 60 + dt:Second + (REAL8) (dt:Millisecond)/1000.0
+    IF XSharp.RuntimeState.Dialect == XSharpDialect.FoxPro
+        result := Math.Round(result,3)
+    ELSE
+        result := Math.Round(result,2)
+    ENDIF
+	RETURN result
 
 
 
@@ -149,7 +156,7 @@ FUNCTION TString(nSeconds AS DWORD) AS STRING
 
 
 INTERNAL FUNCTION _TimeString( d AS DateTime ) AS STRING	
-   RETURN _TimeString( (DWORD) d:Hour, (DWORD) d:Minute, (DWORD) d:Second, SetAMPM(), GetAMExt(), GetPMExt() )
+   RETURN _TimeString( (DWORD) d:Hour, (DWORD) d:Minute, (DWORD) d:Second, SetAmPm(), GetAMExt(), GetPMExt() )
 
 
 INTERNAL FUNCTION _TimeString( h AS DWORD, m AS DWORD, s AS DWORD, lAMPM AS LOGIC, cAM AS STRING, cPM AS STRING ) AS STRING	
@@ -251,7 +258,7 @@ FUNCTION CToDt(cDate AS STRING, cDateFormat AS STRING) AS DateTime
 	LOCAL nDay, nMonth, nYear AS DWORD
 	LOCAL nDayPos, nMonthPos, nYearPos AS INT
 	dDate := DateTime.MinValue
-	IF string.IsNullOrEmpty(cDate) .OR. String.IsNullOrEmpty(cDateFormat) .OR. cDate == RuntimeState.GetValue<STRING>(Set.DateFormatEmpty)
+	IF String.IsNullOrEmpty(cDate) .OR. String.IsNullOrEmpty(cDateFormat) .OR. cDate == RuntimeState.GetValue<STRING>(Set.DateFormatEmpty)
 		RETURN dDate
 	ENDIF
 	LOCAL nPos AS INT
@@ -331,8 +338,8 @@ FUNCTION CToDtAnsi(cDate AS STRING) AS DateTime
 FUNCTION DtToC(d AS DateTime) AS STRING
 	LOCAL result:="" AS STRING		
 	LOCAL cFormat := XSharp.RuntimeState.GetValue<STRING>(Set.DateFormatNet) AS STRING
-	IF d != DateTime.Minvalue
-		LOCAL dt := d AS Datetime
+	IF d != DateTime.MinValue
+		LOCAL dt := d AS DateTime
 		result := dt:ToString(cFormat)
 	ELSE
 		result := RuntimeState.NullDateString

@@ -10,20 +10,15 @@
     <Dialect>Core</Dialect>
     <OutputName>XSharp.RDD</OutputName>
     <AZ>true</AZ>
-    <CS>false</CS>
-    <LB>false</LB>
-    <OVF>false</OVF>
-    <Unsafe>false</Unsafe>
+    <CS>true</CS>
     <INS>true</INS>
-    <NS>false</NS>
+    <NamedArgs>true</NamedArgs>
     <VulcanCompatibleResources>False</VulcanCompatibleResources>
     <XSharpProjectversion>2.0.5.0</XSharpProjectversion>
-    <NamedArgs>true</NamedArgs>
-    <MemVar>false</MemVar>
-    <Undeclared>false</Undeclared>
     <XSharpProjectExtensionsPath>$(MSBuildExtensionsPath)\XSharp\</XSharpProjectExtensionsPath>
     <IncludePaths>$(CommonInclude)</IncludePaths>
     <Nostandarddefs>true</Nostandarddefs>
+    <StandardDefs />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'" Label="Configuration">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -49,7 +44,7 @@
     <WarningLevel>4</WarningLevel>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <UseSharedCompilation>true</UseSharedCompilation>
-    <DisabledWarnings>9001,162, 649</DisabledWarnings>
+    <DisabledWarnings>9001,649</DisabledWarnings>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Documentation|AnyCPU'">
     <EmitDebugInformation>true</EmitDebugInformation>
@@ -92,6 +87,7 @@
     <Compile Include="Advantage\AxDBFNTX.prg" />
     <Compile Include="Advantage\AxDBFVFP.prg" />
     <Compile Include="Advantage\AXSqlRDD.prg" />
+    <Compile Include="Advantage\Compatibility.prg" />
     <Compile Include="Advantage\Functions.prg" />
     <Compile Include="DbfCdx\CdxNode.prg" />
     <Compile Include="DbfCdx\CdxPageList.prg" />
@@ -150,7 +146,7 @@
     <Compile Include="DbfNtx\NtxPageList.prg" />
     <Compile Include="DbfNtx\NtxSort.prg" />
     <Compile Include="SortHelper.prg" />
-    <Compile Include="SubCodes.prg" />
+    <Compile Include="Subcodes.prg" />
     <Compile Include="Properties\AssemblyInfo.prg">
       <SubType>Code</SubType>
     </Compile>
