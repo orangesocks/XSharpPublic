@@ -658,7 +658,7 @@
       <summary>
         Return the handle for an application.
       </summary>
-      <param name="nHandleType">The type of handle required.  0 is the only supported option, and it is the default if &lt;nHandleType&gt; is omitted.</param>
+      <param name="nHandleType">The type of handle required.  0 is the only supported option, and it is the default if <paramref name="nHandle" /> is omitted.</param>
       <returns>
         A handle describing the underlying system object.
       </returns>
@@ -1417,11 +1417,11 @@
         Search a list box for a specified string, and return the location of the first item in the list box that matches it.
       </summary>
       <param name="cItem">The text to search for.</param>
-      <param name="lWholeItem">Indicates how the search is to be performed.  TRUE matches an exact &lt;cItem&gt; string to a 'whole' list box item (for example, a 'can' string does not match 'scan').  FALSE finds a match for any list box prefixed by &lt;cItem&gt; (for example, the string 'cat' would match 'catalog' in the list box).  The default is TRUE.</param>
+      <param name="lWholeItem">Indicates how the search is to be performed.  TRUE matches an exact <paramref name="cItem" /> string to a 'whole' list box item (for example, a 'can' string does not match 'scan').  FALSE finds a match for any list box prefixed by <paramref name="cItem" /> (for example, the string 'cat' would match 'catalog' in the list box).  The default is TRUE.</param>
       <param name="nStart">Specifies the one-based index of the item before the first item to be searched. When the search reaches the bottom of the list box, it continues searching from the top of the list box back to the item specified by the nStart parameter. If nStart is 0, the entire list box is searched from the beginning. </param>
       <returns>
         The position of the first item that contains the matching text, if a match is found (a value of 1 refers to the first position in the list box); if no match is found, 0 is returned.
-        For example, if &lt;cItem&gt; matched the fifth string in the list box, the return value would be 5.  This means that no earlier string in the list box matched it.
+        For example, if <paramref name="cItem" /> matched the fifth string in the list box, the return value would be 5.  This means that no earlier string in the list box matched it.
       </returns>
     </member>
     <member name="M:VO.BaseListBox.GetItem(XSharp.__Usual,XSharp.__Usual)">
@@ -1489,7 +1489,7 @@
       <summary>
         Return the handle for a bitmap.
       </summary>
-      <param name="nHandleType">The type of handle required.  0 is the only supported option and is the default if &lt;nHandleType&gt; is omitted.</param>
+      <param name="nHandleType">The type of handle required.  0 is the only supported option and is the default if <paramref name="nHandle" /> is omitted.</param>
       <returns>
         A handle describing the underlying system object.
       </returns>
@@ -1678,7 +1678,7 @@
       <summary>
         Return the handle for a brush.
       </summary>
-      <param name="nHandleType">The type of handle required.  0 is the only supported option and is the default if &lt;nHandleType&gt; is omitted.</param>
+      <param name="nHandleType">The type of handle required.  0 is the only supported option and is the default if <paramref name="nHandle" /> is omitted.</param>
       <returns>
         A handle describing the underlying system object.
       </returns>
@@ -4349,7 +4349,7 @@
       </summary>
       <param name="cItem">The item text as string.</param>
       <param name="nItemNumber">The position where to insert the new item.  The default placement is at the end of the list (-1).  Note that the index into the combo box is zero-based.</param>
-      <param name="uRetValue">The value associated with the specified item.  The default is &lt;cItem&gt;.</param>
+      <param name="uRetValue">The value associated with the specified item.  The default is <paramref name="cItem" />.</param>
       <param name="iImageIdx">The index of the image associated with this item.</param>
       <param name="iSelectedIdx">The image index to display when the item is selected.</param>
       <param name="iOverlayIdx">The image index of on overlay image in the image list.</param>
@@ -4451,7 +4451,7 @@
       </summary>
       <param name="cItem">The item text as string.</param>
       <param name="nItemNumber">The position where to insert the new item.  The default placement is at the end of the list (-1).  Note that the index into the combo box is zero-based.</param>
-      <param name="uRetValue">The value associated with the specified item.  The default is &lt;cItem&gt;.</param>
+      <param name="uRetValue">The value associated with the specified item.  The default is <paramref name="cItem" />.</param>
       <param name="iImageIdx">The index of the image associated with this item.</param>
       <param name="iSelectedIdx">The image index to display when the item is selected.</param>
       <param name="iOverlayIdx">The image index of on overlay image in the image list.</param>
@@ -4520,7 +4520,7 @@
       </summary>
       <param name="lNew">A logical value forcing the allocation of a new console window, if set to TRUE.  The default is FALSE.</param>
       <remarks>
-        The Init() method allocates a new console window.  By default, or if the &lt;lNew&gt; parameter is set to FALSE, X# first tries to use an already open console window, e.g., if the application was started from the command line.  If this fails, or if &lt;lNew&gt; was set to TRUE, Console:Init() allocates and opens a new console window.
+        The Init() method allocates a new console window.  By default, or if the <paramref name="lNew" /> parameter is set to FALSE, X# first tries to use an already open console window, e.g., if the application was started from the command line.  If this fails, or if <paramref name="lNew" /> was set to TRUE, Console:Init() allocates and opens a new console window.
       </remarks>
       <example>
         This code snippet creates and clear a new console window:
@@ -4937,7 +4937,7 @@
       <summary>
         Return the handle for a control.
       </summary>
-      <param name="uType">The type of handle required.  Zero (0) is the only supported option, and it is the default if &lt;nHandleType&gt; is omitted.</param>
+      <param name="uType">The type of handle required.  Zero (0) is the only supported option, and it is the default if <paramref name="nHandle" /> is omitted.</param>
       <returns>
         A handle to the "window" (control), describing the underlying system object.
       </returns>
@@ -6878,7 +6878,7 @@
         In most cases it is CODING_TYPE_BASE64 and only this type is implemented in the CStorage class.
       </param>
       <returns>
-        &lt;cID&gt;	STRING The unique ID. If AttachmentAdd() fails it returns a NULL_STRING.
+        <paramref name="cID" />	STRING The unique ID. If AttachmentAdd() fails it returns a NULL_STRING.
       </returns>
     </member>
     <member name="M:VO.CStorage.AttachmentClose">
@@ -6902,7 +6902,7 @@
       </summary>
       <param name="cAttachID">Contains the ID or the full path of the attachment.If it is a full path the first character of cAttachID is ATTACHID_PATHFLAG (&gt;)</param>
       <returns>
-        &lt;cID&gt;	STRING The full path of an attachment file
+        <paramref name="cID" />	STRING The full path of an attachment file
       </returns>
     </member>
     <member name="M:VO.CStorage.AttachmentOpen(System.String,System.UInt32)">
@@ -6935,7 +6935,7 @@
       <param name="cAttachID">Contains the ID or the full path of the attachment.</param>
       <param name="cToFile">Contains the full path name of the target file.</param>
       <returns>
-        &lt;cID&gt;	STRING The unique ID. If AttachmentAdd() fails it returns a NULL_STRING.
+        <paramref name="cID" />	STRING The unique ID. If AttachmentAdd() fails it returns a NULL_STRING.
       </returns>
     </member>
     <member name="P:VO.CStorage.AttachmentSize">
@@ -7040,7 +7040,7 @@
       </summary>
       <param name="cData">Contains the file name of the attachment.</param>
       <returns>
-        &lt;cID&gt;	STRING The unique ID. If AttachmentAdd() fails it returns a NULL_STRING.
+        <paramref name="cID" />	STRING The unique ID. If AttachmentAdd() fails it returns a NULL_STRING.
       </returns>
       <remarks>
         <note type="tip">
@@ -7058,7 +7058,7 @@
       <param name="oEMail">The Email from which the attachments need to be saved to the storage.</param>
       <param name="lClone">If lClone is TRUE and oEMail was loaded from the storage new copies of the attachments are stored into the storage.</param>
       <returns>
-        &lt;cID&gt;	STRING The unique ID. If AttachmentAdd() fails it returns a NULL_STRING.
+        <paramref name="cID" />	STRING The unique ID. If AttachmentAdd() fails it returns a NULL_STRING.
       </returns>
     </member>
     <member name="M:VO.CStorage.SaveEMail(System.String,VO.CEmail)">
@@ -7138,7 +7138,7 @@
       <summary>
         Return the handle for a cursor.
       </summary>
-      <param name="nHandleType">The type of handle required.  0 is the only supported option and is the default if &lt;nHandleType&gt; is omitted.</param>
+      <param name="nHandleType">The type of handle required.  0 is the only supported option and is the default if <paramref name="nHandle" /> is omitted.</param>
       <returns>
         A handle describing the underlying system object.
       </returns>
@@ -9365,7 +9365,18 @@
       </remarks>
     </member>
     <member name="M:VO.DataWindow.ControlFocusChange(XSharp.__Usual)">
-      <inheritdoc />
+      <summary>Provide a method that is invoked when the input focus changes to or from a control.</summary>
+	  <param name="oControlFocusChangeEvent" >The ControlFocusChangeEvent object that identifies which control generated the ControlFocusChangeEvent object and whether it has just gained or lost the keyboard focus. </param>
+	  <remarks>
+	  If ControlFocusChange() is used to validate a control (and also set the focus to another control), 
+	  Control:SetFocus() should not be called until another control has received the focus.
+	 In complex dialog windows that contain many edit controls, it makes sense to grab the edit 
+	 control's text when the focus is changing so that other controls can be updated with it if necessary.
+	See the ButtonClick() method for an example of similar syntax to be used in this method.  
+	Note that all controls are passed through this method, not only SingleLineEdit and MultiLineEdit controls.  
+	If looking to control Combobox selections, then the ListBoxSelect() callback method should be reviewed.
+	</remarks>
+	<seealso cref="T:VO.ControlFocusChangeEvent" />
     </member>
     <member name="P:VO.DataWindow.Controls">
       <summary>**Missing documentation **</summary>
@@ -11767,8 +11778,8 @@
         </code></example>
     </member>
     <member name="M:VO.DbServer.ConstructUniqueAlias(XSharp.__Usual)">
-      <summary>**Missing documentation **</summary>
-      <param name="cFileName">** missing parameter documentation **</param>
+      <summary>Create a unique alias based on the filename and an optional numeric suffix</summary>
+      <param name="cFileName">The filename to base the alias on.</param>
     </member>
     <member name="M:VO.DbServer.Continue">
       <summary>
@@ -11989,8 +12000,9 @@
         </code></example>
     </member>
     <member name="P:VO.DbServer.DbStructure">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
+      <summary>Return the original dbstructure array from the DbServer object.</summary>
+      <value>The original dbstructure array from the DbServer object.</value>
+	  <summary>Since this returns the original array and not a copy of it you should be extremely careful not to change it !</summary>
     </member>
     <member name="M:VO.DbServer.Delete(XSharp.__Usual,XSharp.__Usual,XSharp.__Usual)">
       <summary>
@@ -12160,8 +12172,8 @@
         </code></example>
     </member>
     <member name="P:VO.DbServer.ErrorInfo">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
+      <summary>Returns the internal ErrorInfo object, regardless of the last operation produced an error or not.</summary>
+      <value>The internal ErrorInfo object, regardless of the last operation produced an error or not.</value>
     </member>
     <member name="M:VO.DbServer.Eval(XSharp.__Usual,XSharp.__Usual,XSharp.__Usual,XSharp.__Usual)">
       <summary>
@@ -12204,8 +12216,8 @@
         </code></example>
     </member>
     <member name="P:VO.DbServer.FieldDesc">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
+      <summary>This returns an empty array. For servers that were painted in the DbServer editor this returns the array of DataFields.</summary>
+      <value>An empty array. For servers that were painted in the DbServer editor this returns the array of DataFields.</value>
     </member>
     <member name="M:VO.DbServer.FIELDGET(XSharp.__Usual)">
       <summary>
@@ -12735,8 +12747,8 @@
       </remarks>
     </member>
     <member name="P:VO.DbServer.IndexList">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
+         <summary>This returns an empty array. For servers that were painted in the DbServer editor this returns the array of Indexes.</summary>
+      <value>An empty array. For servers that were painted in the DbServer editor this returns the array of Indexes.</value>
     </member>
     <member name="M:VO.DbServer.INDEXORD">
       <summary>
@@ -13014,12 +13026,12 @@
       <value>The last modification date of the DBF file used in the server.</value>
     </member>
     <member name="P:VO.DbServer.MemoExt">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
+      <summary>This returns the memo extension of the file (if any). For example DBT or FPT.</summary>
+      <value>The memo extension of the file (if any).</value>
     </member>
     <member name="P:VO.DbServer.Name">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
+      <summary>This returns the name of the DbServer.</summary>
+      <value>The name of the DbServer</value>
     </member>
     <member name="M:VO.DbServer.NoIVarGet(XSharp.__Usual)">
       <summary>
@@ -13061,9 +13073,10 @@
       </remarks>
     </member>
     <member name="P:VO.DbServer.OleExt">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
-    </member>
+	<summary>This returns the OLE extension of the file (if any). For example DFL.</summary>
+      <value>The OLE extension of the file (if any).</value>    
+	  <remarks>DFL files are not supported by the X# RDD system.</remarks>
+	  </member>
     <member name="P:VO.DbServer.OrderBottomScope">
       <summary>
         A key value representing the record of the bottom boundary in the range of key values that will be included in the controlling order's current scope.
@@ -13084,7 +13097,7 @@
       </param>
       <param name="lNew">TRUE dynamically turns on the descending flag for the order, resulting in descending order.  FALSE dynamically turns the flag off, resulting in ascending order.</param>
       <returns>
-        If &lt;lNew&gt; is not specified, DBServer:OrderDescend() returns the current setting.  If &lt;lNewDescend&gt; is specified, the previous setting is returned.
+        If <paramref name="lNew" /> is not specified, DBServer:OrderDescend() returns the current setting.  If &lt;lNewDescend&gt; is specified, the previous setting is returned.
       </returns>
       <remarks>
         DBServer:OrderDescend() changes the ascending/descending flag at runtime only — it does not change the descending flag stored in the actual index file.
@@ -13357,10 +13370,12 @@
         DBServer:OrderKeyAdd() evaluates the key expression (or &lt;uKeyValue&gt;, if specified), then adds the key for the current record to the order.  If the order has a for condition, the key will be added only if that condition is met, and then, only if it falls within the current scoping range.
         <note type="tip">RDDs may allow you to add several keys for the same record with consecutive calls to DBServer:OrderKeyAdd().</note>
         DBServer:OrderKeyAdd() will fail if:
-        The record pointer is positioned on an invalid record (i.e., at DBServer:EOF)
-        The specified order is not custom built
-        The specified order does not exist
-        No order was specified and there is no controlling order
+		<list type="bullet">
+        <item>The record pointer is positioned on an invalid record (i.e., at DBServer:EOF)</item>
+        <item>The specified order is not custom built</item>
+        <item>The specified order does not exist</item>
+        <item>No order was specified and there is no controlling order</item>
+		</list>
         <note type="tip">
           From the standard RDDs only the DBFCDX RDD supports Custom Indexes. This RDD does NOT support the use of the &lt;uKeyValue&gt; parameter. It always uses the Key Expression to calculate the Key Values to insert.
         </note></remarks>
@@ -13438,10 +13453,13 @@
         A custom built order is one that is not automatically maintained by the DBFCDX driver.  You can determine if an order is custom built using DBServer:OrderInfo(DBOI_CUSTOM, ...).  When you create such an order, it is initially empty.
         You must manually add and delete keys using DBServer:OrderKeyAdd() and DBServer:OrderKeyDel().
         DBServer:OrderKeyDel() will fail if:
-        The record pointer is positioned on an invalid record (for example, DBServer:EOF returns TRUE or the record pointer is positioned on a record that falls outside the orders' scope or for condition)
-        The specified order is not custom built
-        The specified order does not exist
-        No order was specified and there is no controlling order
+		<list type="bullet">
+        <item>The record pointer is positioned on an invalid record (for example, DBServer:EOF returns TRUE 
+		or the record pointer is positioned on a record that falls outside the orders' scope or for condition)</item>
+        <item>The specified order is not custom built</item>
+        <item>The specified order does not exist</item>
+        <item>No order was specified and there is no controlling order</item>
+		</list>
       </remarks>
       <example>
         This example creates a custom index, adds every fiftieth record to it, and deletes every hundredth record:
@@ -13631,8 +13649,8 @@
       </remarks>
     </member>
     <member name="P:VO.DbServer.PaintedStructure">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
+      <summary>This returns a DBSTRUCT array based on the DataFields and Fieldspecs that were painter in the server editor.</summary>
+      <value>A DBSTRUCT array based on the DataFields and Fieldspecs that were painter in the server editor.</value>
     </member>
     <member name="M:VO.DbServer.RDDINFO(XSharp.__Usual,XSharp.__Usual)">
       <summary>
@@ -13731,8 +13749,8 @@
       </remarks>
     </member>
     <member name="P:VO.DbServer.Rdds">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
+      <summary>This returns the list of RDDs that were passed to the DbServer constructor.</summary>
+      <value>The list of RDDs that were passed to the DbServer constructor.</value>
     </member>
     <member name="P:VO.DbServer.ReadOnly">
       <summary>
@@ -13906,8 +13924,8 @@
       </returns>
     </member>
     <member name="P:VO.DbServer.RelationChildren">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
+      <summary>The returns the array of children that were registered with SetRelation()</summary>
+      <value>The array of children that were registered with SetRelation()</value>
     </member>
     <member name="M:VO.DbServer.Replace(XSharp.__Usual,XSharp.__Usual,XSharp.__Usual,XSharp.__Usual,XSharp.__Usual)">
       <summary>
@@ -13955,8 +13973,8 @@
       </remarks>
     </member>
     <member name="P:VO.DbServer.Retries">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
+      <summary>The setting that determines how often the DbServer object should retry operations that fail.</summary>
+      <value>The setting that determines how often the DbServer object should retry operations that fail.</value>
     </member>
     <member name="M:VO.DbServer.RLOCK(XSharp.__Usual)">
       <summary>
@@ -14052,11 +14070,12 @@
         </code></example>
     </member>
     <member name="M:VO.DbServer.SELECT">
-      <summary>**Missing documentation **</summary>
+      <summary>Select the workarea that the DbServer uses.</summary>
+	  <returns>The previous workarea that was selected.</returns>
     </member>
     <member name="P:VO.DbServer.SelectionWorkArea">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
+      <summary>The workarea number of the parent area when the dbserver is a child in a relation.</summary>
+      <value>The workarea number of the parent area when the dbserver is a child in a relation.</value>
     </member>
     <member name="M:VO.DbServer.SetDataField(XSharp.__Usual,XSharp.__Usual)">
       <summary>
@@ -14337,8 +14356,8 @@
       </remarks>
     </member>
     <member name="P:VO.DbServer.TableExt">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
+      <summary>Return the Extension for the opened DBF. This is normally .DBF but may be different if a file with a different extension was opened.</summary>
+      <value>The Extension for the opened DBF</value>
     </member>
     <member name="M:VO.DbServer.Total(XSharp.__Usual,XSharp.__Usual,XSharp.__Usual,XSharp.__Usual,XSharp.__Usual,XSharp.__Usual)">
       <summary>
@@ -14540,7 +14559,19 @@
       <summary>**Missing documentation **</summary>
     </member>
     <member name="M:VO.DialogWindow.ControlFocusChange(XSharp.__Usual)">
-      <summary>**Missing documentation **</summary>
+	<summary>Provide a method that is invoked when the input focus changes to or from a control.</summary>
+	  <param name="oControlFocusChangeEvent" >The ControlFocusChangeEvent object that identifies which control generated the ControlFocusChangeEvent object and whether it has just gained or lost the keyboard focus. </param>
+	  <remarks>
+	  If ControlFocusChange() is used to validate a control (and also set the focus to another control), 
+	  Control:SetFocus() should not be called until another control has received the focus.
+	 In complex dialog windows that contain many edit controls, it makes sense to grab the edit 
+	 control's text when the focus is changing so that other controls can be updated with it if necessary.
+	See the ButtonClick() method for an example of similar syntax to be used in this method.  
+	Note that all controls are passed through this method, not only SingleLineEdit and MultiLineEdit controls.  
+	If looking to control Combobox selections, then the ListBoxSelect() callback method should be reviewed.
+	</remarks>
+		<seealso cref="T:VO.ControlFocusChangeEvent" />
+
       <param name="oControlFocusChangeEvent">** missing parameter documentation **</param>
     </member>
     <member name="M:VO.DialogWindow.DeActivate(XSharp.__Usual)">
@@ -15002,7 +15033,7 @@
       <summary>
         Return the handle for a DrawObject object.
       </summary>
-      <param name="nHandleType">The type of handle required.  0 is the only supported option and is the default if &lt;nHandleType&gt; is omitted.</param>
+      <param name="nHandleType">The type of handle required.  0 is the only supported option and is the default if <paramref name="nHandle" /> is omitted.</param>
       <returns>
         A handle to the device context for the window on which the object is to be drawn.  X# will release this handle when necessary.  You should not save it to a variable.
       </returns>
@@ -15800,12 +15831,12 @@
       <value>A numeric value representing the new minimum length validation for this field specification.</value>
     </member>
     <member name="P:VO.FieldSpec.MinLengthHL">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
+      <summary>Error message when MinLength validation fails.</summary>
+      <value>Error message when MinLength validation fails.</value>
     </member>
     <member name="P:VO.FieldSpec.Nullable">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
+      <summary>Is the field Nullable ?</summary>
+      <value>Is the field Nullable ?</value>
     </member>
     <member name="M:VO.FieldSpec.PerformValidations(XSharp.__Usual,XSharp.__Usual)">
       <summary>
@@ -15831,8 +15862,8 @@
       <value>A string representing the picture clause defined to this field specification.  It is used by the FieldSpec:Transform() method.</value>
     </member>
     <member name="P:VO.FieldSpec.RangeHL">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
+      <summary>Error message when Range validation fails.</summary>
+      <value>Error message when Range validation fails.</value>
     </member>
     <member name="P:VO.FieldSpec.Required">
       <summary>
@@ -15841,8 +15872,8 @@
       <value>Logical value indicating whether the field is required (TRUE) or not (FALSE).</value>
     </member>
     <member name="P:VO.FieldSpec.RequiredHL">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
+      <summary>Error message when Required validation fails.</summary>
+      <value>Error message when Required validation fails.</value>
     </member>
     <member name="M:VO.FieldSpec.SetLength(XSharp.__Usual,XSharp.__Usual)">
       <summary>
@@ -16013,17 +16044,21 @@
       <value>A code block that sets the validation rule for this field specification.</value>
     </member>
     <member name="P:VO.FieldSpec.ValidationHL">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
+      <summary>Error message when Validation fails.</summary>
+      <value>Error message when Validation fails.</value>
     </member>
     <member name="P:VO.FieldSpec.ValType">
       <summary>
         A one-character string representing the data type defined to this field specification:
-        <list type="table"><listheader><term>Character</term><description>Meaning</description></listheader><item><term>C</term><description>String</description></item><item><term>D</term><description>Date</description></item><item><term>L</term><description>Logic</description></item><item><term>M</term><description>Memo</description></item><item><term>N</term><description>Long integer, float, byte, short integer, word, double word, Real4, Real8</description></item></list></summary>
+		</summary>
       <value>
         A one-character string representing the data type defined to this field specification:
-        CharacterMeaningCStringDDateLLogicMMemoNLong integer, float, byte, short integer, word, double word, Real4, Real8
       </value>
+	  <remarks>
+	  <list type="table"><listheader><term>Character</term><description>Meaning</description>
+	  </listheader><item><term>C</term><description>String</description></item><item><term>D</term><description>Date</description></item>
+	  <item><term>L</term><description>Logic</description></item><item><term>M</term><description>Memo</description></item><item><term>N</term><description>Long integer, float, byte, short integer, word, double word, Real4, Real8</description></item></list>
+	  </remarks>
     </member>
     <member name="T:VO.FileSpec">
       <summary>
@@ -16171,8 +16206,10 @@
         </code></example>
     </member>
     <member name="P:VO.FileSpec.ErrInfo">
-      <summary>**Missing documentation **</summary>
-      <value>**Missing documentation **</value>
+      <summary>Return the error object from the last Copy() or Move() operation.</summary>
+      <value>The error object from the last Copy() or Move() operation.</value>
+	  <seealso cref="O:VO.FileSpec.Copy" />
+	  <seealso cref="O:VO.FileSpec.Move" />
     </member>
     <member name="M:VO.FileSpec.Error(XSharp.__Usual,XSharp.__Usual)">
       <summary>
@@ -16372,7 +16409,11 @@
         Rename the file represented by this file specification.
       </summary>
       <param name="oFSTarget">The new file name.</param>
-      <param name="lName">** missing parameter documentation **</param>
+            <param name="lName">Make a different file name if conflict exist. 
+		The new name will start with the base file name of the original file. 
+		8 character file name with 5 or 6 chars of original name plus a suffix
+		ranging from "_1" to "_99" if a name conflict occurs. Otherwise returns NULL_STRING</param>
+
       <returns>
         TRUE if the file was successfully renamed; otherwise, FALSE.
       </returns>
@@ -16962,7 +17003,7 @@
       <summary>
         Return the handle for a font.
       </summary>
-      <param name="nHandleType">The type of handle required.  0 is the only supported option and is the default if &lt;nHandleType&gt; is omitted.</param>
+      <param name="nHandleType">The type of handle required.  0 is the only supported option and is the default if <paramref name="nHandle" /> is omitted.</param>
       <returns>
         A handle describing the underlying system object.
       </returns>
@@ -18958,7 +18999,7 @@
       <summary>
         Return the handle for an icon.
       </summary>
-      <param name="nHandleType">The type of handle required.  Zero (0) is the only supported option and is the default if &lt;nHandleType&gt; is omitted.</param>
+      <param name="nHandleType">The type of handle required.  Zero (0) is the only supported option and is the default if <paramref name="nHandle" /> is omitted.</param>
       <returns>
         A handle describing the underlying system object.
       </returns>
@@ -21240,7 +21281,7 @@
       </summary>
       <param name="cItem">The item to be inserted.</param>
       <param name="nItemNumber">The position in the list box at which to insert the new item.  Specify one of the values listed below.</param>
-      <param name="uRetValue">The value associated with the specified item.  The default is &lt;cItem&gt;.</param>
+      <param name="uRetValue">The value associated with the specified item.  The default is <paramref name="cItem" />.</param>
       <returns>
         If the item was added, its position in the list box is returned (a value of 1 refers to the first position in the list box).  If the item could not be added, 0 is returned.
       </returns>
@@ -22871,7 +22912,9 @@
       </remarks>
     </member>
     <member name="M:VO.ListViewMouseEvent.#ctor(XSharp.__Usual)">
-      <inheritdoc />
+		<summary>Construct a ListViewMouseEvent object.</summary>
+      <param name="oControlNotifyEvent">The ControlNotifyEvent that occurred when the event happened.</param>
+	  
     </member>
     <member name="P:VO.ListViewMouseEvent.ButtonID">
       <summary>
@@ -23229,7 +23272,7 @@
       <summary>
         Return the handle for a menu.
       </summary>
-      <param name="nHandleType">The type of handle required.  Zero (0) is the only supported option and is the default if &lt;nHandleType&gt; is omitted.</param>
+      <param name="nHandleType">The type of handle required.  Zero (0) is the only supported option and is the default if <paramref name="nHandle" /> is omitted.</param>
       <returns>
         A handle describing the underlying system object.
       </returns>
@@ -25811,7 +25854,7 @@
       <summary>
         Return the handle for a pen.
       </summary>
-      <param name="uType">The type of handle required.  0 is the only supported option and is the default if &lt;nHandleType&gt; is omitted.</param>
+      <param name="uType">The type of handle required.  0 is the only supported option and is the default if <paramref name="nHandle" /> is omitted.</param>
       <returns>
         A handle describing the underlying system object.
       </returns>
@@ -25975,7 +26018,7 @@
       <summary>
         Return the handle for a pointer.
       </summary>
-      <param name="nHandleType">The type of handle required.  0 is the only supported option and is the default if &lt;nHandleType&gt; is omitted.</param>
+      <param name="nHandleType">The type of handle required.  0 is the only supported option and is the default if <paramref name="nHandle" /> is omitted.</param>
       <returns>
         A handle describing the underlying system object.
       </returns>
@@ -29177,7 +29220,7 @@
       </returns>
     </member>
     <member name="M:VO.SplitWindow.Show(XSharp.__Usual,XSharp.__Usual)">
-      <inheritdoc />
+      <inheritdoc cref="M:VO.Window.Show(XSharp.__Usual)"/>
     </member>
     <member name="M:VO.SplitWindow.ShowPane(XSharp.__Usual)">
       <summary>
@@ -32335,7 +32378,7 @@
       <summary>
         Return the handle for a status bar.
       </summary>
-      <param name="nHandleType">The type of handle required.  0 is the only supported option and is the default if &lt;nHandleType&gt; is omitted.</param>
+      <param name="nHandleType">The type of handle required.  0 is the only supported option and is the default if <paramref name="nHandle" /> is omitted.</param>
       <returns>
         A handle to the "window" (control), describing the underlying system object.
       </returns>
@@ -32725,7 +32768,8 @@
       </summary>
     </member>
     <member name="M:VO.SysLinkSelectEvent.#ctor(XSharp.__Usual)">
-      <inheritdoc />
+      	<summary>Construct a ListViewMouseEvent object.</summary>
+      <param name="oControlNotifyEvent">The ControlNotifyEvent that occurred when the event happened.</param>
     </member>
     <member name="P:VO.SysLinkSelectEvent.ID">
       <summary>**Missing documentation **</summary>
@@ -34774,7 +34818,9 @@
       </remarks>
     </member>
     <member name="M:VO.TreeViewMouseEvent.#ctor(XSharp.__Usual)">
-      <inheritdoc />
+    <summary>Construct a TreeViewMouseEvent object.</summary>
+      <param name="oControlNotifyEvent">The ControlNotifyEvent that occurred when the event happened.</param>
+
     </member>
     <member name="P:VO.TreeViewMouseEvent.ButtonID">
       <summary>
@@ -35707,7 +35753,7 @@
       <summary>
         Return the handle for a window.
       </summary>
-      <param name="nHandleType">The type of handle required.  0 is the only supported option and is the default if &lt;nHandleType&gt; is omitted.</param>
+      <param name="nHandleType">The type of handle required.  0 is the only supported option and is the default if <paramref name="nHandle" /> is omitted.</param>
       <returns>
         A handle to the window, describing the underlying system object.
       </returns>
@@ -37333,18 +37379,21 @@
       </summary>
     </member>
     <member name="M:VORDDClasses.Functions.DBFDebug(System.String,System.String,System.String,System.String)">
-      <summary>**Missing documentation **</summary>
+      <exclude />
     </member>
     <member name="M:VORDDClasses.Functions.DbGetDefaultLockMode">
-      <summary>**Missing documentation **</summary>
+      <summary>Get/Set the default locking mode for the DbServer class</summary>
+            <param name="dwLockMode">The new locking mode. The default = ccOptimistic</param>
+            <returns>The previous locking mode</returns>
+
     </member>
     <member name="M:VORDDClasses.Functions.DbSetDefaultLockMode(System.UInt32)">
-      <summary>**Missing documentation **</summary>
-      <param name="dwLockMode">** missing parameter documentation **</param>
+            <summary>Get the default locking mode for the DbServer class</summary>
+            <returns>The current locking mode</returns>
     </member>
     <member name="M:VORDDClasses.Functions.DbSetRestoreWorkarea(XSharp.__Usual)">
-      <summary>**Missing documentation **</summary>
-      <param name="lEnable">** missing parameter documentation **</param>
+           <summary>Get/Set the flag that determines if DbServer operations restore the current workarea </summary>
+ 
     </member>
     <member name="T:VOSQLClasses.Functions">
       <summary>
@@ -37558,8 +37607,8 @@
       </summary>
       <param name="nNew">The default  concurrency strategy that will be used by new SqlSelect objects</param>
       <returns>
-        If &lt;nNew&gt; is not specified, SQLSetStmtConcurrency() returns the current setting.
-        If &lt;nNew&gt; is specified, the new setting is returned.
+        If <paramref name="nNew" /> is not specified, SQLSetStmtConcurrency() returns the current setting.
+        If <paramref name="nNew" /> is specified, the new setting is returned.
       </returns>
       <remarks>
         The concurrency mode for SQLSelect objects is used to determine if rows have been changed by other connections. The possible values are:
@@ -37579,8 +37628,8 @@
       </summary>
       <param name="nNew">The default  concurrency strategy that will be used by new SqlSelect objects</param>
       <returns>
-        If &lt;nNew&gt; is not specified, SQLSetStmtCursorType() returns the current setting.
-        If &lt;nNew&gt; is specified, the new setting is returned.
+        If <paramref name="nNew" /> is not specified, SQLSetStmtCursorType() returns the current setting.
+        If <paramref name="nNew" /> is specified, the new setting is returned.
       </returns>
       <remarks>
         The concurrency mode for SQLSelect objects is used to determine if rows have been changed by other connections. The possible values are:
@@ -37600,8 +37649,8 @@
       </summary>
       <param name="nNew">The default cursor simulation mode that will be used by new SqlSelect objects</param>
       <returns>
-        If &lt;nNew&gt; is not specified, SQLSetStmtSimulateCursor() returns the current setting.
-        If &lt;nNew&gt; is specified, the new setting is returned.
+        If <paramref name="nNew" /> is not specified, SQLSetStmtSimulateCursor() returns the current setting.
+        If <paramref name="nNew" /> is specified, the new setting is returned.
       </returns>
       <remarks>
         The cursor simulation mode for SQLSelect objects is used to determine if rows have been changed by other connections. The possible values are:
