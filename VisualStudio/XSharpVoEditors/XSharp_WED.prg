@@ -1,3 +1,8 @@
+//
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
+// See License.txt in the project root for license information.
+//
 USING System.Collections.Generic
 USING System.Windows.Forms
 USING System.IO
@@ -314,7 +319,7 @@ CLASS XSharp_VOWindowEditor INHERIT VOWindowEditor
 	PROTECTED VIRTUAL METHOD WriteCallback(oDesign AS DesignWindowItem , cName AS STRING) AS VOID
 		LOCAL oProject AS XSharpModel.XProject
 		LOCAL oFile AS XSharpModel.XFile
-		LOCAL oType AS XSharpModel.XTypeDefinition
+		LOCAL oType AS XSharpModel.XSourceTypeSymbol
 		//LOCAL oEditor AS VulcanEditor
 		LOCAL aLines AS List<STRING>
 		LOCAL cClass AS STRING
@@ -373,7 +378,12 @@ CLASS XSharp_VOWindowEditor INHERIT VOWindowEditor
 
 		VAR oEditor := XSharp_EditorStream{}
 		oEditor:Load(oFile:FullPath)
-		VAR nLine := oType:Range:EndLine -1
+      local nLine as LONG
+      if oType != NULL
+		   nLine := oType:Range:EndLine -1
+      else
+         nLine := aLines:Count-1
+      ENDIF
 		aLines:Reverse()
 		FOREACH VAR cLine IN aLines
 			VAR cNew := VOWindowEditor.SubStituteTpl(cLine, cClass, oWindowDesign:cInitMethod)

@@ -1,8 +1,4 @@
-﻿// Functions.prg
-// Created by    : robert
-// Creation Date : 8/8/2017 11:57:43 AM
-// Created for   :
-// WorkStation   : ZEUS
+﻿
 
 USING System.Collections.Generic
 USING XSharpModel
@@ -102,6 +98,8 @@ STATIC METHOD ErrorBox(cMessage AS STRING , cCaption AS STRING) AS VOID
 			TRY
                 System.IO.File.SetAttributes(cFile, FileAttributes.Normal)
 				System.IO.File.Delete(cFile)
+         CATCH
+            NOP
 			END TRY
 		END IF
 END CLASS

@@ -15,7 +15,7 @@ BEGIN NAMESPACE XSharp
     /// <summary>A string representing the name of the subsystem generating the error.</summary>
     VIRTUAL PROPERTY SubSystem AS STRING AUTO  := "BASE"
     /// <summary>An integer numeric value representing a Visual Objects generic error code.</summary>
-    /// <Seealso cref="T:XSharp.Gencode"/>
+    /// <Seealso cref="Gencode"/>
     VIRTUAL PROPERTY Gencode AS DWORD AUTO    := EG_UNKNOWN
     /// <summary>An string containing the description of the Gencode.</summary>
     VIRTUAL PROPERTY GenCodeText AS STRING GET IIF (Gencode != 0, ErrString(Gencode), "Unknown GenCode")
@@ -29,7 +29,7 @@ BEGIN NAMESPACE XSharp
     /// <summary>A string representing the name used to open the file associated with the error condition.</summary>
     VIRTUAL PROPERTY FileName AS STRING AUTO  := ""
     /// <summary>A constant indicating the severity of the error condition.</summary>
-    /// <Seealso cref="T:XSharp.Severity"/>
+    /// <Seealso cref="Severity"/>
     VIRTUAL PROPERTY Severity AS DWORD AUTO   := ES_ERROR
     /// <summary>A string that describes the error condition.</summary>
     VIRTUAL PROPERTY Description		AS STRING AUTO := ""
@@ -165,10 +165,16 @@ BEGIN NAMESPACE XSharp
             IF oProp:CanWrite
                 oProp:SetValue(SELF, oProp:GetValue(e))
             ENDIF
-        NEXT
+         NEXT
+         IF SELF:SubCode == 0
+            SELF:SubCodeText := ""
+         ENDIF
     ELSE
         SELF:Description := ex:Message
         SELF:Gencode     := EG_EXCEPTION
+        IF ! String.IsNullOrEmpty(ex:Source)
+            SELF:SubSystem := ex:Source
+        ENDIF
         VAR sStack       := ErrorStack( StackTrace{ex,TRUE},UInt32.MaxValue)
         IF !sStack:StartsWith("*EmptyCallStack*")
             SELF:_StackTrace := sStack + SELF:_StackTrace
@@ -224,7 +230,7 @@ BEGIN NAMESPACE XSharp
     SELF:SubCode := dwSubCode
     SELF:Description := ErrString( dwGenCode )
 
-    PRIVATE METHOD LangString(e as VOErrors) AS STRING
+    PRIVATE STATIC METHOD LangString(e as VOErrors) AS STRING
         local cString := __CavoStr(e):Trim() as string
         IF cString:EndsWith(":")
             cString := cString:Substring(0, cString:Length-1):Trim()
@@ -490,6 +496,8 @@ BEGIN NAMESPACE XSharp
         SWITCH oType:FullName:ToLower()
         CASE "xsharp.__array"
           RETURN __UsualType.Array
+        CASE "xsharp.__binary"
+          RETURN __UsualType.Binary
         CASE "xsharp.__codeblock"
           RETURN __UsualType.Codeblock
         CASE "xsharp.__currency"
@@ -519,6 +527,8 @@ BEGIN NAMESPACE XSharp
       typeName := "XSharp.__Array"
     CASE __UsualType.Byte
       RETURN typeof(System.Byte)
+    CASE __UsualType.Binary
+       typeName := "XSharp.__Binary"
     CASE __UsualType.Char
       RETURN typeof(System.Char)
     CASE __UsualType.Codeblock
@@ -574,9 +584,19 @@ BEGIN NAMESPACE XSharp
         NEXT
     ENDIF
     RETURN NULL
-  END CLASS
+  
 
-
+  STATIC METHOD GetInnerException( SELF e as Exception) AS Exception
+     IF e:InnerException != NULL 
+        DO WHILE e:InnerException != NULL 
+            e := e:InnerException
+            IF e IS XSharp.Error
+                EXIT
+            ENDIF
+        ENDDO
+     ENDIF
+     RETURN e   
+END CLASS
 END NAMESPACE
 
 

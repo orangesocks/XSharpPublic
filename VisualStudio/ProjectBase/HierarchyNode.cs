@@ -29,7 +29,7 @@ using ShellConstants = Microsoft.VisualStudio.Shell.Interop.Constants;
 using VsCommands = Microsoft.VisualStudio.VSConstants.VSStd97CmdID;
 using VsCommands2K = Microsoft.VisualStudio.VSConstants.VSStd2KCmdID;
 using IOleServiceProvider = Microsoft.VisualStudio.OLE.Interop.IServiceProvider;
-using XSharp.Project;
+using XSharpModel;
 
 namespace Microsoft.VisualStudio.Project
 {
@@ -186,7 +186,9 @@ namespace Microsoft.VisualStudio.Project
         {
             get
             {
-                if(!this.ExcludeNodeFromScc)
+                ThreadHelper.ThrowIfNotOnUIThread();
+
+                if (!this.ExcludeNodeFromScc)
                 {
                     IVsSccManager2 sccManager = this.ProjectMgr.Site.GetService(typeof(SVsSccManager)) as IVsSccManager2;
 
@@ -252,7 +254,7 @@ namespace Microsoft.VisualStudio.Project
         /// Returns an object that is a special view over this object; this is the value
         /// returned by the Object property of the automation objects.
         /// </summary>
-        internal virtual object Object
+        public virtual object Object
         {
             get { return this; }
         }
@@ -502,7 +504,6 @@ namespace Microsoft.VisualStudio.Project
         protected HierarchyNode(ProjectNode root, ProjectElement element)
         {
             Utilities.ArgumentNotNull("root", root);
-            XSharpProjectPackage.Instance.UIThread.MustBeCalledFromUIThread();
             this.projectMgr = root;
             this.itemNode = element;
             this.hierarchyId = this.projectMgr.ItemIdMap.Add(this);
@@ -516,27 +517,27 @@ namespace Microsoft.VisualStudio.Project
         protected HierarchyNode(ProjectNode root)
         {
             Utilities.ArgumentNotNull("root", root);
-            XSharpProjectPackage.Instance.UIThread.MustBeCalledFromUIThread();
             this.projectMgr = root;
             this.itemNode = new ProjectElement(this.projectMgr, null, true);
             this.hierarchyId = this.projectMgr.ItemIdMap.Add(this);
             this.oleServiceProvider.AddService(typeof(IVsHierarchy), root, false);
       }
-      #endregion
+        #endregion
 
-      #region static methods
-      /// <summary>
-      /// Get the outer IVsHierarchy implementation.
-      /// This is used for scenario where a flavor may be modifying the behavior
-      /// </summary>
-      internal static IVsHierarchy GetOuterHierarchy(HierarchyNode node)
+        #region static methods
+        /// <summary>
+        /// Get the outer IVsHierarchy implementation.
+        /// This is used for scenario where a flavor may be modifying the behavior
+        /// </summary>
+        public static IVsHierarchy GetOuterHierarchy(HierarchyNode node)
       {
          IVsHierarchy hierarchy = null;
          // The hierarchy of a node is its project node hierarchy
          IntPtr projectUnknown = Marshal.GetIUnknownForObject(node.projectMgr);
          try
          {
-            hierarchy = (IVsHierarchy)Marshal.GetTypedObjectForIUnknown(projectUnknown, typeof(IVsHierarchy));
+                ThreadHelper.ThrowIfNotOnUIThread();
+                hierarchy = (IVsHierarchy)Marshal.GetTypedObjectForIUnknown(projectUnknown, typeof(IVsHierarchy));
          }
          finally
          {
@@ -632,7 +633,6 @@ namespace Microsoft.VisualStudio.Project
         public virtual void RemoveChild(HierarchyNode node)
         {
             Utilities.ArgumentNotNull("node", node);
-            XSharpProjectPackage.Instance.UIThread.MustBeCalledFromUIThread();
 
             this.projectMgr.ItemIdMap.Remove(node);
 
@@ -685,7 +685,8 @@ namespace Microsoft.VisualStudio.Project
         public virtual object GetProperty(int propId)
         {
             object result = null;
-            switch((__VSHPROPID)propId)
+
+            switch ((__VSHPROPID)propId)
             {
                 case __VSHPROPID.VSHPROPID_Expandable:
                     result = (this.firstChild != null);
@@ -756,14 +757,10 @@ namespace Microsoft.VisualStudio.Project
                 case __VSHPROPID.VSHPROPID_ParentHierarchyItemid:
                     if(parentHierarchy != null)
                     {
-#if XSHARP
                         unchecked
                         {
                             result = (IntPtr) (int)parentHierarchyItemId; // VS requires VT_I4 | VT_INT_PTR
                         }
-#else
-                        result = (int)parentHierarchyItemId; // VS requires VT_I4 | VT_INT_PTR
-#endif
                     }
                     break;
 
@@ -858,6 +855,7 @@ namespace Microsoft.VisualStudio.Project
             switch (id4)
             {
                 case __VSHPROPID4.VSHPROPID_TargetFrameworkMoniker:
+                    ThreadHelper.ThrowIfNotOnUIThread();
                     result = this.ProjectMgr.TargetFrameworkMoniker.FullName;
                     break;
             }
@@ -883,6 +881,7 @@ namespace Microsoft.VisualStudio.Project
         public virtual int SetProperty(int propid, object value)
         {
             __VSHPROPID id = (__VSHPROPID)propid;
+            ThreadHelper.ThrowIfNotOnUIThread();
 
             CCITracing.TraceCall(this.hierarchyId + "," + id.ToString());
             switch(id)
@@ -997,6 +996,7 @@ namespace Microsoft.VisualStudio.Project
             {
                 return;
             }
+            ThreadHelper.ThrowIfNotOnUIThread();
 
             // Close the document if it has a manager.
             DocumentManager manager = this.GetDocumentManager();
@@ -1100,6 +1100,8 @@ namespace Microsoft.VisualStudio.Project
             // We walk the RDT looking for all running documents attached to this hierarchy and itemid. There
             // are cases where there may be two different editors (not views) open on the same document.
             IEnumRunningDocuments pEnumRdt;
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             IVsRunningDocumentTable pRdt = this.GetService(typeof(SVsRunningDocumentTable)) as IVsRunningDocumentTable;
             Utilities.CheckNotNull(pRdt);
 
@@ -1154,7 +1156,8 @@ namespace Microsoft.VisualStudio.Project
         [SuppressMessage("Microsoft.Naming", "CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId = "Scc")]
         protected internal virtual void UpdateSccStateIcons()
         {
-            if(!this.ExcludeNodeFromScc)
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (!this.ExcludeNodeFromScc)
             {
                 this.ReDraw(UIHierarchyElement.SccState);
             }
@@ -1188,8 +1191,9 @@ namespace Microsoft.VisualStudio.Project
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1800:DoNotCastUnnecessarily")]
         protected virtual int AddNewFolder()
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             // Check out the project file.
-            if(!this.ProjectMgr.QueryEditProjectFile(false))
+            if (!this.ProjectMgr.QueryEditProjectFile(false))
             {
                 throw Marshal.GetExceptionForHR(VSConstants.OLE_E_PROMPTSAVECANCELLED);
             }
@@ -1239,8 +1243,9 @@ namespace Microsoft.VisualStudio.Project
             }
             catch (COMException e)
             {
-                XSharpProjectPackage.Instance.DisplayOutPutMessage("COM Exception : " );
-                XSharpProjectPackage.Instance.DisplayException(e);
+
+                XSettings.DisplayOutputMessage("COM Exception : " );
+                XSettings.DisplayException(e);
                 return e.ErrorCode;
             }
 
@@ -1260,6 +1265,7 @@ namespace Microsoft.VisualStudio.Project
             string strBrowseLocations = Path.GetDirectoryName(this.projectMgr.BaseURI.Uri.LocalPath);
 
             System.Guid projectGuid = this.projectMgr.ProjectGuid;
+            ThreadHelper.ThrowIfNotOnUIThread();
 
             addItemDialog = this.GetService(typeof(IVsAddProjectItemDlg)) as IVsAddProjectItemDlg;
 
@@ -1288,7 +1294,7 @@ namespace Microsoft.VisualStudio.Project
         /// <returns></returns>
         protected virtual int ExcludeFromProject()
         {
-            new UIThread().MustBeCalledFromUIThread();
+            ThreadHelper.ThrowIfNotOnUIThread();
             Debug.Assert(this.ProjectMgr != null, "The project item " + this.ToString() + " has not been initialised correctly. It has a null ProjectMgr");
             this.Remove(false);
             return VSConstants.S_OK;
@@ -1299,7 +1305,8 @@ namespace Microsoft.VisualStudio.Project
 		/// </summary>
 		public void SendExcludeFromProjectCommand()
 		{
-		 	this.ExecCommandOnNode(VsMenus.guidStandardCommandSet2K, (uint)VSConstants.VSStd2KCmdID.EXCLUDEFROMPROJECT, 0, new IntPtr(), new IntPtr());
+            ThreadHelper.ThrowIfNotOnUIThread();
+            this.ExecCommandOnNode(VsMenus.guidStandardCommandSet2K, (uint)VSConstants.VSStd2KCmdID.EXCLUDEFROMPROJECT, 0, new IntPtr(), new IntPtr());
 		}
         /// Handles the Show in Designer command.
         /// </summary>
@@ -1340,6 +1347,7 @@ namespace Microsoft.VisualStudio.Project
             }
 
             string projref = String.Empty;
+            ThreadHelper.ThrowIfNotOnUIThread();
             IVsSolution solution = this.GetService(typeof(IVsSolution)) as IVsSolution;
             if(solution != null)
             {
@@ -1375,7 +1383,7 @@ namespace Microsoft.VisualStudio.Project
         /// </summary>
         /// <returns>null object, since a hierarchy node does not know its kind of document</returns>
         /// <remarks>Must be overriden by derived node classes if a document manager is needed</remarks>
-        protected internal virtual DocumentManager GetDocumentManager()
+        public virtual DocumentManager GetDocumentManager()
         {
             return null;
         }
@@ -1428,6 +1436,7 @@ namespace Microsoft.VisualStudio.Project
             POINTS points = new POINTS();
             points.x = x;
             points.y = y;
+            ThreadHelper.ThrowIfNotOnUIThread();
             return ShowContextMenu(idmxStoredMenu, VsMenus.guidSHLMainMenu, points);
         }
 
@@ -1439,6 +1448,8 @@ namespace Microsoft.VisualStudio.Project
         /// <param name="points">The location at which to show the menu.</param>
         protected virtual int ShowContextMenu(int menuId, Guid menuGroup, POINTS points)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             IVsUIShell shell = this.projectMgr.Site.GetService(typeof(SVsUIShell)) as IVsUIShell;
 
             Debug.Assert(shell != null, "Could not get the ui shell from the project");
@@ -1467,7 +1478,8 @@ namespace Microsoft.VisualStudio.Project
         [SuppressMessage("Microsoft.Naming", "CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId = "pva")]
         protected virtual int ExecCommandOnNode(Guid cmdGroup, uint cmd, uint nCmdexecopt, IntPtr pvaIn, IntPtr pvaOut)
         {
-            if(InvalidProject())
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (InvalidProject())
             {
                 return (int)OleConstants.OLECMDERR_E_NOTSUPPORTED;
             }
@@ -1539,7 +1551,8 @@ namespace Microsoft.VisualStudio.Project
         protected virtual int ExecCommandThatDependsOnSelectedNodes(Guid cmdGroup, uint cmdId, uint cmdExecOpt, IntPtr vaIn, IntPtr vaOut, CommandOrigin commandOrigin, IList<HierarchyNode> selectedNodes, out bool handled)
         {
             handled = false;
-            if(cmdGroup == VsMenus.guidVsUIHierarchyWindowCmds)
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (cmdGroup == VsMenus.guidVsUIHierarchyWindowCmds)
             {
                 switch(cmdId)
                 {
@@ -1589,8 +1602,9 @@ namespace Microsoft.VisualStudio.Project
         protected virtual int ExecCommandIndependentOfSelection(Guid cmdGroup, uint cmdId, uint cmdExecOpt, IntPtr vaIn, IntPtr vaOut, CommandOrigin commandOrigin, out bool handled)
         {
             handled = false;
+            ThreadHelper.ThrowIfNotOnUIThread();
 
-            if(this.projectMgr == null || this.projectMgr.IsClosed)
+            if (this.projectMgr == null || this.projectMgr.IsClosed)
             {
                 return VSConstants.E_FAIL;
             }
@@ -1663,6 +1677,7 @@ namespace Microsoft.VisualStudio.Project
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly", MessageId = "vaIn")]
         protected virtual int InternalExecCommand(Guid cmdGroup, uint cmdId, uint cmdExecOpt, IntPtr vaIn, IntPtr vaOut, CommandOrigin commandOrigin)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             CCITracing.TraceCall(cmdGroup.ToString() + "," + cmdId.ToString());
             if(this.projectMgr == null || this.projectMgr.IsClosed)
             {
@@ -1712,7 +1727,7 @@ namespace Microsoft.VisualStudio.Project
                 }
                 catch(COMException e)
                 {
-                    XSharpProjectPackage.Instance.DisplayException(e);
+                    XSettings.DisplayException(e);
                     returnValue = e.ErrorCode;
                 }
                 if(returnValue != VSConstants.S_OK)
@@ -1860,7 +1875,8 @@ namespace Microsoft.VisualStudio.Project
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1502:AvoidExcessiveComplexity"), SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly", MessageId = "InCurrent")]
         protected virtual bool DisableCmdInCurrentMode(Guid commandGroup, uint command)
         {
-            if(this.ProjectMgr == null || this.ProjectMgr.IsClosed)
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (this.ProjectMgr == null || this.ProjectMgr.IsClosed)
             {
                 return false;
             }
@@ -1955,7 +1971,8 @@ namespace Microsoft.VisualStudio.Project
             // What will happen is that the nested project will show grayed commands that belong to this project and does not belong to the nested project. (like special commands implemented by subclassed projects).
             // The reason is that a special command comes in that is not handled because we are in debug mode. Then VsCore asks the nested project can you handle it.
             // The nested project does not know about it, thus it shows it on the nested project as grayed.
-            if(this.DisableCmdInCurrentMode(cmdGroup, cmd))
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (this.DisableCmdInCurrentMode(cmdGroup, cmd))
             {
                 queryResult = QueryStatusResult.SUPPORTED | QueryStatusResult.INVISIBLE;
             }
@@ -2088,6 +2105,11 @@ namespace Microsoft.VisualStudio.Project
         protected virtual bool CanDeleteItem(__VSDELETEITEMOPERATION deleteOperation)
         {
             return this.ProjectMgr.CanProjectDeleteItems;
+        }
+
+        protected virtual bool CanRenameItem()
+        {
+            return true;
         }
 
         /// <summary>
@@ -2386,6 +2408,9 @@ namespace Microsoft.VisualStudio.Project
 
             HierarchyNode prev = child.PreviousSibling;
             uint prevId = (prev != null) ? prev.hierarchyId : VSConstants.VSITEMID_NIL;
+            ThreadHelper.JoinableTaskFactory.Run(async delegate
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             foreach(IVsHierarchyEvents sink in foo.hierarchyEventSinks)
             {
                 int result = sink.OnItemAdded(parent.hierarchyId, prevId, child.hierarchyId);
@@ -2394,6 +2419,7 @@ namespace Microsoft.VisualStudio.Project
                     ErrorHandler.ThrowOnFailure(result);
                 }
             }
+            });
         }
 
 
@@ -2411,8 +2437,9 @@ namespace Microsoft.VisualStudio.Project
             {
                 this.projectMgr.ExtensibilityEventsHelper.FireItemRemoved(this);
             }
+            ThreadHelper.ThrowIfNotOnUIThread();
 
-            if(foo.hierarchyEventSinks.Count > 0)
+            if (foo.hierarchyEventSinks.Count > 0)
             {
                 // Note that in some cases (deletion of project node for example), an Advise
                 // may be removed while we are iterating over it. To get around this problem we
@@ -2424,7 +2451,7 @@ namespace Microsoft.VisualStudio.Project
                     clonedSink.Add(anEvent);
                 }
 
-                foreach(IVsHierarchyEvents clonedEvent in clonedSink)
+                foreach (IVsHierarchyEvents clonedEvent in clonedSink)
                 {
                     int result = clonedEvent.OnItemDeleted(this.hierarchyId);
                     if(ErrorHandler.Failed(result) && result != VSConstants.E_NOTIMPL)
@@ -2452,6 +2479,8 @@ namespace Microsoft.VisualStudio.Project
 
             foreach(IVsHierarchyEvents sink in foo.hierarchyEventSinks)
             {
+                ThreadHelper.ThrowIfNotOnUIThread();
+
                 int result = sink.OnItemsAppended(parent.hierarchyId);
 
                 if(ErrorHandler.Failed(result) && result != VSConstants.E_NOTIMPL)
@@ -2475,8 +2504,9 @@ namespace Microsoft.VisualStudio.Project
             {
                 return;
             }
+            ThreadHelper.ThrowIfNotOnUIThread();
 
-            foreach(IVsHierarchyEvents sink in foo.hierarchyEventSinks)
+            foreach (IVsHierarchyEvents sink in foo.hierarchyEventSinks)
             {
                 int result = sink.OnPropertyChanged(node.hierarchyId, propid, flags);
 
@@ -2500,8 +2530,9 @@ namespace Microsoft.VisualStudio.Project
             {
                 return;
             }
+            ThreadHelper.ThrowIfNotOnUIThread();
 
-            foreach(IVsHierarchyEvents sink in foo.hierarchyEventSinks)
+            foreach (IVsHierarchyEvents sink in foo.hierarchyEventSinks)
             {
                 int result = sink.OnInvalidateItems(parent.hierarchyId);
 
@@ -2520,8 +2551,9 @@ namespace Microsoft.VisualStudio.Project
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly", MessageId = "ReDraw")]
         public virtual void ReDraw(UIHierarchyElement element)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
 
-            foreach(IVsHierarchyEvents sink in this.projectMgr.hierarchyEventSinks)
+            foreach (IVsHierarchyEvents sink in this.projectMgr.hierarchyEventSinks)
             {
                 int result;
                 if((element & UIHierarchyElement.Icon) != 0)
@@ -2576,7 +2608,11 @@ namespace Microsoft.VisualStudio.Project
 
             if(this.projectMgr.Site == null) return null;
             object result = null;
-            UIThread.DoOnUIThread( () => result = this.projectMgr.Site.GetService(type));
+            ThreadHelper.JoinableTaskFactory.Run(async delegate
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                result = this.projectMgr.Site.GetService(type);
+            });
             return result;
         }
 
@@ -2609,7 +2645,9 @@ namespace Microsoft.VisualStudio.Project
             DocumentManager manager = this.GetDocumentManager();
             try
             {
-                if(manager != null)
+                ThreadHelper.ThrowIfNotOnUIThread();
+
+                if (manager != null)
                 {
                     manager.Close(__FRAMECLOSE.FRAMECLOSE_PromptSave);
                 }
@@ -2660,6 +2698,7 @@ namespace Microsoft.VisualStudio.Project
                 return VSConstants.DISP_E_MEMBERNOTFOUND;
             }
 
+            ThreadHelper.ThrowIfNotOnUIThread();
 
             HierarchyNode n = this.projectMgr.NodeFromItemId(itemId);
             if(n != null)
@@ -2685,6 +2724,7 @@ namespace Microsoft.VisualStudio.Project
 
         public virtual int GetSite(out Microsoft.VisualStudio.OLE.Interop.IServiceProvider site)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             site = this.projectMgr.Site.GetService(typeof(Microsoft.VisualStudio.OLE.Interop.IServiceProvider)) as Microsoft.VisualStudio.OLE.Interop.IServiceProvider;
             return VSConstants.S_OK;
         }
@@ -2712,6 +2752,8 @@ namespace Microsoft.VisualStudio.Project
                 itemId = this.hierarchyId;
                 return VSConstants.S_OK;
             }
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             if (itemId == notFound && this.firstChild != null)
             {
                 this.firstChild.ParseCanonicalName(name, out itemId);
@@ -2746,7 +2788,8 @@ namespace Microsoft.VisualStudio.Project
         public virtual int SetProperty(uint itemId, int propid, object value)
         {
             HierarchyNode n = this.projectMgr.NodeFromItemId(itemId);
-            if(n != null)
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (n != null)
             {
                 return n.SetProperty(propid, value);
             }
@@ -2805,11 +2848,13 @@ namespace Microsoft.VisualStudio.Project
 
         public virtual int ExecCommand(uint itemId, ref Guid guidCmdGroup, uint nCmdId, uint nCmdExecOpt, IntPtr pvain, IntPtr p)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             return this.InternalExecCommand(guidCmdGroup, nCmdId, nCmdExecOpt, pvain, p, CommandOrigin.UiHierarchy);
         }
 
         public virtual int QueryStatusCommand(uint itemId, ref Guid guidCmdGroup, uint cCmds, OLECMD[] cmds, IntPtr pCmdText)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             return this.QueryStatusSelection(guidCmdGroup, cCmds, cmds, pCmdText, CommandOrigin.UiHierarchy);
         }
 #endregion
@@ -2825,6 +2870,8 @@ namespace Microsoft.VisualStudio.Project
         /// <returns>If the method succeeds, it returns S_OK. If it fails, it returns an error code. </returns>
         public virtual int IsItemDirty(uint itemId, IntPtr docData, out int isDirty)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             IVsPersistDocData pd = (IVsPersistDocData)Marshal.GetObjectForIUnknown(docData);
             return ErrorHandler.ThrowOnFailure(pd.IsDocDataDirty(out isDirty));
         }
@@ -2868,6 +2915,7 @@ namespace Microsoft.VisualStudio.Project
                 string errorMessage = String.Format(CultureInfo.CurrentCulture, SR.GetString(SR.CanNotSaveFileNotOpeneInEditor, CultureInfo.CurrentUICulture), node.Url);
                 throw new InvalidOperationException(errorMessage);
             }
+            ThreadHelper.ThrowIfNotOnUIThread();
 
             string docNew = String.Empty;
             int returnCode = VSConstants.S_OK;
@@ -2961,7 +3009,7 @@ namespace Microsoft.VisualStudio.Project
             }
             catch(COMException e)
             {
-                XSharpProjectPackage.Instance.DisplayException(e);
+                XSettings.DisplayException(e);
                 returnCode = e.ErrorCode;
 
             	// Try to recover
@@ -3056,6 +3104,7 @@ namespace Microsoft.VisualStudio.Project
         /// </summary>
         public virtual int Exec(ref Guid guidCmdGroup, uint nCmdId, uint nCmdExecOpt, IntPtr pvaIn, IntPtr pvaOut)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             return this.InternalExecCommand(guidCmdGroup, nCmdId, nCmdExecOpt, pvaIn, pvaOut, CommandOrigin.OleCommandTarget);
         }
 
@@ -3065,6 +3114,7 @@ namespace Microsoft.VisualStudio.Project
         /// <remarks>we only support one command at a time, i.e. the first member in the OLECMD array</remarks>
         public virtual int QueryStatus(ref Guid guidCmdGroup, uint cCmds, OLECMD[] prgCmds, IntPtr pCmdText)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             return this.QueryStatusSelection(guidCmdGroup, cCmds, prgCmds, pCmdText, CommandOrigin.OleCommandTarget);
         }
 #endregion
@@ -3079,7 +3129,8 @@ namespace Microsoft.VisualStudio.Project
             }
 
             HierarchyNode node = this.projectMgr.NodeFromItemId(itemId);
-            if(node != null)
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (node != null)
             {
                 node.Remove((delItemOp & (uint)__VSDELETEITEMOPERATION.DELITEMOP_DeleteFromStorage) != 0);
                 return VSConstants.S_OK;
@@ -3170,40 +3221,51 @@ namespace Microsoft.VisualStudio.Project
         {
             return VSConstants.E_NOTIMPL;
         }
-#endregion
+        #endregion
 
-#region helper methods
-	    internal virtual HierarchyNode FindChild(string name)
+        #region helper methods
+        public virtual HierarchyNode FindChild(string name)
         {
-            if(String.IsNullOrEmpty(name))
+            if (String.IsNullOrEmpty(name))
             {
                 return null;
             }
 
             HierarchyNode result;
-            for(HierarchyNode child = this.firstChild; child != null; child = child.NextSibling)
+            for (HierarchyNode child = this.firstChild; child != null; child = child.NextSibling)
             {
-                if(!String.IsNullOrEmpty(child.VirtualNodeName) && String.Compare(child.VirtualNodeName, name, StringComparison.OrdinalIgnoreCase) == 0)
+                if (!String.IsNullOrEmpty(child.VirtualNodeName) && String.Compare(child.VirtualNodeName, name, StringComparison.OrdinalIgnoreCase) == 0)
                 {
                     return child;
                 }
                 // If it is a foldernode then it has a virtual name but we want to find folder nodes by the document moniker or url
-                else if((String.IsNullOrEmpty(child.VirtualNodeName) || (child is FolderNode)) &&
+                else if ((String.IsNullOrEmpty(child.VirtualNodeName) || (child is FolderNode)) &&
                   (NativeMethods.IsSamePath(child.GetMkDocument(), name) || NativeMethods.IsSamePath(child.Url, name)))
-	            {
-	               return child;
-	            }
-	            else
-	            {
-	               FileNode fileNode = child as FileNode;
-	               if (fileNode != null && fileNode.IsLink)
-	               {
-	                  string linkUrl = Path.Combine(this.ProjectMgr.ProjectFolder, fileNode.ItemNode.GetMetadata(ProjectFileConstants.Link));
-	                  if (NativeMethods.IsSamePath(linkUrl, name))
-	                  {
-	                     return child;
-	                  }
-	               }
+                {
+                    return child;
+                }
+                else
+                {
+                    FileNode fileNode = child as FileNode;
+                    if (fileNode != null)
+                    {
+                        if (fileNode.IsLink)
+                        {
+                            string linkUrl = Path.Combine(this.ProjectMgr.ProjectFolder, fileNode.ItemNode.GetMetadata(ProjectFileConstants.Link));
+                            if (NativeMethods.IsSamePath(linkUrl, name))
+                            {
+                                return child;
+                            }
+                        }
+                        else
+                        {
+                            if (NativeMethods.IsSamePath(child.Url, name))
+                            {
+                                return child;
+                            }
+
+                        }
+                    }
 	            }
 
                 result = child.FindChild(name);
@@ -3221,7 +3283,7 @@ namespace Microsoft.VisualStudio.Project
         /// <typeparam name="T">The type of hierachy node being serched for</typeparam>
         /// <param name="nodes">A list of nodes of type T</param>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
-        internal void FindNodesOfType<T>(List<T> nodes)
+        public void FindNodesOfType<T>(List<T> nodes)
             where T : HierarchyNode
         {
             for (HierarchyNode n = this.FirstChild; n != null; n = n.NextSibling)
@@ -3241,9 +3303,12 @@ namespace Microsoft.VisualStudio.Project
          object oChild;
          uint idChild;
          string filename;
-         ErrorHandler.ThrowOnFailure(hierarchy.GetProperty(itemParent, (int)__VSHPROPID.VSHPROPID_FirstChild, out oChild));
+            ThreadHelper.ThrowIfNotOnUIThread();
 
-         while (oChild != null && Convert.ToInt32(oChild) != -1)
+            ErrorHandler.ThrowOnFailure(hierarchy.GetProperty(itemParent, (int)__VSHPROPID.VSHPROPID_FirstChild, out oChild));
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            while (oChild != null && Convert.ToInt32(oChild) != -1)
          {
             idChild = Convert.ToUInt32(oChild);
             ErrorHandler.ThrowOnFailure(project.GetMkDocument(idChild, out filename));
@@ -3260,7 +3325,8 @@ namespace Microsoft.VisualStudio.Project
         /// <param name="targetNode"></param>
         internal bool AddFileToNodeFromProjectReference(string projectRef, HierarchyNode targetNode)
         {
-			Utilities.ArgumentNotNull("projectRef", projectRef);
+            ThreadHelper.ThrowIfNotOnUIThread();
+            Utilities.ArgumentNotNull("projectRef", projectRef);
 			Utilities.ArgumentNotNull("targetNode", targetNode);
             IVsSolution solution = this.GetService(typeof(IVsSolution)) as IVsSolution;
             if(solution == null)

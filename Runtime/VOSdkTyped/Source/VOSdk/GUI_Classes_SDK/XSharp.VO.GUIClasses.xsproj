@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\XSharp\XSharp.Default.props" />
+  <Import Project="$(XSharpMsBuildDir)\XSharp.Default.props" />
   <Import Project="..\VOSDK.Targets" />
   <!-- Please note that most important settings are read from VOSDK.Targets -->
   <PropertyGroup>
@@ -9,14 +9,15 @@
     <AssemblyName>XSharp.VOGUIClasses</AssemblyName>
     <Name>XSharp.VO.GUIClasses</Name>
     <OutputName>XSharpGUIClasses</OutputName>
-    <XSharpProjectExtensionsPath>$(MSBuildExtensionsPath)\XSharp\</XSharpProjectExtensionsPath>
-    <XSharpProjectversion>2.5.0.0</XSharpProjectversion>
+    <XSharpProjectversion>2.7.0.0</XSharpProjectversion>
     <Includepaths>$(Solutiondir)Common</Includepaths>
     <Nostandarddefs>false</Nostandarddefs>
     <PlatformTarget>x86</PlatformTarget>
     <LB>true</LB>
     <unsafe>true</unsafe>
     <CS>false</CS>
+    <vo15>true</vo15>
+    <DisabledWarnings>165, 168</DisabledWarnings>
     <NamedArgs>false</NamedArgs>
     <InitLocals>false</InitLocals>
     <RootNamespace>XSharp.VO.SDK</RootNamespace>
@@ -28,7 +29,6 @@
     <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
     <Optimize>false</Optimize>
     <UseSharedCompilation>true</UseSharedCompilation>
-    <DisabledWarnings>165, 168</DisabledWarnings>
     <WarningLevel>4</WarningLevel>
     <SignAssembly>true</SignAssembly>
     <DelaySign>false</DelaySign>
@@ -36,16 +36,17 @@
     <CommandLineOption />
     <PPO>false</PPO>
     <DefineConstants />
-    <PlatformTarget>x86</PlatformTarget>
+    <PlatformTarget>AnyCPU</PlatformTarget>
     <Prefer32Bit>False</Prefer32Bit>
     <RegisterForComInterop>False</RegisterForComInterop>
+    <DisabledWarnings>165, 168</DisabledWarnings>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Documentation|AnyCPU'">
-    <DocumentationFile>XSharpSystemClasses.Xml</DocumentationFile>
+    <DocumentationFile>XSharp.VO.GUIClasses.Xml</DocumentationFile>
   </PropertyGroup>
-  <Import Project="$(MSBuildExtensionsPath)\XSharp\XSharp.targets" />
+  <Import Project="$(XSharpMsBuildDir)\XSharp.targets" />
   <ItemGroup>
     <Compile Include="..\..\SharedSource\SDKAssemblyinfo.prg">
       <Link>SDKAssemblyinfo.prg</Link>
@@ -241,6 +242,16 @@
     <Folder Include="Resources\" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="PresentationCore">
+      <Name>PresentationCore</Name>
+      <SpecificVersion>False</SpecificVersion>
+      <AssemblyName>PresentationCore.dll</AssemblyName>
+    </Reference>
+    <Reference Include="PresentationFramework">
+      <Name>PresentationFramework</Name>
+      <SpecificVersion>False</SpecificVersion>
+      <AssemblyName>PresentationFramework.dll</AssemblyName>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
       <Name>System.Data</Name>
@@ -261,8 +272,14 @@
       <Name>System.Windows.Forms</Name>
       <AssemblyName>System.Windows.Forms.dll</AssemblyName>
     </Reference>
+    <Reference Include="WindowsBase">
+      <Name>WindowsBase</Name>
+      <SpecificVersion>False</SpecificVersion>
+      <AssemblyName>WindowsBase.dll</AssemblyName>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="ClassMapping.xlsx" />
     <None Include="WinForm\PropControl.vh" />
     <None Include="_readme.txt" />
   </ItemGroup>
@@ -299,6 +316,11 @@
     <PreBuildEvent />
     <PostBuildEvent />
     <RunPostBuildEvent>OnOutputUpdated</RunPostBuildEvent>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Documentation|AnyCPU'">
+    <PreBuildEvent>Copy $(Solutiondir)Docs\Gui.xml $(ProjectDir)\Gui.Xml</PreBuildEvent>
+    <PostBuildEvent>Erase $(ProjectDir)\Gui.Xml</PostBuildEvent>
+    <RunPostBuildEvent />
   </PropertyGroup>
   <ProjectExtensions>
     <ProjectCapabilities>

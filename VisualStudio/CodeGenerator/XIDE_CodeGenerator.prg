@@ -9,7 +9,6 @@ BEGIN NAMESPACE Xide
 CLASS AbstractEditor
 	EXPORT aLines AS List<LineObject>
 	PROTECT nStart,nEnd AS INT
-	PROTECT oCaretPos AS System.Drawing.Point
 	PROTECT oBuffer AS EditorBuffer
 	CONSTRUCTOR(_oBuffer AS EditorBuffer)
 		SELF:oBuffer := _oBuffer
@@ -74,7 +73,6 @@ END CLASS
 PARTIAL CLASS CodeGenerator
 	PROTECT aLines AS List<LineObject>
 	PROTECT nStart,nEnd AS INT
-	PROTECT oCaretPos AS System.Drawing.Point
 	PROTECT oEditor , oBaseEditor , oDesEditor AS AbstractEditor
 
 	CONSTRUCTOR(oBuffer AS EditorBuffer)
@@ -320,6 +318,8 @@ RETURN
 				RETURN nFirst
 			END IF
 			oLine := SELF:GetLine(nLine)
+			LOCAL oDeclarationLine AS LineObject
+			oDeclarationLine := oLine
 			
 			DO WHILE oLine:lOutAmpersand .and. (oLine:LineText:Contains("[") .or. oLine:LineText:Contains("]"))
 				nLine ++
@@ -364,7 +364,26 @@ RETURN
 			IF SELF:GetLine(nLine):LineText:ToUpper() == aEntity[0]:ToUpper() .or. (eOptions & EntityOptions.KeepFirstLine) == EntityOptions.KeepFirstLine
 				nLine ++
 			ELSE
-				SELF:ReplaceWEDLine(aEntity[0] , nLine)
+				LOCAL cDeclarationLine AS STRING
+				cDeclarationLine := aEntity[0]
+				IF oDeclarationLine:oEntity != NULL
+					IF _AND(oDeclarationLine:oEntity:eModifiers , EntityModifiers._Protected) == EntityModifiers._Protected
+						cDeclarationLine := "PROTECTED " + cDeclarationLine
+					ENDIF
+					IF _AND(oDeclarationLine:oEntity:eModifiers , EntityModifiers._Private) == EntityModifiers._Private
+						cDeclarationLine := "PRIVATE " + cDeclarationLine
+					ENDIF
+					IF _AND(oDeclarationLine:oEntity:eModifiers , EntityModifiers._Partial) == EntityModifiers._Partial
+						cDeclarationLine := "PARTIAL " + cDeclarationLine
+					ENDIF
+					IF _AND(oDeclarationLine:oEntity:eModifiers , EntityModifiers._Internal) == EntityModifiers._Internal
+						cDeclarationLine := "INTERNAL " + cDeclarationLine
+					ENDIF
+					IF .NOT. String.IsNullOrEmpty( oDeclarationLine:oEntity:cImplements:Trim() )
+						cDeclarationLine := cDeclarationLine + " IMPLEMENTS " + oDeclarationLine:oEntity:cImplements
+					ENDIF
+				END IF
+				SELF:ReplaceWEDLine(cDeclarationLine , nLine)
 				nLine ++
 			END IF
 			n := 1
@@ -539,7 +558,10 @@ RETURN
 		cMask := "DEFINE {0} := {1}"
 		IF lStatic
 			cMask := "STATIC "+cMask			
-		ENDIF
+        ENDIF
+        IF nLine == 0
+            nLine := 1
+        ENDIF
 		FOR LOCAL n := 0 AS INT UPTO aDefines:Count - 1
 			cLine := String.Format(cMask , aDefines[n] , aDefineValues[n])
 			SELF:InsertLine(nLine , cLine)

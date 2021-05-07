@@ -75,6 +75,15 @@ FUNCTION SetCentury(lNewSetting AS LOGIC) AS LOGIC
     RETURN lOld
 
 
+FUNCTION SetCompatible() AS LOGIC
+	RETURN RuntimeState.Compatible
+
+FUNCTION SetCompatible(lNewSetting AS LOGIC) AS LOGIC
+	VAR lOld := RuntimeState.Compatible
+    RuntimeState.Compatible := lNewSetting
+    RETURN lOld
+
+
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/setcpu/*" />
 FUNCTION SetCpu() AS DWORD
 	GETSTATE DWORD Set.Cpu
@@ -137,9 +146,21 @@ FUNCTION SetDecimalSep(nNewSetting AS DWORD) AS DWORD
 FUNCTION SetDefault() AS STRING
 	GETSTATE STRING Set.Default 
 
+
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/setdefault/*" />
 FUNCTION SetDefault(cPathSpec AS STRING) AS STRING
 	SetPathArray(NULL)
+    IF XSharp.RuntimeState.Dialect == XSharpDialect.FoxPro
+        VAR cTemp := cPathSpec:Trim()
+        IF cTemp:EndsWith(System.IO.Path.DirectorySeparatorChar:ToString())
+            cTemp := cTemp:Substring(0, cTemp:Length-1) 
+        ENDIF
+        IF ! System.IO.Directory.Exists(cTemp)
+            var err := Error.VOError(EG_ARG, __FUNCTION__, nameof(cPathSpec),1, <OBJECT>{cPathSpec})
+            err:Description := "Directory not found: '"+cPathSpec+"'"
+            THROW err
+        ENDIF
+    ENDIF
 	SETSTATE STRING Set.Default  cPathSpec
 
 
@@ -202,11 +223,23 @@ FUNCTION SetEpoch(nNewSetting AS DWORD) AS DWORD
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/seterrorlog/*" />
 FUNCTION SetErrorLog() AS LOGIC
-	GETSTATE LOGIC Set.Errrorlog 
+	GETSTATE LOGIC Set.Errorlog 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/seterrorlog/*" />
 FUNCTION SetErrorLog(lNewSetting AS LOGIC) AS LOGIC
-	SETSTATE LOGIC Set.Errrorlog lNewSetting
+	SETSTATE LOGIC Set.Errorlog lNewSetting
+
+
+/// <summary>Get the name of the current errorlog file</summary>
+/// <returns>Current name of the error log file.</returns>
+FUNCTION SetErrorLogFile() AS STRING
+	GETSTATE STRING Set.ErrorLogFile 
+
+/// <summary>Set the name of the current errorlog file</summary>
+/// <param name="cNewSetting">New name of error log file </param>
+/// <returns>Previous name of the error log file.</returns>
+FUNCTION SetErrorLogFile(cNewSetting AS STRING) AS STRING
+	SETSTATE STRING Set.ErrorLogFile cNewSetting
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/setexact/*" />
 FUNCTION SetExact() AS LOGIC
@@ -362,6 +395,16 @@ FUNCTION SetSoftSeek(lNewSetting AS LOGIC) AS LOGIC
 	VAR lOld := RuntimeState.SoftSeek
     RuntimeState.SoftSeek := lNewSetting
     RETURN lOld
+
+FUNCTION SetSafety() AS LOGIC
+	RETURN RuntimeState.Safety
+
+FUNCTION SetSafety(lNewSetting AS LOGIC) AS LOGIC
+	VAR lOld := RuntimeState.Safety
+    RuntimeState.Safety := lNewSetting
+    RETURN lOld
+
+
 
 /// <summary>
 /// Return the setting that determines whether a space is displayed between fields or expressions when you use the ? or ?? command.

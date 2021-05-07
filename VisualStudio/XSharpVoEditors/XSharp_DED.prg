@@ -1,3 +1,8 @@
+//
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
+// See License.txt in the project root for license information.
+//
 USING System.Collections
 USING System.Collections.Generic
 USING System.Windows.Forms
@@ -149,6 +154,8 @@ CLASS XSharp_VODbServerEditor INHERIT VODbServerEditor
 			TRY
 				SELF:SaveToXml(cFileName)
 				lSuccess := TRUE
+         CATCH
+            NOP
 			END TRY
 			RETURN lSuccess
 		END IF
@@ -224,6 +231,8 @@ CLASS XSharp_VODbServerEditor INHERIT VODbServerEditor
 				IF !lSrvOnly
 					SELF:nActionSaved := SELF:nAction
 				END IF
+         CATCH
+            NOP
 			END TRY
 		END IF
 		

@@ -12,6 +12,7 @@
 using System;
 using System.Diagnostics;
 using Microsoft.VisualStudio;
+using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using IServiceProvider = System.IServiceProvider;
 using ShellConstants = Microsoft.VisualStudio.Shell.Interop.Constants;
@@ -41,11 +42,14 @@ namespace Microsoft.VisualStudio.Project
             {
                 throw new ArgumentNullException("serviceProviderParameter");
             }
-            UIThread.DoOnUIThread(() =>
-              {
-                  this.serviceProvider = serviceProviderParameter;
-                  this.solution = this.serviceProvider.GetService(typeof(SVsSolution)) as IVsSolution;
-              });
+            this.serviceProvider = serviceProviderParameter;
+            this.solution = null;
+            ThreadHelper.JoinableTaskFactory.Run(async delegate
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                this.solution = this.serviceProvider.GetService(typeof(SVsSolution)) as IVsSolution;
+            });
+
             if (this.solution == null)
             {
                 throw new InvalidOperationException("Could not get the IVsSolution object from the services exposed by this project");
@@ -197,6 +201,8 @@ namespace Microsoft.VisualStudio.Project
         /// </summary>
         public void Dispose()
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             this.Dispose(true);
             GC.SuppressFinalize(this);
         }
@@ -206,7 +212,9 @@ namespace Microsoft.VisualStudio.Project
         #region methods
         public void Init()
         {
-            if(this.solution != null)
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            if (this.solution != null)
             {
                 this.solution.AdviseSolutionEvents(this.InteropSafeIVsSolutionEvents, out this.eventsCookie);
             }
@@ -220,7 +228,9 @@ namespace Microsoft.VisualStudio.Project
         protected virtual void Dispose(bool disposing)
         {
             // Everybody can go here.
-            if(!this.isDisposed)
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            if (!this.isDisposed)
             {
                 // Synchronize calls to the Dispose simulteniously.
                 lock(Mutex)
@@ -238,18 +248,18 @@ namespace Microsoft.VisualStudio.Project
         #endregion
 
         #region IVsSolutionEvents5
-        public void OnBeforeOpenProject(ref Guid guidProjectID, ref Guid guidProjectType, string pszFileName)
+        public virtual void OnBeforeOpenProject(ref Guid guidProjectID, ref Guid guidProjectType, string pszFileName)
         {
             return;
         }
         #endregion
         #region IVsSolutionEvents6
-        public int OnBeforeProjectRegisteredInRunningDocumentTable(Guid projectID, string projectFullPath)
+        public virtual int OnBeforeProjectRegisteredInRunningDocumentTable(Guid projectID, string projectFullPath)
         {
             return VSConstants.E_NOTIMPL;
         }
 
-        public int OnAfterProjectRegisteredInRunningDocumentTable(Guid projectID, string projectFullPath, uint docCookie)
+        public virtual int OnAfterProjectRegisteredInRunningDocumentTable(Guid projectID, string projectFullPath, uint docCookie)
         {
             return VSConstants.E_NOTIMPL;
         }

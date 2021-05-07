@@ -38,8 +38,8 @@ BEGIN NAMESPACE XSharpModel
       METHOD AddFileNode(strFileName AS STRING) AS VOID
          RETURN
          
-      METHOD AddIntellisenseError(file AS STRING, line AS LONG, column AS LONG, Length AS LONG, errCode AS STRING, message AS STRING, sev AS DiagnosticSeverity) AS VOID
-         RETURN
+//      METHOD AddIntellisenseError(file AS STRING, line AS LONG, column AS LONG, Length AS LONG, errCode AS STRING, message AS STRING, sev AS DiagnosticSeverity) AS VOID
+//         RETURN
          
          
       METHOD ClearIntellisenseErrors(file AS STRING) AS VOID
@@ -79,7 +79,11 @@ BEGIN NAMESPACE XSharpModel
       METHOD OpenElement(file AS STRING, line AS LONG, column AS LONG) AS VOID
          RETURN
          
-         
+
+     METHOD RunInForeGroundThread( a as Action) AS VOID
+            a()
+            RETURN
+
       METHOD SetStatusBarAnimation(onoff AS LOGIC, id AS SHORT) AS VOID
          RETURN
          
@@ -99,5 +103,4 @@ BEGIN NAMESPACE XSharpModel
          END CLASS
          
    END NAMESPACE
-   
    

@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\XSharp\XSharp.Default.props" />
+  <Import Project="$(XSharpMsBuildDir)\XSharp.Default.props" />
   <Import Project="..\Runtime.Targets" />
   <PropertyGroup>
     <ProjectGuid>c5d7be20-038e-4b42-a90a-b13bab83d8e5</ProjectGuid>
@@ -12,11 +12,11 @@
     <CS>true</CS>
     <Unsafe>true</Unsafe>
     <NS>true</NS>
+    <vo15>true</vo15>
     <VulcanCompatibleResources>True</VulcanCompatibleResources>
-    <XSharpProjectversion>2.5.0.0</XSharpProjectversion>
+    <XSharpProjectversion>2.6.3.0</XSharpProjectversion>
     <IncludePaths>$(CommonInclude)</IncludePaths>
     <Nostandarddefs>true</Nostandarddefs>
-    <XSharpProjectExtensionsPath>$(MSBuildExtensionsPath)\XSharp\</XSharpProjectExtensionsPath>
     <StartupObject />
     <ApplicationIcon />
     <NoWin32Manifest>False</NoWin32Manifest>
@@ -31,7 +31,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Documentation|AnyCPU'">
     <DocumentationFile>XSharp.XPP.Xml</DocumentationFile>
   </PropertyGroup>
-  <Import Project="$(MSBuildExtensionsPath)\XSharp\XSharp.targets" />
+  <Import Project="$(XSharpMsBuildDir)\XSharp.targets" />
   <ItemGroup>
     <Reference Include="mscorlib" />
     <Reference Include="System" />
@@ -55,8 +55,8 @@
     </Compile>
     <Compile Include="Abstract.prg" />
     <Compile Include="DbFunctions.prg" />
-    <Compile Include="Collations.Designer.prg">
-      <DependentUpon>Collations.resx</DependentUpon>
+    <Compile Include="XPPCollations.Designer.prg">
+      <DependentUpon>XPPCollations.resx</DependentUpon>
     </Compile>
     <Compile Include="International.prg" />
     <Compile Include="DataObject.prg" />
@@ -118,7 +118,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Collations.resx">
+    <EmbeddedResource Include="XPPCollations.resx">
       <Generator>ResXFileCodeGenerator</Generator>
     </EmbeddedResource>
   </ItemGroup>
@@ -136,6 +136,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
     <PreBuildEvent />
     <PostBuildEvent />
+    <RunPostBuildEvent />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Documentation|AnyCPU'">
+    <PreBuildEvent>copy $(SolutionDir)Docs\XppComments.xml $(ProjectDir)\XppComments.Xml
+    </PreBuildEvent> 
+    <PostBuildEvent>erase  $(ProjectDir)\XppComments.Xml
+    </PostBuildEvent>
     <RunPostBuildEvent />
   </PropertyGroup>
 </Project>

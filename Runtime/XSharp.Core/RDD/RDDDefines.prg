@@ -51,7 +51,11 @@ DEFINE DBS_ALEN                 := 4  // XBase++ has this define
 /// <exclude />
 DEFINE DBS_CAPTION              := DbFieldInfo.DBS_CAPTION
 /// <exclude />
+DEFINE DBS_DESCRIPTION          := DbFieldInfo.DBS_DESCRIPTION
+/// <exclude />
 DEFINE DBS_COLUMNINFO           := DbFieldInfo.DBS_COLUMNINFO
+/// <exclude />
+DEFINE DBS_BLANK                := DbFieldInfo.DBS_BLANK
 /// <exclude />
 DEFINE DBS_ISNULL               := DbFieldInfo.DBS_ISNULL  
 /// <exclude />
@@ -113,7 +117,9 @@ DEFINE DBI_READONLY 		:= 	DbInfo.DBI_READONLY 		// Logic: is the file opened rea
 /// <exclude />
 DEFINE DBI_CHILDCOUNT 		:= 	DbInfo.DBI_CHILDCOUNT 		// Number: Number of child relations set
 /// <exclude />
-DEFINE DBI_FILEHANDLE 		:= 	DbInfo.DBI_FILEHANDLE 		// Stream: The data file's file stream
+DEFINE DBI_FILEHANDLE 		:= 	DbInfo.DBI_FILEHANDLE 		// IntPtr: The data file's file handle
+/// <exclude />
+DEFINE DBI_FILESTREAM 		:= 	DbInfo.DBI_FILESTREAM 		// Stream: The data file's file stream
 /// <exclude />
 DEFINE DBI_ISANSI 			:= 	DbInfo.DBI_ISANSI 			// Logic: Is the file ansi encoded
 /// <exclude />
@@ -141,7 +147,9 @@ DEFINE DBI_SHARED 			:= 	DbInfo.DBI_SHARED 			// Logic: is the file opened share
 /// <exclude />
 DEFINE DBI_MEMOEXT 			:= 	DbInfo.DBI_MEMOEXT 			// String: Memo file extension
 /// <exclude />
-DEFINE DBI_MEMOHANDLE 		:= 	DbInfo.DBI_MEMOHANDLE 		// Stream: The memo file's file stream
+DEFINE DBI_MEMOHANDLE 		:= 	DbInfo.DBI_MEMOHANDLE 		// IntPtr: The memo file's file handle
+/// <exclude />
+DEFINE DBI_MEMOSTREAM 		:= 	DbInfo.DBI_MEMOSTREAM 		// Stream: The memo file's file stream
 /// <exclude />
 DEFINE DBI_BLOB_HANDLE 		:= 	DbInfo.DBI_BLOB_HANDLE 		// Alias for MemoHandle
 /// <exclude />
@@ -338,7 +346,9 @@ DEFINE DBOI_INDEXEXT  	:= DbOrder_Info.DBOI_INDEXEXT  	   // Alias
 /// <exclude />
 DEFINE DBOI_ORDERCOUNT  := DbOrder_Info.DBOI_ORDERCOUNT     // Number: The count of ORDERS contained in an index file or in total
 /// <exclude />
-DEFINE DBOI_FILEHANDLE 	:= DbOrder_Info.DBOI_FILEHANDLE 		// Stream: The stream of the index
+DEFINE DBOI_FILEHANDLE 	:= DbOrder_Info.DBOI_FILEHANDLE 		// IntPtr: The handle of the index
+/// <exclude />
+DEFINE DBOI_FILESTREAM 	:= DbOrder_Info.DBOI_FILESTREAM 		// Stream: The stream of the index
 /// <exclude />
 DEFINE DBOI_ISCOND 		:= DbOrder_Info.DBOI_ISCOND 			// Logic : Does the order have a FOR condition?
 /// <exclude />
@@ -925,6 +935,8 @@ DEFINE EDB_DBSTRUCT        := Subcodes.EDB_DBSTRUCT
 DEFINE EDB_NOTABLE         := Subcodes.EDB_NOTABLE       
 /// <include file="CoreComments.xml" path="Comments/RDDError/*" />
 DEFINE EDB_NOORDER         := Subcodes.EDB_NOORDER       
+/// <include file="CoreComments.xml" path="Comments/RDDError/*" />
+DEFINE EDB_NODB            := Subcodes.EDB_NODB
 
 /// <include file="CoreComments.xml" path="Comments/RDDError/*" />
 DEFINE EDB_ASSERTION       := Subcodes.EDB_ASSERTION     

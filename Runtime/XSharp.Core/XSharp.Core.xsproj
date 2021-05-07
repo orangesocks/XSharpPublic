@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\XSharp\XSharp.Default.props" />
+  <Import Project="$(XSharpMsBuildDir)\XSharp.Default.props" />
   <Import Project="..\Runtime.Targets" />
   <PropertyGroup>
     <ProjectGuid>535dff14-efb7-43f5-a4e1-71c1c4280040</ProjectGuid>
@@ -12,10 +12,9 @@
     <AZ>true</AZ>
     <CS>true</CS>
     <VulcanCompatibleResources>True</VulcanCompatibleResources>
-    <XSharpProjectversion>2.4.1.0</XSharpProjectversion>
+    <XSharpProjectversion>2.7.0.0</XSharpProjectversion>
     <IncludePaths>$(CommonInclude)</IncludePaths>
     <Nostandarddefs>true</Nostandarddefs>
-    <XSharpProjectExtensionsPath>$(MSBuildExtensionsPath)\XSharp\</XSharpProjectExtensionsPath>
     <StandardDefs />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'" Label="Configuration">
@@ -27,18 +26,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Documentation|AnyCPU'">
     <DocumentationFile>XSharp.Core.Xml</DocumentationFile>
   </PropertyGroup>
-  <Import Project="$(MSBuildExtensionsPath)\XSharp\XSharp.targets" />
+  <Import Project="$(XSharpMsBuildDir)\XSharp.targets" />
   <ItemGroup>
     <Reference Include="mscorlib" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
     <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
-      <Name>System.Windows.Forms</Name>
-      <AssemblyName>System.Windows.Forms.dll</AssemblyName>
-      <SpecificVersion>False</SpecificVersion>
-    </Reference>
     <Reference Include="System.Xml" />
     <Reference Include="System.Xml.Linq" />
   </ItemGroup>
@@ -71,6 +65,7 @@
     <Compile Include="Functions\DT.prg" />
     <Compile Include="Functions\File.prg" />
     <Compile Include="Functions\FileIO.prg" />
+    <Compile Include="Functions\Conversions.prg" />
     <Compile Include="Functions\Macro.prg" />
     <Compile Include="Functions\Memo.prg" />
     <Compile Include="Functions\Numeric.prg" />
@@ -82,8 +77,15 @@
     <Compile Include="Properties\AssemblyInfo.prg" />
     <Compile Include="RDD\BaseIndex.prg" />
     <Compile Include="RDD\BaseMemo.prg" />
+    <Compile Include="RDD\DataSession.prg" />
+    <Compile Include="RDD\CursorProperties.prg" />
     <Compile Include="RDD\DbColumnInfo.prg" />
+    <Compile Include="RDD\DbcSupport.prg" />
     <Compile Include="RDD\DbFloat.prg" />
+    <Compile Include="RDD\DatabaseProperties.prg" />
+    <Compile Include="RDD\IDbRow.prg" />
+    <Compile Include="RDD\DatabasePropertyCollection.prg" />
+    <Compile Include="RDD\RddFieldInfo.prg" />
     <Compile Include="RDD\RDDNotifications.prg" />
     <Compile Include="RDD\RDDDefines.prg" />
     <Compile Include="RDD\RddEnums.prg" />
@@ -91,10 +93,12 @@
     <Compile Include="RDD\IOrder.prg" />
     <Compile Include="RDD\IRDD.prg" />
     <Compile Include="RDD\RddError.prg" />
-    <Compile Include="RDD\RddHelpers.prg" />
+    <Compile Include="RDD\RegisteredRDD.prg" />
     <Compile Include="RDD\RDDSupport.prg" />
     <Compile Include="RDD\CoreDb.prg" />
     <Compile Include="RDD\RDDWrapper.prg" />
+    <Compile Include="RDD\SqlProperties.prg" />
+    <Compile Include="RDD\SQLHelpers.prg" />
     <Compile Include="RDD\Workarea.prg" />
     <Compile Include="RDD\Workareas.prg" />
     <Compile Include="State\Enums.prg" />
@@ -103,12 +107,15 @@
     <Compile Include="State\Set.prg" />
     <Compile Include="State\State.prg" />
     <Compile Include="Types\Attributes.prg" />
+    <Compile Include="Types\BufferedFileStream.prg" />
     <Compile Include="Types\Dialect.prg" />
     <Compile Include="Types\Error.prg" />
     <Compile Include="Types\ErrorEnums.prg" />
     <Compile Include="Types\Interfaces.prg" />
     <Compile Include="Types\MacroSupport.prg" />
-    <Compile Include="Types\Streams.prg" />
+    <Compile Include="Types\SharedFileStream.prg" />
+    <Compile Include="Types\StreamExtensions.prg" />
+    <Compile Include="Types\FileStream.prg" />
     <Compile Include="Types\UsualType.prg" />
     <Compile Include="Types\WrappedException.prg" />
   </ItemGroup>
@@ -235,8 +242,12 @@
     <RunPostBuildEvent />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Documentation|AnyCPU'">
-    <PreBuildEvent>copy $(Solutiondir)Runtime\XSharp.RT\VoFunctionDocs.xml $(Solutiondir)Runtime\XSharp.Core\VoFunctionDocs.xml &gt;NUL</PreBuildEvent>
-    <PostBuildEvent>erase $(Solutiondir)Runtime\XSharp.Core\VoFunctionDocs.xml &gt;NUL</PostBuildEvent>
-    <RunPostBuildEvent>Always</RunPostBuildEvent>
+    <PreBuildEvent>copy $(SolutionDir)\Docs\RtComments.xml $(ProjectDir)\RtComments.Xml
+    copy $(SolutionDir)\Docs\VOFunctionDocs.xml $(ProjectDir)\VOFunctionDocs.Xml
+    </PreBuildEvent>
+    <PostBuildEvent>erase  $(ProjectDir)\RtComments.Xml
+    erase  $(ProjectDir)\VOFunctionDocs.Xml
+    </PostBuildEvent>
+    <RunPostBuildEvent />
   </PropertyGroup>
 </Project>

@@ -1,24 +1,24 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\XSharp\XSharp.Default.props" />
+  <Import Project="$(XSharpMsBuildDir)\XSharp.Default.props" />
   <Import Project="..\Runtime.Targets" />
   <PropertyGroup>
     <ProjectGuid>ef8d2bf2-e81a-479a-ba4f-294c4c348b66</ProjectGuid>
     <RootNamespace>XSharp.RT</RootNamespace>
     <AssemblyName>XSharp.RT</AssemblyName>
     <Name>XSharp.RT</Name>
-    <Dialect>Vulcan</Dialect>
+    <Dialect>VO</Dialect>
     <OutputName>XSharp.RT</OutputName>
     <CS>true</CS>
     <Unsafe>true</Unsafe>
     <NS>true</NS>
     <VulcanCompatibleResources>True</VulcanCompatibleResources>
-    <XSharpProjectversion>2.4.1.0</XSharpProjectversion>
+    <XSharpProjectversion>2.8.0.11</XSharpProjectversion>
     <IncludePaths>$(CommonInclude)</IncludePaths>
     <Nostandarddefs>true</Nostandarddefs>
-    <XSharpProjectExtensionsPath>$(MSBuildExtensionsPath)\XSharp\</XSharpProjectExtensionsPath>
     <StandardDefs />
     <InitLocals>false</InitLocals>
+    <StartupObject />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'" Label="Configuration">
     <DisabledWarnings />
@@ -28,19 +28,13 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Documentation|AnyCPU'">
     <DocumentationFile>XSharp.RT.Xml</DocumentationFile>
+    <DefineConstants>DEBUG;TRACE;RUNTIME;DOCUMENTATION</DefineConstants>
   </PropertyGroup>
-  <Import Project="$(MSBuildExtensionsPath)\XSharp\XSharp.targets" />
+  <Import Project="$(XSharpMsBuildDir)\XSharp.targets" />
   <ItemGroup>
     <Reference Include="mscorlib" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
-      <Name>System.Windows.Forms</Name>
-      <AssemblyName>System.Windows.Forms.dll</AssemblyName>
-      <SpecificVersion>False</SpecificVersion>
-      <Private>True</Private>
-      <HintPath>..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.7.2\System.Windows.Forms.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\Common\commonAssemblyInfo.prg">
@@ -88,6 +82,7 @@
     <Compile Include="Types\CodeBlock.prg" />
     <Compile Include="Types\ArrayBase.prg" />
     <Compile Include="Types\CompilerServices.prg" />
+    <Compile Include="Types\Binary.prg" />
     <Compile Include="Types\Currency.prg" />
     <Compile Include="Types\Date.prg" />
     <Compile Include="Types\Float.prg" />
@@ -113,10 +108,6 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <None Include="RTComments.Xml" />
-    <None Include="VoFunctionDocs.xml" />
-  </ItemGroup>
   <!-- This next bit is required unless the macro used to Import your targets is defined in an MSBuild toolset. -->
   <ProjectExtensions>
     <ProjectCapabilities>
@@ -131,6 +122,15 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
     <PreBuildEvent />
     <PostBuildEvent />
-    <RunPostBuildEvent>OnBuildSuccess</RunPostBuildEvent>
+    <RunPostBuildEvent />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Documentation|AnyCPU'">
+    <PreBuildEvent>copy $(SolutionDir)\Docs\RtComments.xml $(ProjectDir)\RtComments.Xml
+    copy $(SolutionDir)\Docs\VOFunctionDocs.xml $(ProjectDir)\VOFunctionDocs.Xml
+    </PreBuildEvent>
+    <PostBuildEvent>erase  $(ProjectDir)\RtComments.Xml
+    erase  $(ProjectDir)\VOFunctionDocs.Xml
+    </PostBuildEvent>
+    <RunPostBuildEvent />
   </PropertyGroup>
 </Project>

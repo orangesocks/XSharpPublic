@@ -10,9 +10,9 @@ USING System.Reflection
 /// <summary>Query current and/or set new active collation.</summary>
 /// <param name="nCollation">the numeric identifier for the collation table to be selected. Must be one of the values from the XppCollations enum of a simple number</param>
 /// <returns>The numeric identifier of the active collation table </returns>
-/// <seealso cref='T:XSharp.XPP.XppCollations' />
-/// <seealso cref='O:XSharp.XPP.Functions.SetCollationTable' />
-FUNCTION SetCollation(nCollation) AS LONG
+/// <seealso cref='XppCollations' />
+/// <seealso cref='SetCollationTable' />
+FUNCTION SetCollation(nCollation) AS LONG CLIPPER
     LOCAL nOld := @@Set(Set.Collation) AS LONG
     IF PCount() > 0 .AND. IsNumeric(nCollation)
         SetCollationTable(nCollation)
@@ -25,9 +25,9 @@ FUNCTION SetCollation(nCollation) AS LONG
 /// <param name="aTable">a one dimensional array with 256 elements. It must contain numeric values representing the weighing factors for single characters.
 /// The ASCII value of a character plus 1 defines the array element that contains the weighing factor for that character. </param>
 /// <returns>a one dimensional array holding the weighing factors of characters for the active collation. </returns>
-/// <seealso cref='T:XSharp.XPP.XppCollations' />
-/// <seealso cref='O:XSharp.XPP.Functions.SetCollation' />
-FUNCTION SetCollationTable(nCollation, aTable) AS ARRAY
+/// <seealso cref='XppCollations' />
+/// <seealso cref='SetCollation' />
+FUNCTION SetCollationTable(nCollation, aTable) AS ARRAY CLIPPER
     LOCAL liEnum AS LONG
     LOCAL aCollation AS ARRAY
     IF PCount() >= 1
@@ -59,7 +59,7 @@ FUNCTION SetCollationTable(nCollation, aTable) AS ARRAY
                     tableName := "Oem"+tableName
                 ENDIF
             ENDIF
-            LOCAL oType := typeof(XSharp.XPP.Collations) AS System.Type
+            LOCAL oType := typeof(XSharp.XPP.XPPCollations) AS System.Type
             LOCAL oProp := oType:GetProperty(tableName, BindingFlags.Static| BindingFlags.Public | BindingFlags.NonPublic| BindingFlags.IgnoreCase) AS PropertyInfo
             IF oProp != NULL
                 aBytes := (BYTE[]) oProp:GetValue(NULL)
@@ -70,9 +70,9 @@ FUNCTION SetCollationTable(nCollation, aTable) AS ARRAY
 //         ENDIF
     ENDIF
     IF aBytes != NULL
-        aCollation := {}
+        aCollation := ArrayNew((DWORD) aBytes:Length)
         FOR VAR nI := 1 TO aBytes:Length
-            AAdd(aCollation, aBytes[nI])
+            aCollation[nI] := aBytes[nI]
         NEXT
     ELSE
         // Create aCollation from Windows Sort Routine

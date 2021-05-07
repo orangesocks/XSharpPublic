@@ -10,7 +10,8 @@ USING System.Text
 USING XUnit
 USING System.Globalization
 
-
+DEFINE FTRUE  := TRUE
+DEFINE FFALSE := FALSE
 BEGIN NAMESPACE XSharp.VO.Tests
 
 	CLASS VoConversionTests
@@ -29,6 +30,14 @@ BEGIN NAMESPACE XSharp.VO.Tests
 
 			VAR n1 := GetThreadCount()
 			Assert.Equal(TRUE, n1 > 1)
+			
+			LOCAL p AS PTR
+			p := @p
+			Assert.Equal(AsString(p), "0x" + AsHexString(p) )
+			Assert.Equal(10, AsString(p):Length)
+			p := NULL_PTR
+			Assert.Equal("0x00000000", AsString(p))
+			Assert.Equal("00000000", AsHexString(p))
 
 		[Fact, Trait("Category", "Conversion")];
 		METHOD StrTest() AS VOID 
@@ -173,6 +182,8 @@ BEGIN NAMESPACE XSharp.VO.Tests
 			Assert.Equal("123,456", AsString(Val("  123.456"  )))
 			Assert.Equal("123,456", AsString(Val("  123,456"  )))
 
+			Assert.True(Val(NULL) == 0)
+
 		[Fact, Trait("Category", "Val")];
 		METHOD ValTests2() AS VOID
 			SetDecimalSep(',')
@@ -226,7 +237,42 @@ BEGIN NAMESPACE XSharp.VO.Tests
 			SetFixed(fixed_)
 			SetDigitFixed(digitfixed)
 		RETURN
+		[Fact, Trait("Category", "DirtyCasts")];
+        METHOD DirtyCasts() AS VOID
+            Assert.Equal(1, BYTE(_CAST, FTRUE))
+            Assert.Equal(0, BYTE(_CAST, FFALSE))
+            Assert.Equal(255, _OR(BYTE(_CAST, FTRUE),0xFF)) 
+            Assert.Equal(1, _AND(BYTE(_CAST, FTRUE),0xFF)) 
+            Assert.Equal(1, BYTE(_CAST, TRUE))
+            Assert.Equal(0, BYTE(_CAST, FALSE))
+            
+		[Fact, Trait("Category", "VariousConversions")];
+		METHOD VariousConversions() AS VOID
+			LOCAL deci,thou,digit,decimal,fixed_,digitfixed AS USUAL
+			deci := SetDecimalSep(Asc(","))
+			thou := SetThousandSep(Asc("."))
+			digit := SetDigit()
+			decimal := SetDecimal(5)
+			fixed_ := SetFixed()
+			digitfixed := SetDigitFixed()
+			
+			LOCAL r AS REAL8
+			LOCAL u AS USUAL
+			LOCAL f AS FLOAT
+			r := 123.456
+			u := r
+			Assert.Equal( "123,45600", NTrim(u) )
+			f := 12.3400000
+			Assert.Equal( "12,3400000", NTrim(f) )
+			Assert.Equal( "12,3400000", NTrim( AbsFloat(f)) )
 
+			SetDecimalSep(deci)
+			SetThousandSep(thou)
+			SetDigit(digit)
+			SetDecimal(decimal)
+			SetFixed(fixed_)
+			SetDigitFixed(digitfixed)
+		RETURN
 
 	END CLASS
 END NAMESPACE // XSharp.Runtime.Tests

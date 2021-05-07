@@ -9,6 +9,7 @@ USING System.Linq
 USING System.Text
 USING XUnit
 
+#pragma warnings(165, off)  // unassigned variables
 
 // Array tests are not working correctly yet with the current build
 BEGIN NAMESPACE XSharp.VO.Tests
@@ -167,7 +168,16 @@ BEGIN NAMESPACE XSharp.VO.Tests
 			ASort(a , 0 , 100,{|a,b| b < a})
 			Assert.Equal( 0, (INT) a[6])
 			Assert.Equal( 8, (INT) a[1])
-        
+
+            a := {{ 1,1}, {1,2}, {2,3}, {2,4}}
+            ASort(a, 0, 4, {|x,y| IIF (x[1] == y[1], x[2] <= y[2], x[1] < y[1])})
+
+			Assert.Equal( 1, (INT) a[1,2])
+			Assert.Equal( 2, (INT) a[2,2])
+			Assert.Equal( 3, (INT) a[3,2])
+			Assert.Equal( 4, (INT) a[4,2])
+
+
 		[Trait("Category", "Array")];
 		[Fact];
 		METHOD AscanTest() AS VOID
@@ -488,7 +498,10 @@ BEGIN NAMESPACE XSharp.VO.Tests
 		METHOD ArrayVOSpecialHandling() AS VOID
             LOCAL aValues := {1,2,4} AS ARRAY
             RuntimeState.Dialect := XSharpDialect.VO
-			Assert.True(  aValues[1,1] == NIL)
+            EnableArrayIndexCheck(FALSE)
+            Assert.True( aValues[1,1] == NIL )
+            EnableArrayIndexCheck(TRUE)
+            Assert.ThrowsAny<Error>({ =>aValues[1,1] == NIL})
 
 		[Fact, Trait("Category", "Hacks")];
 		METHOD ArrayXPPSpecialHandling() AS VOID

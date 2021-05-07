@@ -12,7 +12,20 @@ BYTE     rightPtr[ 4 ];    offset of right node or -1
 // BYTE child page [4]
 
 */
-//#define TESTCDX
+#include "CdxDebug.xh"
+
+#define USEATTRIB
+#ifdef USEATTRIB
+#XTRANSLATE \[HIDDEN\] => \[DebuggerBrowsable(DebuggerBrowsableState.Never)\]
+#XTRANSLATE \[INLINE\] => \[MethodImpl(MethodImplOptions.AggressiveInlining)\]
+#XTRANSLATE \[NODEBUG\] => \[DebuggerStepThroughAttribute\]
+#else
+#XTRANSLATE \[HIDDEN\] => 
+#XTRANSLATE \[INLINE\] => 
+#XTRANSLATE \[NODEBUG\] =>
+#endif
+
+
 USING System
 USING System.Collections.Generic
 USING System.Text
@@ -20,19 +33,23 @@ USING System.IO
 USING System.Runtime.CompilerServices
 USING System.Diagnostics
 BEGIN NAMESPACE XSharp.RDD.CDX
-    [DebuggerDisplay("{DebuggerDisplay,nq}")];
+    [DebuggerDisplay("{DebugString,nq}")];
     INTERNAL SEALED CLASS CdxBranch
         INTERNAL Recno AS LONG
         INTERNAL ChildPage AS LONG
         INTERNAL Key   AS BYTE[]
-        INTERNAL PROPERTY KeyText AS STRING GET SELF:Key:ToAscii()
-        INTERNAL PROPERTY DebuggerDisplay AS STRING GET  String.Format("{0,6} {1,6:X} {2}",   Recno, ChildPage, KeyText)
-
-        CONSTRUCTOR (nRecno AS LONG, nChild AS LONG, bKey AS BYTE[])
+        INTERNAL KeyBinary as LOGIC 
+        INTERNAL PROPERTY KeyText       AS STRING GET SELF:Key:ToAscii(KeyBinary)
+        INTERNAL PROPERTY ChildPageX    AS STRING GET ChildPage:ToString("X8")
+        INTERNAL PROPERTY DebugString   AS STRING GET SELF:KeyText:Trim() +" # "+SELF:Recno:ToString()+" P " + ChildPageX
+        INTERNAL CONSTRUCTOR (nRecno AS LONG, nChild AS LONG, bKey AS BYTE[],binary as LOGIC)
             SELF:Recno := nRecno
             SELF:ChildPage := nChild
             SELF:Key   := (BYTE[]) bKey:Clone()
+            SELF:KeyBinary := binary
             RETURN
+        OVERRIDE METHOD ToString() AS STRING => DebugString
+            
     END CLASS
     /// <summary>
     /// CdxBranchePage. this class maps the Branch page from the file in memory
@@ -80,18 +97,31 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             SELF:_getValues()
 
         PRIVATE METHOD _getValues() AS VOID
-            _numKeys  := _GetWord(CDXBRANCH_OFFSET_NUMKEYS)
-            _leftPtr  := _GetLong(CDXBRANCH_OFFSET_LEFTPTR)
-            _rightPtr := _GetLong(CDXBRANCH_OFFSET_RIGHTPTR)
+            _numKeys  := SELF:_GetWord(CDXBRANCH_OFFSET_NUMKEYS)
+            _leftPtr  := SELF:_GetLong(CDXBRANCH_OFFSET_LEFTPTR)
+            _rightPtr := SELF:_GetLong(CDXBRANCH_OFFSET_RIGHTPTR)
 
             
-            //? "Branch Page", SELF:PageNo:ToString("X"), SELF:NumKeys, "Startswith ", GetRecno(0), _bag:_oRDD:_Encoding:GetString(GetKey(0),0,_keyLen)
+            //? "Branch Page", SELF:PageNoX, SELF:NumKeys, "Startswith ", GetRecno(0), _bag:_oRDD:_Encoding:GetString(GetKey(0),0,_keyLen)
         INTERNAL METHOD InitBlank(oTag AS CdxTag) AS VOID
             SELF:PageType   := CdxPageType.Branch
             SELF:NumKeys    := 0
             SELF:LeftPtr    := SELF:RightPtr   := -1
             SELF:Tag        := oTag
             RETURN
+
+        PRIVATE METHOD _clear() AS VOID
+            SELF:_keyLen        := 0
+            SELF:_dataLen       := 0
+            SELF:_pageNoOffSet  := 0
+            SELF:_maxKeys       := 0
+            SELF:_numKeys       := 0
+            SELF:_leftPtr       := 0
+            SELF:_rightPtr      := 0
+
+        INTERNAL OVERRIDE METHOD Clear() AS VOID
+            SUPER:Clear()
+            SELF:_clear()
 
         INTERNAL METHOD Read() AS LOGIC
             LOCAL lOk AS LOGIC
@@ -101,33 +131,34 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             ENDIF
             RETURN lOk
             
-        PUBLIC METHOD GetKey(nPos AS Int32) AS BYTE[]
+        INTERNAL METHOD GetKey(nPos AS Int32) AS BYTE[]
             LOCAL nStart AS INT
             System.Diagnostics.Debug.Assert(nPos >= 0 .AND. nPos < SELF:NumKeys)
             nStart := CDXBRANCH_HEADERLEN + nPos * _dataLen
-            RETURN _GetBytes( nStart, _keyLen)
-            
-        PUBLIC METHOD GetRecno(nPos AS Int32) AS Int32
+            RETURN SELF:_GetBytes( nStart, _keyLen)
+
+        [INLINE];
+        INTERNAL METHOD GetRecno(nPos AS Int32) AS Int32
             LOCAL nStart AS INT
             System.Diagnostics.Debug.Assert(nPos >= 0 .AND. nPos < SELF:NumKeys)
             nStart := CDXBRANCH_HEADERLEN + nPos * _dataLen
-            RETURN _GetLongLE(nStart+_keyLen)
+            RETURN SELF:_GetLongLE(nStart+_keyLen)
             
-        PUBLIC METHOD SetData(nPos as Int32, nRecord as Int32, nPage as Int32, key as Byte[]) AS CdxAction
+        INTERNAL METHOD SetData(nPos as Int32, nRecord as Int32, nPage as Int32, key as Byte[]) AS CdxAction
             LOCAL nStart AS INT
             System.Diagnostics.Debug.Assert(nPos >= 0 .AND. nPos < SELF:NumKeys)
             nStart := CDXBRANCH_HEADERLEN + nPos * _dataLen
             Array.Copy(key, 0, _buffer, nStart, _keyLen)
-            _SetLongLE(nStart+_keyLen, nRecord)
-            _SetLongLE(nStart+_pageNoOffSet, nPage)
+            SELF:_SetLongLE(nStart+_keyLen, nRecord)
+            SELF:_SetLongLE(nStart+_pageNoOffSet, nPage)
             return CdxAction.Ok
             
-        METHOD GetChildPage(nPos AS Int32) AS Int32
+        INTERNAL METHOD GetChildPage(nPos AS Int32) AS Int32
             LOCAL nStart AS INT
             nStart := CDXBRANCH_HEADERLEN + nPos * _dataLen
-            RETURN _GetLongLE(nStart+_pageNoOffSet)
+            RETURN SELF:_GetLongLE(nStart+_pageNoOffSet)
             
-        PUBLIC METHOD GetChildren as IList<LONG>
+        INTERNAL METHOD GetChildren as IList<LONG>
             // used in the dump routine to avoid recursion
             VAR oList := List<LONG>{}
             FOR VAR i := 0 to SELF:NumKeys - 1
@@ -140,14 +171,14 @@ BEGIN NAMESPACE XSharp.RDD.CDX
         // We read the values from our cache but write back to the cache and the buffer at the same time
         // The _Set.. methods set the isHot flag of the page automatically
             
-        PUBLIC PROPERTY NumKeys AS WORD     GET _numKeys ;
-            SET _SetWord(CDXBRANCH_OFFSET_NUMKEYS, value),  _numKeys := value
+        INTERNAL PROPERTY NumKeys AS WORD     GET _numKeys ;
+            SET SELF:_SetWord(CDXBRANCH_OFFSET_NUMKEYS, value),  _numKeys := value
             
         INTERNAL PROPERTY LeftPtr AS Int32  GET _leftPtr ;
-            SET _SetLong(CDXBRANCH_OFFSET_LEFTPTR, value),  _leftPtr := value
+            SET SELF:_SetLong(CDXBRANCH_OFFSET_LEFTPTR, value),  _leftPtr := value
             
         INTERNAL PROPERTY RightPtr AS Int32 GET _rightPtr ; 
-            SET _SetLong(CDXBRANCH_OFFSET_RIGHTPTR, value),  _rightPtr := value
+            SET SELF:_SetLong(CDXBRANCH_OFFSET_RIGHTPTR, value),  _rightPtr := value
 
         INTERNAL PROPERTY LastNode AS CdxPageNode GET IIF(SELF:NumKeys == 0, NULL, SELF[(WORD) (SELF:NumKeys-1)])
         
@@ -171,7 +202,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             // make sure that this key is larger than the last key
             IF SELF:NumKeys > 0
                 VAR lastKey := SELF:GetKey(SELF:NumKeys-1)
-                VAR nDiff := SELF:Tag:__Compare(lastKey, key, key:Length)
+                VAR nDiff := SELF:Tag:__Compare(lastKey, key, key:Length, SELF:GetRecno(SELF:NumKeys-1), recno)
                 IF nDiff > 0
                     // New key needs to be inserted and not added to the page
                     VAR Pos := SELF:FindKey(key, recno, key:Length)
@@ -224,16 +255,18 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 ENDIF
             NEXT
             // and insert at the right spot
-            SetData(nPos, recno, childPageNo, key)
+            SELF:SetData(nPos, recno, childPageNo, key)
             SELF:Write()
             RETURN CdxAction.Ok
             
         INTERNAL METHOD Delete(nPos AS LONG) AS CdxAction
             LOCAL nMax := SELF:NumKeys AS WORD
             LOCAL result AS CdxAction
-            IF nMax == 0 
+            Debug.Assert(nMax > 0, "Branchpage is unexpectedly empty")
+            IF nMax == 0
                 RETURN CdxAction.DeletePage(SELF)
             ENDIF
+            Debug.Assert(nPos >= 0 .AND. nPos < nMax, "Delete key that is not on the page")
             IF nPos < 0 .OR. nPos > nMax-1
                 RETURN CdxAction.OutOfBounds(SELF)
             ENDIF
@@ -248,10 +281,8 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             ENDIF
             SELF:NumKeys -= 1
             IF SELF:NumKeys == 0
-                //SELF:Tag:SetChildToProcess(SELF:PageNo)
                 result := CdxAction.DeletePage(SELF)
             ELSEIF nPos == SELF:NumKeys
-               //SELF:Tag:SetChildToProcess(SELF:PageNo)
                 result := CdxAction.ChangeParent(SELF)
             ELSE
                 result := CdxAction.Ok
@@ -262,29 +293,30 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 
  
         INTERNAL METHOD Split(oTarget AS CdxBranchPage, action AS CdxAction, lAdd AS LOGIC) AS CdxAction
-            VAR  branches  := (List<CdxBranch>) SELF:Branches
+            VAR  keys  := (List<CdxBranch>) SELF:Keys
             VAR nPos := SELF:FindKey(action:Key,action:Recno, action:Key:Length)
-            //Self:Debug("Split to page", oTarget:PageNo:ToString("X"))
+            //Self:Debug("Split to page", oTarget:PageNoX)
             if nPos < self:NumKeys -1
-                branches:Insert(nPos, CdxBranch{action:Recno, action:ChildPage, action:Key})
+                keys:Insert(nPos, CdxBranch{action:Recno, action:ChildPage, action:Key,SELF:Tag:Binary})
             elseif nPos >= self:NumKeys
-                branches:Add( CdxBranch{action:Recno, action:ChildPage, action:Key})
+                keys:Add( CdxBranch{action:Recno, action:ChildPage, action:Key,SELF:Tag:Binary})
             ELSE
-                branches:Insert(nPos, CdxBranch{action:Recno, action:ChildPage, action:Key})
+                keys:Insert(nPos, CdxBranch{action:Recno, action:ChildPage, action:Key,SELF:Tag:Binary})
             ENDIF
             LOCAL half AS INT
             IF lAdd
                 half := SELF:MaxKeys-1
             ELSE    
-                half := branches:Count /2
+                half := keys:Count /2
             ENDIF
             SELF:NumKeys := 0
             FOR VAR i := 0 TO half
-                VAR node := branches[i]
+                VAR node := keys[i]
                 SELF:Add(node:Recno, node:ChildPage, node:Key)
             NEXT
-            FOR VAR i := half+1 TO branches:Count-1
-                VAR node := branches[i]
+            Debug.Assert(NumKeys > 0)
+            FOR VAR i := half+1 TO keys:Count-1
+                VAR node := keys[i]
                 oTarget:Add(node:Recno, node:ChildPage, node:Key)
             NEXT
             SELF:Write()
@@ -318,22 +350,21 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             sb:AppendLine("--------------------------")
             sb:AppendLine(String.Format("{0} Page {1:X6}, # of keys: {2}, MaxKeys: {3}", SELF:PageType, SELF:PageNo, SELF:NumKeys, SELF:MaxKeys))
             sb:AppendLine(String.Format("Left page reference {0:X6}", SELF:LeftPtr))
-            FOREACH branch AS CdxBranch IN SELF:Branches
+            FOREACH branch AS CdxBranch IN SELF:Keys
                 sb:AppendLine(String.Format("Item {0,2}, Page {1:X6}, Record {2,6} : {3} ", i, branch:ChildPage, branch:Recno, branch:KeyText))
                 i++
             NEXT
             sb:AppendLine(String.Format("Right page reference {0:X6}", SELF:RightPtr))
             RETURN sb:ToString()
 
-
-         INTERNAL PROPERTY Branches AS IList<CdxBranch>
+         INTERNAL PROPERTY Keys AS IList<CdxBranch>
             GET
                 LOCAL oList AS List<CdxBranch>
                 LOCAL nMax AS LONG
                 nMax := SELF:NumKeys
                 oList := List<CdxBranch>{nMax}
                 FOR VAR i := 0 TO nMax -1
-                    oList:Add( CdxBranch{SELF:GetRecno(i), SELF:GetChildPage(i), SELF:GetKey(i)})
+                    oList:Add( CdxBranch{SELF:GetRecno(i), SELF:GetChildPage(i), SELF:GetKey(i),SELF:Tag:Binary})
                 NEXT
                 RETURN oList
             END GET
@@ -341,7 +372,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 
          INTERNAL METHOD FindPage(nPage AS LONG) AS LONG
             FOR VAR i := 0 TO NumKeys -1
-                IF GetChildPage(i) == nPage
+                IF SELF:GetChildPage(i) == nPage
                     RETURN i
                 ENDIF
             NEXT
@@ -355,7 +386,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 // Branchpage can't really be empty...
                 FOR nI := 0 TO SELF:NumKeys -1
                     VAR pageKey := SELF:GetKey(nI)
-                    VAR nDiff := SELF:Tag:__Compare(pageKey, key, keyLength)
+                    VAR nDiff := SELF:Tag:__Compare(pageKey, key, keyLength, SELF:GetRecno(nI), recno)
                     SWITCH nDiff
                     CASE 0
                         IF SELF:GetRecno(nI) > recno
@@ -372,79 +403,110 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                NEXT
             ENDIF
            RETURN SELF:NumKeys
-#ifdef TESTCDX
-        METHOD ValidateLevel() AS VOID 
-            var page := SELF
-            DO WHILE page != NULL .and. page:HasLeft 
-                page := (CdxBranchPage) SELF:_tag:GetPage(page:LeftPtr)
-            ENDDO
-            IF page != NULL
-                DO WHILE page:HasRight
-                    var leftKey   := page:Branches[page:NumKeys-1]
-                    var rightPage := (CdxBranchPage) SELF:_tag:GetPage(page:RightPtr)
-                    var rightKey  := rightPage:Branches[0]
-                    VAR nDiff := SELF:Tag:__Compare(leftKey:Key, rightKey:Key, leftKey:Key:Length)
-                    IF nDiff > 0 .OR. (nDiff == 0 .AND. leftKey:Recno >= rightKey:Recno)
-                        SELF:Debug(page:PageNo:ToString("X"), "Keys in wrong order", leftKey:Key:ToAscii():Trim(), leftKey:Recno, rightKey:Key:ToAscii():Trim(), rightKey:Recno)
+
+        METHOD ValidateLevel() AS LOGIC 
+            VAR page := SELF
+            LOCAL lOk := TRUE AS LOGIC
+            page := (CdxBranchPage) SELF:FirstPageOnLevel
+            DO WHILE page != NULL
+                lOk := page:ValidateKeys()
+                IF page:HasRight
+                    VAR leftNode  := page:Keys[page:NumKeys-1]
+                    VAR rightPage := (CdxBranchPage) SELF:_tag:GetPage(page:RightPtr)
+                    VAR rightNode := rightPage:Keys[0]
+                    VAR nDiff := SELF:Tag:__Compare(leftNode:Key, rightNode:Key, leftNode:Key:Length, leftNode:Recno, rightNode:Recno)
+                    IF nDiff > 0 
+                        SELF:Debug(page:PageNoX, "Keys in wrong order", leftNode:DebugString, rightNode:DebugString)
                         SELF:DumpKeys()
                         rightPage:DumpKeys()
+                        lOk := FALSE
                     ENDIF
                     page := rightPage
-                enddo
-            endif
-            RETURN
+                ELSE
+                    page := NULL    
+                ENDIF
+            ENDDO
+            IF lOk
+                VAR child := SELF:Keys[0]:ChildPage
+                VAR childPage := SELF:_tag:GetPage(child)
+                childPage:ValidateLevel()
+            ENDIF
+            RETURN lOk
+
         METHOD DumpKeys AS VOID
-        Debug("Dump keys for page", SELF:PageNo:ToString("X"))
-        FOREACH var Branch in SELF:Branches
-            Debug("Child", Branch:ChildPage:ToString("X"), "Rec", Branch:Recno, Branch:KeyText:Trim())
+        Debug("Dump keys for branch page", SELF:PageNoX)
+        FOREACH VAR Branch IN SELF:Keys
+            Debug("Child", Branch:ChildPageX, "Rec", Branch:Recno, Branch:KeyText:Trim())
         NEXT
+
+        METHOD ValidateKeys() AS LOGIC
+            LOCAL oLast := NULL AS CdxBranch
+            LOCAL lOk := TRUE AS LOGIC
+            FOREACH VAR Branch IN SELF:Keys
+                IF oLast != NULL
+                   VAR nDiff := SELF:Tag:__Compare(oLast:Key, Branch:Key, oLast:Key:Length, oLast:Recno, Branch:Recno)
+                    IF nDiff > 0 
+                        SELF:Debug("Branch page: ",SELF:PageNoX, "Keys in wrong order", oLast:DebugString, Branch:DebugString)
+                        lOk := FALSE
+                    ENDIF
+               ENDIF
+               oLast := Branch
+            NEXT
+           RETURN lOk
+
+      INTERNAL METHOD ValidateKeys(oLeft AS CdxBranch, oRight AS CdxBranch) AS LOGIC
+            LOCAL nDiff AS LONG
+            IF SELF:Tag == NULL
+                RETURN TRUE
+            ENDIF
+            nDiff := SELF:Tag:__Compare(oLeft:Key, oRight:Key, oLeft:Key:Length, oLeft:Recno, oRight:Recno)
+            IF nDiff == -1
+                RETURN TRUE
+            ELSEIF nDiff == 0 .AND. oLeft:Recno < oRight:Recno
+                RETURN TRUE
+            ENDIF
+            RETURN FALSE
+
+        METHOD ValidateSiblings AS LOGIC
+            LOCAL lOk := TRUE AS LOGIC
+            IF SELF:NumKeys > 0
+                IF SELF:HasLeft
+                    VAR leftPage  := (CdxBranchPage) SELF:_tag:GetPage(SELF:LeftPtr)
+                    VAR leftNode  := leftPage:Keys[leftPage:NumKeys -1]
+                    VAR rightNode  := SELF:Keys[0]
+                    IF ! ValidateKeys(leftNode, rightNode)
+                         SELF:Debug("Corruption detected: Last key on left page",leftPage:PageNoX," is not < our first key", leftNode:DebugString,  rightNode:DebugString)
+                         lOk := FALSE
+                    ENDIF
+                ENDIF
+                IF SELF:HasRight
+                    VAR leftNode  := SELF:Keys[SELF:NumKeys-1]
+                    VAR rightPage := (CdxBranchPage) SELF:_tag:GetPage(SELF:RightPtr)
+                    VAR rightNode := rightPage:Keys[0]
+                    IF ! ValidateKeys(leftNode, rightNode)
+                       SELF:Debug("Corruption detected: Last key on our page is not < first key on right page", rightPage:PageNoX, leftNode:DebugString, rightNode:DebugString)
+                       lOk := FALSE
+                    ENDIF                     
+                ENDIF
+            ENDIF
+            RETURN lOk
 
         METHOD Validate() AS VOID
             LOCAL last := NULL AS CdxBranch
-            FOREACH VAR Branch IN SELF:Branches
+            FOREACH VAR node IN SELF:Keys
                 IF last != NULL
-                    VAR nDiff := SELF:Tag:__Compare(last:Key, Branch:Key, last:Key:Length)
+                    VAR nDiff := SELF:Tag:__Compare(last:Key, node:Key, last:Key:Length, last:Recno, node:Recno)
                     IF nDiff > 0
-                        ? PageType, PageNo:ToString("X"), "Keys in wrong order", last:Key:ToAscii(), last:Recno, Branch:Key:ToAscii(), Branch:Recno
+                        ? PageType, PageNoX, "Keys in wrong order", last:DebugString, node:DebugString
                     ENDIF
                 ENDIF
-                last := Branch
+                last := node 
             NEXT
-            IF SELF:HasLeft
-                LOCAL oPage := (CdxBranchPage) SELF:_tag:GetPage(SELF:LeftPtr) AS CdxBranchPage
-                IF oPage != NULL
-                    if oPage:NumKeys > 0
-                        VAR oLeftKey    := oPage:Branches[oPage:NumKeys-1]
-                        VAR oRightKey   := SELF:Branches[0]
-                        VAR nDiff := SELF:Tag:__Compare(oLeftKey:Key, oRightKey:Key, oLeftKey:Key:Length)
-                        IF nDiff > 0 .or. (nDiff == 0 .and. oLeftKey:Recno >= oRightKey:Recno)
-                            SELF:Debug("Left Sibling", oPage:PageNo:ToString("X"), "Keys in wrong order", oLeftKey:Key:ToAscii():Trim(), oLeftKey:Recno, oRightKey:Key:ToAscii():Trim(), oRightKey:Recno)
-                            oPage:DumpKeys()
-                            SELF:DumpKeys()
-
-                        ENDIF
-                    ENDIF
-                ENDIF
-            ENDIF
-            IF SELF:HasRight
-                LOCAL oPage := (CdxBranchPage) SELF:_tag:GetPage(SELF:RightPtr) AS CdxBranchPage
-                IF oPage != NULL
-                    if oPage:NumKeys > 0
-                        VAR oLeftKey   := SELF:Branches[SELF:NumKeys-1]
-                        VAR oRightKey  := oPage:Branches[0]
-                        VAR nDiff := SELF:Tag:__Compare(oLeftKey:Key, oRightKey:Key, oLeftKey:Key:Length)
-                        IF nDiff > 0 .or. (nDiff == 0 .and. oLeftKey:Recno >= oRightKey:Recno)
-                            SELF:Debug("Right Sibling", oPage:PageNo:ToString("X"), "Keys in wrong order", oLeftKey:Key:ToAscii():Trim(), oLeftKey:Recno, oRightKey:Key:ToAscii():Trim(), oRightKey:Recno, self:NumKeys, oPage:NumKeys)
-                            SELF:DumpKeys()
-                            oPage:DumpKeys()
-                        ENDIF
-                    ENDIF
-                ENDIF
-            ENDIF
-#endif            
+            SELF:ValidateSiblings()
+            RETURN
 
 
-        METHOD IsDuplicate(nRecno AS LONG, nChildPage AS LONG, cKey AS BYTE[]) AS LOGIC
+        INTERNAL METHOD IsDuplicate(nRecno AS LONG, nChildPage AS LONG, cKey AS BYTE[]) AS LOGIC
             IF SELF:NumKeys > 0
                 FOR VAR i := 0 TO SELF:NumKeys -1
                     VAR nRec  := SELF:GetRecno(i)
@@ -458,5 +520,13 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 NEXT
             ENDIF
             RETURN FALSE
+
+        INTERNAL OVERRIDE METHOD Write() AS LOGIC
+            IF ! SELF:ValidateKeys()
+               SELF:_tag:ThrowException(Subcodes.ERDD_WRITE_NTX,Gencode.EG_CORRUPTION,  "CdxBranchPage.Write") 
+            ENDIF
+            RETURN SUPER:Write()
+            
+
     END CLASS
 END NAMESPACE 

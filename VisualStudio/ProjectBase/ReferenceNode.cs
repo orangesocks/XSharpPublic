@@ -21,7 +21,8 @@ using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using OleConstants = Microsoft.VisualStudio.OLE.Interop.Constants;
 using VsCommands2K = Microsoft.VisualStudio.VSConstants.VSStd2KCmdID;
-using XSharp.Project;
+using XSharpModel;
+
 
 namespace Microsoft.VisualStudio.Project
 {
@@ -95,6 +96,8 @@ namespace Microsoft.VisualStudio.Project
 
             set
             {
+                ThreadHelper.ThrowIfNotOnUIThread();
+
                 if (value)
                     this.ItemNode.SetMetadata(ProjectFileConstants.EmbedInteropTypes, value.ToString());
                 else
@@ -167,7 +170,9 @@ namespace Microsoft.VisualStudio.Project
 
 		protected override void DoDefaultAction()
 		{
-			this.ShowObjectBrowser();
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            this.ShowObjectBrowser();
 		}
 
         protected override int QueryStatusOnNode(Guid cmdGroup, uint cmd, IntPtr pCmdText, ref QueryStatusResult result)
@@ -189,7 +194,9 @@ namespace Microsoft.VisualStudio.Project
 
         protected override int ExecCommandOnNode(Guid cmdGroup, uint cmd, uint nCmdexecopt, IntPtr pvaIn, IntPtr pvaOut)
         {
-            if(cmdGroup == VsMenus.guidStandardCommandSet2K)
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            if (cmdGroup == VsMenus.guidStandardCommandSet2K)
             {
                 if((VsCommands2K)cmd == VsCommands2K.QUICKOBJECTSEARCH)
                 {
@@ -210,7 +217,6 @@ namespace Microsoft.VisualStudio.Project
         /// </summary>
 		public virtual /*void*/ ReferenceNode AddReference()  //
 		{
-            XSharpProjectPackage.Instance.UIThread.MustBeCalledFromUIThread();
 
             ReferenceNode existingNode = null;  /// returns existing node or null if this node has been newly added
 
@@ -244,6 +250,8 @@ namespace Microsoft.VisualStudio.Project
         internal virtual void RefreshReference()
         {
             this.ResolveReference();
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             this.ReDraw(UIHierarchyElement.Icon);
         }
 
@@ -326,6 +334,8 @@ namespace Microsoft.VisualStudio.Project
 			OLEMSGICON icon = OLEMSGICON.OLEMSGICON_CRITICAL;
 			OLEMSGBUTTON buttons = OLEMSGBUTTON.OLEMSGBUTTON_OK;
 			OLEMSGDEFBUTTON defaultButton = OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST;
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             Utilities.ShowMessageBox(this.ProjectMgr.Site, title, message, icon, buttons, defaultButton);
 		}
 
@@ -358,6 +368,7 @@ namespace Microsoft.VisualStudio.Project
             try
             {
                 VSOBJECTINFO[] objInfo = new VSOBJECTINFO[1];
+                ThreadHelper.ThrowIfNotOnUIThread();
 
                 objInfo[0].pguidLib = ptr;
                 objInfo[0].pszLibName = this.Url;
@@ -369,7 +380,7 @@ namespace Microsoft.VisualStudio.Project
             }
             catch(COMException e)
             {
-                XSharpProjectPackage.Instance.DisplayException(e);
+                XSettings.DisplayException(e);
                 returnValue = e.ErrorCode;
             }
             finally
@@ -399,7 +410,9 @@ namespace Microsoft.VisualStudio.Project
 		private void ShowReferenceAlreadyExistMessage()
 		{
 			string message = String.Format(CultureInfo.CurrentCulture, SR.GetString(SR.ReferenceAlreadyExists, CultureInfo.CurrentUICulture), this.Caption);
-			ShowReferenceErrorMessage(message);
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            ShowReferenceErrorMessage(message);
 		}
 
 		#endregion

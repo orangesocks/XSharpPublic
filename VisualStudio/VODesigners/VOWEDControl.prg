@@ -1,6 +1,12 @@
-#using System.Windows.Forms
-#using System.Drawing
-#using System.IO
+//
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
+// See License.txt in the project root for license information.
+//
+USING System.Windows.Forms
+USING System.Drawing
+USING System.IO
+USING XSharpModel
 
 DELEGATE StatusBarMessageDelegate(cMessage AS STRING) AS VOID
 
@@ -19,8 +25,9 @@ CLASS VOWEDControl INHERIT Panel
     CONSTRUCTOR()
         SUPER()
         SELF:oOptions := WindowDesignerOptions{}
-        SELF:oOptions:lUseGrid := FALSE
-        SELF:oOptions:lShowGrid := FALSE
+        //SELF:oOptions:lUseGrid := XEditorSettings.ShowGrid
+        //SELF:oOptions:lShowGrid := XEditorSettings.ShowGrid
+        //SELF:oOptions:oGridSize := Size{XEditorSettings.GridX , XEditorSettings.GridY}
         SELF:AutoScroll := TRUE
     RETURN
 
@@ -34,16 +41,16 @@ CLASS VOWEDControl INHERIT Panel
         VOWEDControl.InitializeGrid()
         VOWEDControl.InitializeToolbox()
         VOWEDControl.ToolBox:SelectPointer()
-        
-        SELF:oOptions:oGridSize := Size{VOWindowEditorTemplate.GridX , VOWindowEditorTemplate.GridY}
-        
+
+        //SELF:oOptions:oGridSize := Size{VOWindowEditorTemplate.GridX , VOWindowEditorTemplate.GridY}
+
 /*        IF TRUE .and. cFileName:ToUpper():Contains("MENU")
         	SELF:oMed := VOMenuEditor{SELF , VOWEDControl.Grid}
         	SELF:oEditor := SELF:oMed
         	SELF:oMed:OpenVNmnu(cFileName)
             RETURN TRUE
         ENDIF*/
-        
+
     	SELF:oWed := VOWindowEditor{SELF , SELF:oOptions , VOWEDControl.Grid , VOWEDControl.ToolBox}
     	SELF:oEditor := SELF:oWed
         IF .not. SELF:oWed:Open(cFileName)
@@ -59,7 +66,7 @@ CLASS VOWEDControl INHERIT Panel
 /*		IF TRUE .and. cFileName:ToUpper():Contains("FIELDSPEC")
             RETURN SELF:OpenFieldSpec(cFileName)
         ENDIF*/
-		
+
 //		MessageBox.Show(cFileName:ToUpper())
 /*		IF TRUE .and. cFileName:ToUpper():Contains("SERVER.CONTROLS")
             RETURN SELF:OpenDBServer(cFileName)
@@ -72,9 +79,9 @@ CLASS VOWEDControl INHERIT Panel
 		ENDIF*/
 		VOWEDControl.InitializeGrid()
 //		VOWEDControl.ToolBox:SelectPointer()
-		
+
 //		SELF:oOptions:oGridSize := Size{VOWindowEditorTemplate.GridX , VOWindowEditorTemplate.GridY}
-		
+
 		SELF:oMed := VOMenuEditor{SELF , VOWEDControl.Grid}
 		SELF:oEditor := SELF:oMed
 		IF .not. SELF:oMed:Open(cFileName)
@@ -92,9 +99,9 @@ CLASS VOWEDControl INHERIT Panel
 		ENDIF*/
 		VOWEDControl.InitializeGrid()
 //		VOWEDControl.ToolBox:SelectPointer()
-		
+
 //		SELF:oOptions:oGridSize := Size{VOWindowEditorTemplate.GridX , VOWindowEditorTemplate.GridY}
-		
+
 		SELF:oFed := VOFieldSpecEditor{SELF , VOWEDControl.Grid}
 		SELF:oEditor := SELF:oFed
 		IF .not. SELF:oFed:Open(cFileName)
@@ -107,7 +114,7 @@ CLASS VOWEDControl INHERIT Panel
     METHOD OpenDBServer(cFileName AS STRING) AS LOGIC
 
 		VOWEDControl.InitializeGrid()
-		
+
 		SELF:oDed := VODBServerEditor{SELF , VOWEDControl.Grid}
 		SELF:oEditor := SELF:oDed
 		IF .not. SELF:oDed:Open(cFileName)
@@ -145,14 +152,14 @@ CLASS VOWEDControl INHERIT Panel
 	RETURN
 
    ACCESS IsGridEnabled AS LOGIC
-      RETURN oWed != NULL && oWed:IsGridEnabled
+      RETURN oWed != NULL .AND. oWed:IsGridEnabled
 
 	ASSIGN ReadOnly(_lReadOnly AS LOGIC)
         IF SELF:oEditor != NULL
 			SELF:oEditor:ReadOnly := _lReadOnly
         ENDIF
 	RETURN
-      
+
     METHOD ToggleGrid() AS VOID
         IF SELF:oWed != NULL
             SELF:oWed:ToggleGrid()
@@ -182,7 +189,7 @@ CLASS VOWEDControl INHERIT Panel
             SELF:oWed:TestForm()
         ENDIF
     RETURN
-    
+
     METHOD RecordCommand(cCommand AS STRING) AS VOID
     RETURN
     METHOD GetIndexFromLineAndColumn(n AS INT, m AS INT) AS INT
@@ -222,11 +229,11 @@ CLASS VOWEDControl INHERIT Panel
 	    ENDIF
     RETURN
 
-    STATIC METHOD CreateToolWindow(cCaption AS STRING , oPos AS Point , oSize AS Size , oPanel AS Panel,cName as STRING) AS VOID
+    STATIC METHOD CreateToolWindow(cCaption AS STRING , oPos AS Point , oSize AS Size , oPanel AS Panel,cName AS STRING) AS VOID
 	    LOCAL oForm AS Form
 	    oForm := Form{}
        oForm:Tag := cName
-       RestoreLocation(cName, ref oSize, ref oPos)
+       RestoreLocation(cName, REF oSize, REF oPos)
 	    oForm:Text := cCaption
     	 oForm:ShowInTaskbar := FALSE
 	    oForm:StartPosition := FormStartPosition.Manual
@@ -238,71 +245,71 @@ CLASS VOWEDControl INHERIT Panel
     	 oForm:Closing += System.ComponentModel.CancelEventHandler{ NULL , @ToolWindowClosing() }
        oForm:Move    += ToolWindowmoving
        oForm:SizeChanged += ToolWindowSizeChanged
-    RETURN 
+    RETURN
     STATIC METHOD ToolWindowClosing(o AS OBJECT , e AS System.ComponentModel.CancelEventArgs) AS VOID
 	    e:Cancel := TRUE
 	    ((Form)o):Hide()
     RETURN
     STATIC METHOD ToolWindowmoving(o AS OBJECT , e AS EventArgs) AS VOID
-         LOCAL form := (Form) o as Form
-         var size := form:Size
-         var pos  := form:Location
-         SaveLocation((string) form:Tag, size, pos)
+         LOCAL form := (Form) o AS Form
+         VAR size := form:Size
+         VAR pos  := form:Location
+         SaveLocation((STRING) form:Tag, size, pos)
     RETURN
     STATIC METHOD ToolWindowSizeChanged(o AS OBJECT , e AS EventArgs) AS VOID
-         var form := (Form) o
-         var size := form:Size
-         var pos  := form:Location
-         SaveLocation((string) form:Tag, size, pos)
+         VAR form := (Form) o
+         VAR size := form:Size
+         VAR pos  := form:Location
+         SaveLocation((STRING) form:Tag, size, pos)
     RETURN
-    STATIC METHOD SaveLocation(name as STRING, size as System.Drawing.Size, point as System.Drawing.Point) as void
-         var keyName := "VOED_"+name
-         var key     := Microsoft.Win32.Registry.CurrentUser
-         var subkey  := key:OpenSubKey(Constants.RegistryKey, true)
-         if (subkey == null)
+    STATIC METHOD SaveLocation(name AS STRING, size AS System.Drawing.Size, point AS System.Drawing.Point) AS VOID
+         VAR keyName := "VOED_"+name
+         VAR key     := Microsoft.Win32.Registry.CurrentUser
+         VAR subkey  := key:OpenSubKey(Constants.RegistryKey, TRUE)
+         IF (subkey == NULL)
             subkey := key:CreateSubKey(Constants.RegistryKey)
-         endif
+         ENDIF
          subkey:SetValue(keyName+"_W", size:Width)
          subkey:SetValue(keyName+"_H", size:Height)
          subkey:SetValue(keyName+"_X", point:X)
          subkey:SetValue(keyName+"_Y", point:Y)
          subkey:Close()
 
-    STATIC METHOD RestoreLocation(name as STRING, size REF System.Drawing.Size, point REF System.Drawing.Point) as void
-         LOCAL key     := Microsoft.Win32.Registry.CurrentUser as Microsoft.Win32.RegistryKey
-         LOCAL subkey  := key:OpenSubKey(Constants.RegistryKey, true) as Microsoft.Win32.RegistryKey
-         var keyName := "VOED_"+name
-         if (subkey == null)
+    STATIC METHOD RestoreLocation(name AS STRING, size REF System.Drawing.Size, point REF System.Drawing.Point) AS VOID
+         LOCAL key     := Microsoft.Win32.Registry.CurrentUser AS Microsoft.Win32.RegistryKey
+         LOCAL subkey  := key:OpenSubKey(Constants.RegistryKey, TRUE) AS Microsoft.Win32.RegistryKey
+         VAR keyName := "VOED_"+name
+         IF (subkey == NULL)
             subkey := key:CreateSubKey(Constants.RegistryKey)
-         endif
-         var w := subkey:GetValue(keyName+"_W")
-         var h := subkey:GetValue(keyName+"_H")
-         var x := subkey:GetValue(keyName+"_X")
-         var y := subkey:GetValue(keyName+"_Y")
-         if w == null .or. h == null .or. x == null .or. y == null
+         ENDIF
+         VAR w := subkey:GetValue(keyName+"_W")
+         VAR h := subkey:GetValue(keyName+"_H")
+         VAR x := subkey:GetValue(keyName+"_X")
+         VAR y := subkey:GetValue(keyName+"_Y")
+         IF w == NULL .or. h == NULL .or. x == NULL .or. y == NULL
             SaveLocation(name, size, point)
             RETURN
-         endif
+         ENDIF
          TRY
             // ensure visible
-            var iX := (int) x
-            var iY := (int) y
-            var iW := (int) w
-            var iH := (int) h
-            var screens := Screen.AllScreens
-            var ok      := false
-            foreach oScreen as Screen in screens
-               if iX >= oScreen:Bounds:Left .and. iX+iW <= oScreen:Bounds:Right .and. ;
+            VAR iX := (INT) x
+            VAR iY := (INT) y
+            VAR iW := (INT) w
+            VAR iH := (INT) h
+            VAR screens := Screen.AllScreens
+            VAR ok      := FALSE
+            FOREACH oScreen AS Screen IN screens
+               IF iX >= oScreen:Bounds:Left .and. iX+iW <= oScreen:Bounds:Right .and. ;
                   iY >= oScreen:Bounds:Top  .and. iY+iH <= oScreen:Bounds:Bottom
-                  ok := true
-               endif
-            next
-            if ok
+                  ok := TRUE
+               ENDIF
+            NEXT
+            IF ok
                size  := System.Drawing.Size{ iW, iH}
                point := System.Drawing.Point{ iX, iY}
-            endif            
-            
-         CATCH e as Exception
+            ENDIF
+
+         CATCH e AS Exception
             subkey:DeleteValue(keyName+"_W")
             subkey:DeleteValue(keyName+"_H")
             subkey:DeleteValue(keyName+"_X")

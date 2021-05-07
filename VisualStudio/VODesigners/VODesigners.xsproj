@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\XSharp\XSharp.Default.props" />
+  <Import Project="$(XSharpMsBuildDir)\XSharp.Default.props" />
   <Import Project="..\Common.props" />
   <PropertyGroup>
     <Name>VODesigners</Name>
@@ -12,7 +12,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>XSharp.VODesigners</RootNamespace>
     <AssemblyName>XSharp.VODesigners</AssemblyName>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <Nologo>true</Nologo>
     <GenerateFullPaths>true</GenerateFullPaths>
     <Dialect>Vulcan</Dialect>
@@ -41,10 +41,9 @@
     <VO15>false</VO15>
     <VO16>false</VO16>
     <VulcanCompatibleResources>False</VulcanCompatibleResources>
-    <XSharpProjectExtensionsPath>$(MSBuildExtensionsPath)\XSharp\</XSharpProjectExtensionsPath>
     <StartupObject />
     <ApplicationIcon />
-    <XSharpProjectversion>2.5.0.0</XSharpProjectversion>
+    <XSharpProjectversion>2.7.0.0</XSharpProjectversion>
     <Includepaths>$(Solutiondir)common</Includepaths>
     <Nostandarddefs>false</Nostandarddefs>
     <IntermediateOutputPath>$(SolutionDir)Binaries\obj\$(Configuration)\$(ProjectName)\</IntermediateOutputPath>
@@ -54,6 +53,7 @@
     <Memvar>False</Memvar>
     <Undeclared>False</Undeclared>
     <NoWin32Manifest>False</NoWin32Manifest>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'" Label="Configuration">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -89,7 +89,7 @@
     <PPO>false</PPO>
     <Prefer32Bit>False</Prefer32Bit>
   </PropertyGroup>
-  <Import Project="$(MSBuildExtensionsPath)\XSharp\XSharp.targets" />
+  <Import Project="$(XSharpMsBuildDir)\XSharp.targets" />
   <ItemGroup>
     <Reference Include="mscorlib" />
     <Reference Include="System" />
@@ -101,21 +101,18 @@
       <AssemblyName>XSharp.Core.dll</AssemblyName>
       <SpecificVersion>False</SpecificVersion>
       <Private>True</Private>
-      <HintPath>..\..\..\DevRt\Binaries\Debug\XSharp.Core.dll</HintPath>
     </Reference>
     <Reference Include="XSharp.RT, Version=2.1.0.0, Culture=neutral, PublicKeyToken=ed555a0467764586">
       <Name>XSharp.RT</Name>
       <AssemblyName>XSharp.RT.dll</AssemblyName>
       <SpecificVersion>False</SpecificVersion>
       <Private>True</Private>
-      <HintPath>..\..\..\DevRt\Binaries\Debug\XSharp.RT.dll</HintPath>
     </Reference>
     <Reference Include="XSharp.VO, Version=2.1.0.0, Culture=neutral, PublicKeyToken=ed555a0467764586">
       <Name>XSharp.VO</Name>
       <AssemblyName>XSharp.VO.dll</AssemblyName>
       <SpecificVersion>False</SpecificVersion>
       <Private>True</Private>
-      <HintPath>..\..\..\DevRt\Binaries\Debug\XSharp.VO.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -153,6 +150,7 @@
     <Compile Include="VOWindowEditor.prg" />
     <Compile Include="VOWindowEditorIO.prg" />
     <Compile Include="Editor.prg" />
+    <Compile Include="Win32.prg" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Properties\" />
@@ -166,6 +164,13 @@
     <None Include="Templates\cavofed.tpl" />
     <None Include="Templates\cavowed.inf" />
     <None Include="Templates\cavowed.tpl" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\XSharpCodeModelXs\XSharpModelXs.xsproj">
+      <Name>XSharpModelXs</Name>
+      <Project>{eed6843b-b727-4f08-aa32-ca0f48fdde3f}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
   <!-- This next bit is required unless the macro used to Import your targets is defined in an MSBuild toolset. -->
   <ProjectExtensions>

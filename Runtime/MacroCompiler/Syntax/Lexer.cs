@@ -58,13 +58,38 @@ namespace XSharp.MacroCompiler
             get { return _options.AllowPackedDotOperators; }
         }
 
-        IDictionary<string, TokenType> KwIds
+        bool TryGetKeyword(string text, out TokenType token)
         {
-            get
+            var cKwIds = _options.ParseEntities ? coreKwIdsE : _options.ParseStatements ? coreKwIdsS : coreKwIds;
+            if (cKwIds.TryGetValue(text, out token))
+                return true;
+
+            if (AllowFourLetterAbbreviations)
             {
-                return AllowFourLetterAbbreviations
-                    ? (_options.ParseEntities ? voKwIdsE : _options.ParseStatements ? voKwIdsS : voKwIds)
-                    : (_options.ParseEntities ? xsKwIdsE : _options.ParseStatements ? xsKwIdsS : xsKwIds);
+                var aKwIds = _options.ParseEntities ? abbrKwIdsE : _options.ParseStatements ? abbrKwIdsS : abbrKwIds;
+                if (aKwIds.TryGetValue(text, out token))
+                    return true;
+            }
+
+            switch (_options.Dialect)
+            {
+                case XSharpDialect.FoxPro:
+                    {
+                        var kwIds = _options.ParseEntities ? foxKwIdsE : _options.ParseStatements ? foxKwIdsS : foxKwIds;
+                        return kwIds.TryGetValue(text, out token);
+                    }
+                case XSharpDialect.Core:
+                case XSharpDialect.Vulcan:
+                    {
+                        var kwIds = _options.ParseEntities ? xsKwIdsE : _options.ParseStatements ? xsKwIdsS : xsKwIds;
+                        return kwIds.TryGetValue(text, out token);
+                    }
+                case XSharpDialect.VO:
+                default:
+                    {
+                        var kwIds = _options.ParseEntities ? voKwIdsE : _options.ParseStatements ? voKwIdsS : voKwIds;
+                        return kwIds.TryGetValue(text, out token);
+                    }
             }
         }
 
@@ -350,7 +375,7 @@ namespace XSharp.MacroCompiler
         {
             if (!Eoi())
             {
-                if (La() != c1 && La(2) == c2)
+                if (La() != c1 || La(2) != c2)
                 {
                     Consume();
                     return false;
@@ -675,22 +700,43 @@ namespace XSharp.MacroCompiler
                                 if (!nokw)
                                 {
                                     TokenType tt;
-                                    if (KwIds.TryGetValue(value, out tt))
+                                    if (TryGetKeyword(value, out tt))
                                     {
                                         t = tt;
-                                        if (IsSoftKeyword(tt))
+                                        if (IsSoftKeyword(tt) || _inDottedIdentifier)
+                                        { 
                                             st = TokenType.ID;
+                                            if (_lastToken == TokenType.COLON ||_lastToken == TokenType.DOT)
+                                                t = TokenType.ID;
+                                        }
                                     }
                                 }
+                            }
+                            break;
+                        case TokenType.SUBSTR:
+                            if (La() == '.' || (La() >= '0' && La() <= '9'))
+                            {
+                                t = TokenType.REAL_CONST;
+                                while (ExpectRange('0', '9') || Expect('_')) ;
+                                if (Lb() == '_') t = TokenType.INVALID_NUMBER;
+                                if (Expect('.')) while (ExpectRange('0', '9') || Expect('_')) ;
+                                if (Lb() == '_') t = TokenType.INVALID_NUMBER;
+                                value = _Source.Substring(start, _index - start).Replace("_", "");
                             }
                             break;
                         case TokenType.INT_CONST:
                             if (c == '0' && ExpectAny('X','x'))
                             {
+                                t = TokenType.HEX_CONST;
                                 while (ExpectRange('0', '9') || ExpectRange('A', 'F') || ExpectRange('a', 'f') || Expect('_')) ;
                                 if (Lb() == '_') t = TokenType.INVALID_NUMBER;
                                 ExpectAny('U', 'u', 'L', 'l');
-                                t = TokenType.HEX_CONST;
+                            }
+                            else if (c == '0' && ExpectAny('H', 'h'))
+                            {
+                                t = TokenType.BINARY_CONST;
+                                while (ExpectRange('0', '9') || ExpectRange('A', 'F') || ExpectRange('a', 'f') || Expect('_')) ;
+                                if (Lb() == '_') t = TokenType.INVALID_NUMBER;
                             }
                             else if (c == '0' && ExpectAny('B', 'b'))
                             {

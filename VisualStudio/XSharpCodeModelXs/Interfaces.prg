@@ -14,7 +14,7 @@ USING System.Threading.Tasks
 BEGIN NAMESPACE XSharpModel
    INTERFACE IXSharpProject
       METHOD AddFileNode(fileName AS STRING) AS VOID
-      METHOD AddIntellisenseError(file AS STRING, line AS LONG, column AS LONG, Length AS LONG, errCode AS STRING, message AS STRING, sev AS DiagnosticSeverity) AS VOID
+      //METHOD AddIntellisenseError(file AS STRING, line AS LONG, column AS LONG, Length AS LONG, errCode AS STRING, message AS STRING, sev AS DiagnosticSeverity) AS VOID
       METHOD ClearIntellisenseErrors(file AS STRING) AS VOID
       METHOD DeleteFileNode(fileName AS STRING) AS VOID
       METHOD DocumentGetText(file AS STRING, IsOpen REF LOGIC) AS STRING
@@ -29,6 +29,7 @@ BEGIN NAMESPACE XSharpModel
       METHOD SetStatusBarText(message AS STRING) AS VOID
       METHOD ShowIntellisenseErrors() AS VOID
       METHOD SynchronizeKeywordCase(code as STRING, fileName as STRING) AS STRING
+      METHOD RunInForeGroundThread( a as Action) AS VOID
       
          // Properties
       PROPERTY IntermediateOutputPath AS STRING GET

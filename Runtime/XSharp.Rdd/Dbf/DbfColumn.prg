@@ -11,14 +11,14 @@ USING System.Linq
 USING System.Runtime.CompilerServices
 USING XSharp.RDD.Enums
 USING XSharp.RDD.Support
+USING STATIC XSharp.Conversions
 BEGIN NAMESPACE XSharp.RDD
     /// <summary>Class for DBF Column reading / writing </summary>
     CLASS DbfColumn INHERIT RddFieldInfo
         INTERNAL NullBit        := -1 AS LONG
         INTERNAL LengthBit      := -1 AS LONG
         INTERNAL OffSetInHeader := -1 as LONG
-        INTERNAL RDD        AS XSharp.RDD.DBF
-
+        INTERNAL RDD            AS XSharp.RDD.DBF
         /// <summary>Create a DbfColumn class, used when creating files.</summary>
         STATIC METHOD Create(oInfo AS RddFieldInfo, oRDD AS XSharp.RDD.DBF) AS DbfColumn
             // Commented out types are Harbour specific
@@ -78,6 +78,9 @@ BEGIN NAMESPACE XSharp.RDD
             IF oColumn is DbfAutoIncrementColumn VAR dbfac
                 dbfac:IncrStep  := oField:IncStep
                 dbfac:Counter   := oField:Counter
+            ENDIF
+            IF oInfo:HasProperties
+                oColumn:Properties := oInfo:Properties
             ENDIF
             return oColumn
 
@@ -405,9 +408,6 @@ BEGIN NAMESPACE XSharp.RDD
         OVERRIDE METHOD EmptyValue() AS OBJECT
             RETURN DbDate{0,0,0}
         /// <inheritdoc/>
-        OVERRIDE METHOD Validate() AS LOGIC
-            RETURN SUPER:Validate()
-
 
     END CLASS
 
@@ -451,9 +451,6 @@ BEGIN NAMESPACE XSharp.RDD
         /// <inheritdoc/>
        OVERRIDE METHOD EmptyValue() AS OBJECT
             RETURN FALSE
-        /// <inheritdoc/>
-       OVERRIDE METHOD Validate() AS LOGIC
-            RETURN SUPER:Validate()
 
     END CLASS
 
@@ -659,7 +656,11 @@ BEGIN NAMESPACE XSharp.RDD
             
         /// <inheritdoc/>
        OVERRIDE METHOD Validate() AS LOGIC
-            RETURN (SELF:Length == 10 .OR. SELF:Length == 4)  .AND.  SELF:Decimals == 0 
+            IF SELF:Length != 4
+                SELF:Length := 10
+            ENDIF
+            SELF:Decimals := 0
+            RETURN TRUE
 
 
     END CLASS
@@ -721,9 +722,11 @@ BEGIN NAMESPACE XSharp.RDD
         /// <inheritdoc/>
         OVERRIDE METHOD EmptyValue() AS OBJECT
             RETURN 0
+       
         /// <inheritdoc/>
        OVERRIDE METHOD Validate() AS LOGIC
-            RETURN (SELF:Length == 4 .OR. SELF:Length == 2)  .AND.  SELF:Decimals == 0 
+            SELF:Decimals := 0
+            RETURN SELF:Length == 4 .OR. SELF:Length == 2
 
     END CLASS
 
@@ -738,9 +741,7 @@ BEGIN NAMESPACE XSharp.RDD
         /// <summary>Read the next autoincrement number from the dbf header </summary>
         VIRTUAL METHOD Read() AS LOGIC
             LOCAL oField  as DbfField
-            oField := DbfField{}
-            oField:initialize()
-            oField:Encoding := SELF:RDD:_Encoding
+            oField := DbfField{SELF:RDD:_Encoding}
             SELF:RDD:_readField(SELF:OffSetInHeader, oField)
             SELF:Counter := oField:Counter
             SELF:IncrStep := oField:IncStep
@@ -749,15 +750,19 @@ BEGIN NAMESPACE XSharp.RDD
         /// <summary>Write the next autoincrement number to the dbf header </summary>
         VIRTUAL METHOD Write() AS LOGIC
             LOCAL oField  AS DbfField
-            oField := DbfField{}
-            oField:initialize()
-            oField:Encoding := SELF:RDD:_Encoding
+            oField := DbfField{SELF:RDD:_Encoding}
             SELF:RDD:_readField(SELF:OffSetInHeader, oField)
             oField:Counter := SELF:Counter 
             oField:IncStep := (BYTE) SELF:IncrStep 
             SELF:RDD:_writeField(SELF:OffSetInHeader, oField)
-            RETURN TRUE
-
+            RETURN TRUE  
+	    
+        /// <inheritdoc/>
+        VIRTUAL METHOD PutValue(oValue AS OBJECT, buffer AS BYTE[]) AS LOGIC
+            // FoxPro throws an error when writing to an autonumber field. We do that too.    
+            SELF:RDD:_dbfError(Subcodes.ERDD_WRITE ,EG_READONLY,"PutValue", i"Field '{SELF:Name}' is ReadOnly")
+            RETURN FALSE
+	    
         /// <inheritdoc/>
         VIRTUAL METHOD NewRecord(buffer AS BYTE[]) AS VOID
             // when shared then read the header again to get the current values of the counter and incrstep
@@ -765,14 +770,16 @@ BEGIN NAMESPACE XSharp.RDD
             // then write the current value to the buffer
             LOCAL nCurrent as LONG
             nCurrent := SELF:Counter
-            IF SELF:RDD:HeaderLock(DbLockMode.Lock)
-            
-                SELF:Read()
-                SELF:Counter += SELF:IncrStep
-                SELF:Write()
-                SELF:RDD:HeaderLock( DbLockMode.UnLock )
-            ENDIF
-            SELF:PutValue(nCurrent, buffer)
+            DO WHILE ! SELF:RDD:HeaderLock(DbLockMode.Lock)
+            ENDDO
+            SELF:Read()
+            SELF:Counter += SELF:IncrStep
+            SELF:Write()
+            SELF:RDD:HeaderLock( DbLockMode.UnLock )
+	    
+	    // Call SUPER:PutValue because we have overwritten PutValue to not allow to write, 
+	    // but this of course is the exception, since we HAVE to write the new autonumber field.
+            SUPER:PutValue(nCurrent, buffer)
             RETURN
 
 
@@ -817,6 +824,7 @@ BEGIN NAMESPACE XSharp.RDD
             RETURN DbFloat{0,-1,-1}
         /// <inheritdoc/>
         OVERRIDE METHOD Validate() AS LOGIC
+            SELF:Decimals := 0
             RETURN SELF:Length == 8
     END CLASS
 
@@ -860,7 +868,9 @@ BEGIN NAMESPACE XSharp.RDD
             RETURN (Decimal) 0
         /// <inheritdoc/>
         OVERRIDE METHOD Validate() AS LOGIC
-            RETURN SELF:Length == 8
+            SELF:Decimals   := 0
+            SELF:Length     := 8
+            RETURN TRUE
         /// <inheritdoc/>
         OVERRIDE METHOD InitValue(buffer AS BYTE[]) AS VOID
             VAR blank := BYTE[]{SELF:Length}
@@ -998,7 +1008,9 @@ BEGIN NAMESPACE XSharp.RDD
             RETURN DateTime.MinValue
         /// <inheritdoc/>
         OVERRIDE METHOD Validate() AS LOGIC
-            RETURN SELF:Length == 8  .AND.  SELF:Decimals == 0 
+            SELF:Decimals := 0
+            SELF:Length   := 8
+            RETURN TRUE  
 
     END CLASS
     /// <summary>Class for reading / writing the Special Column for NULL values. </summary>

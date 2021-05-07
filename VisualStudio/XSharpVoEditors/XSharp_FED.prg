@@ -1,3 +1,8 @@
+//
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
+// See License.txt in the project root for license information.
+//
 USING System.Collections
 USING System.Collections.Generic
 USING System.Windows.Forms
@@ -204,6 +209,8 @@ CLASS XSharp_VOFieldSpecEditor INHERIT VOFieldSpecEditor
 				aDesign := SELF:GetAllDesignItems()
 				SaveToXml(cFileName , aDesign)
 				lSuccess := TRUE
+         CATCH
+            NOP
 			END TRY
 			RETURN lSuccess
 		END IF

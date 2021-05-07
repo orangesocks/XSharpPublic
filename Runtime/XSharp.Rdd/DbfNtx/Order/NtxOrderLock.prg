@@ -37,7 +37,7 @@ BEGIN NAMESPACE XSharp.RDD.NTX
         PRIVATE _tagNumber AS DWORD
         PRIVATE _maxLockTries AS INT
         PRIVATE _parkPlace AS DWORD
-        INTERNAL _LockOffset AS LONG
+        INTERNAL _LockOffset AS INT64
         #endregion
 
         PRIVATE METHOD _initLockValues() as VOID
@@ -72,24 +72,24 @@ BEGIN NAMESPACE XSharp.RDD.NTX
             ENDDO
             RETURN isOk
             
-        PRIVATE METHOD _lockBytes( nOffset AS DWORD, nLong AS DWORD  ) AS LOGIC
+        PRIVATE METHOD _lockBytes( nOffset AS INT64, nLong AS INT64  ) AS LOGIC
             LOCAL locked AS LOGIC
-            TRY
-                locked := FFLock( SELF:_hFile, nOffset, nLong )
-            CATCH ex AS Exception
-                Trace.WriteLine("Lock Error:" + ex:Message)
-                locked := FALSE
-            END TRY
+            locked := _oStream:SafeLock(nOffset, nLong )
+            IF ! locked
+                var oEx := FException()
+                var msg := iif(oEx != NULL, oEx:Message, "Unknown")
+                Trace.WriteLine(i"Lock Error, position: {nOffset} length: {nLong} Message: {msg}")
+            ENDIF
             RETURN locked
             
-        PRIVATE METHOD _unlockBytes( nOffset AS DWORD, nLong AS DWORD  ) AS LOGIC
+        PRIVATE METHOD _unlockBytes( nOffset AS INT64, nLong AS INT64  ) AS LOGIC
             LOCAL unlocked AS LOGIC
-            TRY
-                unlocked := FFUnLock( SELF:_hFile, nOffset, nLong )
-            CATCH ex AS Exception
-                Trace.WriteLine("UnLock Error:" + ex:Message)
-                unlocked := FALSE
-            END TRY
+            unlocked := _oStream:SafeUnlock( nOffset, nLong )
+            IF ! unlocked
+                var oEx := FException()
+                var msg := iif(oEx != NULL, oEx:Message, "Unknown")
+                Trace.WriteLine(i"UnLock Error, position: {nOffset} length: {nLong} Message: {msg}")
+            ENDIF
             RETURN unlocked
             
         PRIVATE METHOD _lockGate( tag AS DWORD ) AS LOGIC
@@ -142,7 +142,7 @@ BEGIN NAMESPACE XSharp.RDD.NTX
             LOCAL dwOffSet AS DWORD
             
             result := FALSE
-            IF _lockGate(SELF:_tagNumber)
+            IF SELF:_lockGate(SELF:_tagNumber)
                 dwOffSet := ~(SELF:_getParkLotPlace(SELF:_tagNumber) + SELF:_parkPlace)
                 IF !SELF:_lockBytes(dwOffSet, 1)
                     SELF:_unlockBytes( SELF:_getParkLotGate( SELF:_tagNumber ), 1)
@@ -228,7 +228,6 @@ BEGIN NAMESPACE XSharp.RDD.NTX
             
         PRIVATE METHOD _ReadLock() AS LOGIC
             LOCAL isOk AS LOGIC
-            
             isOk := TRUE
             Trace.Assert(SELF:_writeLocks == 0, "Attempting read lock while holding write lock")
             IF SELF:_readLocks != 0
@@ -330,9 +329,7 @@ BEGIN NAMESPACE XSharp.RDD.NTX
         PRIVATE METHOD _LockStuff() AS VOID
             IF SELF:_getHeader()
                 SELF:_PageList:Flush(FALSE)
-                
-                FSeek3( SELF:_hFile, 0, FS_END )
-                SELF:_fileSize  := (LONG) FTell( SELF:_hFile ) 
+                SELF:_fileSize  := (LONG) _oStream:Length
                 SELF:ClearStack()
             ENDIF
             

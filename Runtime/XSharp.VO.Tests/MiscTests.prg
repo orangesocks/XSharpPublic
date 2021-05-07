@@ -9,6 +9,8 @@ USING System.Linq
 USING System.Text
 USING XUnit
 
+#pragma warnings(165, off)  // unassigned variables
+#pragma warnings(618, off)  // obsolete function SplitPath
 
 // Array tests are not working correctly yet with the current build
 BEGIN NAMESPACE XSharp.VO.Tests
@@ -156,13 +158,53 @@ BEGIN NAMESPACE XSharp.VO.Tests
 			Assert.True(u == "")
 			Assert.True(UsualType(u) == STRING)
 
-			#warning Hmmm, in VO EnforceType() can be used also like that and has different behavior when value is passed by reference or by value. Need to look closer into it.
-/*			u := 123
+			u := 123
 			EnforceType(REF u, STRING)
 			Assert.True(u == "")
-			Assert.True(UsualType(u) == STRING)*/
+			Assert.True(UsualType(u) == STRING)
+			EnforceType(u, STRING)
 			
 			Assert.True(EmptyUsual(STRING) == "")
+
+#pragma options ("lb", ON)
+        [Fact, Trait("Category", "EmptyUsual")];
+		METHOD SysObject_Test() AS VOID
+			LOCAL o AS OBJECT
+			o := SysObjectTestClass{}
+			
+			SysObject(o)
+			
+			Assert.Equal("test", (STRING) SysObject(o):Something )
+			SysObject(o):Something := "abc"
+			Assert.Equal(TRUE, (LOGIC)SysObject(o):SomeMethod())
+			
+			Assert.Equal("abc", (STRING) o:Something )
+			Assert.Equal(TRUE, (LOGIC)SysObject():SomeMethod())
+			
+			Assert.Equal("abc", (STRING) SysObject():Something )
+
+
+			LOCAL u AS USUAL
+			u := SysObjectTestClass{}
+			
+			SysObject(o)
+			
+			Assert.Equal("test", (STRING) SysObject(u):Something )
+			SysObject(u):Something := "abc"
+			Assert.Equal(TRUE, (LOGIC)SysObject(u):SomeMethod())
+			
+			Assert.Equal("abc", (STRING) u:Something )
+			Assert.Equal(TRUE, (LOGIC)SysObject():SomeMethod())
+			
+			Assert.Equal("abc", (STRING) SysObject():Something )
+#pragma options ("lb", OFF)
+		
+	END CLASS
+	
+	CLASS SysObjectTestClass
+		EXPORT Something := "test"
+		METHOD SomeMethod()
+		RETURN TRUE
 	END CLASS
 
 END NAMESPACE

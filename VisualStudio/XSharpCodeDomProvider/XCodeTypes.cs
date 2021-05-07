@@ -12,14 +12,14 @@ namespace XSharp.CodeDom
     /// <summary>
     /// Enhanced Type reference with System.Type property, since CodeTypeReference does not hold on to the type
     /// </summary>
-    [DebuggerDisplay("{_typeName,nq}")]
+    [DebuggerDisplay("{BaseType,nq}")]
     internal class XCodeTypeReference : CodeTypeReference
     {
 
         internal XCodeTypeReference(string typeName) : base(typeName)
         {
         }
-        internal XCodeTypeReference(IXType type) : base(type.FullName)
+        internal XCodeTypeReference(IXTypeSymbol type) : base(type.FullName)
         {
         }
     }

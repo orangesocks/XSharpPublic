@@ -8,7 +8,7 @@
  * You must not remove this notice, or any other, from this software.
  *
  * ***************************************************************************/
-
+#pragma warning disable VSTHRD010
 using System;
 using System.Windows.Forms.Design;
 using System.Collections.Generic;
@@ -29,7 +29,7 @@ using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Shell.Settings;
 using Microsoft.Win32;
 using IOleServiceProvider = Microsoft.VisualStudio.OLE.Interop.IServiceProvider;
-using XSharp.Project;
+
 
 namespace Microsoft.VisualStudio.Project
 {
@@ -37,7 +37,7 @@ namespace Microsoft.VisualStudio.Project
     /// This class implements an MSBuild logger that output events to VS outputwindow and tasklist.
     /// </summary>
     [SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "IDE")]
-    internal class IDEBuildLogger : Logger, IDisposable
+    public class IDEBuildLogger : Logger, IDisposable
     {
         #region fields
 
@@ -46,12 +46,11 @@ namespace Microsoft.VisualStudio.Project
 
         private int currentIndent;
         private IVsOutputWindowPane outputWindowPane;
-        private string errorString = SR.GetString(SR.Error, CultureInfo.CurrentUICulture);
-        private string warningString = SR.GetString(SR.Warning, CultureInfo.CurrentUICulture);
+       // private string errorString = SR.GetString(SR.Error, CultureInfo.CurrentUICulture);
+        //private string warningString = SR.GetString(SR.Warning, CultureInfo.CurrentUICulture);
         private TaskProvider taskProvider;
         private IVsHierarchy hierarchy;
         private IServiceProvider serviceProvider;
-        private Dispatcher dispatcher;
         private bool haveCachedVerbosity = false;
 
         // Queues to manage Tasks and Error output plus message logging
@@ -67,17 +66,9 @@ namespace Microsoft.VisualStudio.Project
             get { return this.serviceProvider; }
         }
 
-        public string WarningString
-        {
-            get { return this.warningString; }
-            set { this.warningString = value; }
-        }
+        public string WarningString { get; set; } = SR.GetString(SR.Warning, CultureInfo.CurrentUICulture);
 
-        public string ErrorString
-        {
-            get { return this.errorString; }
-            set { this.errorString = value; }
-        }
+        public string ErrorString { get; set; } = SR.GetString(SR.Error, CultureInfo.CurrentUICulture);
 
         /// <summary>
         /// When the build is not a "design time" (background or secondary) build this is True
@@ -114,14 +105,13 @@ namespace Microsoft.VisualStudio.Project
             Trace.WriteLineIf(Thread.CurrentThread.GetApartmentState() != ApartmentState.STA, "WARNING: IDEBuildLogger constructor running on the wrong thread.");
 
             IOleServiceProvider site;
+
             Microsoft.VisualStudio.ErrorHandler.ThrowOnFailure(hierarchy.GetSite(out site));
 
             this.taskProvider = taskProvider;
             this.outputWindowPane = output;
             this.hierarchy = hierarchy;
             this.serviceProvider = new ServiceProvider(site);
-            XSharpProjectPackage.Instance.UIThread.MustBeCalledFromUIThread();
-            this.dispatcher = Dispatcher.CurrentDispatcher;
         }
 
         #endregion
@@ -381,7 +371,7 @@ namespace Microsoft.VisualStudio.Project
         {
             // NOTE: This may run on a background thread!
             // We need to output this on the main thread. We must use BeginInvoke because the main thread may not be pumping events yet.
-            BeginInvokeWithErrorMessage(this.serviceProvider, this.dispatcher, FlushBuildOutput);
+            FlushBuildOutput();
         }
 
         internal void FlushBuildOutput()
@@ -420,6 +410,7 @@ namespace Microsoft.VisualStudio.Project
 
             protected override void OnNavigate(EventArgs e)
             {
+                ThreadHelper.ThrowIfNotOnUIThread();
                 VsUtilities.NavigateTo(
                     _serviceProvider,
                     Document,
@@ -470,8 +461,6 @@ namespace Microsoft.VisualStudio.Project
         {
             // NOTE: This may run on a background thread!
             // We need to output this on the main thread. We must use BeginInvoke because the main thread may not be pumping events yet.
-            BeginInvokeWithErrorMessage(this.serviceProvider, this.dispatcher, () =>
-            {
                 this.taskProvider.SuspendRefresh();
                 try
                 {
@@ -490,7 +479,6 @@ namespace Microsoft.VisualStudio.Project
                 {
                     this.taskProvider.ResumeRefresh();
                 }
-            });
         }
 
         private void ClearQueuedTasks()
@@ -501,10 +489,7 @@ namespace Microsoft.VisualStudio.Project
             if (this.InteractiveBuild)
             {
                 // We need to clear this on the main thread. We must use BeginInvoke because the main thread may not be pumping events yet.
-                BeginInvokeWithErrorMessage(this.serviceProvider, this.dispatcher, () =>
-                {
                     this.taskProvider.Tasks.Clear();
-                });
             }
         }
 
@@ -621,10 +606,6 @@ namespace Microsoft.VisualStudio.Project
         /// <param name="serviceProvider">service provider</param>
         /// <param name="dispatcher">dispatcher</param>
         /// <param name="action">action to invoke</param>
-        private static void BeginInvokeWithErrorMessage(IServiceProvider serviceProvider, Dispatcher dispatcher, Action action)
-        {
-            dispatcher.BeginInvoke(new Action(() => CallWithErrorMessage(serviceProvider, action)));
-        }
 
         /// <summary>
         /// Show error message if exception is caught when invoking a method

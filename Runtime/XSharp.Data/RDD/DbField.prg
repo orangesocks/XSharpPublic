@@ -15,21 +15,24 @@ CLASS XSharp.DbField
     /// <summary>Initializes a new instance of the DbField class</summary>
     /// <param name="info">Column info on which this field is based.</param>
     CONSTRUCTOR( info AS DbColumnInfo)
-    SELF:Info       := info
-    
+        SELF:Info       := info
+        
     #region properties
     /// <summary>Dotnet datatype for the field</summary>
     PROPERTY DataType   AS System.Type GET SELF:Info:DotNetType
     /// <summary>Name of the field</summary>
-    PROPERTY Name       AS STRING GET SELF:Info:Name
+    PROPERTY Name       AS STRING GET SELF:Info:ColumnName
     /// <summary>Caption for the field</summary>
-    PROPERTY Caption    AS STRING GET SELF:Info:ColumnName
+    PROPERTY Caption    AS STRING GET SELF:Info:Caption 
     /// <summary>Ordinal position of the field</summary>
-    PROPERTY Column     AS INT GET SELF:Info:Ordinal
+    PROPERTY Ordinal     AS INT GET SELF:Info:Ordinal
     /// <summary>Is the field Readonly ?</summary>
     PROPERTY ReadOnly   AS LOGIC GET SELF:Info:IsAutoIncrement
     /// <summary>Can the field be sorted ?</summary>
     PROPERTY CanSort    AS LOGIC GET SELF:Info:CanSort
+    /// <summary>Can the field be sorted ?</summary>
+    PROPERTY Description   AS STRING GET SELF:Info:Description
+
     #endregion
 END CLASS
 
@@ -39,7 +42,8 @@ INTERNAL CLASS XSharp.DbFieldDescriptor INHERIT PropertyDescriptor
 
     #region constructors
     CONSTRUCTOR( dbField AS DbField )
-    SUPER( dbField:Caption , Attribute[]{0} )
+    
+    SUPER( dbField:Name , Attribute[]{0} )
     _dbField := dbField   
     RETURN
     #endregion   
@@ -54,8 +58,8 @@ INTERNAL CLASS XSharp.DbFieldDescriptor INHERIT PropertyDescriptor
         /// cast to strongy typed variable first
         record := (DbRecord) component 
         
-        IF record:Item[SELF:_dbField:Column] != NULL
-            returnValue := record:Item[SELF:_dbField:Column]
+        IF record:Item[SELF:_dbField:Ordinal] != NULL
+            returnValue := record:Item[SELF:_dbField:Ordinal]
         ELSE
             IF SELF:_dbField:DataType:IsValueType
                 returnValue := System.Activator.CreateInstance(SELF:_dbField:DataType)
@@ -71,7 +75,7 @@ INTERNAL CLASS XSharp.DbFieldDescriptor INHERIT PropertyDescriptor
     VIRTUAL METHOD SetValue(component AS OBJECT, value AS OBJECT) AS VOID
         LOCAL record AS DbRecord
         record := (DbRecord)component 
-        record:Item[SELF:_dbField:Column] := value
+        record:Item[SELF:_dbField:Ordinal] := value
         RETURN
         
     /// Must be overwritten as the the base class declares this method as abstract.

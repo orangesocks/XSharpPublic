@@ -14,7 +14,8 @@ USING System.Data
 USING System.Data.Odbc
 USING XSharp.VFP
 USING XSharp.Data
-USING System.Reflection
+USING XSharp.RDD
+
 
 INTERNAL CLASS XSharp.VFP.SQLConnection
     PROTECT _oNetConnection     AS DbConnection
@@ -122,8 +123,8 @@ INTERNAL CLASS XSharp.VFP.SQLConnection
 		    oBuilder := SELF:Factory:CreateConnectionStringBuilder()
 		    oBuilder:ConnectionString := cConnStr
             oConn := SELF:Factory:CreateConnection()
-            SELF:ConnectionTimeOut := (LONG) SQLSupport.GetDefault(SQLProperty.ConnectTimeOut)
-            SELF:PacketSize        := (LONG) SQLSupport.GetDefault(SQLProperty.PacketSize)
+            SELF:ConnectionTimeOut := SQLSupport.GetDefault<LONG>(SQLProperty.ConnectTimeOut)
+            SELF:PacketSize        := SQLSupport.GetDefault<LONG>(SQLProperty.PacketSize)
             
 		    cConnStr := oBuilder:ToString()
             TRY

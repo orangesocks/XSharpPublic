@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\XSharp\XSharp.Default.props" />
+  <Import Project="$(XSharpMsBuildDir)\XSharp.Default.props" />
   <Import Project="..\Runtime.Targets" />
   <PropertyGroup>
     <ProjectGuid>3a771f0e-9400-4a19-8663-c71567ebfa29</ProjectGuid>
@@ -12,11 +12,11 @@
     <CS>true</CS>
     <Unsafe>true</Unsafe>
     <NS>true</NS>
+    <vo15>true</vo15>
     <VulcanCompatibleResources>True</VulcanCompatibleResources>
-    <XSharpProjectversion>2.5.0.0</XSharpProjectversion>
+    <XSharpProjectversion>2.8.0.10</XSharpProjectversion>
     <IncludePaths>$(CommonInclude)</IncludePaths>
     <Nostandarddefs>true</Nostandarddefs>
-    <XSharpProjectExtensionsPath>$(MSBuildExtensionsPath)\XSharp\</XSharpProjectExtensionsPath>
     <StandardDefs />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'" Label="Configuration">
@@ -28,13 +28,18 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Documentation|AnyCPU'">
     <DocumentationFile>XSharp.VFP.Xml</DocumentationFile>
   </PropertyGroup>
-  <Import Project="$(MSBuildExtensionsPath)\XSharp\XSharp.targets" />
+  <Import Project="$(XSharpMsBuildDir)\XSharp.targets" />
   <ItemGroup>
     <Reference Include="mscorlib" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
     <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Drawing">
+      <Name>System.Drawing</Name>
+      <SpecificVersion>False</SpecificVersion>
+      <AssemblyName>System.Drawing.dll</AssemblyName>
+    </Reference>
     <Reference Include="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
       <Name>System.Windows.Forms</Name>
       <AssemblyName>System.Windows.Forms.dll</AssemblyName>
@@ -50,22 +55,24 @@
     <Compile Include="..\..\Common\constants.prg">
       <Link>constants.prg</Link>
     </Compile>
+    <Compile Include="ArrayFunctions.prg" />
     <Compile Include="Classes\Collection.prg" />
     <Compile Include="Classes\Empty.prg" />
     <Compile Include="Classes\Custom.prg" />
     <Compile Include="Classes\Abstract.prg" />
+    <Compile Include="Classes\FoxArray.prg" />
     <Compile Include="ClassFunctions.prg" />
     <Compile Include="BitFunctions.prg" />
     <Compile Include="Cursors\DbFunctions.prg" />
-    <Compile Include="Cursors\CursorEnums.prg" />
-    <Compile Include="Database\DatabaseEnums.prg" />
+    <Compile Include="Database\DbFunctions.prg" />
     <Compile Include="Defines.prg" />
     <Compile Include="FileFunctions.prg" />
+    <Compile Include="GatherScatter.prg" />
     <Compile Include="GetWord.prg" />
+    <Compile Include="Keyboard.prg" />
     <Compile Include="NotSupported.prg" />
     <Compile Include="SQL\SQLReflection.prg" />
     <Compile Include="SQL\SQLStatement.prg" />
-    <Compile Include="SQL\SQLEnums.prg" />
     <Compile Include="SQL\SQLSupport.prg" />
     <Compile Include="SQL\SQLConnection.prg" />
     <Compile Include="SQL\SQLFunctions.prg" />
@@ -93,6 +100,8 @@
     <Compile Include="SystemVariables.prg" />
     <Compile Include="TextOutPut.prg" />
     <Compile Include="UIFunctions.prg" />
+    <Compile Include="UI\Assert.prg" />
+    <Compile Include="UI\AssertDialog.prg" />
     <Compile Include="UI\AutoCloseMessageBox.prg" />
     <Compile Include="Win32.prg" />
   </ItemGroup>
@@ -100,6 +109,7 @@
     <Folder Include="Classes" />
     <Folder Include="Cursors" />
     <Folder Include="Database" />
+    <Folder Include="TestData\" />
     <Folder Include="UI" />
     <Folder Include="SQL" />
     <Folder Include="Properties\" />
@@ -123,9 +133,42 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Credits.txt" />
     <None Include="functionsToImplement.txt" />
     <None Include="NotUsedFunctions.xml" />
-    <None Include="VFPDocs.xml" />
+    <None Include="TestData\Categories.CDX" />
+    <None Include="TestData\categories.dbf" />
+    <None Include="TestData\categories.fpt" />
+    <None Include="TestData\customercustomerdemo.cdx" />
+    <None Include="TestData\customercustomerdemo.dbf" />
+    <None Include="TestData\customerdemographics.cdx" />
+    <None Include="TestData\customerdemographics.dbf" />
+    <None Include="TestData\customerdemographics.fpt" />
+    <None Include="TestData\Customers.CDX" />
+    <None Include="TestData\customers.dbf" />
+    <None Include="TestData\employees.cdx" />
+    <None Include="TestData\employees.dbf" />
+    <None Include="TestData\employees.fpt" />
+    <None Include="TestData\employeeterritories.cdx" />
+    <None Include="TestData\employeeterritories.dbf" />
+    <None Include="TestData\northwind.dbc" />
+    <None Include="TestData\northwind.dct" />
+    <None Include="TestData\northwind.dcx" />
+    <None Include="TestData\orderdetails.cdx" />
+    <None Include="TestData\orderdetails.dbf" />
+    <None Include="TestData\orders.cdx" />
+    <None Include="TestData\orders.dbf" />
+    <None Include="TestData\products.cdx" />
+    <None Include="TestData\products.dbf" />
+    <None Include="TestData\region.cdx" />
+    <None Include="TestData\region.dbf" />
+    <None Include="TestData\shippers.cdx" />
+    <None Include="TestData\shippers.dbf" />
+    <None Include="TestData\suppliers.cdx" />
+    <None Include="TestData\suppliers.dbf" />
+    <None Include="TestData\suppliers.fpt" />
+    <None Include="TestData\territories.cdx" />
+    <None Include="TestData\territories.dbf" />
     <None Include="VFPFileStructures\VFP26Form-2.pdf" />
     <None Include="VFPFileStructures\VFP26Form.pdf" />
     <None Include="VFPFileStructures\VFP26Menu.pdf" />
@@ -142,7 +185,11 @@
     <None Include="VFPFileStructures\VFP6Project2.pdf" />
     <None Include="VFPFileStructures\VFP6Report.pdf" />
     <None Include="VFPFileStructures\VFP6Report2.pdf" />
-    <None Include="VfpRuntimeDocs.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="UI\AssertDialog.resx">
+      <DependentUpon>AssertDialog.prg</DependentUpon>
+    </EmbeddedResource>
   </ItemGroup>
   <!-- This next bit is required unless the macro used to Import your targets is defined in an MSBuild toolset. -->
   <ProjectExtensions>
@@ -158,6 +205,19 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
     <PreBuildEvent />
     <PostBuildEvent />
+    <RunPostBuildEvent />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Documentation|AnyCPU'">
+    <PreBuildEvent>copy $(SolutionDir)\Docs\RtComments.xml $(ProjectDir)\RtComments.Xml
+    copy $(SolutionDir)\Docs\VOFunctionDocs.xml $(ProjectDir)\VOFunctionDocs.Xml
+    copy $(SolutionDir)\Docs\VfpRuntimeDocs.xml $(ProjectDir)\VfpRuntimeDocs.Xml
+    copy $(SolutionDir)\Docs\VfpDocs.xml $(ProjectDir)\VfpDocs.Xml
+    </PreBuildEvent>
+    <PostBuildEvent>erase  $(ProjectDir)\RtComments.Xml
+    erase  $(ProjectDir)\VOFunctionDocs.Xml
+    erase  $(ProjectDir)\VfpRuntimeDocs.Xml
+    erase  $(ProjectDir)\VfpDocs.Xml
+    </PostBuildEvent>
     <RunPostBuildEvent />
   </PropertyGroup>
 </Project>

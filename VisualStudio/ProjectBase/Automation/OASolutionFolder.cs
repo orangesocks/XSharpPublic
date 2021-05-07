@@ -13,6 +13,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio;
+using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 
 namespace Microsoft.VisualStudio.Project.Automation
@@ -51,10 +52,14 @@ namespace Microsoft.VisualStudio.Project.Automation
                 return null;
             // Now that the sub project was created, get its extensibility object so we can return it
             object newProject = null;
+            return ThreadHelper.JoinableTaskFactory.Run(async delegate
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             if(ErrorHandler.Succeeded(newNode.NestedHierarchy.GetProperty(VSConstants.VSITEMID_ROOT, (int)__VSHPROPID.VSHPROPID_ExtObject, out newProject)))
                 return newProject as EnvDTE.Project;
             else
                 return null;
+            });
         }
 
         public virtual EnvDTE.Project AddFromTemplate(string fileName, string destination, string projectName)
@@ -62,7 +67,9 @@ namespace Microsoft.VisualStudio.Project.Automation
             bool isVSTemplate = Utilities.IsTemplateFile(fileName);
 
             NestedProjectNode newNode = null;
-            if(isVSTemplate)
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            if (isVSTemplate)
             {
                 // Get the wizard to run, we will get called again and use the alternate code path
                 ProjectElement newElement = new ProjectElement(this.node.ProjectMgr, System.IO.Path.Combine(destination, projectName), ProjectFileConstants.SubProject);
@@ -120,7 +127,11 @@ namespace Microsoft.VisualStudio.Project.Automation
         {
             get
             {
+                return ThreadHelper.JoinableTaskFactory.Run(async delegate
+                {
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 return (EnvDTE.DTE)this.node.ProjectMgr.Site.GetService(typeof(EnvDTE.DTE));
+                });
             }
         }
 

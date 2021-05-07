@@ -5,7 +5,7 @@
 //
 
 // Please note that this code code expects zero based arrays
-
+#pragma options ("az", ON)
 USING System.Runtime.InteropServices
 USING System.IO
 USING System.Text
@@ -21,11 +21,12 @@ BEGIN NAMESPACE XSharp.RDD
 [DebuggerDisplay("DBF ({Alias,nq})")];
 PARTIAL CLASS DBF INHERIT Workarea IMPLEMENTS IRddSortWriter
 #region STATIC properties and fields
-        STATIC PROTECT _Extension := ".DBF" AS STRING
-        STATIC PRIVATE  culture := System.Globalization.CultureInfo.InvariantCulture AS CultureInfo
+    STATIC PROTECT _Extension := ".DBF" AS STRING
+    STATIC PRIVATE  culture := System.Globalization.CultureInfo.InvariantCulture AS CultureInfo
 	
-#endregion	
-	PROTECT _RelInfoPending  AS DbRelInfo
+#endregion
+    PROTECT _oStream        AS FileStream
+	PROTECT _RelInfoPending AS DbRelInfo
 	
 	PROTECT _Header			AS DbfHeader
 	PROTECT _HeaderLength	AS LONG  	// Size of header
@@ -74,8 +75,8 @@ PARTIAL CLASS DBF INHERIT Workarea IMPLEMENTS IRddSortWriter
     PROTECT PROPERTY IsOpen AS LOGIC GET SELF:_hFile != F_ERROR
     PROTECT PROPERTY HasMemo AS LOGIC GET SELF:_HasMemo
     NEW PROTECT PROPERTY Memo AS BaseMemo GET (BaseMemo) SELF:_Memo
-
-
+    INTERNAL PROPERTY Stream AS FileStream GET SELF:_oStream
+/*
 PROTECTED METHOD ConvertToMemory() AS LOGIC
      IF !SELF:_OpenInfo:Shared
         FConvertToMemoryStream(SELF:_hFile)
@@ -87,7 +88,7 @@ PROTECTED METHOD ConvertToMemory() AS LOGIC
         RETURN TRUE
      ENDIF
      RETURN FALSE
-
+*/
 INTERNAL METHOD _CheckEofBof() AS VOID
     IF SELF:RecCount == 0
         SELF:_SetEOF(TRUE)
@@ -106,6 +107,7 @@ INTERNAL METHOD _SetEOF(lNewValue as LOGIC) AS VOID
         SELF:EoF := lNewValue
         IF lNewValue
             Array.Copy(SELF:_BlankBuffer, SELF:_RecordBuffer, SELF:_RecordLength)
+            SELF:_RecNo := SELF:_RecCount+1
         ENDIF
     ENDIF
     
@@ -122,9 +124,9 @@ PRIVATE METHOD _AllocateBuffers() AS VOID
 	NEXT
 	
 CONSTRUCTOR()
-	SELF:_hFile := F_ERROR
-	SELF:_Header := DbfHeader{} 
-	SELF:_Header:initialize()
+	SELF:_hFile     := F_ERROR
+	SELF:_oStream   := NULL
+	SELF:_Header    := DbfHeader{SELF} 
 	SELF:_Locks     := List<LONG>{}
 	SELF:_numformat := (NumberFormatInfo) culture:NumberFormat:Clone()
 	SELF:_numformat:NumberDecimalSeparator := "."
@@ -140,7 +142,7 @@ METHOD GoTop() AS LOGIC
 			SELF:_Bottom := FALSE
 			SELF:_BufferValid := FALSE
                 // Apply Filter and SetDeleted
-			VAR result := SkipFilter(1)
+			VAR result := SELF:SkipFilter(1)
             SELF:_CheckEofBof()
             RETURN result
         END LOCK
@@ -156,7 +158,7 @@ METHOD GoBottom() AS LOGIC
 			SELF:_Bottom := TRUE
 			SELF:_BufferValid := FALSE
             // Apply Filter and SetDeleted
-			VAR result := SkipFilter(-1)
+			VAR result := SELF:SkipFilter(-1)
             SELF:_CheckEofBof()
             RETURN result
         END LOCK
@@ -174,15 +176,13 @@ METHOD GoTo(nRec AS LONG) AS LOGIC
 				SELF:_RecCount := SELF:_calculateRecCount()
 			ENDIF
             LOCAL nCount := SELF:_RecCount AS LONG
+            // Normal positioning, VO resets FOUND to FALSE after a recprd movement
+            SELF:_Found := FALSE
+      	    SELF:_BufferValid := FALSE
 			IF  nRec <= nCount  .AND.  nRec > 0 
-                // Normal positioning
-                // VO does not set _Found to TRUE for a succesfull Goto. It does set _Found to false for a failed Goto
-                //? SELF:CurrentThreadId, "Set Recno to ", Nrec
 				SELF:_RecNo := nRec
 				SELF:_SetEOF(FALSE)
                 SELF:_SetBOF(FALSE)
-                //SELF:_Found :=TRUE    
-				SELF:_BufferValid := FALSE
 				SELF:_isValid := TRUE
 			ELSEIF nRec < 0 .AND. nCount > 0
                 // skip to BOF. Move to record 1. 
@@ -190,8 +190,6 @@ METHOD GoTo(nRec AS LONG) AS LOGIC
                 //? SELF:CurrentThreadId, "Set Recno to ", 1, "nRec", nRec, "nCount", nCount
 				SELF:_SetEOF(FALSE)
                 SELF:_SetBOF(TRUE)
-				SELF:_Found :=FALSE
-				SELF:_BufferValid := FALSE
 				SELF:_isValid := FALSE
 			ELSE
                 // File empty, or move after last record
@@ -199,8 +197,6 @@ METHOD GoTo(nRec AS LONG) AS LOGIC
 				SELF:_RecNo := nCount + 1
 				SELF:_SetEOF(TRUE)
                 SELF:_SetBOF(nCount == 0)
-				SELF:_Found := FALSE
-				SELF:_BufferValid := FALSE
 				SELF:_isValid := FALSE
             ENDIF
             IF SELF:_Relations:Count != 0
@@ -220,7 +216,7 @@ METHOD GoToId(oRec AS OBJECT) AS LOGIC
 			VAR nRec := Convert.ToInt32( oRec )
 			result := SELF:GoTo( nRec )
 		CATCH ex AS Exception
-			SELF:_dbfError(ex, Subcodes.EDB_GOTO,Gencode.EG_DATATYPE,  "DBF.GoToId") 
+			SELF:_dbfError(ex, Subcodes.EDB_GOTO,Gencode.EG_DATATYPE,  "DBF.GoToId",FALSE) 
 			result := FALSE
 		END TRY
     END LOCK
@@ -247,15 +243,17 @@ METHOD Skip(nToSkip AS INT) AS LOGIC
 		ELSE
 			result := SELF:SkipRaw( nToSkip )
             // We reached the top ?
-			IF result .AND. ( nToSkip < 0 ) .AND. SELF:_BoF
-				SELF:GoTop()
-				SELF:BoF := TRUE
-			ENDIF
-			IF nToSkip < 0 
-				SELF:_SetEOF(FALSE)
-			ELSEIF nToSkip > 0 
-				SELF:BoF := FALSE
-			ENDIF
+			IF result
+                IF ( nToSkip < 0 ) .AND. SELF:_BoF
+				    SELF:GoTop()
+				    SELF:BoF := TRUE
+			    ENDIF
+			    IF nToSkip < 0 
+				    SELF:_SetEOF(FALSE)
+			    ELSEIF nToSkip > 0 
+				    SELF:BoF := FALSE
+                ENDIF
+             ENDIF
         ENDIF
 	ENDIF
     SELF:_CheckEofBof()
@@ -299,7 +297,7 @@ METHOD Append(lReleaseLock AS LOGIC) AS LOGIC
             //
 				IF SELF:_ReadOnly 
                 // Error !! Cannot be written !
-					SELF:_dbfError( ERDD.READONLY, XSharp.Gencode.EG_READONLY )
+					SELF:_dbfError( ERDD.READONLY, XSharp.Gencode.EG_READONLY ,FALSE)
 					isOK := FALSE
 				ENDIF
 				IF  SELF:Shared 
@@ -417,10 +415,15 @@ METHOD HeaderLock( lockMode AS DbLockMode ) AS LOGIC
 	IF lockMode == DbLockMode.Lock 
         //? CurrentThreadId, "Start Header Lock", ProcName(1)
         LOCAL nTries := 0 AS LONG
+        var timer := LockTimer{}
+        timer:Start()
         DO WHILE TRUE
             ++nTries
 		    SELF:_HeaderLocked := SELF:_tryLock( SELF:_lockScheme:Offset, 1,FALSE)
             IF ! SELF:_HeaderLocked
+                IF timer:TimeOut(SELF:FullPath, SELF:_lockScheme:Offset, 1)
+                    RETURN FALSE
+                ENDIF
                 System.Threading.Thread.Sleep(100)
                 
             ELSE
@@ -433,14 +436,13 @@ METHOD HeaderLock( lockMode AS DbLockMode ) AS LOGIC
         
 		TRY
             //? CurrentThreadId, "Start Header UnLock",ProcName(1)
-			VAR unlocked := FFUnLock64( SELF:_hFile, SELF:_lockScheme:Offset, 1 )
-			IF unlocked
-				SELF:_HeaderLocked := FALSE
-            ENDIF
+            _oStream:SafeUnlock(SELF:_lockScheme:Offset, 1)
+            SELF:_HeaderLocked := FALSE
             //? CurrentThreadId, "Header UnLock", unlocked
 		CATCH ex AS Exception
 			SELF:_HeaderLocked := FALSE
-			SELF:_dbfError(ex, Subcodes.ERDD_WRITE_UNLOCK,Gencode.EG_LOCK_ERROR,  "DBF.HeaderLock") 
+			SELF:_dbfError(ex, Subcodes.ERDD_WRITE_UNLOCK,Gencode.EG_LOCK_ERROR,  "DBF.HeaderLock",FALSE)
+            RETURN FALSE
         END TRY
         RETURN TRUE 
 	ENDIF
@@ -456,14 +458,14 @@ METHOD UnLock(oRecId AS OBJECT) AS LOGIC
     //
 	IF SELF:Shared 
 		BEGIN LOCK SELF
-    //
             //? CurrentThreadId, "UnLock", oRecId
 			SELF:GoCold()
 			TRY
 				recordNbr := Convert.ToInt32( oRecId )
 			CATCH ex AS Exception
 				recordNbr := 0
-				SELF:_dbfError(ex, Subcodes.ERDD_DATATYPE,Gencode.EG_LOCK_ERROR,  "DBF.UnLock") 
+				SELF:_dbfError(ex, Subcodes.ERDD_DATATYPE,Gencode.EG_LOCK_ERROR,  "DBF.UnLock",FALSE)
+                RETURN FALSE
 			END TRY
         //
 			isOK := TRUE
@@ -501,13 +503,11 @@ PROTECT METHOD _unlockFile( ) AS LOGIC
 	IF ! SELF:IsOpen
 		RETURN FALSE
 	ENDIF
-	
-	TRY
-		unlocked := FFUnLock64( SELF:_hFile, SELF:_lockScheme:FileLockOffSet, SELF:_lockScheme:FileSize )
-	CATCH ex AS Exception
-		unlocked := FALSE
-		SELF:_dbfError(ex, Subcodes.ERDD_WRITE_UNLOCK,Gencode.EG_LOCK_ERROR,  "DBF._unlockFile") 
-	END TRY
+
+	unlocked := _oStream:SafeUnlock(SELF:_lockScheme:FileLockOffSet, SELF:_lockScheme:FileSize)
+	IF ! unlocked
+		SELF:_dbfError(FException(), Subcodes.ERDD_WRITE_UNLOCK,Gencode.EG_LOCK_ERROR,  "DBF._unlockFile", FALSE) 
+	ENDIF
 RETURN unlocked
 
 PROTECTED PROPERTY CurrentThreadId AS STRING GET System.Threading.Thread.CurrentThread:ManagedThreadId:ToString()
@@ -518,17 +518,12 @@ PROTECT METHOD _unlockRecord( recordNbr AS LONG ) AS LOGIC
 	LOCAL iOffset AS INT64
 	IF ! SELF:IsOpen
 		RETURN FALSE
-    ENDIF
-    
-	TRY
-    	iOffset := SELF:_lockScheme:RecnoOffSet(recordNbr, SELF:_RecordLength , SELF:_HeaderLength )
-		unlocked := FFUnLock64( SELF:_hFile, iOffset, SELF:_lockScheme:RecordSize )
-        //? CurrentThreadId, "unlocked record ", recordNbr
-	CATCH ex AS Exception
-		unlocked := FALSE
-        //? CurrentThreadId, "failed to unlock record ", recordNbr
-		SELF:_dbfError(ex, Subcodes.ERDD_WRITE_UNLOCK,Gencode.EG_LOCK_ERROR,  "DBF._unlockRecord") 
-	END TRY
+	ENDIF
+	iOffset := SELF:_lockScheme:RecnoOffSet(recordNbr, SELF:_RecordLength , SELF:_HeaderLength )
+	unlocked :=  _oStream:SafeUnlock(iOffset, SELF:_lockScheme:RecordSize)
+	IF ! unlocked    
+		SELF:_dbfError(FException(), Subcodes.ERDD_WRITE_UNLOCK,Gencode.EG_LOCK_ERROR,  "DBF._unlockRecord", FALSE) 
+	ENDIF
 	IF( unlocked )
 		SELF:_Locks:Remove( recordNbr )
 	ENDIF
@@ -541,12 +536,10 @@ PROTECT METHOD _lockFile( ) AS LOGIC
 		RETURN FALSE
 	ENDIF
 	
-	TRY
-		locked := FFLock64( SELF:_hFile, SELF:_lockScheme:FileLockOffSet, SELF:_lockScheme:FileSize )
-	CATCH ex AS Exception
-		locked := FALSE
-		SELF:_dbfError(ex, Subcodes.ERDD_WRITE_LOCK,Gencode.EG_LOCK_ERROR,  "DBF._lockFile") 
-	END TRY
+	locked := _oStream:SafeLock(SELF:_lockScheme:FileLockOffSet, SELF:_lockScheme:FileSize )
+	IF ! locked
+		SELF:_dbfError(FException(), Subcodes.ERDD_WRITE_LOCK,Gencode.EG_LOCK_ERROR,  "DBF._lockFile", FALSE) 
+	ENDIF
 RETURN locked
 
     // Place a lock : <nOffset> indicate where the lock should be; <nLong> indicate the number bytes to lock
@@ -554,19 +547,14 @@ RETURN locked
     // Return the result of the operation
 PROTECTED METHOD _tryLock( nOffset AS INT64, nLong AS INT64, lGenError AS LOGIC) AS LOGIC
 	LOCAL locked AS LOGIC
-    LOCAL nTries AS LONG
+    LOCAL nTries AS DWORD
 	IF ! SELF:IsOpen
 		RETURN FALSE
 	ENDIF
 	LOCAL lockEx := NULL AS Exception
-    nTries := 123
+	nTries := XSharp.RuntimeState.LockTries
 	REPEAT
-		TRY
-			locked := FFLock64( SELF:_hFile, nOffset, nLong )
-        CATCH ex AS Exception
-            lockEx := ex
-			locked := FALSE
-		END TRY
+		locked := _oStream:SafeLock(nOffset, nLong)
 		IF !locked
             LOCAL nError := FError() AS DWORD
             IF nError != 33     // Someone else has locked the file
@@ -575,12 +563,12 @@ PROTECTED METHOD _tryLock( nOffset AS INT64, nLong AS INT64, lGenError AS LOGIC)
 			nTries --
             //DebOut32(ProcName(1)+" Lock Failed "+nTries:ToString()+" tries left, offset: "+ nOffSet:ToString()+" length: "+nLong:ToString())
 			IF nTries > 0 
-				System.Threading.Thread.Sleep( 10)
+				System.Threading.Thread.Sleep( 1)
             ENDIF
 		ENDIF
 	UNTIL ( locked .OR. (nTries==0) )
     IF (! locked .AND. lGenError)
-		 SELF:_dbfError(lockEx, Subcodes.ERDD_WRITE_LOCK,Gencode.EG_LOCK_ERROR,  "DBF._tryLock") 
+		 SELF:_dbfError(lockEx, Subcodes.ERDD_WRITE_LOCK,Gencode.EG_LOCK_ERROR,  "DBF._tryLock", FALSE) 
     ENDIF
 
 RETURN locked
@@ -626,7 +614,7 @@ PROTECTED METHOD _lockRecord( recordNbr AS LONG ) AS LOGIC
         //? CurrentThreadId, "Locked record ", recordNbr
     ELSE
         //? CurrentThreadId, "Failed to Lock record ", recordNbr
-		SELF:_dbfError( Subcodes.ERDD_WRITE_LOCK,Gencode.EG_LOCK_ERROR,  "DBF._lockRecord") 
+		SELF:_dbfError( Subcodes.ERDD_WRITE_LOCK,Gencode.EG_LOCK_ERROR,  "DBF._lockRecord", FALSE) 
 	ENDIF
 RETURN locked
 
@@ -646,8 +634,8 @@ PROTECTED METHOD _lockRecord( lockInfo REF DbLockInfo ) AS LOGIC
 	ELSE
 		TRY
 			nToLock := Convert.ToUInt64( lockInfo:RecId )
-		CATCH ex AS Exception
-			SELF:_dbfError( ex, ERDD.DATATYPE, XSharp.Gencode.EG_DATATYPE )
+        CATCH ex AS Exception
+			SELF:_dbfError( ex, ERDD.DATATYPE, XSharp.Gencode.EG_DATATYPE, FALSE)
 			isOK := FALSE
 		END TRY
 		IF isOK
@@ -878,26 +866,18 @@ METHOD Close() 			AS LOGIC
 				
 		END TRY
 		SELF:_hFile := F_ERROR
+        SELF:_oStream := NULL
 	ENDIF
 RETURN isOK
 
     // Move to the End of file, and place a End-Of-File Marker (0x1A)
-PRIVATE METHOD _putEndOfFileMarker() AS LOGIC
-    // According to DBASE.com Knowledge base :
-    // The end of the file is marked by a single byte, with the end-of-file marker, an OEM code page character value of 26 (0x1A).
-	LOCAL lOffset   := SELF:_HeaderLength + SELF:_RecCount * SELF:_RecordLength AS LONG
-	LOCAL eofMarker := <BYTE>{ 26 } AS BYTE[]
-	LOCAL isOK      AS LOGIC
-    // Note FoxPro does not write EOF character for files with 0 records
-	isOK := ( FSeek3( SELF:_hFile, lOffset, FS_SET ) == lOffset ) 
-	IF isOK 
-		isOK := ( FWrite3( SELF:_hFile, eofMarker, 1 ) == 1 )
-		IF isOK
-            // Fix length of File
-			isOK := FChSize( SELF:_hFile, (DWORD)lOffset+1)
-		ENDIF
-	ENDIF
-RETURN isOK
+PROTECTED METHOD _putEndOfFileMarker() AS LOGIC
+	// According to DBASE.com Knowledge base :
+	// The end of the file is marked by a single byte, with the end-of-file marker, an OEM code page character value of 26 (0x1A).
+	LOCAL lOffset   := SELF:_HeaderLength + SELF:_RecCount * SELF:_RecordLength AS INT64
+	// Note FoxPro does not write EOF character for files with 0 records
+	RETURN _oStream:SafeSetPos(lOffset) .AND. _oStream:SafeWriteByte(26) .AND. _oStream:SafeSetLength(lOffset+1)
+
 
     // Create a DBF File, based on the DbOpenInfo Structure
     // Write the File Header, and the Fields Header; Create the Memo File if needed
@@ -924,6 +904,7 @@ METHOD Create(info AS DbOpenInfo) AS LOGIC
     //
 	SELF:_hFile    := FCreate2( SELF:_FileName, FO_EXCLUSIVE)
 	IF SELF:IsOpen
+        SELF:_oStream    := (FileStream) FGetStream(SELF:_hFile)
 		LOCAL fieldCount :=  SELF:_Fields:Length AS INT
 		LOCAL fieldDefSize := fieldCount * DbfField.SIZE AS INT
 		LOCAL codePage AS LONG
@@ -936,7 +917,7 @@ METHOD Create(info AS DbOpenInfo) AS LOGIC
 		ENDIF        // First, just the Header
 		SELF:_Encoding := System.Text.Encoding.GetEncoding( codePage ) 
 
-		SELF:_Header:HeaderLen := SHORT(DbfHeader.SIZE + fieldDefSize+ 2 ) 
+		SELF:_Header:HeaderLen := SHORT(DbfHeader.SIZE + fieldDefSize + 2 ) 
 		SELF:_Header:isHot := TRUE
         //
 
@@ -987,6 +968,8 @@ METHOD Create(info AS DbOpenInfo) AS LOGIC
 				SELF:CloseMemFile( )
 			ENDIF
 			FClose( SELF:_hFile )
+			SELF:_hFile	:= F_ERROR
+			SELF:_oStream    := NULL
 		ELSE
 			SELF:GoTop()
 		ENDIF
@@ -1010,13 +993,11 @@ PROTECTED VIRTUAL METHOD _writeFieldsHeader() AS LOGIC
 	LOCAL fieldDefSize := fieldCount * DbfField.SIZE AS INT
     // Now, create the Structure
 	LOCAL fieldsBuffer := BYTE[]{ fieldDefSize +1 } AS BYTE[] // +1 to add 0Dh stored as the field terminator.
-	LOCAL currentField := DbfField{} AS DbfField
-    currentField:Encoding := SELF:_Encoding
-	IF ! SELF:IsOpen
+	LOCAL currentField := DbfField{SELF:_Encoding} AS DbfField
+    IF ! SELF:IsOpen
 		RETURN FALSE
 	ENDIF
 	
-	currentField:initialize()
 	LOCAL nOffSet AS LONG
 	nOffSet := 0
 	FOREACH VAR fld IN SELF:_Fields
@@ -1035,7 +1016,7 @@ PROTECTED VIRTUAL METHOD _writeFieldsHeader() AS LOGIC
 			ENDIF
 		ENDIF
 		currentField:Flags := fld:Flags
-		IF ! _checkField(REF currentField)
+		IF ! SELF:_checkField(REF currentField)
 			SELF:_dbfError( ERDD.CREATE_FILE, XSharp.Gencode.EG_DATATYPE,"DBF:Create()", "Invalid "+fld:ToString())
 			RETURN FALSE
 		ENDIF
@@ -1045,17 +1026,12 @@ PROTECTED VIRTUAL METHOD _writeFieldsHeader() AS LOGIC
 	
 	
     // Terminator
-	fieldsBuffer[fieldDefSize] := 13
+	fieldsBuffer[fieldDefSize] := 0x0D
     // Go end of Header
-	isOK := ( FSeek3( SELF:_hFile, DbfHeader.SIZE, SeekOrigin.Begin ) == DbfHeader.SIZE )
-	IF isOK 
-    // Write Fields and Terminator
-		TRY
-			isOK := ( FWrite3( SELF:_hFile, fieldsBuffer, (DWORD)fieldsBuffer:Length ) == (DWORD)fieldsBuffer:Length )
-		CATCH ex AS Exception
-			SELF:_dbfError( ex, ERDD.WRITE, XSharp.Gencode.EG_WRITE )
-		END TRY
-	ENDIF
+    isOK :=  _oStream:SafeWriteAt(DbfHeader.SIZE, fieldsBuffer,fieldDefSize+1 )
+    IF ! isOK
+		SELF:_dbfError( FException(), ERDD.WRITE, XSharp.Gencode.EG_WRITE )
+    ENDIF
     //
 RETURN isOK
 
@@ -1083,9 +1059,7 @@ METHOD Open(info AS XSharp.RDD.Support.DbOpenInfo) AS LOGIC
 	SELF:_hFile    := FOpen(SELF:_FileName, SELF:_OpenInfo:FileMode)
 
 	IF SELF:IsOpen
-//        IF !SELF:_OpenInfo:Shared
-//            FConvertToMemoryStream(SELF:_hFile)
-//        ENDIF
+		SELF:_oStream    := (FileStream) FGetStream(SELF:_hFile)
 		isOK := SELF:_readHeader()
 		IF isOK 
 			IF SELF:_HasMemo 
@@ -1120,31 +1094,27 @@ PRIVATE METHOD _readHeader() AS LOGIC
 	IF ! SELF:IsOpen
 		RETURN FALSE
 	ENDIF
-    isOK := SELF:_Header:Read(SELF:_hFile)
+    isOK := SELF:_Header:Read()
     //
 	IF isOK 
 		SELF:_HeaderLength := SELF:_Header:HeaderLen
         //
-		LOCAL fieldCount := (( SELF:_HeaderLength - DbfHeader.SIZE) / DbfField.SIZE ) AS INT
         // Something wrong in Size...
-		IF fieldCount <= 0 
+		IF SELF:_Header:FieldCount <= 0 
 			RETURN FALSE
 		ENDIF
 		SELF:_RecCount := SELF:_Header:RecCount
         SELF:_Encoding := System.Text.Encoding.GetEncoding( CodePageExtensions.ToCodePage( SELF:_Header:CodePage )  )
 
         // Move to top, after header
-        isOK := FSeek3( SELF:_hFile, DbfHeader.SIZE, SeekOrigin.Begin ) == DbfHeader.SIZE 
-		IF isOK 
-			isOK := _readFieldsHeader()
-		ENDIF
+        isOK := _oStream:SafeSetPos(DbfHeader.SIZE) .AND. SELF:_readFieldsHeader()
 	ENDIF
 RETURN isOK
 
     // Read the Fields Header, filling the _Fields List with RddFieldInfo
 PRIVATE METHOD _readFieldsHeader() AS LOGIC
 	LOCAL isOK AS LOGIC
-	LOCAL fieldCount := (( SELF:_HeaderLength - DbfHeader.SIZE) / DbfField.SIZE ) AS INT
+	LOCAL fieldCount   := SELF:_Header:FieldCount AS INT
 	LOCAL fieldDefSize := fieldCount * DbfField.SIZE AS INT
 	IF ! SELF:IsOpen
 		RETURN FALSE
@@ -1152,12 +1122,10 @@ PRIVATE METHOD _readFieldsHeader() AS LOGIC
 	SELF:_NullCount := 0
     // Read full Fields Header
 	VAR fieldsBuffer := BYTE[]{ fieldDefSize }
-    isOK := FRead3( SELF:_hFile, fieldsBuffer, (DWORD)fieldDefSize ) == (DWORD)fieldDefSize 
+	isOK   := _oStream:SafeRead(fieldsBuffer) 
 	IF isOK 
 		SELF:_HasMemo := FALSE
-		VAR currentField := DbfField{}
-        currentField:Encoding := SELF:_Encoding
-		currentField:initialize()
+		VAR currentField := DbfField{SELF:_Encoding}
         // Now, process
         //SELF:_Fields := DbfRddFieldInfo[]{ fieldCount }
         // count # of fields. When we see a 0x0D then the header has blank space for non fields
@@ -1192,21 +1160,11 @@ RETURN isOK
 
 INTERNAL METHOD _readField(nOffSet as LONG, oField as DbfField) AS LOGIC
     // Read single field. Called from AutoIncrement code to read the counter value
-	local nPos as LONG
-	nPos := (LONG) FTell(SELF:_hFile)
-	FSeek3(SELF:_hFile, nOffSet, FS_SET)
-	FRead3(SELF:_hFile, oField:Buffer, (DWORD) oField:Buffer:Length)
-	FSeek3(SELF:_hFile, nPos, FS_SET)
-RETURN TRUE
+    RETURN  _oStream:SafeReadAt(nOffSet,oField:Buffer,DbfField.SIZE) 
 
 INTERNAL METHOD _writeField(nOffSet as LONG, oField as DbfField) AS LOGIC
-	local nPos as LONG
     // Write single field in header. Called from AutoIncrement code to update the counter value
-	nPos := (LONG) FTell(SELF:_hFile)
-	FSeek3(SELF:_hFile, nOffSet, FS_SET)
-	FWrite3(SELF:_hFile, oField:Buffer, (DWORD) oField:Buffer:Length)
-	FSeek3(SELF:_hFile, nPos, FS_SET)
-RETURN TRUE
+    RETURN  _oStream:SafeWriteAt(nOffSet, oField:Buffer, DbfField.SIZE) 
 
 
 
@@ -1223,7 +1181,7 @@ PROTECTED METHOD _writeHeader() AS LOGIC
         // Update the number of records
 		SELF:_Header:RecCount := SELF:_RecCount
 		TRY
-            ret := SELF:_Header:Write(SELF:_hFile)
+            ret := SELF:_Header:Write()
 		CATCH ex AS Exception
 			SELF:_dbfError( ex, ERDD.WRITE, XSharp.Gencode.EG_WRITE )
 			ret := FALSE
@@ -1266,12 +1224,12 @@ PROTECT OVERRIDE METHOD _checkFields(info AS RddFieldInfo) AS LOGIC
 		info:Name := info:Name:Substring(0,10)
 	ENDIF
 	IF ! info:Validate()
-		SELF:_dbfError( ERDD.CORRUPT_HEADER, XSharp.Gencode.EG_ARG,"ValidateDbfStructure", i"Field '{info.Name}' is not valid"  )
+		SELF:_dbfError( ERDD.CORRUPT_HEADER, XSharp.Gencode.EG_ARG,"ValidateDbfStructure", i"Field '{info.Name}' is not valid"  , FALSE)
 		RETURN FALSE
 	ENDIF
 	VAR cType := Chr( (BYTE) info:FieldType)
 	IF ! cType $ SELF:_AllowedFieldTypes
-		SELF:_dbfError( ERDD.CORRUPT_HEADER, XSharp.Gencode.EG_ARG,"ValidateDbfStructure", i"Field Type '{cType}' for field '{info.Name}' is not allowed for RDD '{SELF:Driver}'" )
+		SELF:_dbfError( ERDD.CORRUPT_HEADER, XSharp.Gencode.EG_ARG,"ValidateDbfStructure", i"Field Type '{cType}' for field '{info.Name}' is not allowed for RDD '{SELF:Driver}'" , FALSE)
 	ENDIF
 
 RETURN TRUE
@@ -1300,7 +1258,7 @@ METHOD FieldInfo(nFldPos AS LONG, nOrdinal AS LONG, oNewValue AS OBJECT) AS OBJE
 			CASE DbFieldInfo.DBS_STEP
 				oResult := NULL
 				local oColumn as DbfColumn
-				oColumn := SELF:_GetColumn(nFldPos)
+				oColumn := SELF:_GetColumn(nFldPos) ASTYPE DbfColumn
 				if oColumn != NULL
 					
 					IF nOrdinal == DbFieldInfo.DBS_ISNULL
@@ -1362,19 +1320,12 @@ VIRTUAL PROTECTED METHOD _readRecord() AS LOGIC
 	IF  isOK 
         // Record pos is One-Based
 		LOCAL lOffset := SELF:_HeaderLength + ( SELF:_RecNo - 1 ) * SELF:_RecordLength AS LONG
-		isOK := ( FSeek3( SELF:_hFile, lOffset, FS_SET ) == lOffset )
+		isOK := _oStream:SafeReadAt(lOffset, SELF:_RecordBuffer, SELF:_RecordLength) 
 		IF isOK 
-            // Read Record
-			isOK := ( FRead3( SELF:_hFile, SELF:_RecordBuffer, (DWORD)SELF:_RecordLength ) == (DWORD)SELF:_RecordLength )
-			IF isOK 
-				SELF:_BufferValid := TRUE
-				SELF:_isValid := TRUE
-				SELF:_Deleted := ( SELF:_RecordBuffer[ 0 ] == '*' )
-            ELSE
-               NOP 
-            ENDIF
-        ELSE
-            NOP
+			// Read Record
+			SELF:_BufferValid := TRUE
+			SELF:_isValid := TRUE
+			SELF:_Deleted := ( SELF:_RecordBuffer[ 0 ] == '*' )
 		ENDIF
 	ENDIF
 RETURN isOK
@@ -1396,18 +1347,16 @@ VIRTUAL PROTECTED METHOD _writeRecord() AS LOGIC
             // Write Current Data Buffer
             // Record pos is One-Based
 			LOCAL recordPos AS LONG
-			
 			recordPos := SELF:_HeaderLength + ( SELF:_RecNo - 1 ) * SELF:_RecordLength
-			isOK := ( FSeek3( SELF:_hFile, recordPos, FS_SET ) == recordPos )
+            isOK :=  _oStream:SafeWriteAt(recordPos, SELF:_RecordBuffer)
 			IF isOK
 			   // Write Record
 				TRY
-					FWrite3( SELF:_hFile, SELF:_RecordBuffer, (DWORD)SELF:_RecordLength )
-			                // Don't forget to Update Header
-					SELF:_Header:isHot := TRUE
-					IF SELF:Shared 
-						SELF:_writeHeader()
-                        			FFlush(SELF:_hFile, TRUE)
+	                // Don't forget to Update Header
+    				SELF:_Header:isHot := TRUE
+			        IF SELF:Shared 
+				        SELF:_writeHeader()
+                        _oStream:Flush(TRUE)
 					ENDIF
 				CATCH ex AS Exception
 					SELF:_dbfError( ex, ERDD.WRITE, XSharp.Gencode.EG_WRITE )
@@ -1418,35 +1367,36 @@ VIRTUAL PROTECTED METHOD _writeRecord() AS LOGIC
 RETURN isOK
 
 
-INTERNAL METHOD _dbfError(ex AS Exception, iSubCode AS DWORD, iGenCode AS DWORD) AS VOID
-	SELF:_dbfError(ex, iSubCode, iGenCode, String.Empty, ex?:Message, XSharp.Severity.ES_ERROR)
+INTERNAL METHOD _dbfError(ex AS Exception, iSubCode AS DWORD, iGenCode AS DWORD, lThrow := TRUE AS LOGIC) AS VOID
+	SELF:_dbfError(ex, iSubCode, iGenCode, String.Empty, ex?:Message, XSharp.Severity.ES_ERROR, lThrow)
 	
-INTERNAL METHOD _dbfError(iSubCode AS DWORD, iGenCode AS DWORD) AS VOID
-	SELF:_dbfError(NULL, iSubCode, iGenCode, String.Empty, String.Empty, XSharp.Severity.ES_ERROR)
+INTERNAL METHOD _dbfError(iSubCode AS DWORD, iGenCode AS DWORD, lThrow := TRUE AS LOGIC) AS VOID
+	SELF:_dbfError(NULL, iSubCode, iGenCode, String.Empty, String.Empty, XSharp.Severity.ES_ERROR, lThrow )
 	
-INTERNAL METHOD _dbfError(ex AS Exception,iSubCode AS DWORD, iGenCode AS DWORD, iSeverity AS DWORD) AS VOID
-	SELF:_dbfError(ex, iSubCode, iGenCode, String.Empty, String.Empty, iSeverity)
+INTERNAL METHOD _dbfError(ex AS Exception,iSubCode AS DWORD, iGenCode AS DWORD, iSeverity AS DWORD, lThrow := TRUE AS LOGIC) AS VOID
+	SELF:_dbfError(ex, iSubCode, iGenCode, String.Empty, String.Empty, iSeverity, lThrow)
 	
-INTERNAL METHOD _dbfError(iSubCode AS DWORD, iGenCode AS DWORD, iSeverity AS DWORD) AS VOID
-	SELF:_dbfError(NULL, iSubCode, iGenCode, String.Empty, String.Empty, iSeverity)
+INTERNAL METHOD _dbfError(iSubCode AS DWORD, iGenCode AS DWORD, iSeverity AS DWORD, lThrow := TRUE AS LOGIC) AS VOID
+	SELF:_dbfError(NULL, iSubCode, iGenCode, String.Empty, String.Empty, iSeverity, lThrow)
 	
-INTERNAL METHOD _dbfError(iSubCode AS DWORD, iGenCode AS DWORD, strFunction AS STRING) AS VOID
-	SELF:_dbfError(NULL, iSubCode, iGenCode, strFunction, String.Empty, XSharp.Severity.ES_ERROR)
+INTERNAL METHOD _dbfError(iSubCode AS DWORD, iGenCode AS DWORD, strFunction AS STRING, lThrow := TRUE AS LOGIC) AS VOID
+	SELF:_dbfError(NULL, iSubCode, iGenCode, strFunction, String.Empty, XSharp.Severity.ES_ERROR, lThrow)
 	
-INTERNAL METHOD _dbfError(ex AS Exception, iSubCode AS DWORD, iGenCode AS DWORD, strFunction AS STRING) AS VOID
-	SELF:_dbfError(ex, iSubCode, iGenCode, strFunction, String.Empty, XSharp.Severity.ES_ERROR)
+INTERNAL METHOD _dbfError(ex AS Exception, iSubCode AS DWORD, iGenCode AS DWORD, strFunction AS STRING, lThrow := TRUE AS LOGIC) AS VOID
+	SELF:_dbfError(ex, iSubCode, iGenCode, strFunction, String.Empty, XSharp.Severity.ES_ERROR, lThrow)
 	
-INTERNAL METHOD _dbfError(iSubCode AS DWORD, iGenCode AS DWORD, strFunction AS STRING, strMessage AS STRING) AS VOID
-	SELF:_dbfError(NULL, iSubCode, iGenCode, strFunction,strMessage, XSharp.Severity.ES_ERROR)
+INTERNAL METHOD _dbfError(iSubCode AS DWORD, iGenCode AS DWORD, strFunction AS STRING, strMessage AS STRING, lThrow := TRUE AS LOGIC) AS VOID
+	SELF:_dbfError(NULL, iSubCode, iGenCode, strFunction,strMessage, XSharp.Severity.ES_ERROR, lThrow)
 	
-INTERNAL METHOD _dbfError(ex AS Exception, iSubCode AS DWORD, iGenCode AS DWORD, strFunction AS STRING, strMessage AS STRING, iSeverity AS DWORD) AS VOID
+INTERNAL METHOD _dbfError(ex AS Exception, iSubCode AS DWORD, iGenCode AS DWORD, strFunction AS STRING, strMessage AS STRING, iSeverity AS DWORD, lThrow := TRUE AS LOGIC) AS VOID
 	LOCAL oError AS RddError
     //
 	IF ex != NULL
 		oError := RddError{ex,iGenCode, iSubCode}
 	ELSE
 		oError := RddError{iGenCode, iSubCode}
-	ENDIF
+    ENDIF
+    oError:CanDefault := TRUE
 	oError:SubSystem := SELF:Driver
 	oError:Severity := iSeverity
 	oError:FuncSym  := IIF(strFunction == NULL, "", strFunction) // code in the SDK expects all string properties to be non-NULL
@@ -1465,7 +1415,10 @@ INTERNAL METHOD _dbfError(ex AS Exception, iSubCode AS DWORD, iGenCode AS DWORD,
     ENDIF
 	RuntimeState.LastRddError := oError
     //
-	THROW oError
+    IF lThrow
+	    THROW oError
+    ENDIF
+    RETURN
 	
 INTERNAL METHOD _getUsualType(oValue AS OBJECT) AS __UsualType
 	LOCAL typeCde AS TypeCode
@@ -1503,10 +1456,10 @@ INTERNAL METHOD _getUsualType(oValue AS OBJECT) AS __UsualType
 RETURN __UsualType.Object
 
 
-INTERNAL VIRTUAL METHOD _GetColumn(nFldPos AS LONG) AS DbfColumn
+INTERNAL VIRTUAL METHOD _GetColumn(nFldPos AS LONG) AS RddFieldInfo
 	LOCAL nArrPos := nFldPos -1 AS LONG
     IF nArrPos >= 0 .AND. nArrPos < SELF:_Fields:Length
-        RETURN (DbfColumn) SELF:_Fields[ nArrPos ]
+        RETURN SELF:_Fields[ nArrPos ]
     ENDIF
     SELF:_dbfError(EDB_FIELDINDEX, EG_ARG)
     RETURN NULL
@@ -1524,7 +1477,7 @@ INTERNAL VIRTUAL METHOD _isMemoField( nFldPos AS LONG ) AS LOGIC
 OVERRIDE METHOD _getMemoBlockNumber( nFldPos AS LONG ) AS LONG
 	LOCAL blockNbr := 0 AS LONG
 	SELF:ForceRel()
-	VAR oColumn := SELF:_GetColumn(nFldPos)
+	VAR oColumn := SELF:_GetColumn(nFldPos) ASTYPE DbfColumn
 	IF oColumn != NULL .AND. oColumn:IsMemo
 		IF SELF:_readRecord()
             VAR blockNo := oColumn:GetValue(SELF:_RecordBuffer)
@@ -1540,7 +1493,7 @@ METHOD GetValue(nFldPos AS LONG) AS OBJECT
 	LOCAL ret := NULL AS OBJECT
 	SELF:ForceRel()
     // Read Record to Buffer
-	VAR oColumn := SELF:_GetColumn(nFldPos)
+	VAR oColumn := SELF:_GetColumn(nFldPos) ASTYPE DbfColumn
     IF oColumn == NULL
         // Getcolumn already sets the error
         RETURN NULL
@@ -1592,11 +1545,6 @@ METHOD Flush() 			AS LOGIC
 	IF ! SELF:IsOpen
 		RETURN FALSE
 	ENDIF
-	IF SELF:_ReadOnly 
-        // Error !! Cannot be written !
-		SELF:_dbfError( ERDD.READONLY, XSharp.Gencode.EG_READONLY )
-		RETURN FALSE
-	ENDIF
 	isOK := SELF:GoCold()
 
 	IF isOK .and. SELF:_wasChanged
@@ -1610,7 +1558,7 @@ METHOD Flush() 			AS LOGIC
         //? SELF:CurrentThreadId, "After EOF"
 		SELF:_writeHeader()
         //? SELF:CurrentThreadId, "After writeHeader"
-    	FFlush( SELF:_hFile )
+        _oStream:Flush(TRUE)
         //? SELF:CurrentThreadId, "After FFlush"
 	ENDIF
 	IF SELF:Shared .AND. locked
@@ -1633,8 +1581,10 @@ METHOD Refresh() 			AS LOGIC
 	ENDIF
 	SELF:_Hot := FALSE
 	SELF:_BufferValid := FALSE
-	IF SELF:_NewRecord 
+	IF SELF:_NewRecord
+        VAR nCount := SELF:RecCount
 		SELF:_NewRecord  := FALSE
+        SELF:_UpdateRecCount(nCount-1)      // writes the reccount to the header as well
 		isOK := SELF:GoBottom()
 	ELSE
 		isOK := TRUE
@@ -1701,7 +1651,7 @@ METHOD PutValue(nFldPos AS LONG, oValue AS OBJECT) AS LOGIC
 		IF ! SELF:_Hot
 			SELF:GoHot()
 		ENDIF
-		VAR oColumn := SELF:_GetColumn(nFldPos)
+		VAR oColumn := SELF:_GetColumn(nFldPos) ASTYPE DbfColumn
         IF oColumn != NULL
 		    IF oColumn:IsMemo
 			    IF SELF:HasMemo
@@ -1869,8 +1819,8 @@ METHOD ForceRel() AS LOGIC
 				gotoRec := Convert.ToInt32( SELF:_EvalResult )
 			CATCH ex AS InvalidCastException
 				gotoRec := 0
-				SELF:_dbfError(ex, Subcodes.ERDD_DATATYPE,Gencode.EG_DATATYPE,  "DBF.ForceRel") 
-				
+				SELF:_dbfError(ex, Subcodes.ERDD_DATATYPE,Gencode.EG_DATATYPE,  "DBF.ForceRel", FALSE) 
+				RETURN FALSE
 			END TRY
 		ENDIF
 		isOK := SELF:GoTo( gotoRec )
@@ -1905,11 +1855,12 @@ VIRTUAL METHOD Compile(sBlock AS STRING) AS ICodeblock
 	LOCAL result AS ICodeblock
 	result := SUPER:Compile(sBlock)
 	IF result == NULL
-        var msg := "Could not compile epression '"+sBlock+"'"
         if (RuntimeState:LastRddError != NULL_OBJECT)
-            msg += "("+RuntimeState:LastRddError:Message+")"
+            SELF:_dbfError( RuntimeState:LastRddError, Subcodes.EDB_EXPRESSION, Gencode.EG_SYNTAX,"DBF.Compile")
+        ELSE
+            var msg := "Could not compile epression '"+sBlock+"'"
+		    SELF:_dbfError( Subcodes.EDB_EXPRESSION, Gencode.EG_SYNTAX,"DBF.Compile", msg )
         ENDIF
-		SELF:_dbfError( Subcodes.EDB_EXPRESSION, Gencode.EG_SYNTAX,"DBF.Compile", msg )
 	ENDIF
 RETURN result
 
@@ -1930,6 +1881,7 @@ VIRTUAL METHOD Info(nOrdinal AS INT, oNewValue AS OBJECT) AS OBJECT
 	oResult := NULL
 	SWITCH nOrdinal
 	CASE DbInfo.DBI_ISDBF
+		oResult := TRUE
 	CASE DbInfo.DBI_CANPUTREC
 		oResult := IIF(SELF:HasMemo, FALSE , TRUE)
 	CASE DbInfo.DBI_GETRECSIZE
@@ -1956,6 +1908,8 @@ VIRTUAL METHOD Info(nOrdinal AS INT, oNewValue AS OBJECT) AS OBJECT
 		
 	CASE DbInfo.DBI_FILEHANDLE
 		oResult := SELF:_hFile
+	CASE DbInfo.DBI_FILESTREAM
+		oResult := SELF:_oStream
 	CASE DbInfo.DBI_FULLPATH
 		oResult := SELF:_FileName
 	CASE DbInfo.DBI_TABLEEXT
@@ -2035,9 +1989,9 @@ VIRTUAL METHOD Info(nOrdinal AS INT, oNewValue AS OBJECT) AS OBJECT
 	CASE DbInfo.DBI_SCOPEDRELATION
 		oResult := FALSE
 	CASE DbInfo.DBI_TRIGGER
-		oResult := NULL     // Todo
-	CASE DbInfo.DBI_DECRYPT         // Todo
-	CASE DbInfo.DBI_ENCRYPT         // Todo
+		oResult := Null     // Todo Add DBI_TRIGGER
+	CASE DbInfo.DBI_DECRYPT         // Todo Add DBI_DECRYPT 
+	CASE DbInfo.DBI_ENCRYPT         // Todo Add DBI_ENCRYPT 
 	CASE DbInfo.DBI_MEMOPACK
 	CASE DbInfo.DBI_DIRTYREAD
 	CASE DbInfo.DBI_POSITIONED
@@ -2125,14 +2079,14 @@ VIRTUAL METHOD RecInfo(nOrdinal AS LONG, oRecID AS OBJECT, oNewValue AS OBJECT) 
 				SELF:_readRecord()
 			ENDIF
 		ENDIF
-	CASE DBRI_RAWMEMOS
+	CASE DBRI_RAWMEMOS    
 	CASE DBRI_RAWDATA
         // RawData returns a string with the record + memos
         // RawMemos returns just the memos
-        // Todo
+        // Todo Add DBRI_RAW..
 		oResult := ""
 	CASE DBRI_ENCRYPTED
-        // Todo
+        // Todo add DBRI_ENCRYPTED
 		oResult := FALSE
 	OTHERWISE
 		oResult := SUPER:Info(nOrdinal, oNewValue)
@@ -2262,7 +2216,7 @@ IF FALSE .AND. info:Destination IS DBF VAR oDest
             result      := oDest:PutRec(buffer)
             FOR VAR nI := 1 TO SELF:FieldCount
                 LOCAL oColumn AS DbfColumn
-                oColumn := oDest:_GetColumn(nI)
+                oColumn := oDest:_GetColumn(nI) ASTYPE DbfColumn
                 IF oColumn:IsMemo
                     oValue := SELF:GetValue(nI)
                     oColumn:PutValue(0, oDest:_RecordBuffer)
@@ -2349,8 +2303,7 @@ PRIVATE METHOD _calculateRecCount()	AS LONG
 	LOCAL reccount := 0 AS LONG
     //
 	IF SELF:IsOpen
-		VAR stream  := FGetStream(SELF:_hFile)
-        VAR fSize   := stream:Length
+        VAR fSize   := SELF:_oStream:Length
 		IF fSize != 0  // Just created file ?
 			reccount := (LONG) ( fSize - SELF:_HeaderLength ) / SELF:_RecordLength
         ENDIF
@@ -2369,497 +2322,11 @@ END PROPERTY
 VIRTUAL PROPERTY Driver AS STRING GET "DBF"
 	
 	
-/// <summary>DBF Header.</summary>
-CLASS DbfHeader
-    // Fixed Buffer of 32 bytes
-    // Matches the DBF layout
-    // Read/Write to/from the Stream with the Buffer
-    // and access individual values using the other fields
-	
-	PRIVATE CONST OFFSET_SIG			 := 0  AS BYTE
-	PRIVATE CONST OFFSET_YEAR			 := 1  AS BYTE           // add 1900 so possible values are 1900 - 2155
-	PRIVATE CONST OFFSET_MONTH	         := 2  AS BYTE
-	PRIVATE CONST OFFSET_DAY             := 3  AS BYTE
-	PRIVATE CONST OFFSET_RECCOUNT        := 4  AS BYTE
-	PRIVATE CONST OFFSET_DATAOFFSET      := 8  AS BYTE
-	PRIVATE CONST OFFSET_RECSIZE         := 10 AS BYTE
-	PRIVATE CONST OFFSET_RESERVED1       := 12 AS BYTE
-	PRIVATE CONST OFFSET_TRANSACTION     := 14 AS BYTE
-	PRIVATE CONST OFFSET_ENCRYPTED       := 15 AS BYTE
-	PRIVATE CONST OFFSET_DBASELAN        := 16 AS BYTE
-	PRIVATE CONST OFFSET_MULTIUSER       := 20 AS BYTE
-	PRIVATE CONST OFFSET_RESERVED2       := 24 AS BYTE
-	PRIVATE CONST OFFSET_HASTAGS	     := 28 AS BYTE
-	PRIVATE CONST OFFSET_CODEPAGE        := 29 AS BYTE
-	PRIVATE CONST OFFSET_RESERVED3       := 30 AS BYTE
-	INTERNAL CONST SIZE                  := 32 AS BYTE
-	
-	PUBLIC Buffer   AS BYTE[]
-// Hot ?  => Header has changed ?
-	PUBLIC isHot	AS LOGIC
-	
-PROPERTY Version    AS DBFVersion	;
-    GET (DBFVersion) Buffer[OFFSET_SIG] ;
-    SET Buffer[OFFSET_SIG] := (BYTE) value,isHot := TRUE
-	
-// Date of last update; in YYMMDD format.  Each byte contains the number as a binary.
-// YY is added to a base of 1900 decimal to determine the actual year.
-// Therefore, YY has possible values from 0x00-0xFF, which allows for a range from 1900-2155.
-	
-PROPERTY Year		AS LONG			
-	GET
-		LOCAL nYear AS LONG
-		nYear := DateTime.Now:Year
-		nYear := nYear - (nYear % 100)  // Get century
-		RETURN Buffer[OFFSET_YEAR] + nYear
-	END GET
-	SET
-		Buffer[OFFSET_YEAR] := (BYTE) (value% 100)
-		isHot := TRUE
-	END SET
-END PROPERTY	
-PROPERTY Month		AS BYTE			;
-    GET Buffer[OFFSET_MONTH]	;
-    SET Buffer[OFFSET_MONTH] := value, isHot := TRUE
-	
-PROPERTY Day		AS BYTE			;
-    GET Buffer[OFFSET_DAY]	;
-    SET Buffer[OFFSET_DAY] := value, isHot := TRUE
-// Number of records in the table. (Least significant byte first.)		
-PROPERTY RecCount	AS LONG			;
-    GET BitConverter.ToInt32(Buffer, OFFSET_RECCOUNT) ;
-    SET Array.Copy(BitConverter.GetBytes(value),0, Buffer, OFFSET_RECCOUNT, SIZEOF(LONG)), isHot := TRUE
-// Number of bytes in the header. (Least significant byte first.)
-	
-PROPERTY HeaderLen	AS SHORT		;
-    GET BitConverter.ToInt16(Buffer, OFFSET_DATAOFFSET);
-    SET Array.Copy(BitConverter.GetBytes(value),0, Buffer, OFFSET_DATAOFFSET, SIZEOF(SHORT)), isHot := TRUE
-	
-// Length of one data record, including deleted flag
-PROPERTY RecordLen	AS WORD		;
-    GET BitConverter.ToUInt16(Buffer, OFFSET_RECSIZE);
-    SET Array.Copy(BitConverter.GetBytes(value),0, Buffer, OFFSET_RECSIZE, SIZEOF(WORD)), isHot := TRUE
-	
-// Reserved
-PROPERTY Reserved1	AS SHORT		;
-    GET BitConverter.ToInt16(Buffer, OFFSET_RESERVED1);
-    SET Array.Copy(BitConverter.GetBytes(value),0, Buffer, OFFSET_RESERVED1, SIZEOF(SHORT)), isHot := TRUE
-	
-// Flag indicating incomplete dBASE IV transaction.		
-PROPERTY Transaction AS BYTE		;
-    GET Buffer[OFFSET_TRANSACTION];
-    SET Buffer[OFFSET_TRANSACTION] := value, isHot := TRUE
-	
-// dBASE IV encryption flag.		
-PROPERTY Encrypted	AS BYTE			;
-    GET Buffer[OFFSET_ENCRYPTED];
-    SET Buffer[OFFSET_ENCRYPTED] := value, isHot := TRUE
-	
-PROPERTY DbaseLan	AS LONG			;
-    GET BitConverter.ToInt32(Buffer, OFFSET_DBASELAN) ;
-    SET Array.Copy(BitConverter.GetBytes(value),0, Buffer, OFFSET_DBASELAN, SIZEOF(LONG)), isHot := TRUE
-	
-PROPERTY MultiUser	AS LONG			;
-    GET BitConverter.ToInt32(Buffer, OFFSET_MULTIUSER)	;
-    SET Array.Copy(BitConverter.GetBytes(value),0, Buffer, OFFSET_MULTIUSER, SIZEOF(LONG)), isHot := TRUE
-	
-PROPERTY Reserved2	AS LONG			;
-    GET BitConverter.ToInt32(Buffer, OFFSET_RESERVED2);
-    SET Array.Copy(BitConverter.GetBytes(value),0, Buffer, OFFSET_RESERVED2, SIZEOF(LONG))
-	
-PROPERTY HasTags	AS DBFTableFlags ;
-    GET (DBFTableFlags)Buffer[OFFSET_HASTAGS] ;
-    SET Buffer[OFFSET_HASTAGS] := (BYTE) value, isHot := TRUE
-	
-PROPERTY CodePage	AS DbfHeaderCodepage			 ;
-    GET (DbfHeaderCodepage) Buffer[OFFSET_CODEPAGE]  ;
-    SET Buffer[OFFSET_CODEPAGE] := (BYTE) value, isHot := TRUE
-	
-PROPERTY Reserved3	AS SHORT         ;
-    GET BitConverter.ToInt16(Buffer, OFFSET_RESERVED3);
-    SET Array.Copy(BitConverter.GetBytes(value),0, Buffer, OFFSET_RESERVED3, SIZEOF(SHORT)), isHot := TRUE
-	
-// Note that the year property already does the 1900 offset calculation ! 
-PROPERTY LastUpdate AS DateTime      ;  
-    GET DateTime{Year, Month, Day} ;
-
-	
-PROPERTY IsAnsi AS LOGIC GET CodePage:IsAnsi()
-	
-METHOD initialize() AS VOID STRICT
-	Buffer := BYTE[]{DbfHeader.SIZE}
-	isHot  := FALSE
-RETURN
-    // Dbase (7?) Extends this with
-    // [FieldOffSet(31)] PUBLIC LanguageDriverName[32]	 as BYTE
-    // [FieldOffSet(63)] PUBLIC Reserved6 AS LONG
-    /*
-    0x02   FoxBASE
-    0x03   FoxBASE+/Dbase III plus, no memo
-    0x04   dBase 4
-    0x05   dBase 5
-    0x07   VO/Vulcan Ansi encoding
-    0x13   FLagship dbv
-    0x23   Flagship 2/4/8
-    0x30   Visual FoxPro
-    0x31   Visual FoxPro, autoincrement enabled
-    0x33   Flagship 2/4/8 + dbv
-    0x43   dBASE IV SQL table files, no memo
-    0x63   dBASE IV SQL system files, no memo
-    0x7B   dBASE IV, with memo
-    0x83   FoxBASE+/dBASE III PLUS, with memo
-    0x87   VO/Vulcan Ansi encoding with memo
-    0x8B   dBASE IV with memo
-    0xCB   dBASE IV SQL table files, with memo
-    0xE5   Clipper SIX driver, with SMT memo
-    0xF5   FoxPro 2.x (or earlier) with memo
-    0xFB   FoxBASE
-    
-    FoxPro additional Table structure:
-    28 	Table flags:
-    0x01   file has a structural .cdx
-    0x02   file has a Memo field
-    0x04   file is a database (.dbc)
-    This byte can contain the sum of any of the above values.
-    For example, the value 0x03 indicates the table has a structural .cdx and a
-    Memo field.
-    29 	Code page mark
-    30 ? 31 	Reserved, contains 0x00
-    32 ? n 	Field subrecords
-    The number of fields determines the number of field subrecords.
-    One field subrecord exists for each field in the table.
-    n+1 			Header record terminator (0x0D)
-    n+2 to n+264 	A 263-byte range that contains the backlink, which is the
-    relative path of an associated database (.dbc) file, information.
-    If the first byte is 0x00, the file is not associated with a database.
-    Therefore, database files always contain 0x00.
-    see also ftp://fship.com/pub/multisoft/flagship/docu/dbfspecs.txt
-    
-    */
-
-METHOD Read(hFile as IntPtr) AS LOGIC
-    VAR nPos := FTell(hFile)
-    FSeek3(hFile, 0, FS_SET)
-    VAR Ok := FRead3(hFile, SELF:Buffer, DbfHeader.SIZE) == DbfHeader.SIZE
-    IF Ok
-        FSeek3(hFile, (LONG) nPos, FS_SET)
-    ENDIF
-    RETURN Ok
-
-METHOD Write(hFile as IntPtr) AS LOGIC
-	LOCAL dtInfo AS DateTime
-	dtInfo := DateTime.Now
-    // Update the Date/Time information
-	SELF:Year   := (BYTE)(dtInfo:Year % 100)
-	SELF:Month  := (BYTE)dtInfo:Month
-	SELF:Day    := (BYTE)dtInfo:Day
-
-    VAR nPos := FTell(hFile)
-    FSeek3(hFile, 0, FS_SET)
-    VAR Ok := FWrite3(hFile, SELF:Buffer, DbfHeader.SIZE) == DbfHeader.SIZE
-    IF Ok
-        FSeek3(hFile, (LONG) nPos, FS_SET)
-        SELF:isHot := FALSE
-    ENDIF
-    RETURN Ok
-
 
 END CLASS
 
 
 
-END CLASS
-// Inspired by Harbour
-/// <summary>This structure holds the various settings for locking models</summary>
-STRUCTURE DbfLocking
-    /// <summary>Offset of the Locking </summary>
-	PUBLIC Offset AS INT64
-    /// <summary>Length for File locks </summary>
-	PUBLIC FileSize AS INT64
-    /// <summary>Length for Record locks </summary>
-	PUBLIC RecordSize AS LONG
-    /// <summary>Direction of locking, used to calculate file lock offsets and record lock offsets</summary>
-	PUBLIC Direction AS LONG
-
-/// <summary>Set various numbers based on a locking model.</summary>	
-METHOD Initialize( model AS DbfLockingModel ) AS VOID
-	SWITCH model
-	CASE DbfLockingModel.Clipper52
-		SELF:Offset     := 1000000000
-		SELF:FileSize   := 1000000000
-		SELF:RecordSize := 1
-		SELF:Direction  := 1
-	CASE DbfLockingModel.Clipper53
-		SELF:Offset     := 1000000000
-		SELF:FileSize   := 1000000000
-		SELF:RecordSize := 1
-		SELF:Direction  := 1
-	CASE DbfLockingModel.Clipper53Ext
-		SELF:Offset     := 4000000000
-		SELF:FileSize   := 294967295
-		SELF:RecordSize := 1
-		SELF:Direction  := 1
-	CASE DbfLockingModel.FoxPro
-		SELF:Offset     := 0x40000000
-		SELF:FileSize   := 0x07ffffff
-		SELF:RecordSize := 1
-		SELF:Direction  := 2
-	CASE DbfLockingModel.FoxProExt
-		SELF:Offset     := 0x7ffffffe
-		SELF:FileSize   := 0x3ffffffd
-		SELF:RecordSize := 1
-		SELF:Direction  := -1
-	CASE DbfLockingModel.Harbour64
-		SELF:Offset     := 0x7FFFFFFF00000001
-		SELF:FileSize   := 0x7ffffffe
-		SELF:RecordSize := 1
-		SELF:Direction  := 1
-	CASE DbfLockingModel.VoAnsi
-		SELF:Offset     := 0x80000000
-		SELF:FileSize   := 0x7fffffff
-		SELF:RecordSize := 1
-		SELF:Direction  := 1
-	END SWITCH
-    /// <summary>File Lock offsets </summary>
-    PROPERTY FileLockOffSet AS INT64
-        GET
-            VAR iOffset := SELF:Offset
-	        IF SELF:Direction < 0 
-		        iOffset -= SELF:FileSize
-	        ELSE
-		        iOffset++
-            ENDIF
-            RETURN iOffset
-        END GET
-    END PROPERTY
-    /// <summary>Calculate the record offset based </summary>
-    METHOD RecnoOffSet(recordNbr AS LONG, recSize AS LONG, headerLength AS LONG) AS INT64
-	    VAR iOffset := SELF:Offset
-	    IF SELF:Direction < 0 
-		    iOffset -= (INT64)recordNbr
-	    ELSEIF( SELF:Direction == 2 )
-		    iOffset += (INT64)( ( recordNbr - 1 ) * recSize + headerLength )
-	    ELSE
-		    iOffset += (INT64) recordNbr
-	    ENDIF
-        RETURN iOffset
-END STRUCTURE
-
-
-
-
-INTERNAL CLASS DBFSortCompare IMPLEMENTS IComparer<SortRecord>
-	
-	PRIVATE _sortInfo AS DbSortInfo
-	PRIVATE _dataX AS BYTE[]
-	PRIVATE _dataY AS BYTE[]
-	
-INTERNAL CONSTRUCTOR( rdd AS DBF, info AS DbSortInfo )
-	SELF:_sortInfo  := info
-	LOCAL max       := 0 AS INT
-	FOREACH VAR item IN info:Items
-		max := Math.Max(max, item:Length)
-	NEXT
-	SELF:_dataX := BYTE[]{ max}     
-	SELF:_dataY := BYTE[]{ max}
-	
-	
-PUBLIC METHOD Compare(recordX AS SortRecord , recordY AS SortRecord ) AS LONG
-	LOCAL dataBufferX AS BYTE[]
-	LOCAL dataBufferY AS BYTE[]
-	LOCAL diff AS LONG
-	IF recordX:Recno == recordY:Recno
-		RETURN 0
-	ENDIF
-    //
-	dataBufferX := recordX:Data
-	dataBufferY := recordY:Data
-	diff := 0
-	FOREACH VAR item IN SELF:_sortInfo:Items
-		VAR start := item:OffSet
-		VAR iLen := item:Length
-		VAR flags := item:Flags
-        // Long Value ?
-		IF flags:HasFlag(DbSortFlags.Long)
-			VAR longValue1 := BitConverter.ToInt32(dataBufferX, start)
-			VAR longValue2 := BitConverter.ToInt32(dataBufferY, start)
-			diff := longValue1 - longValue2
-		ELSE
-            // String Value ?
-			IF flags:HasFlag(DbSortFlags.Ascii)
-                // String ASCII : Use Runtime comparer
-				Array.Copy(dataBufferX, start, _dataX, 0, iLen)
-				Array.Copy(dataBufferY, start, _dataY, 0, iLen)
-				diff := XSharp.RuntimeState.StringCompare(_dataX, _dataY, iLen)
-                //
-			ELSE
-				FOR VAR i := 0 TO iLen
-					diff := dataBufferX[i + start] - dataBufferY[i + start]
-					IF diff != 0
-						EXIT
-					ENDIF
-				NEXT
-			ENDIF
-		ENDIF
-		IF diff != 0
-			IF flags:HasFlag(DbSortFlags.Descending)
-				diff *= -1
-			ENDIF
-			EXIT
-		ENDIF
-	NEXT
-	IF diff == 0
-		diff := recordX:Recno - recordY:Recno
-	ENDIF
-RETURN diff
-
-
-
-
-END CLASS
-
-    /// <summary>DBF Field.</summary>
-STRUCTURE DbfField
-	PRIVATE CONST OFFSET_NAME		   := 0    AS BYTE
-	PRIVATE CONST OFFSET_TYPE		   := 11   AS BYTE
-	PRIVATE CONST OFFSET_OFFSET	       := 12   AS BYTE
-	PRIVATE CONST OFFSET_LEN          := 16   AS BYTE
-	PRIVATE CONST OFFSET_DEC          := 17   AS BYTE
-	PRIVATE CONST OFFSET_FLAGS        := 18   AS BYTE
-	PRIVATE CONST OFFSET_COUNTER      := 19   AS BYTE
-	PRIVATE CONST OFFSET_INCSTEP      := 23   AS BYTE
-	PRIVATE CONST OFFSET_RESERVED1    := 24   AS BYTE
-	PRIVATE CONST OFFSET_RESERVED2    := 25   AS BYTE
-	PRIVATE CONST OFFSET_RESERVED3    := 26   AS BYTE
-	PRIVATE CONST OFFSET_RESERVED4    := 27   AS BYTE
-	PRIVATE CONST OFFSET_RESERVED5    := 28   AS BYTE
-	PRIVATE CONST OFFSET_RESERVED6	   := 29  AS BYTE
-	PRIVATE CONST OFFSET_RESERVED7    := 30   AS BYTE
-	PRIVATE CONST OFFSET_HASTAG       := 31   AS BYTE
-	INTERNAL CONST NAME_SIZE           := 11  AS BYTE
-	INTERNAL CONST SIZE                := 32  AS BYTE
-	INTERNAL Encoding as System.Text.Encoding
-    // Fixed Buffer of 32 bytes
-    // Matches the DBF layout
-    // Read/Write to/from the Stream with the Buffer
-    // and access individual values using the other fields
-METHOD initialize() AS VOID
-	SELF:Buffer := BYTE[]{SIZE}
-	
-	PUBLIC Buffer		 AS BYTE[]
-
-METHOD ClearFlags() AS VOID
-    System.Array.Clear(Buffer, OFFSET_FLAGS, SIZE-OFFSET_FLAGS)
-    RETURN
-	
-PROPERTY Name		 AS STRING
-	GET
-		LOCAL fieldName := BYTE[]{DbfField.NAME_SIZE} AS BYTE[]
-		Array.Copy( Buffer, OFFSET_NAME, fieldName, 0, DbfField.NAME_SIZE )
-		LOCAL count := Array.FindIndex<BYTE>( fieldName, 0, { sz => sz == 0 } ) AS INT
-		IF count == -1
-			count := DbfField.NAME_SIZE
-		ENDIF
-		LOCAL str := Encoding:GetString( fieldName,0, count ) AS STRING
-		IF str == NULL 
-			str := String.Empty
-		ENDIF
-		str := str:Trim()
-		RETURN str
-	END GET
-	SET
-            // Be sure to fill the Buffer with 0
-		Array.Clear( Buffer, OFFSET_NAME, DbfField.NAME_SIZE )
-		Encoding:GetBytes( value, 0, Math.Min(DbfField.NAME_SIZE,value:Length), Buffer, OFFSET_NAME )
-	END SET
-END PROPERTY
-
-PROPERTY Type		 AS DbFieldType ;
-        GET (DbFieldType) Buffer[ OFFSET_TYPE ] ;
-        SET Buffer[ OFFSET_TYPE ] := (BYTE) value
-	
-    // Offset from record begin in FP
-PROPERTY Offset 	 AS LONG ;
-        GET BitConverter.ToInt32(Buffer, OFFSET_OFFSET);
-        SET Array.Copy(BitConverter.GetBytes(value),0, Buffer, OFFSET_OFFSET, SIZEOF(LONG))
-	
-PROPERTY Len		 AS BYTE;
-        GET Buffer[OFFSET_LEN]  ;
-        SET Buffer[OFFSET_LEN] := value
-	
-PROPERTY Dec		 AS BYTE;
-        GET Buffer[OFFSET_DEC]  ;
-        SET Buffer[OFFSET_DEC] := value
-	
-PROPERTY Flags		 AS DBFFieldFlags;
-        GET (DBFFieldFlags)Buffer[OFFSET_FLAGS] ;
-        SET Buffer[OFFSET_FLAGS] := (BYTE) value
-	
-PROPERTY Counter	 AS LONG;
-        GET BitConverter.ToInt32(Buffer, OFFSET_COUNTER);
-        SET Array.Copy(BitConverter.GetBytes(value),0, Buffer, OFFSET_COUNTER, SIZEOF(LONG))
-	
-PROPERTY IncStep	 AS BYTE;
-        GET Buffer[OFFSET_INCSTEP]  ;
-        SET Buffer[OFFSET_INCSTEP] :=  value
-	
-PROPERTY Reserved1   AS BYTE;
-        GET Buffer[OFFSET_RESERVED1]  ;
-        SET Buffer[OFFSET_RESERVED1] :=  value
-	
-PROPERTY Reserved2   AS BYTE;
-        GET Buffer[OFFSET_RESERVED2]  ;
-        SET Buffer[OFFSET_RESERVED2] := value
-	
-PROPERTY Reserved3   AS BYTE;
-        GET Buffer[OFFSET_RESERVED3]  ;
-        SET Buffer[OFFSET_RESERVED3] :=  value
-	
-PROPERTY Reserved4  AS BYTE;
-        GET Buffer[OFFSET_RESERVED4]  ;
-        SET Buffer[OFFSET_RESERVED4] :=  value
-	
-PROPERTY Reserved5   AS BYTE;
-        GET Buffer[OFFSET_RESERVED5]  ;
-        SET Buffer[OFFSET_RESERVED5] :=  value
-	
-PROPERTY Reserved6   AS BYTE;
-        GET Buffer[OFFSET_RESERVED6]  ;
-        SET Buffer[OFFSET_RESERVED6] :=  value
-	
-PROPERTY Reserved7   AS BYTE;
-        GET Buffer[OFFSET_RESERVED7]  ;
-        SET Buffer[OFFSET_RESERVED7] :=  value
-	
-PROPERTY HasTag		 AS BYTE;
-        GET Buffer[OFFSET_HASTAG]  ;
-        SET Buffer[OFFSET_HASTAG] :=  value
-END STRUCTURE
-
-
-
-/*
-    /// <summary>DBase 7 Field.</summary>
-[StructLayout(LayoutKind.Explicit)];
-STRUCTURE Dbf7Field
-// Dbase 7 has 32 Bytes for Field Names
-// Fixed Buffer of 32 bytes
-// Matches the DBF layout
-// Read/Write to/from the Stream with the Buffer
-// and access individual values using the other fields
-	[FieldOffset(00)] PUBLIC Buffer		 AS BYTE[]
-	[FieldOffset(00)] PUBLIC Name		 AS BYTE[]    // Field name in ASCII (zero-filled).
-	[FieldOffset(32)] PUBLIC Type		 AS BYTE 	// Field type in ASCII (B, C, D, N, L, M, @, I, +, F, 0 or G).
-	[FieldOffset(33)] PUBLIC Len		 AS BYTE 	// Field length in binary.
-	[FieldOffset(34)] PUBLIC Dec		 AS BYTE
-	[FieldOffset(35)] PUBLIC Reserved1	 AS SHORT
-	[FieldOffset(37)] PUBLIC HasTag		 AS BYTE    // Production .MDX field flag; 0x01 if field has an index tag in the production .MDX file; 0x00 if the field is not indexed.
-	[FieldOffset(38)] PUBLIC Reserved2	 AS SHORT
-	[FieldOffset(40)] PUBLIC Counter	 AS LONG	// Next Autoincrement value, if the Field type is Autoincrement, 0x00 otherwise.
-	[FieldOffset(44)] PUBLIC Reserved3	 AS LONG
-	
-END STRUCTURE
-*/
 END NAMESPACE
 
 

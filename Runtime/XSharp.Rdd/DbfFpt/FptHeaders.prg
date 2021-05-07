@@ -10,6 +10,7 @@ USING XSharp.RDD.Support
 USING XSharp.RDD.CDX
 USING System.Runtime.InteropServices
 USING System.IO
+USING STATIC XSharp.Conversions
 BEGIN NAMESPACE XSharp.RDD
 INTERNAL CLASS FptHeader
     // FoxPro memo Header:
@@ -27,47 +28,66 @@ INTERNAL CLASS FptHeader
     INTERNAL CONST FOXHEADER_LENGTH := 512 AS LONG
     INTERNAL CONST FOXHEADER_OFFSET := 0 AS LONG
     
-    INTERNAL PROPERTY Size AS DWORD GET FOXHEADER_LENGTH
-
+    INTERNAL PROPERTY Size AS LONG GET FOXHEADER_LENGTH
     INTERNAL CONSTRUCTOR()
         SELF:Buffer := BYTE[]{FOXHEADER_LENGTH}
 
     INTERNAL PROPERTY BlockSize AS WORD
         GET
-            RETURN FoxToWord(Buffer, OFFSET_BLOCKSIZE)
+            RETURN BuffToWordFox(Buffer, OFFSET_BLOCKSIZE)
         END GET
         SET
             IF value >= FPTMemo.MIN_FOXPRO_BLOCKSIZE
-                WordToFox(value, Buffer, OFFSET_BLOCKSIZE)
+                WordToBuffFox(value, Buffer, OFFSET_BLOCKSIZE)
             ELSE
-                WordToFox(0, Buffer, OFFSET_BLOCKSIZE)
+                WordToBuffFox(0, Buffer, OFFSET_BLOCKSIZE)
             ENDIF
         END SET
     END PROPERTY
-    INTERNAL PROPERTY NextFree AS DWORD
+    INTERNAL PROPERTY NextFree AS LONG
         GET
-            RETURN FoxToDword(Buffer, OFFSET_NEXTFREE)
+            RETURN BuffToLongFox(Buffer, OFFSET_NEXTFREE)
         END GET
         SET
-            DWordToFox(value, Buffer, OFFSET_NEXTFREE)
+            LongToBuffFox(VALUE, Buffer, OFFSET_NEXTFREE)
         END SET
     END PROPERTY
     INTERNAL PROPERTY UnUsed AS WORD
         GET
-            RETURN FoxToWord(Buffer, OFFSET_UNUSED)
+            RETURN BuffToWordFox(Buffer, OFFSET_UNUSED)
         END GET
         SET
-            WordToFox(value, Buffer, OFFSET_UNUSED)
+            WordToBuffFox(value, Buffer, OFFSET_UNUSED)
         END SET
     END PROPERTY
 
-    INTERNAL METHOD Read(hFile AS IntPtr) AS LOGIC
-        FSeek3(hFile, FOXHEADER_OFFSET, FS_SET)
-        RETURN FRead3(hFile, Buffer, FOXHEADER_LENGTH) == FOXHEADER_LENGTH
+    INTERNAL METHOD Read(oStream AS FileStream) AS LOGIC
+        local lOk := FALSE AS LOGIC
+        DO WHILE ! lOk
+            oStream:SafeSetPos(FOXHEADER_OFFSET)
+            lOk := oStream:SafeRead(Buffer)
+            IF ! lOk
+                if oStream:Length < FOXHEADER_LENGTH
+                    EXIT
+                ENDIF
+                System.Threading.Thread.Sleep(5)
+            ENDIF
+        ENDDO
+        RETURN lOk
 
-    INTERNAL METHOD Write(hFile AS IntPtr) AS LOGIC
-        FSeek3(hFile, FOXHEADER_OFFSET, FS_SET)
-        RETURN FWrite3(hFile, Buffer, FOXHEADER_LENGTH) == FOXHEADER_LENGTH
+    INTERNAL METHOD Write(oStream AS FileStream) AS LOGIC
+        local lOk := FALSE AS LOGIC
+        DO WHILE ! lOk
+            oStream:SafeSetPos(FOXHEADER_OFFSET)
+            lOk := oStream:SafeWrite(Buffer)
+            IF ! lOk
+                if oStream:Length < FOXHEADER_LENGTH
+                    EXIT
+                ENDIF
+                System.Threading.Thread.Sleep(5)
+            ENDIF
+        ENDDO
+        RETURN lOk
 
 
 END CLASS
@@ -108,7 +128,7 @@ INTERNAL CLASS FlexHeader
         SELF:MinorVersion := 8
         SELF:IndexDefect  := FALSE
 
-    INTERNAL PROPERTY Size AS DWORD GET FLEXHEADER_LENGTH
+    INTERNAL PROPERTY Size AS LONG GET FLEXHEADER_LENGTH
 
     INTERNAL PROPERTY AltBlockSize  AS WORD  GET BuffToWord(SELF:Buffer, OFFSET_BLOCKSIZE)  SET WordToBuff(value, SELF:Buffer, OFFSET_BLOCKSIZE)
     INTERNAL PROPERTY MajorVersion  AS BYTE  GET SELF:Buffer[OFFSET_MAJOR]                  SET SELF:Buffer[OFFSET_MAJOR] := value
@@ -128,13 +148,36 @@ INTERNAL CLASS FlexHeader
             System.Array.Copy(bytes,0, Buffer, OFFSET_SIGNATURE, LEN_SIGNATURE)
         END SET
     END PROPERTY
-    INTERNAL METHOD Read(hFile AS IntPtr) AS LOGIC
-        FSeek3(hFile, FLEXHEADER_OFFSET, FS_SET)
-        RETURN FRead3(hFile, Buffer, FLEXHEADER_LENGTH) == FLEXHEADER_LENGTH
+    
+    INTERNAL METHOD Read(oStream AS FileStream) AS LOGIC
+        local lOk := FALSE AS LOGIC
+        DO WHILE ! lOk
+            oStream:SafeSetPos(FLEXHEADER_OFFSET)
+            lOk := oStream:SafeRead(Buffer, FLEXHEADER_LENGTH)
+            IF ! lOk
+                if oStream:Length < FLEXHEADER_OFFSET + FLEXHEADER_LENGTH
+                    EXIT
+                ENDIF
+                System.Threading.Thread.Sleep(5)
+            ENDIF
+        ENDDO
+        RETURN lOk
 
-    INTERNAL METHOD Write(hFile AS IntPtr) AS LOGIC
-        FSeek3(hFile, FLEXHEADER_OFFSET, FS_SET)
-        RETURN FWrite3(hFile, Buffer, FLEXHEADER_LENGTH) == FLEXHEADER_LENGTH
+
+    INTERNAL METHOD Write(oStream AS FileStream) AS LOGIC
+        local lOk := FALSE AS LOGIC
+        DO WHILE ! lOk
+            oStream:SafeSetPos(FLEXHEADER_OFFSET)
+            lOk := oStream:SafeWrite(Buffer)
+            IF ! lOk
+                if oStream:Length < FLEXHEADER_OFFSET + FLEXHEADER_LENGTH
+                    EXIT
+                ENDIF
+                System.Threading.Thread.Sleep(5)
+            ENDIF
+        ENDDO
+        RETURN lOk
+        
 
     INTERNAL PROPERTY Valid AS LOGIC
         GET

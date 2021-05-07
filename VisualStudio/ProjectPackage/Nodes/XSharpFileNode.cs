@@ -103,7 +103,7 @@ namespace XSharp.Project
         }
 
         #endregion
-        protected internal override void DeleteFromStorage(string path)
+        protected override void DeleteFromStorage(string path)
         {
             if (File.Exists(path))
             {
@@ -129,7 +129,9 @@ namespace XSharp.Project
 
         protected override int ExcludeFromProject()
         {
-            new UIThread().MustBeCalledFromUIThread();
+               return ThreadHelper.JoinableTaskFactory.Run(async delegate
+            {
+			await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             //if (this.FileType == XFileType.SourceCode)
             {
                 var prjNode = this.ProjectMgr as XSharpProjectNode;
@@ -138,6 +140,7 @@ namespace XSharp.Project
                 prjNode.ShowIntellisenseErrors();
             }
             return base.ExcludeFromProject();
+			});
         }
 
         private static string typeNameToSubtype(string typeName)
@@ -194,7 +197,7 @@ namespace XSharp.Project
                                 usings.AddRange(xfile.Usings);
                             }
                             var mgr = this.ProjectMgr as XSharpProjectNode;
-                            var type = mgr.ResolveType(parentclass, usings);
+                            var type = mgr.ResolveExternalType(parentclass, usings);
                             if (type != null)
                             {
                                 while (type?.BaseType != null)
@@ -203,7 +206,7 @@ namespace XSharp.Project
                                     SubType = typeNameToSubtype(btName);
                                     if (!String.IsNullOrEmpty(SubType))
                                         break;
-                                    type = mgr.ResolveType(btName, usings); ;
+                                    type = mgr.ResolveExternalType(btName, usings); ;
                                 }
                             }
                             else
@@ -232,6 +235,11 @@ namespace XSharp.Project
                         }
                     }
                 }
+            }
+            if (this.FileType == XFileType.TextTemplate)
+            {
+                this.ItemNode.SetMetadata(ProjectFileConstants.Generator, "TextTemplatingFileGenerator");
+                this.ItemNode.RefreshProperties();
             }
             return;
         }
@@ -349,8 +357,8 @@ namespace XSharp.Project
             }
             catch (Exception e)
             {
-                XSharpProjectPackage.Instance.DisplayOutPutMessage("AddDependant failed");
-                XSharpProjectPackage.Instance.DisplayException(e);
+                XSettings.DisplayOutputMessage("AddDependant failed");
+                XSettings.DisplayException(e);
             }
             dependant = (XSharpFileNode)ProjectMgr.CreateDependentFileNode(fileName);
 
@@ -395,7 +403,7 @@ namespace XSharp.Project
 
 
 
-        internal override void SetSpecialProperties()
+        protected override void SetSpecialProperties()
         {
             var type = this.FileType;
             switch (type)
@@ -406,6 +414,9 @@ namespace XSharp.Project
                     break;
                 case XFileType.Settings:
                     this.Generator = "SettingsSingleFileGenerator";
+                    break;
+                case XFileType.TextTemplate:
+                    this.Generator = "TextTemplatingFileGenerator";
                     break;
                 default:
                     DetermineSubType();
@@ -567,9 +578,9 @@ namespace XSharp.Project
                     int tabSize = 1;
                     try
                     {
-                        LanguageService.XSharpLanguageService lngServ = (LanguageService.XSharpLanguageService)ProjectMgr.GetService(typeof(LanguageService.XSharpLanguageService));
-                        Microsoft.VisualStudio.Package.LanguagePreferences pref = lngServ.GetLanguagePreferences();
-                        tabSize = pref.TabSize;
+                        //LanguageService.XSharpLanguageService lngServ = (LanguageService.XSharpLanguageService)ProjectMgr.GetService(typeof(LanguageService.XSharpLanguageService));
+                        //Microsoft.VisualStudio.Package.LanguagePreferences pref = lngServ.GetLanguagePreferences();
+                        //tabSize = pref.TabSize;
                         /*
                                                 EnvDTE.DTE dte = (EnvDTE.DTE)ProjectMgr.GetService(typeof(EnvDTE.DTE));
                                                 EnvDTE.Properties props;
@@ -650,6 +661,7 @@ namespace XSharp.Project
         }
 
 
+
         /// <summary>
         /// Gets the automation object for the file node.
         /// </summary>
@@ -674,7 +686,7 @@ namespace XSharp.Project
             base.Dispose(disposing);
         }
 
-        protected internal override DocumentManager GetDocumentManager()
+        public override DocumentManager GetDocumentManager()
         {
             return new XSharpFileDocumentManager(this);
         }
@@ -697,7 +709,7 @@ namespace XSharp.Project
             {
                 viewGuid = VSConstants.LOGVIEWID.Code_guid;
             }
-            else if (projectItemType == XSharpProjectFileConstants.NativeResource)
+            else if (projectItemType == ProjectFileConstants.NativeResource)
             {
                 viewGuid = VSConstants.LOGVIEWID.Code_guid;
             }
@@ -759,6 +771,14 @@ namespace XSharp.Project
             return base.QueryStatusOnNode(guidCmdGroup, cmd, pCmdText, ref result);
         }
 
+
+        public override void Remove(bool removeFromStorage)
+        {
+            // Remove here because later the URL is gone
+            var project = (XSharpProjectNode)this.ProjectMgr;
+            project.RemoveURL(this.GetMkDocument());
+            base.Remove(removeFromStorage);
+        }
         protected override bool RenameDocument(string oldName, string newName, out HierarchyNode newNodeOut)
         {
 

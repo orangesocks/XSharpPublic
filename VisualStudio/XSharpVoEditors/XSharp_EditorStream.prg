@@ -1,3 +1,8 @@
+//
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
+// See License.txt in the project root for license information.
+//
 USING System.Collections.Generic
 USING System.IO
 USING System.Text
@@ -57,6 +62,8 @@ CLASS XSharp_EditorStream INHERIT EditorStream
 					aLines:Add(oReader:ReadLine())
 				END DO
 			END IF
+      CATCH
+         NOP
 		END TRY
 
 		SELF:oXSharpEditor := XSharpBuffer.Create(aLines)

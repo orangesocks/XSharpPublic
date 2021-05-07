@@ -1,8 +1,13 @@
-#using System.Collections
-#using System.Collections.Generic
-#using System.Windows.Forms
-#using System.Drawing
-#using System.IO
+//
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
+// See License.txt in the project root for license information.
+//
+USING System.Collections
+USING System.Collections.Generic
+USING System.Windows.Forms
+USING System.Drawing
+using System.IO
 
 
 PARTIAL CLASS VODBServerEditor INHERIT DesignerBase
@@ -217,7 +222,7 @@ PARTIAL CLASS VODBServerEditor INHERIT DesignerBase
 	RETURN
 	METHOD ImportDbf() AS LOGIC
 		LOCAL oDesign AS DBEDesignDBServer
-		LOCAL oOrder AS DBEDesignDBServer
+//		LOCAL oOrder AS DBEDesignDBServer
 		LOCAL eResult AS DialogResult
 		LOCAL oDlg AS OpenFileDialog
 		LOCAL lDeleteOld AS LOGIC
@@ -227,8 +232,8 @@ PARTIAL CLASS VODBServerEditor INHERIT DesignerBase
 		LOCAL aStruct AS List<OBJECT>
 		LOCAL cType AS STRING
 		LOCAL nType AS INT
-		LOCAL d AS DWORD
-		LOCAL n AS INT
+//		LOCAL d AS DWORD
+//		LOCAL n AS INT
 		
 		oDlg := OpenFileDialog{}
 		oDlg:Filter := "Dbf files (*.dbf)|*.dbf"
@@ -309,7 +314,8 @@ PARTIAL CLASS VODBServerEditor INHERIT DesignerBase
 		NEXT
 
 		SELF:StartAction(DesignerBasicActionType.SetProperty , ActionData{SELF:oMainDesign:cGuid , "filename" , cFileName})
-		
+
+		#warning Index import not implemented yet
 /*		IF ALen(aIndexes) != 0
 			DO WHILE SELF:oIndexList:Items:Count != 0
 				SELF:StartAction(DesignerBasicActionType.Remove , ActionData{((DBEDesignListViewItem)SELF:oIndexList:Items[0]):oDesign:cGuid})
@@ -407,6 +413,8 @@ PARTIAL CLASS VODBServerEditor INHERIT DesignerBase
 				File.Delete(cBackup)
 				File.Move(cFileName , cBackup)
 				lImport := TRUE
+         CATCH
+            NOP
 			END TRY
 		END IF
 		
@@ -445,6 +453,8 @@ PARTIAL CLASS VODBServerEditor INHERIT DesignerBase
 				IF DBHelpers.DBH_Used()
 					DBHelpers.DBH_DBCloseArea()
 				END IF
+         CATCH
+            NOP
 			END TRY
 		CATCH e AS Exception
 			Funcs.ErrorBox(e:Message , "Export to dbf failed.")
@@ -1859,6 +1869,8 @@ PARTIAL CLASS VODBServerEditor INHERIT DesignerBase
 		TRY
 			FileInfo{cFileName}
 			lSuccess := TRUE
+      CATCH
+         NOP
 		END TRY
 	RETURN lSuccess
 	STATIC METHOD NameFromFilename(cFileName AS STRING) AS STRING
@@ -2822,6 +2834,8 @@ CLASS DBServerCode
 			        ENDIF
 				ENDIF
 			END IF
+         CATCH
+            NOP
         END TRY
 		IF !System.IO.File.Exists(cCavoWed)
 			MessageBox.Show("File Cavoded.tpl was not found, please locate it on disk." , "DBServer Editor")
@@ -2837,6 +2851,8 @@ CLASS DBServerCode
                IF cCavoWed:Contains("cavoded") .and. cCavoWed:EndsWith(".tpl")
                   File.Copy(cCavoWed , cOrigDir + "\cavoded.tpl" , FALSE)
                ENDIF
+            CATCH
+               NOP
             END TRY
 			ELSE
 				RETURN FALSE
@@ -2954,6 +2970,8 @@ CLASS DBServerCode
 			        ENDIF
 				ENDIF
 			END IF
+         CATCH
+            NOP
         END TRY
 		IF !System.IO.File.Exists(cCavoWed)
 			MessageBox.Show("File Cavofed.tpl was not found, please locate it on disk." , "DBServer Editor")
@@ -2969,6 +2987,8 @@ CLASS DBServerCode
                IF cCavoWed:Contains("cavofed") .and. cCavoWed:EndsWith(".tpl")
                   File.Copy(cCavoWed , cOrigDir + "\cavofed.tpl" , FALSE)
                ENDIF
+            CATCH
+               NOP
             END TRY
 			ELSE
 				RETURN FALSE

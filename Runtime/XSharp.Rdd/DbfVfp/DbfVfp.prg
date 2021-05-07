@@ -9,6 +9,7 @@ USING XSharp.RDD.Support
 USING System.IO
 USING System.Collections.Generic
 USING System.Diagnostics
+USING STATIC XSharp.Conversions
 
 BEGIN NAMESPACE XSharp.RDD
 /// <summary>DBFVFP RDD. DBFCDX with support for the FoxPro field types.</summary>
@@ -20,7 +21,7 @@ CLASS DBFVFP INHERIT DBFCDX
 		SELF:_AllowedFieldTypes := "BCDFGILMNPQTVWY0"
 		RETURN
 		
-	PROPERTY Driver         AS STRING GET "DBFVFP"
+	PUBLIC   PROPERTY Driver                  AS STRING GET "DBFVFP"
     INTERNAL PROPERTY DbcName        AS STRING AUTO
     INTERNAL PROPERTY DbcPosition    AS INT GET DbfHeader.SIZE + SELF:_Fields:Length  * DbfField.SIZE +1
 
@@ -35,19 +36,19 @@ CLASS DBFVFP INHERIT DBFCDX
 
     PROTECTED VIRTUAL METHOD _checkField( dbffld REF DbfField) AS LOGIC
         IF dbffld:Type:IsVfp()
-            if dbffld:Flags:HasFlag(DBFFieldFlags.AutoIncrement)
-                if dbffld:Counter == 0
+            IF dbffld:Flags:HasFlag(DBFFieldFlags.AutoIncrement)
+                IF dbffld:Counter == 0
                     dbffld:Counter := 1
-                endif
-                if dbffld:IncStep == 0
+                ENDIF
+                IF dbffld:IncStep == 0
                     dbffld:IncStep := 1
-                endif
+                ENDIF
             ENDIF
-            return true
+            RETURN TRUE
         ENDIF
         RETURN FALSE
 
-     METHOD _SetFoxHeader() AS VOID
+     PROTECTED METHOD _SetFoxHeader() AS VOID
         LOCAL lVar AS LOGIC
         LOCAL lAutoIncr AS LOGIC
         // check for foxpro field types and adjust the header
@@ -76,22 +77,25 @@ CLASS DBFVFP INHERIT DBFCDX
             SELF:_Header:Version := DBFVersion.VisualFoxPro
         ENDIF
         // Set Flags
-        SELF:_Header:HasTags := DBFTableFlags.None
+        SELF:_Header:TableFlags := DBFTableFlags.None
         IF SELF:_HasMemo
-            SELF:_Header:HasTags |= DBFTableFlags.HasMemoField
+            SELF:_Header:TableFlags |= DBFTableFlags.HasMemoField
         ENDIF
         IF SELF:_indexList != NULL .AND. SELF:_indexList:Count > 0
             VAR orderBag := SELF:_indexList:First
             IF orderBag != NULL .AND. orderBag:Structural
-                SELF:_Header:HasTags |= DBFTableFlags.HasStructuralCDX
+                SELF:_Header:TableFlags |= DBFTableFlags.HasStructuralCDX
             ENDIF
         ENDIF
-        
+        LOCAL cExt := System.IO.Path.GetExtension(SELF:_FileName) AS STRING
+        IF cExt:ToLower() == ".dbc"
+            SELF:_Header:TableFlags  |= DBFTableFlags.IsDBC 
+        ENDIF
         SELF:_Header:HeaderLen += VFP_BACKLINKSIZE
         SELF:_HeaderLength   += VFP_BACKLINKSIZE
         SELF:_writeHeader()
         // Adjust the file size to accomodate the backlink data
-        FChSize(SELF:_hFile, (DWORD) SELF:_HeaderLength)
+        _oStream:SafeSetLength(SELF:_HeaderLength)
         RETURN
 
     /// <inheritdoc />
@@ -151,16 +155,14 @@ CLASS DBFVFP INHERIT DBFCDX
             IF XSharp.RuntimeState.AutoOpen
                 SELF:OpenProductionIndex(info)
             ENDIF
+            SELF:GoTop()
         ENDIF
         
         RETURN lOk
 
     METHOD FieldInfo(nFldPos AS LONG, nOrdinal AS LONG, oNewValue AS OBJECT) AS OBJECT
-
         IF nOrdinal == DbFieldInfo.DBS_PROPERTIES
            RETURN DbFieldInfo.DBS_FLAGS
-        ELSEIF nOrdinal == DbFieldInfo.DBS_CAPTION
-            nOrdinal := DbFieldInfo.DBS_ALIAS
         ENDIF
         RETURN SUPER:FieldInfo(nFldPos, nOrdinal, oNewValue)
 
@@ -168,88 +170,50 @@ CLASS DBFVFP INHERIT DBFCDX
         LOCAL nPos := SELF:DbcPosition AS LONG
         LOCAL buffer AS BYTE[]
         buffer := BYTE[]{VFP_BACKLINKSIZE}
-        FSeek3(SELF:_hFile, nPos, FS_SET)
-        FRead3(SELF:_hFile, buffer, (DWORD) buffer:Length)
-        VAR cName := System.Text.Encoding.Default:GetString(buffer):Replace(e"\0","")
-        IF ! String.IsNullOrEmpty(cName)
-            SELF:DbcName := Path.Combine(Path.GetDirectoryName(SELF:_FileName), cName)
-            SELF:_ReadDbcFieldNames()
-        ELSE
-            SELF:DbcName := ""
+        SELF:DbcName := ""
+        IF _oStream:SafeSetPos(nPos) .AND. _oStream:SafeRead(buffer)
+            VAR cName := System.Text.Encoding.Default:GetString(buffer):Replace(e"\0","")
+            IF ! String.IsNullOrEmpty(cName)
+                SELF:DbcName := Path.Combine(Path.GetDirectoryName(SELF:_FileName), cName)
+                SELF:_ReadDbcFieldNames()
+            ENDIF
         ENDIF
         RETURN
 
     PROTECTED METHOD _ReadDbcFieldNames() AS VOID
-        LOCAL oDbc AS DBFVFP
-        LOCAL oi   AS DbOpenInfo
-        LOCAL nTable := 0 AS LONG
-        LOCAL nType AS LONG
-        LOCAL nName AS LONG
-        LOCAL nParent AS LONG
-        LOCAL fields AS List<STRING>
-        LOCAL cFile AS STRING
-        LOCAL lOk AS LOGIC
-        LOCAL lOld AS LOGIC
-        oDbc := DBFVFP{}
-        oi := DbOpenInfo{}
-        oi:FileName  := SELF:DbcName
-        oi:Extension := System.IO.Path.GetExtension(SELF:DbcName)
-        oi:Shared   := TRUE
-        oi:ReadOnly := TRUE
-        cFile := System.IO.Path.GetFileNameWithoutExtension(SELF:_FileName)
-        lOld := XSharp.RuntimeState.AutoOpen
-        XSharp.RuntimeState.AutoOpen := FALSE
-        TRY
-            lOk := oDbc:Open(oi)
-        CATCH as Exception
-            lOk := FALSE
-        END TRY
-        XSharp.RuntimeState.AutoOpen := lOld
-        IF lOk
-            nType := oDbc:FieldIndex("OBJECTTYPE")
-            nName := oDbc:FieldIndex("OBJECTNAME")
-            nParent := oDbc:FieldIndex("PARENTID")
-            oDbc:GoTop()
-            DO WHILE ! oDbc:EoF
-                IF ((STRING)oDbc:GetValue(nType)):StartsWith("Table") 
-                    LOCAL cName := (STRING) oDbc:GetValue(nName)  AS STRING
-                    cName := cName:Trim()
-                    IF String.Compare(cName, cFile, TRUE) == 0
-                        nTable := (INT) oDbc:GetValue(oDbc:FieldIndex("OBJECTID"))
-                        EXIT
-                    ENDIF
-                ENDIF
-                oDbc:Skip(1)
-            ENDDO
-            fields := List<STRING>{}
-            IF nTable != 0
-                oDbc:GoTop()
-                DO WHILE ! oDbc:EoF
-                    VAR n1 := (LONG) oDbc:GetValue(nParent)
-                    VAR c1 := (STRING) oDbc:GetValue(nType)
-                    IF n1== nTable .AND.  c1:StartsWith("Field")
-                        VAR cAlias := (STRING) oDbc:GetValue(nName) 
-                        fields:Add(cAlias:Trim())
-                    ENDIF
-                    oDbc:Skip(1)
-                ENDDO
-            ENDIF
-            oDbc:Close()
-            IF SELF:FieldCount == fields:Count
+        local cDbcFile as STRING
+        cDbcFile := SELF:DbcName
+        IF !System.IO.Path.IsPathRooted(cDbcFile)
+            VAR cPath := System.IO.Path.GetDirectoryName(SELF:FileName)
+            cDbcFile := System.IO.Path.Combine(cPath, cDbcFile)
+        ENDIF
+        Dbc.Open(cDbcFile, TRUE, TRUE, FALSE)
+        VAR oDb := Dbc.FindDatabase(cDbcFile)
+        IF oDb != NULL
+            var base := System.IO.Path.GetFileNameWithoutExtension(SELF:FileName)
+            var oTable := oDb:FindTable(System.IO.Path.GetFileName(base))
+            IF oTable != NULL
                 // assign aliases
-                LOCAL nPos AS LONG
-                FOR nPos := 1 TO SELF:FieldCount
-                    LOCAL oColumn AS DbfColumn
-                    oColumn := SELF:_GetColumn(nPos)
-                    oColumn:Alias := fields[nPos-1]
-                    IF String.Compare(oColumn:Name, oColumn:Alias, TRUE) != 0
-                        SELF:_fieldNames:Remove(oColumn:Name)
-                        SELF:_fieldNames:Add(oColumn:Alias, nPos-1)
-                    ENDIF
-                NEXT
+                IF SELF:FieldCount == oTable:Fields:Count
+                    LOCAL nPos AS LONG
+                    FOR nPos := 1 TO SELF:FieldCount
+                        LOCAL oColumn AS DbfColumn
+                        VAR oField := oTable:Fields[nPos-1]
+                        oColumn := SELF:_GetColumn(nPos) ASTYPE DbfColumn
+                        IF oField:HasProperties
+                            oColumn:Properties  := oField:Properties
+                        ENDIF
+                        oColumn:Alias       := oField:ObjectName
+                        oColumn:ColumnName  := oField:ObjectName
+                        IF String.Compare(oColumn:Name, oColumn:Alias, TRUE) != 0
+                            // We add the alias as alternative to the fieldname.
+                            // As a result we can call FieldIndex with the alias AND the fieldName
+                            SELF:_fieldNames:Add(oColumn:Alias:ToUpper(), nPos-1)
+                        ENDIF
+                    NEXT
+                ENDIF
             ENDIF
         ENDIF
-
 
 
     /// <inheritdoc />
@@ -287,4 +251,10 @@ CLASS DBFVFP INHERIT DBFCDX
         RETURN SUPER:_writeRecord() 
 END CLASS
 
+
+
+
 END NAMESPACE
+
+
+ 

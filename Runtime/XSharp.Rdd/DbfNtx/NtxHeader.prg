@@ -21,7 +21,7 @@ BEGIN NAMESPACE XSharp.RDD.NTX
 		// https://www.clicketyclick.dk/databases/xbase/format/ntx.html#NTX_STRUCT  
 		// Read/Write to/from the Stream with the Buffer 
 		// and access individual values using the other fields
-		PRIVATE _hFile AS IntPtr
+		PRIVATE _oStream AS FileStream
 		PRIVATE Buffer   AS BYTE[]
 		// Hot ?  => Header has changed ?
 		INTERNAL isHot	AS LOGIC
@@ -29,26 +29,13 @@ BEGIN NAMESPACE XSharp.RDD.NTX
         PRIVATE PROPERTY Encoding as System.Text.Encoding GET _Order:Encoding
 		
 		INTERNAL METHOD Read() AS LOGIC
-			LOCAL isOk AS LOGIC
-			// Move to top
-			FSeek3( SELF:_hFile, 0, SeekOrigin.Begin )
-			// Read Buffer
-			isOk := FRead3(SELF:_hFile, SELF:Buffer, NTXHEADER_SIZE) == NTXHEADER_SIZE 
-			//
-			RETURN isOk
-			
+			RETURN _oStream:SafeSetPos( 0) .AND. _oStream:SafeRead(SELF:Buffer)
+            
 		INTERNAL METHOD Write() AS LOGIC
-			LOCAL isOk AS LOGIC
-			// Move to top
-			FSeek3( SELF:_hFile, 0, SeekOrigin.Begin )
-			// Write Buffer
-			isOk :=  FWrite3(SELF:_hFile, SELF:Buffer, NTXHEADER_SIZE) == NTXHEADER_SIZE 
-			RETURN isOk
+			RETURN _oStream:SafeSetPos( 0) .AND. _oStream:SafeWrite(SELF:Buffer)
 			
-			
-			
-		INTERNAL CONSTRUCTOR( oOrder as NtxOrder, fileHandle AS IntPtr )
-			SELF:_hFile := fileHandle
+		INTERNAL CONSTRUCTOR( oOrder AS NtxOrder, stream AS FileStream )
+			SELF:_oStream := stream
             SELF:_Order := oOrder
 			Buffer := BYTE[]{NTXHEADER_SIZE}
 			isHot  := FALSE
@@ -98,61 +85,61 @@ BEGIN NAMESPACE XSharp.RDD.NTX
             isHot := TRUE
 
  		INTERNAL PROPERTY Signature  AS NtxHeaderFlags	;
-		    GET (NtxHeaderFlags) _GetWord(NTXOFFSET_SIG) ;
-		    SET _SetWord(NTXOFFSET_SIG, value)
+		    GET (NtxHeaderFlags) SELF:_GetWord(NTXOFFSET_SIG) ;
+		    SET SELF:_SetWord(NTXOFFSET_SIG, VALUE), isHot := TRUE
 			
 		INTERNAL PROPERTY IndexingVersion		AS WORD			;
-		    GET _GetWord(NTXOFFSET_INDEXING_VER);
-		    SET _SetWord(NTXOFFSET_INDEXING_VER, value)
+		    GET SELF:_GetWord(NTXOFFSET_INDEXING_VER);
+		    SET SELF:_SetWord(NTXOFFSET_INDEXING_VER, VALUE), isHot := TRUE
 			
 		INTERNAL PROPERTY FirstPageOffset		AS LONG			;
-		    GET _GetLong(NTXOFFSET_FPAGE_OFFSET);
-		    SET _SetLong(NTXOFFSET_FPAGE_OFFSET, value)
+		    GET SELF:_GetLong(NTXOFFSET_FPAGE_OFFSET);
+		    SET SELF:_SetLong(NTXOFFSET_FPAGE_OFFSET, VALUE), isHot := TRUE
 			
 		INTERNAL PROPERTY NextUnusedPageOffset		AS LONG			;
-		    GET _GetLong(NTXOFFSET_NUPAGE_OFFSET)	;
-		    SET _SetLong(NTXOFFSET_NUPAGE_OFFSET, value)
+		    GET SELF:_GetLong(NTXOFFSET_NUPAGE_OFFSET)	;
+		    SET SELF:_SetLong(NTXOFFSET_NUPAGE_OFFSET, VALUE), isHot := TRUE
 			
 		// keysize + 2 longs. ie.e Left pointer + record no.
 		INTERNAL PROPERTY EntrySize		AS WORD			;
-		    GET _GetWord(NTXOFFSET_ENTRYSIZE);
-		    SET _SetWord(NTXOFFSET_ENTRYSIZE, value)
+		    GET SELF:_GetWord(NTXOFFSET_ENTRYSIZE);
+		    SET SELF:_SetWord(NTXOFFSET_ENTRYSIZE, VALUE), isHot := TRUE
 			
 		INTERNAL PROPERTY KeySize		AS WORD			;
-		    GET _GetWord(NTXOFFSET_KEYSIZE);
-		    SET _SetWord(NTXOFFSET_KEYSIZE, value)
+		    GET SELF:_GetWord(NTXOFFSET_KEYSIZE);
+		    SET SELF:_SetWord(NTXOFFSET_KEYSIZE, VALUE), isHot := TRUE
 			
 		INTERNAL PROPERTY KeyDecimals	AS WORD			;
-		    GET _GetWord(NTXOFFSET_KEYDECIMALS);
-		    SET _SetWord(NTXOFFSET_KEYDECIMALS, value)
+		    GET SELF:_GetWord(NTXOFFSET_KEYDECIMALS);
+		    SET SELF:_SetWord(NTXOFFSET_KEYDECIMALS, VALUE), isHot := TRUE
 			
 		INTERNAL PROPERTY MaxItem	AS WORD			;
-		    GET _GetWord(NTXOFFSET_MAXITEM);
-		    SET _SetWord(NTXOFFSET_MAXITEM, value)
+		    GET SELF:_GetWord(NTXOFFSET_MAXITEM);
+		    SET SELF:_SetWord(NTXOFFSET_MAXITEM, VALUE), isHot := TRUE
 			
 		INTERNAL PROPERTY HalfPage	AS WORD			;
-		    GET _GetWord(NTXOFFSET_HALFPAGE);
-		    SET _SetWord(NTXOFFSET_HALFPAGE, value)
+		    GET SELF:_GetWord(NTXOFFSET_HALFPAGE);
+		    SET SELF:_SetWord(NTXOFFSET_HALFPAGE, VALUE), isHot := TRUE
 			
 		INTERNAL PROPERTY KeyExpression	 AS STRING ;
-		    GET _GetString(NTXOFFSET_KEYEXPRESSION, NTXOFFSET_EXPRESSION_SIZE ) ;
-		    SET _SetString(NTXOFFSET_KEYEXPRESSION, NTXOFFSET_EXPRESSION_SIZE, value)
+		    GET SELF:_GetString(NTXOFFSET_KEYEXPRESSION, NTXOFFSET_EXPRESSION_SIZE ) ;
+		    SET SELF:_SetString(NTXOFFSET_KEYEXPRESSION, NTXOFFSET_EXPRESSION_SIZE, VALUE), isHot := TRUE
 			
 		INTERNAL PROPERTY Unique	AS LOGIC  ;
-		    GET _GetWord( NTXOFFSET_UNIQUE) != 0 ;
-		    SET _SetWord( NTXOFFSET_UNIQUE , (WORD) IIF(value,1,0)), isHot := TRUE
+		    GET SELF:_GetWord( NTXOFFSET_UNIQUE) != 0 ;
+		    SET SELF:_SetWord( NTXOFFSET_UNIQUE , IIF(VALUE,1,0)), isHot := TRUE
 
 		INTERNAL PROPERTY Descending	AS LOGIC  ;
-		    GET _GetWord( NTXOFFSET_DESCENDING) != 0 ;
-		    SET _SetWord( NTXOFFSET_DESCENDING, (WORD) IIF(value,1,0)), isHot := TRUE
+		    GET SELF:_GetWord( NTXOFFSET_DESCENDING) != 0 ;
+		    SET SELF:_SetWord( NTXOFFSET_DESCENDING, IIF(VALUE,1,0)), isHot := TRUE
 			
 		INTERNAL PROPERTY ForExpression	 AS STRING ;
-		    GET _GetString(NTXOFFSET_FOREXPRESSION, NTXOFFSET_EXPRESSION_SIZE ) ;
-		    SET _SetString(NTXOFFSET_FOREXPRESSION, NTXOFFSET_EXPRESSION_SIZE, value)
+		    GET SELF:_GetString(NTXOFFSET_FOREXPRESSION, NTXOFFSET_EXPRESSION_SIZE ) ;
+		    SET SELF:_SetString(NTXOFFSET_FOREXPRESSION, NTXOFFSET_EXPRESSION_SIZE, VALUE), isHot := TRUE
 			
 		INTERNAL PROPERTY OrdName	 AS STRING ;
-		    GET _GetString(NTXOFFSET_ORDNAME, NTXOFFSET_EXPRESSION_SIZE );
-		    SET _SetString(NTXOFFSET_ORDNAME, NTXOFFSET_EXPRESSION_SIZE, Upper(value))
+		    GET SELF:_GetString(NTXOFFSET_ORDNAME, NTXOFFSET_EXPRESSION_SIZE );
+		    SET SELF:_SetString(NTXOFFSET_ORDNAME, NTXOFFSET_EXPRESSION_SIZE, Upper(VALUE)), isHot := TRUE
 			
 		PRIVATE CONST NTXOFFSET_SIG			    := 0   AS WORD
 		PRIVATE CONST NTXOFFSET_INDEXING_VER    := 2   AS WORD

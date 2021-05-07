@@ -4,7 +4,7 @@
 // See License.txt in the project root for license information.
 //
 
-
+#pragma options("vo15", on)
 
 /// <summary>-- todo --</summary>
 /// <include file="VFPDocs.xml" path="Runtimefunctions/aclass/*" />
@@ -12,11 +12,7 @@ FUNCTION AClass(ArrayName, oExpression)
     THROW NotImplementedException{}
     //RETURN 0 
      
-/// <summary>-- todo --</summary>
-/// <include file="VFPDocs.xml" path="Runtimefunctions/adatabases/*" />
-FUNCTION ADatabases(ArrayName) 
-    THROW NotImplementedException{}
-    //RETURN 0
+
 
 /// <summary>-- todo --</summary>
 /// <include file="VFPDocs.xml" path="Runtimefunctions/adbobjects/*" />
@@ -24,11 +20,6 @@ FUNCTION ADBObjects(ArrayName, cSetting)
     THROW NotImplementedException{}
     //RETURN 0
 
-/// <summary>-- todo --</summary>
-/// <include file="VFPDocs.xml" path="Runtimefunctions/aelement/*" />
-FUNCTION Aelement (ArrayName, nRowSubscript , nColumnSubscript)
-    THROW NotImplementedException{}
-    //RETURN 0
 
 /// <summary>-- todo --</summary>
 /// <include file="VFPDocs.xml" path="Runtimefunctions/agetfileversion/*" />
@@ -67,19 +58,12 @@ FUNCTION ASessions (ArrayName)
     THROW NotImplementedException{}
     //RETURN 0
 
-
-
 /// <summary>-- todo --</summary>
 /// <include file="VFPDocs.xml" path="Runtimefunctions/astackinfo/*" />
 FUNCTION AStackInfo (ArrayName )
     THROW NotImplementedException{}
     //RETURN 0
 
-/// <summary>-- todo --</summary>
-/// <include file="VFPDocs.xml" path="Runtimefunctions/asubscript/*" />
-FUNCTION ASubScript (ArrayName, nElementNumber, nSubscript )
-    THROW NotImplementedException{}
-    //RETURN 0
 
 /// <summary>-- todo --</summary>
 /// <include file="VFPDocs.xml" path="Runtimefunctions/ataginfo/*" />
@@ -92,9 +76,6 @@ FUNCTION ATagInfo (ArrayName ,cCDXName , uArea )
 FUNCTION AUsed (ArrayName , nDataSessionNumber , cTableName )
     THROW NotImplementedException{}
     //RETURN 0
-
-
-
 
 
 

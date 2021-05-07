@@ -20,12 +20,12 @@ END CLASS
 
 
 /// <include file="VfpRuntimeDocs.xml" path="Runtimefunctions/addbs/*" />
-/// <seealso cref='O:XSharp.VFP.Functions.DefaultExt' />
-/// <seealso cref='O:XSharp.VFP.Functions.JustDrive' />
-/// <seealso cref='O:XSharp.VFP.Functions.JustExt' />
-/// <seealso cref='O:XSharp.VFP.Functions.JustFName' />
-/// <seealso cref='O:XSharp.VFP.Functions.JustPath' />
-/// <seealso cref='O:XSharp.VFP.Functions.JustStem' />
+/// <seealso cref='DefaultExt' />
+/// <seealso cref='JustDrive' />
+/// <seealso cref='JustExt' />
+/// <seealso cref='JustFName' />
+/// <seealso cref='JustPath' />
+/// <seealso cref='JustStem' />
 FUNCTION AddBs (cPath AS STRING) AS STRING
     IF String.IsNullOrEmpty(cPath)
         RETURN ""
@@ -155,7 +155,7 @@ FUNCTION LenC( cExpression AS STRING ) AS DWORD
     RETURN SLen(cExpression)
 
 /// <include file="VfpRuntimeDocs.xml" path="Runtimefunctions/likec/*" />
-FUNCTION LikeC( cExpression1, cExpression2) AS LOGIC
+FUNCTION LikeC( cExpression1, cExpression2) AS LOGIC CLIPPER
     RETURN Like(cExpression1, cExpression2)
 
 
@@ -164,11 +164,11 @@ FUNCTION RightC( cExpression AS STRING, nCharacters AS DWORD) AS STRING
     RETURN Right(cExpression, nCharacters)
 
 /// <include file="VfpRuntimeDocs.xml" path="Runtimefunctions/stuffc/*" />
-FUNCTION StuffC( cExpression, nStartReplacement, nCharactersReplaced, cReplacement) AS STRING
+FUNCTION StuffC( cExpression, nStartReplacement, nCharactersReplaced, cReplacement) AS STRING CLIPPER
     RETURN Stuff(cExpression, nStartReplacement, nCharactersReplaced, cReplacement)
     
 /// <include file="VfpRuntimeDocs.xml" path="Runtimefunctions/substrc/*" />
-FUNCTION SubStrC(cExpression, nStartPosition , nCharactersReturned ) AS STRING
+FUNCTION SubStrC(cExpression, nStartPosition , nCharactersReturned ) AS STRING CLIPPER
     RETURN SubStr(cExpression, nStartPosition, nCharactersReturned)
 
 
@@ -281,7 +281,9 @@ FUNCTION At(cSearchExpression AS STRING, cExpressionSearched AS STRING, nOccurre
 	ENDIF
 	RETURN position
      
-/// <include file="VfpRuntimeDocs.xml" path="Runtimefunctions/at_c/*" />
+/// <inheritdoc cref="At" />
+/// <remarks>This is an alias for the At() function. X# works with unicode and the difference
+/// between single byte and multi byte characters does not exist in Unicode</remarks> 
 FUNCTION At_C(cSearchExpression AS STRING, cExpressionSearched AS STRING, nOccurrence := 1 AS DWORD) AS DWORD
 	RETURN At(cSearchExpression, cExpressionSearched, nOccurrence)
 
@@ -301,23 +303,44 @@ FUNCTION AtC(cSearchExpression AS STRING, cExpressionSearched AS STRING, nOccurr
 	ENDIF
 	RETURN position
 
-/// <include file="VfpRuntimeDocs.xml" path="Runtimefunctions/atcc/*" />
+/// <inheritdoc cref="AtC" />
+/// <remarks>This is an alias for the AtC() function. X# works with unicode and the difference
+/// between single byte and multi byte characters does not exist in Unicode</remarks> 
+
 FUNCTION AtCC(cSearchExpression AS STRING, cExpressionSearched AS STRING, nOccurrence := 1 AS DWORD) AS DWORD
 	RETURN AtC(cSearchExpression, cExpressionSearched, nOccurrence)
 
-/// <include file="VfpRuntimeDocs.xml" path="Runtimefunctions/alltrim/*" />
+/// <inheritdoc cref="M:XSharp.Core.Functions.AllTrim(System.String)" />
+/// <param name="Expression">Specifies an expression to remove leading and trailing spaces or 0 bytes from</param>
+/// <param name="Flags">Specifies if trimming is case-sensitive when one or more parse characters
+/// (cParseChar, cParseChar2, … are included. Trimming is case-sensitive if nFlags is zero or is omitted.
+/// Trimming is case-insensitive if nFlags = 1.</param>
+/// <param name="TrimChars">Specifies one or more character strings that are trimmed from the beginning of cExpression.
+/// If cParseChar isn't included, then leading spaces or 0 bytes are removed from Expression. </param>
 FUNCTION AllTrim(Expression AS STRING, Flags AS INT, TrimChars PARAMS STRING[]) AS STRING STRICT
 	RETURN Trim_helper(.T., .T., Expression, Flags, TrimChars)
 
-/// <include file="VfpRuntimeDocs.xml" path="Runtimefunctions/ltrim/*" />
+/// <inheritdoc cref="M:XSharp.Core.Functions.LTrim(System.String)" />
+/// <param name="Expression">Specifies an expression to remove leading spaces or 0 bytes from, respectively</param>
+/// <param name="TrimChars">Specifies one or more character strings that are trimmed from the beginning of cExpression.
+/// If cParseChar isn't included, then leading spaces or 0 bytes are removed from Expression. </param>
 FUNCTION LTrim(Expression AS STRING, Flags AS INT, TrimChars PARAMS STRING[]) AS STRING STRICT
 	RETURN Trim_helper(.T., .F., Expression, Flags, TrimChars)
 
-/// <include file="VfpRuntimeDocs.xml" path="Runtimefunctions/rtrim/*" />
+/// <inheritdoc cref="M:XSharp.Core.Functions.RTrim(System.String)" />
+/// <param name="Expression">Specifies an expression to remove leading spaces or 0 bytes from, respectively</param>
+/// <param name="TrimChars">Specifies one or more character strings that are trimmed from the beginning of cExpression.
+/// If cParseChar isn't included, then leading spaces or 0 bytes are removed from Expression. </param>
 FUNCTION RTrim(Expression AS STRING, Flags AS INT, TrimChars PARAMS STRING[]) AS STRING STRICT
 	RETURN Trim_helper(.F., .T., Expression, Flags, TrimChars)
 
-/// <include file="VfpRuntimeDocs.xml" path="Runtimefunctions/trim/*" />
+/// <inheritdoc cref="M:XSharp.Core.Functions.Trim(System.String)" />
+/// <param name="Expression">Specifies an expression to remove trailing spaces or 0 bytes from</param>
+/// <param name="Flags">Specifies if trimming is case-sensitive when one or more parse characters
+/// (cParseChar, cParseChar2, … are included. Trimming is case-sensitive if nFlags is zero or is omitted.
+/// Trimming is case-insensitive if nFlags = 1.</param>
+/// <param name="TrimChars">Specifies one or more character strings that are trimmed from the beginning of cExpression.
+/// If cParseChar isn't included, then leading spaces or 0 bytes are removed from Expression. </param>
 FUNCTION Trim(Expression AS STRING, Flags AS INT, TrimChars PARAMS STRING[]) AS STRING STRICT
 	RETURN Trim_helper(.F., .T., Expression, Flags, TrimChars)
 
@@ -376,4 +399,9 @@ STATIC FUNCTION Trim_helper(TrimLeft AS Boolean, TrimRight AS Boolean, Expressio
     RETURN Expression
 
 END FUNCTION
+
+
+/// <include file="VfpRuntimeDocs.xml" path="Runtimefunctions/transform/*" />
+FUNCTION Transform( uValue AS USUAL ) AS STRING
+    RETURN AsString(uValue)	
 

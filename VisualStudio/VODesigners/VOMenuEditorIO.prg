@@ -1,10 +1,15 @@
-#using System.Collections
-#using System.Collections.Generic
-#using System.Windows.Forms
-#using System.Drawing
-#using System.Text
-#using System.IO
-#using System.Xml
+//
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
+// See License.txt in the project root for license information.
+//
+USING System.Collections
+USING System.Collections.Generic
+USING System.Windows.Forms
+USING System.Drawing
+USING System.Text
+USING System.IO
+using System.Xml
 
 
 PARTIAL CLASS VOMenuEditor INHERIT DesignerBase
@@ -81,6 +86,8 @@ PARTIAL CLASS VOMenuEditor INHERIT DesignerBase
 		TRY
 			oDocument:Load(cFileName)
 			lSuccess := TRUE
+      CATCH
+         NOP
 		END TRY
 		IF .not. lSuccess
 			RETURN FALSE

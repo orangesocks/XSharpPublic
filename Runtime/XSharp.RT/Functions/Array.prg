@@ -228,8 +228,8 @@ INTERNAL STATIC CLASS ArrayHelpers
         IF cb == NULL
             THROW Error.NullArgumentError( cFuncName, NAMEOF(cb),2)
         ENDIF
-        DEFAULT( REF iStart, 1)
-        DEFAULT( REF iCount, ALen(aArray))
+        @@Default( REF iStart, 1)
+        @@Default( REF iCount, ALen(aArray))
         IF ! iStart:IsNumeric
             THROW Error.ArgumentError( cFuncName, NAMEOF(iStart), 3 , <OBJECT>{iStart})
         ENDIF
@@ -519,13 +519,13 @@ FUNCTION AScan(aTarget AS ARRAY, uSearch AS USUAL,nStart := NIL AS USUAL,nCount 
     RETURN ArrayHelpers.AScan( aTarget, uSearch, nStart, nCount, SetExact()) 
     
     
-    /// <inheritdoc cref='M:XSharp.RT.Functions.AScan(XSharp.__Array,XSharp.__Usual,XSharp.__Usual,XSharp.__Usual)'/>
+    /// <inheritdoc cref='AScan(XSharp.__Array,XSharp.__Usual,XSharp.__Usual,XSharp.__Usual)'/>
 FUNCTION AScan(aTarget AS ARRAY, uSearch AS USUAL,nStart AS USUAL) AS DWORD 
     ARRAYNULL_RETURNZERO aTarget
     RETURN ArrayHelpers.AScan( aTarget, uSearch, nStart, NIL, SetExact()) 
     
     
-    /// <inheritdoc cref='M:XSharp.RT.Functions.AScan(XSharp.__Array,XSharp.__Usual,XSharp.__Usual,XSharp.__Usual)'/>
+    /// <inheritdoc cref='AScan(XSharp.__Array,XSharp.__Usual,XSharp.__Usual,XSharp.__Usual)'/>
 FUNCTION AScan(aTarget AS ARRAY, uSearch AS USUAL) AS DWORD 
     ARRAYNULL_RETURNZERO aTarget
     RETURN ArrayHelpers.AScan( aTarget, uSearch, 1, NIL, SetExact()) 
@@ -722,15 +722,7 @@ FUNCTION AFill(aTarget AS ARRAY,uValue := NIL AS USUAL, nStart := NIL AS USUAL, 
         END IF
         
         FOR LOCAL x := nStart AS INT UPTO nStart + nCount - 1
-            IF XSharp.RuntimeState.Dialect == XSharpDialect.FoxPro
-                if IsArray(aTarget[(DWORD) x])
-                    AFill(aTarget[(DWORD) x], uValue)
-                ELSE
-                    aTarget[(DWORD) x] := uValue
-                ENDIF
-            ELSE
-                aTarget[(DWORD) x] := uValue
-            ENDIF
+            aTarget[(DWORD) x] := uValue
         NEXT
     ENDIF
     RETURN aTarget
@@ -792,7 +784,7 @@ FUNCTION AReplicate(xFill AS USUAL,nElements AS DWORD) AS ARRAY
 FUNCTION ASort(aTarget AS ARRAY, nStart := NIL AS USUAL,nCount := NIL AS USUAL,cbOrder := NIL AS USUAL) AS ARRAY 
     LOCAL nLen AS DWORD
     LOCAL oBlock as OBJECT
-    DEFAULT( REF nStart, 1 )
+    @@Default( REF nStart, 1 )
     
     nLen := ALen(aTarget) 
     IF nLen == 0 // Let it execute if nLen == 1, maybe the codeblock is important to be executed in this case for some (user) reason
@@ -800,7 +792,7 @@ FUNCTION ASort(aTarget AS ARRAY, nStart := NIL AS USUAL,nCount := NIL AS USUAL,c
     END IF
     
     EnforceNumeric( nStart )
-    DEFAULT( REF nCount, nLen - nStart + 1 )
+    @@Default( REF nCount, nLen - nStart + 1 )
     EnforceNumeric( nCount )
     
     // Note: ASort() in VO accepts arguments out of bounds and translates them this way:
@@ -880,11 +872,11 @@ INTERNAL STRUCTURE ArraySortComparer<T, U>  IMPLEMENTS System.Collections.Generi
         RETURN
         
     METHOD Compare( x AS T, y AS T ) AS INT
-        IF Object.ReferenceEquals(x, y )  
+        IF Object.Equals(x, y)
             RETURN 0
         ENDIF
         LOCAL u AS LOGIC
-        u := _cb( x, y )
+        u := SELF:_cb( x, y )
         RETURN IIF (  u , -1, 1 ) 
         
         

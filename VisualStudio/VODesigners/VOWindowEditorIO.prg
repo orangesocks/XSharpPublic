@@ -1,7 +1,12 @@
-﻿#using System.Collections
-#using System.Text
-#using System.Xml
-#using System.IO
+//
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
+// See License.txt in the project root for license information.
+//
+USING System.Collections
+USING System.Text
+USING System.Xml
+USING System.IO
 
 CLASS VOWEDItem
 	EXPORT cName AS STRING
@@ -63,8 +68,15 @@ PARTIAL CLASS VOWindowEditor INHERIT WindowDesignerBase
 		LOCAL oDlg AS WindowTypeSelectDlg
 		LOCAL lSuccess AS LOGIC
 
-		oDlg := WindowTypeSelectDlg{}
+		oDlg := WindowTypeSelectDlg{SELF:XFile, SELF:cDefaultFileName}
 		IF oDlg:ShowDialog() == System.Windows.Forms.DialogResult.OK
+			
+			IF oDlg:cCloneFrom != NULL
+				//System.Windows.Forms.MessageBox.show(oDlg:cCloneFrom)
+				lSuccess := SELF:CloneFromXml(oDlg:cCloneFrom , cName)
+				RETURN lSuccess
+			END IF
+			
 			lSuccess := SELF:CreateNewWindow(oDlg:cName , cName)
 			IF lSuccess
 				LOCAL oTemplate AS VOControlTemplate
@@ -89,7 +101,7 @@ PARTIAL CLASS VOWindowEditor INHERIT WindowDesignerBase
 		LOCAL oDocument AS XmlDocument
 		LOCAL lNewWindow AS LOGIC
 		LOCAL lSuccess AS LOGIC
-
+		
 		IF ! File.Exists(cFileName)
 			RETURN FALSE
 		END IF
@@ -97,6 +109,8 @@ PARTIAL CLASS VOWindowEditor INHERIT WindowDesignerBase
 		TRY
 			oDocument:Load(cFileName)
 			lSuccess := TRUE
+		CATCH
+			NOP
 		END TRY
 		IF .not. lSuccess
 			RETURN FALSE
@@ -113,22 +127,25 @@ PARTIAL CLASS VOWindowEditor INHERIT WindowDesignerBase
 		IF oNode == NULL
 			RETURN FALSE
 		END IF
-
+		
 		SELF:Reset()
 		SELF:BeginAction()
 		SELF:lLoading := TRUE
-
+		
 		oWindowNode := oNode:FirstChild
 		
 		IF oWindowNode != NULL .and. oWindowNode:Name:ToUpper() == "VOWINDOW" .and. oWindowNode:ChildNodes:Count == 0 // empty template
-
-				TRY
-					lSuccess := SELF:InitializeNew(oWindowNode:Attributes:GetNamedItem("Name"):InnerText)
-				END TRY
-				lNewWindow := TRUE
-
+			
+			TRY
+				lSuccess := SELF:InitializeNew(oWindowNode:Attributes:GetNamedItem("Name"):InnerText)
+			CATCH
+				NOP
+			END TRY
+			lNewWindow := TRUE
+//			SELF:CloneFromXml("C:\xSharp\Users\Meinhard\RP2Test\RP2Test\Help About.HELPABOUT.xsfrm")
+			
 		ELSE
-		
+			
 			DO WHILE oWindowNode != NULL
 				IF oWindowNode:Name:ToUpper() == "VOWINDOW"
 					lSuccess := SELF:OpenXml(oWindowNode)
@@ -136,10 +153,13 @@ PARTIAL CLASS VOWindowEditor INHERIT WindowDesignerBase
 				END IF
 				oWindowNode := oWindowNode:NextSibling
 			END DO
-
+			
 		END IF
-
+		
 		IF lSuccess
+			IF .not. SELF:lAlreadySavedBefore
+				SELF:AutoAdjustDialogHeight()
+			END IF
 			SELF:EndAction()
 			SELF:lLoading := FALSE
 			SELF:ArrangeControlOrder()
@@ -152,9 +172,56 @@ PARTIAL CLASS VOWindowEditor INHERIT WindowDesignerBase
 		ELSE
 			SELF:Reset()
 		ENDIF
-
+		
 	RETURN lSuccess
-
+	
+	METHOD CloneFromXml(cFileName AS STRING, cName AS STRING) AS LOGIC
+		LOCAL oNode , oWindowNode AS XmlNode
+		LOCAL oDocument AS XmlDocument
+		LOCAL lSuccess AS LOGIC
+		
+		IF ! File.Exists(cFileName)
+			RETURN FALSE
+		END IF
+		oDocument := XmlDocument{}
+		TRY
+			oDocument:Load(cFileName)
+			lSuccess := TRUE
+		CATCH
+			NOP
+		END TRY
+		IF .not. lSuccess
+			RETURN FALSE
+		END IF
+		
+		oNode := oDocument:FirstChild
+		DO WHILE oNode != NULL
+			IF oNode:Name:ToUpper() == "DESIGNERS"
+				EXIT
+			END IF
+			oNode := oNode:NextSibling
+		END DO
+		IF oNode == NULL
+			RETURN FALSE
+		END IF
+		
+		oWindowNode := oNode:FirstChild
+		
+		IF oWindowNode != NULL .and. oWindowNode:Name:ToUpper() == "VOWINDOW" .and. oWindowNode:ChildNodes:Count == 0 // empty template
+			RETURN FALSE
+		ELSE
+			DO WHILE oWindowNode != NULL
+				IF oWindowNode:Name:ToUpper() == "VOWINDOW"
+					lSuccess := SELF:OpenXml(oWindowNode)
+					SELF:StartAction(DesignerBasicActionType.SetProperty , ActionData{SELF:oWindowDesign:cGuid , "Name" , cName})
+					EXIT
+				END IF
+				oWindowNode := oWindowNode:NextSibling
+			END DO
+		END IF
+		
+	RETURN lSuccess
+	
 	METHOD OpenXml(oBaseNode AS XmlNode) AS LOGIC
 		LOCAL oDesign AS DesignWindowItem
 		LOCAL oItem AS VOWEDItem
@@ -309,6 +376,10 @@ PARTIAL CLASS VOWindowEditor INHERIT WindowDesignerBase
 						oPageNode := oPageNode:NextSibling
 					END IF
 				END DO
+			CASE cName == "SAVEDONCE"
+				IF cValue:ToUpper() == "YES"
+					SELF:lAlreadySavedBefore := TRUE
+				END IF
 			END CASE
 			oNode := oNode:NextSibling
 		END DO
@@ -423,6 +494,7 @@ PARTIAL CLASS VOWindowEditor INHERIT WindowDesignerBase
 		IF lError
 			SELF:Reset()
 		ELSE
+			SELF:AutoAdjustDialogHeight()
 			SELF:EndAction()
 			SELF:lLoading := FALSE
 			SELF:ArrangeControlOrder()
@@ -573,7 +645,7 @@ PARTIAL CLASS VOWindowEditor INHERIT WindowDesignerBase
 	RETURN
 
 	METHOD __ReadVNFrmControl(oReader AS BinaryReader) AS VOWEDItem
-		LOCAL nLeft,nRight,nTop,nBottom AS Int
+		LOCAL nLeft,nRight,nTop,nBottom AS INT
 		LOCAL nAt , nPropLength AS INT
 		LOCAL cName , cValue AS STRING
 		LOCAL cControl AS STRING
@@ -685,6 +757,30 @@ PARTIAL CLASS VOWindowEditor INHERIT WindowDesignerBase
 		ENDIF
 
 	RETURN oItem
+
+	METHOD AutoAdjustDialogHeight() AS VOID
+		LOCAL CONST nMargin := 24 AS INT
+		LOCAL nWindowBottom := SELF:oWindow:Height AS INT
+		LOCAL aDesign AS ArrayList
+	
+		IF .not. SELF:oWindowDesign:cFullClass:ToUpperInvariant():StartsWith("FORM:DIALOGWINDOW")
+			RETURN
+		ENDIF
+		LOCAL oProperty AS DesignProperty
+		oProperty := SELF:oWindowDesign:GetProperty("Caption Bar")
+		IF oProperty == NULL .or. oProperty:TextValue:ToUpperInvariant() == "NO CAPTION BAR"
+			RETURN
+		END IF
+	
+		aDesign := SELF:GetAllDesignItems(FALSE)
+		FOREACH oDesign AS DesignWindowItem IN aDesign
+			IF oDesign:Control:Bottom > nWindowBottom - nMargin
+				RETURN
+			END IF
+		NEXT
+		
+		SELF:StartAction(DesignerBasicActionType.SetProperty , ActionData{SELF:oWindowDesign:cGuid , "_Height" , nWindowBottom - nMargin})
+	RETURN
 	
 	METHOD AdjustStylesOnLoad(oItem AS VOWEDItem) AS VOID
 		// Workaround to include styles that were not being saved in builds <= 161.1
@@ -873,6 +969,9 @@ PARTIAL CLASS VOWindowEditor INHERIT WindowDesignerBase
 		LOCAL n AS INT
 		
 		oItem := oDesign:GetWedItem()
+		IF oDesign:IsForm
+			Funcs.AppendElement(oDocument , oParentNode , "SavedOnce" , TRUE)
+		END IF
 		Funcs.AppendElement(oDocument , oParentNode , "Name" , oItem:cName)
 		Funcs.AppendElement(oDocument , oParentNode , "Class" , oItem:cControl)
 		Funcs.AppendElement(oDocument , oParentNode , "Caption" , oItem:cCaption)
@@ -991,4 +1090,5 @@ CLASS VODesignersException INHERIT Exception
 		SUPER(cMessage)
 	RETURN
 END CLASS
+
 

@@ -7,11 +7,14 @@ using System.Threading.Tasks;
 using XSharp.MacroCompiler;
 
 namespace XSharp.Runtime
+{
+    using ObjectCompilation = Compilation<Object, XSharp.MacroCompiler.ObjectMacro.MacroCodeblockDelegate>;
+    using UsualCompilation = Compilation<__Usual, XSharp.MacroCompiler.UsualMacro.MacroCodeblockDelegate>;
+    public class MacroCompiler : IMacroCompiler2, IMacroCompilerUsual
     {
-    public class MacroCompiler : IMacroCompiler2
-    {
-        private  MacroOptions options;
-        internal Compilation<object, RuntimeCodeblockDelegate> compiler;
+        private MacroOptions options;
+        private ObjectCompilation objectCompiler;
+        private UsualCompilation usualCompiler;
 
         public MacroCompilerResolveAmbiguousMatch Resolver
         {
@@ -25,26 +28,37 @@ namespace XSharp.Runtime
             }
         }
 
-        public MacroCompiler(): this(RuntimeState.Dialect == XSharpDialect.FoxPro ? MacroOptions.FoxPro : MacroOptions.VisualObjects) { }
+        public MacroCompiler() : this(RuntimeState.Dialect == XSharpDialect.FoxPro ? MacroOptions.FoxPro : MacroOptions.VisualObjects) { }
 
         public MacroCompiler(MacroOptions o)
         {
             options = o;
             options.AllowSingleQuotedStrings = true;
-            GetCompiler(true);
         }
 
         public MacroOptions Options => options;
 
 
-        private Compilation<object, RuntimeCodeblockDelegate>  GetCompiler(bool lVo)
+        internal ObjectCompilation GetObjectCompiler(bool lVo)
         {
-            if (Options.AllowOldStyleComments != lVo || compiler == null)
+            if (Options.AllowOldStyleComments != lVo || objectCompiler == null)
             {
                 options.AllowSingleQuotedStrings = lVo;
-                compiler = Compilation.Create<object, RuntimeCodeblockDelegate>(options);
+                objectCompiler = ObjectCompilation.Create(options);
+                usualCompiler = null;
             }
-            return compiler;
+            return objectCompiler;
+        }
+
+        internal UsualCompilation GetUsualCompiler(bool lVo)
+        {
+            if (Options.AllowOldStyleComments != lVo || usualCompiler == null)
+            {
+                options.AllowSingleQuotedStrings = lVo;
+                usualCompiler = UsualCompilation.Create(options);
+                objectCompiler = null;
+            }
+            return usualCompiler;
         }
 
         public ICodeblock Compile(string macro, bool lAllowSingleQuotes, Module module, out bool isCodeblock, out bool addsMemVars)
@@ -52,25 +66,63 @@ namespace XSharp.Runtime
         {
             isCodeblock = macro.Replace(" ", "").StartsWith("{|");
             addsMemVars = false;
-            Compilation<object, RuntimeCodeblockDelegate> compiler = GetCompiler(lAllowSingleQuotes);
+            ObjectCompilation compiler = GetObjectCompiler(lAllowSingleQuotes);
             var m = compiler.Compile(macro);
             if (m.Diagnostic != null)
             {
                 throw m.Diagnostic;
             }
             addsMemVars = m.CreatesAutoVars;
-            return new RuntimeCodeblock(m.Macro, m.ParamCount);
+            if (addsMemVars)
+            {
+                addsMemVars = false;
+                return new XSharp.MacroCompiler.ObjectMacro.MacroMemVarCodeblock(m.Macro, m.ParamCount);
+            }
+            else
+                return new XSharp.MacroCompiler.ObjectMacro.MacroCodeblock(m.Macro, m.ParamCount);
         }
 
         public ICodeblock Compile(string macro)
         {
-            Compilation<object, RuntimeCodeblockDelegate> compiler = GetCompiler(true);
+            ObjectCompilation compiler = GetObjectCompiler(true);
             var m = compiler.Compile(macro);
             if (m.Diagnostic != null)
             {
                 throw m.Diagnostic;
             }
-            return new RuntimeCodeblock(m.Macro, m.ParamCount);
+            if (m.CreatesAutoVars)
+                return new XSharp.MacroCompiler.ObjectMacro.MacroMemVarCodeblock(m.Macro, m.ParamCount);
+            return new XSharp.MacroCompiler.ObjectMacro.MacroCodeblock(m.Macro, m.ParamCount);
+        }
+
+        public _Codeblock CompileCodeblock(string macro, bool lAllowSingleQuotes, Module module)
+        {
+            var isCodeblock = macro.Replace(" ", "").StartsWith("{|");
+            var addsMemVars = false;
+            UsualCompilation compiler = GetUsualCompiler(lAllowSingleQuotes);
+            var m = compiler.Compile(macro);
+            if (m.Diagnostic != null)
+            {
+                throw m.Diagnostic;
+            }
+            addsMemVars = m.CreatesAutoVars;
+            if (addsMemVars)
+                return new XSharp.MacroCompiler.UsualMacro.MacroMemVarCodeblock(m.Macro, m.ParamCount, macro, isCodeblock);
+            else
+                return new XSharp.MacroCompiler.UsualMacro.MacroCodeblock(m.Macro, m.ParamCount, macro, isCodeblock);
+        }
+
+        public _Codeblock CompileCodeblock(string macro)
+        {
+            UsualCompilation compiler = GetUsualCompiler(true);
+            var m = compiler.Compile(macro);
+            if (m.Diagnostic != null)
+            {
+                throw m.Diagnostic;
+            }
+            if (m.CreatesAutoVars)
+                return new XSharp.MacroCompiler.UsualMacro.MacroMemVarCodeblock(m.Macro, m.ParamCount, macro, macro.Replace(" ", "").StartsWith("{|"));
+            return new XSharp.MacroCompiler.UsualMacro.MacroCodeblock(m.Macro, m.ParamCount, macro, macro.Replace(" ", "").StartsWith("{|"));
         }
     }
 }

@@ -9,16 +9,21 @@ USING System.Linq
 USING System.Diagnostics
 USING System.Reflection
 USING System.Text
+USING System.Runtime.Serialization
 USING XSharp
 BEGIN NAMESPACE XSharp
     /// <summary>Internal type that implements the VO Compatible ARRAY type.<br/>
     /// This type has methods and properties that normally are never directly called from user code.
     /// </summary>
-    /// <seealso cref='T:XSharp.IIndexer' />
+    /// <seealso cref='IIndexer' />
     /// <include file="RTComments.xml" path="Comments/ZeroBasedIndex/*" /> 
     //[DebuggerTypeProxy(TYPEOF(ArrayDebugView))];
-    [DebuggerDisplay("{DebuggerString(),nq}", Type := "ARRAY")] ;
-    PUBLIC SEALED CLASS __Array INHERIT __ArrayBase<USUAL> IMPLEMENTS IIndexer
+    [DebuggerDisplay("{DebuggerString(),nq}")] ;
+    [Serializable];
+    PUBLIC CLASS __Array INHERIT __ArrayBase<USUAL> IMPLEMENTS IIndexer, ISerializable
+
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)];
+        INTERNAL STATIC SuppressArrayIndexErrors := FALSE AS LOGIC  // used for Get_Element to emulate strange VO behaviour
 
         /// <inheritdoc />
         CONSTRUCTOR()
@@ -61,6 +66,16 @@ BEGIN NAMESPACE XSharp
             NEXT
             RETURN
 
+        #region ISerializable
+        /// <inheritdoc/>
+        PUBLIC OVERRIDE METHOD GetObjectData(info AS SerializationInfo, context AS StreamingContext) AS VOID
+            SUPER:GetObjectData(info, context)
+            RETURN
+            
+        /// <include file="RTComments.xml" path="Comments/SerializeConstructor/*" />
+        CONSTRUCTOR (info AS SerializationInfo, context AS StreamingContext)
+            SUPER(info, context)
+        #endregion    
         INTERNAL STATIC METHOD ArrayCreate(dimensions PARAMS INT[] ) AS ARRAY
             LOCAL count := dimensions:Length AS INT
             IF count <= 0
@@ -115,7 +130,7 @@ BEGIN NAMESPACE XSharp
                 // warning, nCount-1 below will become MAXDWORD for nCount == 0
                 RETURN aResult
             END IF
-            FOR VAR i := 0 TO nCount-1
+            FOR VAR i := 0 UPTO nCount-1
                 VAR u := _internalList[i]
                 IF u:IsArray
                     VAR aElement := (ARRAY) u
@@ -137,9 +152,9 @@ BEGIN NAMESPACE XSharp
         /// <include file="RTComments.xml" path="Comments/ZeroBasedIndexProperty/*" /> 
         /// <param name="index"><include file="RTComments.xml" path="Comments/ZeroBasedIndexParam/*" /></param>
         /// <returns>The value of the property of the element stored at the indicated location in the array.</returns>
-        NEW PUBLIC PROPERTY SELF[index AS INT] AS USUAL
+        NEW VIRTUAL PUBLIC PROPERTY SELF[index AS INT] AS USUAL
             GET
-                RETURN __GetElement(index)
+                RETURN SELF:__GetElement(index)
             END GET
             SET
                 SELF:__SetElement(value,index)
@@ -151,9 +166,9 @@ BEGIN NAMESPACE XSharp
         /// <param name="index"><include file="RTComments.xml" path="Comments/ZeroBasedIndexParam/*" /></param>
         /// <param name="index2"><include file="RTComments.xml" path="Comments/ZeroBasedIndexParam/*" /></param>
         /// <returns>The value of the property of the element stored at the indicated location in the array.</returns>
-        NEW PUBLIC PROPERTY SELF[index AS INT, index2 AS INT] AS USUAL
+        NEW VIRTUAL PUBLIC PROPERTY SELF[index AS INT, index2 AS INT] AS USUAL
             GET
-                RETURN __GetElement(index,index2)
+                RETURN SELF:__GetElement(index,index2)
             END GET
             SET
                 SELF:__SetElement(value,index,index2)
@@ -165,9 +180,9 @@ BEGIN NAMESPACE XSharp
         /// <include file="RTComments.xml" path="Comments/ZeroBasedIndexProperty/*" /> 
         /// <param name="indices"><include file="RTComments.xml" path="Comments/ZeroBasedIndexParam/*" /></param>
         /// <returns>The value of the property of the element stored at the indicated location in the array.</returns>
-        PUBLIC PROPERTY SELF[indices PARAMS INT[]] AS USUAL
+        VIRTUAL PUBLIC PROPERTY SELF[indices PARAMS INT[]] AS USUAL
             GET
-                RETURN __GetElement(indices)
+                RETURN SELF:__GetElement(indices)
             END GET
             SET
                 SELF:__SetElement(value,indices)
@@ -181,28 +196,54 @@ BEGIN NAMESPACE XSharp
         NEW INTERNAL METHOD Swap(position AS INT, element AS USUAL) AS USUAL
             RETURN SUPER:Swap(position, element)
 
+        PROTECTED METHOD __CheckArrayElement(a as ARRAY, index AS INT, name as string, pos as int) AS VOID
+            IF index < 0 .OR. index >= a:_internalList:Count
+                VAR err := Error.BoundError(ProcName(1),name, (DWORD) pos, {index+1})
+                err:Stack   := ErrorStack(1)
+                var length := a:_internalList:Count
+                err:Description := i"Bound error: Index ({index+1}) exceeds length of (Sub)Array ({length})"
+                THROW err
+            ENDIF
+            RETURN
 
+        PRIVATE STATIC METHOD __NotAnArray(name as string , pos as INT, args as OBJECT[]) AS Exception
+            VAR err         := Error.BoundError(ProcName(1),name, (DWORD) pos, args)
+            err:Description := "Bound error: "+VO_Sprintf(VOErrors.USUALNOTINDEXED, typeof(IIndexedProperties):FullName)
+            err:Stack   := ErrorStack(1)
+            RETURN err
 
         /// <include file="RTComments.xml" path="Comments/ZeroBasedIndexProperty/*" />
         /// <param name="index"><include file="RTComments.xml" path="Comments/ZeroBasedIndexParam/*" /></param>
         /// <returns>The element stored at the specified location in the array.</returns>
         NEW PUBLIC METHOD __GetElement(index AS INT) AS USUAL
-			RETURN SELF:_internalList[ index ]
+            // VO always throws an error when a single dimension is passed and this dimension is not correct
+            SELF:__CheckArrayElement(SELF, index, nameof(index),1)
+            RETURN SELF:_internalList[ index ]
 
         /// <include file="RTComments.xml" path="Comments/ZeroBasedIndexProperty/*" />
         /// <param name="index"><include file="RTComments.xml" path="Comments/ZeroBasedIndexParam/*" /></param>
         /// <returns>The element stored at the specified location in the array.</returns>
-        PUBLIC METHOD __GetElement(index AS INT, index2 AS INT) AS USUAL
+        PUBLIC VIRTUAL METHOD __GetElement(index AS INT, index2 AS INT) AS USUAL
+            // VO Throws an exception when the first dimension is incorrect but not
+            // when another dimension is incorrect. That is why we have a TRY CATCH for the second dimension
+            SELF:__CheckArrayElement(SELF, index, nameof(index),1)
             VAR u := SELF:_internalList[ index ]
             TRY
                 IF u:IsArray
                     VAR a := (ARRAY) u
+                    SELF:__CheckArrayElement(a, index2, nameof(index2),2)
                     RETURN a:_internalList [index2]
+                ELSEIF u:IsIndexed
+                    // not an array, so we call the index operation on the usual, 
+                    // this will handle special cases such as indexing a string for Xbase++
+                    RETURN u[index2+1]
                 ENDIF
-                // not an array, so we call the index operation on the usual, 
-                // this will handle special cases such as indexing a string for Xbase++ 
-                RETURN u[index2+1]
-            CATCH
+                THROW __NotAnArray(nameof(index2), 2, <OBJECT>{index+1, index2+1})
+                
+            CATCH as Exception
+                IF !SuppressArrayIndexErrors
+                    THROW
+                ENDIF
                 // This does not make sense, but that is the way  VO does it.
                 // when aTest := {1,2,3}
                 // ? aTest[1,1] is allowed and returns NIL !
@@ -214,38 +255,64 @@ BEGIN NAMESPACE XSharp
         /// <include file="RTComments.xml" path="Comments/ZeroBasedIndexProperty/*" />
         /// <param name="indices"><include file="RTComments.xml" path="Comments/ZeroBasedIndexParam/*" /></param>
         /// <returns>The element stored at the specified location in the array.</returns>
-        PUBLIC METHOD __GetElement(indices PARAMS INT[]) AS USUAL
+        PUBLIC VIRTUAL METHOD __GetElement(indices PARAMS INT[]) AS USUAL
             LOCAL length := indices:Length AS INT
             LOCAL currentArray AS ARRAY
             LOCAL i AS INT
             LOCAL u AS USUAL
+            LOCAL firstDimension as LOGIC
             u := SELF
-            FOR i:= 1  UPTO length  -1 // walk all but the last level
-                currentArray := (ARRAY) u
-                u := currentArray:_internalList[ indices[i] ] 
-                IF u:IsNil
-                    RETURN u
+            firstDimension := TRUE
+            TRY
+                LOCAL index as INT
+                
+                FOR i:= 1  UPTO length  -1 // walk all but the last level
+                    currentArray := (ARRAY) u
+                    index := indices[i]
+                    SELF:__CheckArrayElement(currentArray, index, nameof(indices),1)
+                    u := currentArray:_internalList[ index ] 
+                    firstDimension := FALSE
+                    IF (OBJECT) u IS IIndexedProperties .AND. i == length-1
+                        LOCAL o := (IIndexedProperties) (OBJECT) u AS IIndexedProperties
+                        RETURN o[indices[length]]
+                    ENDIF
+                    IF !u:IsArray
+                        THROW __NotAnArray(nameof(indices), i+1, SELF:_adjustArguments(indices))
+                    ENDIF
+                NEXT
+                index := indices[length]
+                IF u:IsArray
+                   currentArray := (ARRAY) u
+                   SELF:__CheckArrayElement(currentArray, index, nameof(indices),length)
+                   RETURN currentArray:_internalList[ index ]
+                ELSEIF u:IsIndexed
+	                // Call the array operator on the usual class to support substring and bittest operations.
+                    RETURN u[index +1]
                 ENDIF
-                IF (OBJECT) u IS IIndexedProperties .AND. i == length-1
-                    LOCAL o := (IIndexedProperties) (OBJECT) u AS IIndexedProperties
-                    RETURN o[indices[length]]
+                
+                THROW __NotAnArray(nameof(indices), i, SELF:_adjustArguments(indices))
+           CATCH as Exception
+                IF !SuppressArrayIndexErrors .or. firstDimension
+                    THROW
                 ENDIF
                 // This does not make sense, but that is the way  VO does it.
                 // when aTest := {1,2,3}
                 // ? aTest[1,1] is allowed and returns NIL !
                 // but when aTest is not an array at all then it fails
-                IF !u:IsArray
-                    EXIT
-                ENDIF
-            NEXT
-            IF u:IsArray
-               currentArray := (ARRAY) u
-               RETURN currentArray:_internalList[ indices[i] ]
+                RETURN NIL
+            END TRY
+            
+        PRIVATE METHOD _adjustArguments(indices AS INT[], u := NIL as USUAL) AS OBJECT[]
+            VAR result := List<OBJECT>{}
+            IF! u:IsNil
+                result:Add(u)
             ENDIF
-	    // Call the array operator on the usual class to support substring and bittest operations.
-            RETURN u[indices[length] +1]
+            foreach var index in indices
+                result:Add(index+1)
+            next
+            return result:ToArray()
 
-        INTERNAL METHOD DebuggerString() AS STRING
+        PROTECTED VIRTUAL METHOD DebuggerString() AS STRING
             LOCAL sb AS StringBuilder
             LOCAL cnt, tot AS LONG
             sb := StringBuilder{}
@@ -273,9 +340,10 @@ BEGIN NAMESPACE XSharp
         /// <include file="RTComments.xml" path="Comments/ZeroBasedIndexProperty/*" />
         /// <param name="index"><include file="RTComments.xml" path="Comments/ZeroBasedIndexParam/*" /></param>
         /// <returns>The element stored at the specified location in the array.</returns>
-        NEW PUBLIC METHOD __SetElement(u AS USUAL, index AS INT) AS USUAL
+        NEW PUBLIC VIRTUAL METHOD __SetElement(u AS USUAL, index AS INT) AS USUAL
             IF SELF:CheckLock()
-               SELF:_internalList[ index ] := u
+                SELF:__CheckArrayElement(SELF, index, nameof(index),1)
+                SELF:_internalList[ index ] := u
             ENDIF
             RETURN u
 
@@ -284,13 +352,16 @@ BEGIN NAMESPACE XSharp
         /// <param name="index"><include file="RTComments.xml" path="Comments/ZeroBasedIndexParam/*" /></param>
         /// <param name="index2"><include file="RTComments.xml" path="Comments/ZeroBasedIndexParam/*" /></param>
         /// <returns>The element stored at the specified location in the array.</returns>
-        PUBLIC METHOD __SetElement(u AS USUAL, index AS INT, index2 AS INT) AS USUAL
+        PUBLIC VIRTUAL METHOD __SetElement(u AS USUAL, index AS INT, index2 AS INT) AS USUAL
             IF SELF:CheckLock()
-		VAR uElement := SELF:_internalList[ index ]
+                SELF:__CheckArrayElement(SELF, index, nameof(index),1)
+		        VAR uElement := SELF:_internalList[ index ]
                 IF !uElement:IsArray
-                    THROW Error{ArgumentOutOfRangeException{nameof(index2)}}
+                    THROW __NotAnArray(nameof(index2), 3, <OBJECT>{u, index+1, index2+1})
                 ENDIF
-		VAR a := (ARRAY) uElement
+                LOCAL a := NULL as array
+    		    a := (ARRAY) uElement
+                SELF:__CheckArrayElement(a, index2, nameof(index2),2)
                 a:_internalList [index2] := u
             ENDIF
             RETURN u
@@ -301,20 +372,22 @@ BEGIN NAMESPACE XSharp
         /// <param name="indices"><include file="RTComments.xml" path="Comments/ZeroBasedIndexParam/*" /></param>
         /// <param name='u'>New element to store in the array at the position specified</param>
         /// <returns>The new element</returns>
-        PUBLIC METHOD __SetElement(u AS USUAL, indices PARAMS INT[] ) AS USUAL
+        PUBLIC VIRTUAL METHOD __SetElement(u AS USUAL, indices PARAMS INT[] ) AS USUAL
             // indices are 0 based
             IF SELF:CheckLock()
                 LOCAL length := indices:Length AS INT
                 LOCAL currentArray := SELF AS ARRAY
                 FOR VAR i := 1 UPTO length-1
-                    LOCAL uArray := currentArray:_internalList[indices[i]] AS USUAL
+                    var index := indices[i]
+                    SELF:__CheckArrayElement(currentArray, index, nameof(indices),i+1)
+                    LOCAL uArray := currentArray:_internalList[index] AS USUAL
                     IF (OBJECT) u IS IIndexedProperties .AND. i == length-1
                         LOCAL o := (IIndexedProperties) (OBJECT) u AS IIndexedProperties
                         o[indices[length]] := u
                         RETURN u
                     ENDIF
                     IF ! uArray:IsArray
-                        THROW Error{ArgumentOutOfRangeException{nameof(indices)}}
+                        THROW __NotAnArray(nameof(indices), i+1, SELF:_adjustArguments(indices,u))
                     ENDIF
                     currentArray := (ARRAY) uArray
                 NEXT
@@ -378,7 +451,7 @@ BEGIN NAMESPACE XSharp
             RETURN
         /// <exclude/>
         PUBLIC METHOD Invoke(index PARAMS INT[]) AS USUAL
-            FOR VAR i := 1 TO index:Length 
+            FOR VAR i := 1 UPTO index:Length 
                 index[i] -= 1
             NEXT
             RETURN SELF:__GetElement(index)
@@ -397,3 +470,27 @@ BEGIN NAMESPACE XSharp
 
 
 END NAMESPACE
+
+/// <summary>Suppress Array Index check to be compatible with Visual Objects</summary>
+/// <param name="lCheck">TRUE to enable the array index checks. </param>
+/// <returns>The previous setting of the flag</returns>
+/// <summary>In some situations Visual Objects did not throw a runtime error when you were accessing a non existing array element. <br/>
+/// You can enable this (mis)behaviour in X# by disabling the array index checks.<br/>
+/// The default behavior is to generate an error when you access array indices out of the existing range.
+/// </summary>
+/// <example>
+/// // The following code does not throw a runtime error but displays NIL for u[1,1]
+/// // To get the same behavior in X# you need to call EnableArrayIndexCheck(FALSE)
+/// FUNCTION Start 
+/// LOCAL u AS USUAL
+/// u := {1,2,3}
+/// ? u[1,1]
+/// WAIT
+/// RETURN TRUE
+/// </example>
+
+FUNCTION EnableArrayIndexCheck(lCheck as LOGIC) AS LOGIC
+    LOCAL lOld as LOGIC
+    lOld := ! XSharp.__Array.SuppressArrayIndexErrors
+    XSharp.__Array.SuppressArrayIndexErrors := !lCheck
+    RETURN lOld

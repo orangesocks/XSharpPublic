@@ -685,6 +685,10 @@ FUNCTION AsPsz(u AS __Usual) AS PSZ
 [Obsolete] ;
 FUNCTION ErrorCount(dw AS USUAL) AS DWORD
 	RETURN 0  
+/// <exclude/>
+[Obsolete] ;
+FUNCTION ErrorCount() AS DWORD
+	RETURN 0  
 
 /// <exclude/>
 [Obsolete] ;
@@ -730,11 +734,6 @@ FUNCTION CompString() AS INT
 [Obsolete] ;
 FUNCTION SBTODB(c AS STRING) AS STRING
 	RETURN String.Empty   
-
-/// <exclude/>
-[ObsoleteAttribute( "'SysObject()' is not supported", TRUE )] ;
-FUNCTION SysObject(o) AS OBJECT CLIPPER
-   RETURN NIL
 
 
 /// <exclude/>

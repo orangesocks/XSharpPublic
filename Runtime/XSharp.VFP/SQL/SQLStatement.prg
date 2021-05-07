@@ -13,7 +13,6 @@ USING System.Data
 USING System.Diagnostics
 USING System.Threading
 USING XSharp.VFP
-USING System.Reflection
 USING XSharp.RDD
 USING XSharp.RDD.Enums
 
@@ -62,15 +61,15 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
 
 
     METHOD SetDefaults() AS VOID
-        SELF:Asynchronous       := (LOGIC) SQLSupport.GetDefault(SQLProperty.Asynchronous)
-        SELF:BatchMode          := (LOGIC) SQLSupport.GetDefault(SQLProperty.BatchMode)
-        SELF:DisconnectRollback := (LOGIC) SQLSupport.GetDefault(SQLProperty.DisconnectRollback)
-        SELF:DispWarnings       := (LOGIC) SQLSupport.GetDefault(SQLProperty.DispWarnings)
-        SELF:IdleTimeout        := (LONG) SQLSupport.GetDefault(SQLProperty.IdleTimeout)
-        SELF:PacketSize         := (LONG) SQLSupport.GetDefault(SQLProperty.PacketSize)
+        SELF:Asynchronous       := SQLSupport.GetDefault<LOGIC>(SQLProperty.Asynchronous)
+        SELF:BatchMode          := SQLSupport.GetDefault<LOGIC>(SQLProperty.BatchMode)
+        SELF:DisconnectRollback := SQLSupport.GetDefault<LOGIC>(SQLProperty.DisconnectRollback)
+        SELF:DispWarnings       := SQLSupport.GetDefault<LOGIC>(SQLProperty.DispWarnings)
+        SELF:IdleTimeout        := SQLSupport.GetDefault<LONG>(SQLProperty.IdleTimeout)
+        SELF:PacketSize         := SQLSupport.GetDefault<LONG>(SQLProperty.PacketSize)
         SELF:Prepared           := FALSE
-        SELF:TransactionMode    := (LONG) SQLSupport.GetDefault(SQLProperty.Transactions)
-        SELF:WaitTime           := (LONG) SQLSupport.GetDefault(SQLProperty.WaitTime)
+        SELF:TransactionMode    := SQLSupport.GetDefault<LONG>(SQLProperty.Transactions)
+        SELF:WaitTime           := SQLSupport.GetDefault<LONG>(SQLProperty.WaitTime)
         SELF:_aSyncState        := AsyncState.Idle
 
     PRIVATE METHOD _AllocateCommand() AS VOID
@@ -96,18 +95,17 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
         aStruct := ArrayNew( (DWORD) nFields)
         nFields := 1
         FOREACH schemaRow AS DataRow IN oSchema:Rows
-            VAR fieldInfo     := FromSchema(schemaRow, aFieldNames)
+            VAR fieldInfo     := SQLHelpers.GetColumnInfoFromSchemaRow(schemaRow, aFieldNames)
             fieldInfo:Ordinal := nFields
             aStruct[nFields]  := {fieldInfo:Name, fieldInfo:FieldTypeStr, fieldInfo:Length, fieldInfo:Decimals, fieldInfo:ColumnName, fieldInfo:Flags, fieldInfo}
             nFields++
         NEXT
         nFields := aStruct:Count
         VAR cTemp := System.IO.Path.GetTempFileName()
-        DbCreate(cTemp, aStruct, "DBFVFP")
-        VAR nArea := _SelectString(cCursorName)
-        IF nArea != 0
-            DbCloseArea()
-        ENDIF
+        SELF:CloseArea(cCursorName)
+        // We do not use DBFVFPSQL because that driver deletes the file !
+        DbCreate(cTemp, aStruct, "DBFVFP", TRUE, cCursorName)  
+        SELF:CloseArea(cCursorName)
         VoDbUseArea(TRUE, "DBFVFPSQL",cTemp,cCursorName,FALSE,FALSE)
         LOCAL oRDD AS IRdd
         oRDD := (IRdd) DbInfo(DbInfo.DBI_RDD_OBJECT)
@@ -118,56 +116,6 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
             oRDD:FieldInfo(nI, DBS_COLUMNINFO, fieldInfo)
         NEXT
         RETURN oRDD
-       
-
-
-
-
-    PRIVATE METHOD _CopyFromReaderToRDD(oDataReader AS DbDataReader, oRDD AS IRdd) AS LOGIC
-        LOCAL oMIGet := NULL AS MethodInfo 
-        VAR nFields := oRDD:FieldCount
-        VAR nCounter := 0 
-        // DBFVFPSQL has a method SetData to set all the values of the current row.
-        oMIGet := oRDD:GetType():GetMethod("GetData", BindingFlags.Instance+BindingFlags.IgnoreCase+BindingFlags.Public)
-        IF oMIGet != NULL
-            VAR GetData := (SqlGetData) oMIGet:CreateDelegate(typeof(SqlGetData), oRDD) 
-            DO WHILE oDataReader:Read()
-                oRDD:Append(TRUE)
-                // Get the data array from the workarea
-                VAR data := GetData()
-                // and fetch its values. This automatically updates the array that is owned by the RDD
-                oDataReader:GetValues(data)
-                IF SELF:Asynchronous .AND. ++nCounter % 100 == 0
-                    IF SELF:_aSyncState == AsyncState.Cancelling
-                        EXIT
-                    ENDIF
-                ENDIF
-            ENDDO
-        ELSE
-            VAR data := OBJECT[]{nFields+1}  // 1 extra for the NullFlags
-            DO WHILE oDataReader:Read()
-                oRDD:Append(TRUE)
-                // use our local data array
-                oDataReader:GetValues(data)
-                // and write the values to the RDD
-                FOR VAR nFld := 1 UPTO nFields
-                    oRDD:PutValue(nFld, data[nFld])
-                NEXT
-                IF SELF:Asynchronous .AND. ++nCounter % 100 == 0
-                    IF SELF:_aSyncState == AsyncState.Cancelling
-                        EXIT
-                    ENDIF
-                ENDIF
-            ENDDO
-        ENDIF
-        RETURN TRUE
-
-
-    PRIVATE METHOD _CreateWorkarea(oSchema AS DataTable, oDataReader AS DbDataReader, cCursorName AS STRING) AS LOGIC
-        LOCAL oRDD AS IRdd
-        oRDD := SELF:CreateFile(oSchema, cCursorName)
-        SELF:_CopyFromReaderToRDD(oDataReader, oRDD) 
-        RETURN TRUE
 
 
     PRIVATE METHOD _ReturnsRows(cCommand AS STRING) AS LOGIC
@@ -280,7 +228,7 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
 
 
     PRIVATE METHOD _SaveResult(aInfo AS ARRAY) AS LONG
-        CopyToInfo(_aQueryResult, aInfo)
+        SELF:CopyToInfo(_aQueryResult, aInfo)
         IF SELF:_lastException != NULL
             RETURN -1
         ENDIF
@@ -409,21 +357,18 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
                 SELF:_oLastDataReader := oDataReader
             END LOCK
             DO WHILE TRUE
-                VAR oSchema := oDataReader:GetSchemaTable()
                 VAR cursorName := SELF:CursorName
                 IF cursorNo != 0
                     cursorName += cursorNo:ToString()
                 ENDIF
-                LOCAL oRDD AS IRdd
-                oRDD := SELF:CreateFile(oSchema, cursorName)
-                SELF:_CopyFromReaderToRDD(oDataReader, oRDD)
+                VAR oRDD := SELF:CreateArea(oDataReader, cursorName)
                 aResults:Add(oRDD)
                 IF SELF:_aSyncState == AsyncState.Cancelling
                     EXIT
                 ENDIF
-                IF ! oDataReader:NextResult()
+                //IF ! oDataReader:NextResult()
                     EXIT
-                ENDIF
+                //ENDIF
             ENDDO
             BEGIN LOCK SELF
                 SELF:_aResult    := aResults
@@ -489,7 +434,36 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
             _aQueryResult := {{"", result}}
         ENDIF
 
-    
+    PRIVATE METHOD OnRowChanged(sender as OBJECT, e as DataRowChangeEventArgs) AS VOID
+        IF SELF:_aSyncState == AsyncState.Cancelling
+            SELF:_oLastDataReader:Close()   // this aborts the load
+        ENDIF
+        RETURN
+
+    PRIVATE METHOD CreateArea(oDataReader AS DbDataReader, cCursorName as STRING) AS IRdd
+        VAR oSchema := oDataReader:GetSchemaTable()
+        VAR oRDD := SELF:CreateFile(oSchema, cCursorName)
+        local oDataTable as DbDataTable
+        TRY
+            oDataTable := DbDataTable{}
+            oDataTable:RowChanged += OnRowChanged
+            oDataTable:Load(oDataReader)
+            oDataTable:RowChanged -= OnRowChanged
+            IF ! SQLReflection.SetPropertyValue(oRDD,"DataTable",oDataTable)
+                RuntimeState.LastRddError := Error{"Internal error: Could not locate the DataTable property of the SQL RDD"}
+                oRDD := NULL
+            ENDIF
+        CATCH e as Exception
+            IF SELF:_aSyncState == AsyncState.Cancelling
+                RuntimeState.LastRddError := Exception{"SQLExec Cancelled"}
+            ELSE
+                RuntimeState.LastRddError := e
+            ENDIF
+            oRDD := NULL
+        END TRY
+        RETURN oRDD
+        
+
     PRIVATE METHOD CopyToCursor() AS VOID
         TRY
             SELF:_CloseReader()
@@ -497,7 +471,7 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
             IF SELF:_ReturnsRows(SELF:_oNetCommand:CommandText)
                 VAR oDataReader := SELF:_oNetCommand:ExecuteReader()
                 SELF:_WriteOutParameters()
-                CopyToCursor(oDataReader, 0)
+                SELF:CopyToCursor(oDataReader, 0)
             ELSE
                 VAR result := SELF:_oNetCommand:ExecuteNonQuery()
                 SELF:_WriteOutParameters()
@@ -517,17 +491,16 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
             IF cursorNo != 0
                 cursorName += cursorNo:ToString()
             ENDIF
-    		oDataReader := SELF:Connection:Factory:AfterOpen(oDataReader)
-            VAR oSchema := oDataReader:GetSchemaTable()
-            SELF:_CreateWorkarea(oSchema, oDataReader, cursorName)
-            AAdd(result, {cursorName, RecCount()})
+            oDataReader := SELF:Connection:Factory:AfterOpen(oDataReader)
+            VAR oRDD := SELF:CreateArea(oDataReader, cursorName)
+            AAdd(result, {oRDD:Alias, oRDD:RecCount})
             cursorNo += 1
             IF ! SELF:BatchMode
                 _oLastDataReader := oDataReader
                 _nextCursorNo    := cursorNo
                 EXIT
             ENDIF
-            IF ! oDataReader:NextResult()
+            IF oDataReader:IsClosed .or. ! oDataReader:HasRows
                 EXIT
             ENDIF
         ENDDO
@@ -535,15 +508,13 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
         RETURN 
 
 
-
-
     METHOD MoreResults(cursorName AS STRING, aInfo AS ARRAY) AS LONG
         IF !String.IsNullOrEmpty(cursorName)
             SELF:CursorName := cursorName
             SELF:_nextCursorNo := 0
         ENDIF
-        IF _oLastDataReader != NULL .AND. _oLastDataReader:NextResult()
-            CopyToCursor(_oLastDataReader, _nextCursorNo)
+        IF _oLastDataReader != NULL .and. ! _oLastDataReader:IsClosed .AND. _oLastDataReader:HasRows 
+            SELF:CopyToCursor(_oLastDataReader, _nextCursorNo)
             RETURN SELF:_SaveResult(aInfo)
         ENDIF
         ASize(aInfo,1)
@@ -562,6 +533,11 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
         NEXT        
         RETURN nRestrictions  
 
+    PRIVATE METHOD CloseArea(cArea as STRING) AS VOID
+        var nArea := VoDb.SymSelect(cArea)
+        IF nArea > 0
+            DbCloseArea()
+        ENDIF
 
     #region MetaData
    METHOD GetTables(cType AS STRING, cCursorName AS STRING) AS LOGIC
@@ -584,12 +560,12 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
         LOCAL nRestrictions AS LONG
         oTables := List<DataTable>{}
         
-        nRestrictions := GetNumRestrictions("Tables") 
+        nRestrictions := SELF:GetNumRestrictions("Tables") 
         filter := STRING[]{nRestrictions}
         oTable := SELF:Connection:NetConnection:GetSchema("Tables", filter)
         oTables:Add(oTable)
         
-        nRestrictions := GetNumRestrictions("Views")
+        nRestrictions := SELF:GetNumRestrictions("Views")
         filter := STRING[]{nRestrictions}
         oTable := SELF:Connection:NetConnection:GetSchema("Views", filter)
         oTables:Add(oTable)
@@ -603,10 +579,7 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
         aStruct[5] := {"REMARKS","C:0",254,0}
         VAR cTemp := System.IO.Path.GetTempFileName()
         DbCreate(cTemp, aStruct, "DBFVFP")
-        VAR nArea := _SelectString(cCursorName)
-        IF nArea != 0
-            DbCloseArea()
-        ENDIF
+        SELF:CloseArea(cCursorName)
         VoDbUseArea(TRUE, "DBFVFPSQL",cTemp,cCursorName,FALSE,FALSE)
         LOCAL oRDD AS IRdd
         oRDD := (IRdd) DbInfo(DbInfo.DBI_RDD_OBJECT)
@@ -644,7 +617,7 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
         LOCAL oRDD AS IRdd
         oRDD := (IRdd) DbInfo(DbInfo.DBI_RDD_OBJECT)
         FOREACH schemaRow AS DataRow IN oSchema:Rows
-            VAR fieldInfo    := FromSchema(schemaRow, aFieldNames)
+            VAR fieldInfo    := SQLHelpers.GetColumnInfoFromSchemaRow(schemaRow, aFieldNames)
             oRDD:Append(TRUE)
             oRDD:PutValue(1, fieldInfo:Name)
             oRDD:PutValue(2, Left(fieldInfo:FieldTypeStr,1))
@@ -658,7 +631,7 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
         LOCAL filter AS STRING[]
         LOCAL oTable AS DataTable
         LOCAL nRestrictions AS LONG
-        nRestrictions := GetNumRestrictions("Columns") 
+        nRestrictions := SELF:GetNumRestrictions("Columns") 
         filter := STRING[]{nRestrictions}
         filter[3] := cTableName
         SELF:_CloseReader()
@@ -686,10 +659,7 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
         aStruct[19] := {"SS_DATA_TY","I:0",4,0}
         VAR cTemp := System.IO.Path.GetTempFileName()
         DbCreate(cTemp, aStruct, "DBFVFP")
-        VAR nArea := _SelectString(cCursorName)
-        IF nArea != 0
-            DbCloseArea()
-        ENDIF
+        SELF:CloseArea(cCursorName)
         VoDbUseArea(TRUE, "DBFVFPSQL",cTemp,cCursorName,FALSE,FALSE)
         LOCAL oRDD AS IRdd
         oRDD := (IRdd) DbInfo(DbInfo.DBI_RDD_OBJECT)
@@ -709,198 +679,18 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
         ENDIF
         SWITCH cType:ToUpper()
         CASE "FOXPRO"
-            RETURN GetColumnsFox(cTableName, cCursorName)
+            RETURN SELF:GetColumnsFox(cTableName, cCursorName)
         CASE "NATIVE"
-            RETURN GetColumnsNative(cTableName, cCursorName)
+            RETURN SELF:GetColumnsNative(cTableName, cCursorName)
         END SWITCH
         RETURN FALSE
     #endregion
 
 
    
-    STATIC METHOD FromSchema(schemaRow AS DataRow, aFieldNames AS IList<STRING>) AS XSharp.RDD.DbColumnInfo
-		LOCAL nLen, nDec AS LONG
-		LOCAL cType AS STRING
-		LOCAL oType	AS System.Type
-		LOCAL TC AS TypeCode
-        LOCAL result AS DbColumnInfo
-        LOCAL columnName AS STRING
-        columnName   := schemaRow["ColumnName"]:ToString( )
-        oType   := (Type) schemaRow["DataType"]
-		TC      := Type.GetTypeCode(oType)
-		nDec    := 0
-		SWITCH TC
-		CASE TypeCode.String 
-			cType   := "C"
-			nLen    := (Int32)schemaRow["ColumnSize"]
-			// Automatically Convert Long Strings to Memos
-			IF nLen  > 255 .OR. nLen < 0
-				nLen    := 4
-				cType   := "M"
-            ENDIF
-            result := DbColumnInfo{columnName,cType,nLen ,0 }
-			
-		CASE TypeCode.Boolean
-			result := DbColumnInfo{columnName,"L",1 ,0 }
+    
 
-        CASE TypeCode.Decimal
-		    result := DbColumnInfo{columnName,"Y",16 ,4 }
-            result:NumericScale     := 16
-            result:NumericPrecision := 4
-            
-		CASE TypeCode.Double
-        CASE TypeCode.Single
-			nDec := 1
-			nLen := 10
-            VAR nScale := Convert.ToInt32(schemaRow:Item["NumericScale"])
-            VAR nPrec  := Convert.ToInt32(schemaRow:Item["NumericPrecision"])
-            IF nScale == 255
-                nScale := 2
-            ENDIF
-			nDec := nScale
-			nLen := nPrec
-            IF nLen == 0
-				// I have seen a case where nDec == 31 and nLen == 0
-				// Fix this to something usefull
-				nDec := 2
-				nLen := 10
-			ELSEIF nDec == 127
-				//IF nLen == 38 .AND. oProviderType = ProviderType.Oracle // Standardvalue for calculated fields in oracle-queries, cutting decimals leads to wrong results in that case
-				//	nDec := 10
-				//ELSE
-					nDec := 0 // Overflow abfangen
-				//ENDIF
-            ENDIF
-            result := DbColumnInfo{columnName,"N",nLen ,nDec }
-            result:NumericScale     := nScale
-            result:NumericPrecision := nPrec
-			
-		CASE TypeCode.Int32		// -2147483647 - 2147483648 (2^31)
-            result := DbColumnInfo{columnName,"I",4 ,0}
-            IF (LOGIC)schemaRow["IsAutoIncrement"]
-                result:Flags |= DBFFieldFlags.AutoIncrement
-            ENDIF
-               
-		CASE TypeCode.Int64		// - 9223372036854775807 - 9223372036854775808 (2^63)
-            result := DbColumnInfo{columnName,"N",21 ,0}
-                
-		CASE TypeCode.Int16	// -32767 - 32768 (2^15)
-            result := DbColumnInfo{columnName,"N",6 ,0}
-                
-		CASE TypeCode.Byte
-            result := DbColumnInfo{columnName,"N",4 ,0}
-                
-		CASE TypeCode.SByte	// 0 - 255 	(2^8)
-            result := DbColumnInfo{columnName,"N",3 ,0}
-                
-		CASE TypeCode.UInt16	// 0 - 65535 (2^16)
-            result := DbColumnInfo{columnName,"N",5 ,0}
-                
-		CASE TypeCode.UInt32		// 0 - 4294836225 (2^32)
-            result := DbColumnInfo{columnName,"N",10 ,0}
-                
-		CASE TypeCode.UInt64	// 0 - 18445618199572250625 (2^64)
-			nLen := 20
-            result := DbColumnInfo{columnName,"N",nLen ,0}
-			
-        CASE TypeCode.DateTime
-            VAR nPrec  := Convert.ToInt32(schemaRow:Item["NumericPrecision"])
-			nLen 	:= 8
-            IF nPrec <= 10
-			    cType   := "D"
-            ELSE
-			    cType   := "T"
-            ENDIF
-            result  := DbColumnInfo{columnName,cType,nLen ,0}
-			
-        CASE TypeCode.Object
-            IF oType == typeof(BYTE[])
-			    cType   := "P"
-			    nLen 	:= 4
-                result  := DbColumnInfo{columnName,cType,nLen ,0}
-           
-            ELSE
-			    LOCAL lIsDate := FALSE AS LOGIC
-			    LOCAL oMems AS MethodInfo[]
-			    LOCAL lFound := FALSE AS LOGIC
-			    // check to see if the datatype has a dbType
-			    oMems := oType:GetMethods(BindingFlags.Public|BindingFlags.Static)
-			    FOREACH oMem AS MethodInfo IN oMems
-				    IF oMem:ReturnType == TypeOf(System.DateTime)  .AND. String.Compare(oMem:Name, "op_Explicit", StringComparison.OrdinalIgnoreCase) == 0
-					    lIsDate := TRUE
-					    lFound  := TRUE
-					    EXIT
-				    ENDIF
-			    NEXT
-			    IF ! lFound
-				    LOCAL cTypeName AS STRING
-				    cTypeName := oType:Name:ToUpperInvariant()
-				    lIsDate     := cTypeName:Contains("DATE") 
-			    ENDIF
-			    IF lIsDate
-				    cType   := "D"
-				    nLen 	:= 8
-			    ELSE
-				    cType 	:= "C"
-				    nLen 	:= 10
-			    ENDIF
-                result := DbColumnInfo{columnName,cType,nLen ,0}
-            ENDIF			
-		OTHERWISE
-			cType := "C"
-			nLen 	:= (Int32)schemaRow["ColumnSize"]
-			IF nLen <= 0
-				cType := "M"
-                nLen  := 4
-			ENDIF
-            result := DbColumnInfo{columnName,cType,nLen ,0}
-			
-        END SWITCH
-        IF (LOGIC)schemaRow["AllowDBNull"]
-            result:Flags |= DBFFieldFlags.Nullable
-        ENDIF
-        VAR cFldName        := SQLSupport.CleanupColumnName(columnName)
-        result:ColumnName   := columnName
-        result:Name         := MakeFieldNameUnique(cFldName, aFieldNames)
-        result:Alias        := result:Name
-        result:DotNetType   := oType
-		RETURN result
-
-   STATIC METHOD MakeFieldNameUnique(cName AS STRING, aFldNames AS IList<STRING> ) AS STRING
-        LOCAL dwPos, dwFld AS LONG
-        LOCAL cNewname		 AS STRING
-        IF String.IsNullOrEmpty(cName)
-            dwFld := 0
-            dwPos := 1
-            DO WHILE dwPos >= 0
-                ++dwFld
-                cName := "FLD"+dwFld:ToString():PadLeft(3,c'0')
-                dwPos := aFldNames:IndexOf(cName:ToUpper())
-            ENDDO
-        ELSE
-            // remove column prefixes
-            dwPos := cName:IndexOf(".")+1 
-            IF dwPos > 0
-                cName := cName:Substring(dwPos)
-            ENDIF
-            // remove embedded spaces
-            cName 	:= cName:Replace(" ", "_"):ToUpper()
-            cNewname := Left(cName,10)
-            dwFld 	:= 1
-            DO WHILE aFldNames:IndexOf(cNewname) >= 0
-                ++dwFld
-                VAR tmp := dwFld:ToString()
-                VAR len := tmp:Length
-                IF cName:Length + len <= 10
-                    cNewname := cName + tmp
-                ELSE
-                    cNewname := cName:Substring(0, 10 - tmp:Length)+tmp
-                ENDIF
-            ENDDO
-            cName 	:= cNewname
-        ENDIF
-        aFldNames:Add(cName)
-    RETURN cName            
+    
 
     METHOD ParseCommand(cCommand AS STRING, cParamChar AS CHAR, lIncludeParameterNameInQuery AS LOGIC) AS STRING
         LOCAL statements := List<STRING>{} AS List<STRING>
@@ -926,7 +716,7 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
                         sbParam:Clear()
                     ENDIF
                     statements:Add(sb:ToString())
-                    statements:Clear()
+                    sb:Clear()
                     LOOP
                 ENDIF
                 sb:Append(ch)
@@ -940,7 +730,6 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
                 ENDIF
                 
             CASE c'?'
-            CASE c':'
                 inParam := TRUE
                 lParamByRef := FALSE
                 sb:Append(cParamChar)
@@ -985,8 +774,6 @@ INTERNAL CLASS XSharp.VFP.SQLStatement
 
 
 END CLASS
-
-INTERNAL DELEGATE SqlGetData() AS OBJECT[]
 
 INTERNAL ENUM XSharp.VFP.AsyncState
     MEMBER Idle         := 0

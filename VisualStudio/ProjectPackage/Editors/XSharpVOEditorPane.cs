@@ -19,6 +19,9 @@ using Microsoft.VisualStudio.Shell;
 using EnvDTE;
 using XSharp.VOEditors;
 using Microsoft.VisualStudio.Project;
+using XSharp.LanguageService;
+using XSharpModel;
+using System.Collections.Generic;
 
 namespace XSharp.Project
 {
@@ -47,14 +50,14 @@ namespace XSharp.Project
     // Editor.vsdir contents:-
     //    myfile.myext|{guid}|#106|80|#109|0|401|0|#107
     // The fields in order are as follows:-
-    //    - form.vnfs - our empty vnfs file
+    //    - form.xsfs - our empty xsfs file
     //    - {guid} - our Editor package guid
     //    - #106 - the ID of "My File Type" in the resource
     //    - 80 - the display ordering priority
     //    - #109 - the ID of "A blank my file type" in the resource
     //    - 0 - resource dll string (we don't use this)
     //    - 401 - the ID of our icon
-    //    - 0 - various flags (we don't use this - se vsshell.idl)
+    //    - 0 - various flags (we don't use this - see vsshell.idl)
     //    - #107 - the ID of "myext"
     ///////////////////////////////////////////////////////////////////////////////
 
@@ -117,8 +120,6 @@ namespace XSharp.Project
 
         private Timer FileChangeTrigger = new Timer();
 
-        private Timer FNFStatusbarTrigger = new Timer();
-
         private bool fileChangedTimerSet;
         private int ignoreFileChangeLevel;
         private bool backupObsolete = true;
@@ -176,9 +177,11 @@ namespace XSharp.Project
         {
             get
             {
-                IVsUIShell uiShell = null;
-                UIThread.DoOnUIThread(() => uiShell = (IVsUIShell)GetService(typeof(SVsUIShell)));
-                return uiShell;
+                return ThreadHelper.JoinableTaskFactory.Run(async delegate
+                {
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    return (IVsUIShell)GetService(typeof(SVsUIShell));
+                });
             }
         }
 
@@ -198,7 +201,7 @@ namespace XSharp.Project
 
             Control.CheckForIllegalCrossThreadCalls = false;
             // Create an ArrayList to store the objects that can be selected
-            ArrayList listObjects = new ArrayList();
+            var listObjects = new List<VOEditorProperties>();
 
             // Create the object that will show the document's properties
             // on the properties window.
@@ -223,14 +226,21 @@ namespace XSharp.Project
         private IVsStatusbar oStatusBar;
         void StatusBarMessageHandler(string cText)
         {
-            if (this.oStatusBar == null)
+            ThreadHelper.JoinableTaskFactory.Run(async delegate
             {
-                UIThread.DoOnUIThread(() => oStatusBar = (IVsStatusbar)GetService(typeof(IVsStatusbar)));
-            }
-            if (this.oStatusBar != null)
-            {
-                this.oStatusBar.SetText(cText);
-            }
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                if (this.oStatusBar == null)
+                {
+
+                    oStatusBar = (IVsStatusbar)GetService(typeof(IVsStatusbar));
+                }
+                if (this.oStatusBar != null)
+                {
+                    this.oStatusBar.SetText(cText);
+                }
+
+            });
+
         }
         void IsDirtyChangedHandler(object o, EventArgs e)
         {
@@ -241,8 +251,11 @@ namespace XSharp.Project
         }
         void TriggerSaveHandler(object o, EventArgs e)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             if (!this.loading)
+            { 
                 ((IPersistFileFormat)this).Save(fileName, 0, 0);
+            }
         }
 
         public string FileName
@@ -267,7 +280,12 @@ namespace XSharp.Project
             {
                 if (trackSel == null)
                 {
-                    UIThread.DoOnUIThread(() => trackSel = (ITrackSelection)GetService(typeof(ITrackSelection)));
+                    ThreadHelper.JoinableTaskFactory.Run(async delegate
+                    {
+                        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+                        trackSel = (ITrackSelection)GetService(typeof(ITrackSelection));
+                    });
                 }
                 return trackSel;
             }
@@ -281,6 +299,7 @@ namespace XSharp.Project
         {
             try
             {
+                ThreadHelper.ThrowIfNotOnUIThread();
                 if (disposing)
                 {
                     // Dispose the timers
@@ -289,11 +308,6 @@ namespace XSharp.Project
                         FileChangeTrigger.Dispose();
                         FileChangeTrigger = null;
                     }
-                    if (null != FNFStatusbarTrigger)
-                    {
-                        FNFStatusbarTrigger.Dispose();
-                        FNFStatusbarTrigger = null;
-                    }
 
                     SetFileChangeNotification(null, false);
 
@@ -301,11 +315,6 @@ namespace XSharp.Project
                     {
                         editorControl.Dispose();
                         editorControl = null;
-                    }
-                    if (FileChangeTrigger != null)
-                    {
-                        FileChangeTrigger.Dispose();
-                        FileChangeTrigger = null;
                     }
                     if (extensibleObjectSite != null)
                     {
@@ -333,7 +342,11 @@ namespace XSharp.Project
 
             // Get a reference to the Running Document Table
             IVsRunningDocumentTable runningDocTable = null;
-            UIThread.DoOnUIThread(() => runningDocTable = (IVsRunningDocumentTable)GetService(typeof(SVsRunningDocumentTable)));
+            ThreadHelper.JoinableTaskFactory.Run(async delegate
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+                runningDocTable = (IVsRunningDocumentTable)GetService(typeof(SVsRunningDocumentTable));
 
             // Lock the document
             uint docCookie;
@@ -359,11 +372,14 @@ namespace XSharp.Project
 
             // Check ff the call to NotifyDocChanged failed.
             ErrorHandler.ThrowOnFailure(hr);
+            });
         }
 
         void OnSelectionChanged(object sender, EventArgs e)
         {
             ITrackSelection track = TrackSelection;
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             if (null != track)
             {
                 ErrorHandler.ThrowOnFailure(track.OnSelectChange((ISelectionContainer)selContainer));
@@ -586,6 +602,8 @@ namespace XSharp.Project
         /// <returns>S_OK if the method succeeds</returns>
         int IPersistFileFormat.GetClassID(out Guid pClassID)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             ErrorHandler.ThrowOnFailure(((Microsoft.VisualStudio.OLE.Interop.IPersist)this).GetClassID(out pClassID));
             return VSConstants.S_OK;
         }
@@ -639,6 +657,8 @@ namespace XSharp.Project
             bool lSuccess = false;
             try
             {
+                ThreadHelper.ThrowIfNotOnUIThread();
+
                 // Show the wait cursor while loading the file
                 var VsUiShell = this.UIShell;
                 if (VsUiShell != null)
@@ -767,6 +787,7 @@ namespace XSharp.Project
 
             if (VSConstants.E_FAIL == hr)
                 return hr;
+            ThreadHelper.ThrowIfNotOnUIThread();
 
             if (lSuccess)
             {
@@ -809,6 +830,8 @@ namespace XSharp.Project
         /// <returns>S_OK if the function succeeds</returns>
         int IVsPersistDocData.IsDocDataDirty(out int pfDirty)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             return ((IPersistFileFormat)this).IsDirty(out pfDirty);
         }
 
@@ -837,6 +860,7 @@ namespace XSharp.Project
             pbstrMkDocumentNew = null;
             pfSaveCanceled = 0;
             int hr = VSConstants.S_OK;
+            ThreadHelper.ThrowIfNotOnUIThread();
 
             switch (dwSave)
             {
@@ -844,7 +868,12 @@ namespace XSharp.Project
                 case VSSAVEFLAGS.VSSAVE_SilentSave:
                     {
                         IVsQueryEditQuerySave2 queryEditQuerySave = null;
-                        UIThread.DoOnUIThread(() => queryEditQuerySave = (IVsQueryEditQuerySave2)GetService(typeof(SVsQueryEditQuerySave)));
+                        ThreadHelper.JoinableTaskFactory.Run(async delegate
+                        {
+                            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+                            queryEditQuerySave = (IVsQueryEditQuerySave2)GetService(typeof(SVsQueryEditQuerySave));
+                        });
 
                         // Call QueryEditQuerySave
                         uint result = 0;
@@ -933,6 +962,7 @@ namespace XSharp.Project
         /// <returns>S_Ok if the method succeeds</returns>
         int IVsPersistDocData.LoadDocData(string pszMkDocument)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             return ((IPersistFileFormat)this).Load(pszMkDocument, 0, 0);
         }
 
@@ -944,6 +974,7 @@ namespace XSharp.Project
         /// <returns>S_OK if the mthod succeeds</returns>
         int IVsPersistDocData.SetUntitledDocPath(string pszDocDataPath)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             return ((IPersistFileFormat)this).InitNew(MyFormat);
         }
 
@@ -954,6 +985,7 @@ namespace XSharp.Project
         /// <returns>S_OK if the method succeeds</returns>
         int IVsPersistDocData.GetGuidEditorType(out Guid pClassID)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             return ((IPersistFileFormat)this).GetClassID(out pClassID);
         }
 
@@ -1002,6 +1034,7 @@ namespace XSharp.Project
         /// <returns>S_OK if the mthod succeeds</returns>
         int IVsPersistDocData.ReloadDocData(uint grfFlags)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             return ((IPersistFileFormat)this).Load(fileName, grfFlags, 0);
         }
 
@@ -1022,7 +1055,7 @@ namespace XSharp.Project
 
         internal static void Debug(string strMessage)
         {
-            XSharpProjectPackage.Instance.DisplayOutPutMessage(strMessage);
+            XSettings.DisplayOutputMessage(strMessage);
         }
 
         #region IVsFileChangeEvents Members
@@ -1037,6 +1070,7 @@ namespace XSharp.Project
         int IVsFileChangeEvents.FilesChanged(uint cChanges, string[] rgpszFile, uint[] rggrfChange)
         {
             Debug("**** Inside FilesChanged ****");
+            ThreadHelper.ThrowIfNotOnUIThread();
 
             //check the different parameters
             if (0 == cChanges || null == rgpszFile || null == rggrfChange)
@@ -1061,7 +1095,7 @@ namespace XSharp.Project
                     }
                     // if it looks like the file contents have changed (either the size or the modified
                     // time has changed) then we need to prompt the user to see if we should reload the
-                    // file. it is important to not syncronisly reload the file inside of this FilesChanged
+                    // file. it is important to not synchronously reload the file inside of this FilesChanged
                     // notification. first it is possible that there will be more than one FilesChanged
                     // notification being sent (sometimes you get separate notifications for file attribute
                     // changing and file size/time changing). also it is the preferred UI style to not
@@ -1107,6 +1141,7 @@ namespace XSharp.Project
         int IVsDocDataFileChangeControl.IgnoreFileChanges(int fIgnore)
         {
             Debug("**** Inside IgnoreFileChanges ****");
+            ThreadHelper.ThrowIfNotOnUIThread();
 
             if (fIgnore != 0)
             {
@@ -1137,7 +1172,12 @@ namespace XSharp.Project
             {
                 if (vsFileChangeEx != null)
                 {
-                    UIThread.DoOnUIThread(() => vsFileChangeEx = (IVsFileChangeEx)GetService(typeof(SVsFileChangeEx)));
+                    ThreadHelper.JoinableTaskFactory.Run(async delegate
+                    {
+                        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+                        vsFileChangeEx = (IVsFileChangeEx)GetService(typeof(SVsFileChangeEx));
+                    });
                 }
                 return vsFileChangeEx;
             }
@@ -1159,6 +1199,7 @@ namespace XSharp.Project
             //Get the File Change service
             if (null == VsFileChangeEx)
                 return VSConstants.E_UNEXPECTED;
+            ThreadHelper.ThrowIfNotOnUIThread();
 
             // Setup Notification if fStart is TRUE, Remove if fStart is FALSE.
             if (fStart)
@@ -1198,6 +1239,7 @@ namespace XSharp.Project
         private int SuspendFileChangeNotification(string strFileName, int fSuspend)
         {
             Debug($"**** Inside SuspendFileChangeNotification {strFileName} {fSuspend}****");
+            ThreadHelper.ThrowIfNotOnUIThread();
 
             if (null == VsFileChangeEx)
                 return VSConstants.E_UNEXPECTED;
@@ -1231,10 +1273,8 @@ namespace XSharp.Project
         {
             try
             {
-                if (Utilities.DeleteFileSafe(strBackupFileName))
-                {
-                    editorControl.Save(strBackupFileName, true);
-                }
+                Utilities.DeleteFileSafe(strBackupFileName);
+                editorControl.Save(strBackupFileName, true);
                 backupObsolete = false;
             }
             catch (ArgumentException)
@@ -1275,6 +1315,7 @@ namespace XSharp.Project
             this.editorControl.ReadOnly = _isFileReadOnly;
 
             //update editor caption with "[Read Only]" or "" as necessary
+            ThreadHelper.ThrowIfNotOnUIThread();
             IVsWindowFrame frame = (IVsWindowFrame)GetService(typeof(SVsWindowFrame));
             string editorCaption = "";
             if (_isFileReadOnly)
@@ -1298,6 +1339,7 @@ namespace XSharp.Project
             var  VsUiShell = this.UIShell;
             int result = 0;
             Guid tempGuid = Guid.Empty;
+            ThreadHelper.ThrowIfNotOnUIThread();
             if (VsUiShell != null)
             {
                 //Show up a message box indicating that the file has changed outside of VS environment
@@ -1324,12 +1366,17 @@ namespace XSharp.Project
             string resourceValue;
 
             IVsResourceManager resourceManager = null;
-            UIThread.DoOnUIThread( () => resourceManager = (IVsResourceManager)GetService(typeof(SVsResourceManager)));
+            ThreadHelper.JoinableTaskFactory.Run(async delegate
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                resourceManager = (IVsResourceManager)GetService(typeof(SVsResourceManager));
+            });
             if (resourceManager == null)
             {
                 throw new InvalidOperationException("Could not get SVsResourceManager service. Make sure the package is Sited before calling this method");
             }
             Guid packageGuid = myPackage.GetType().GUID;
+            ThreadHelper.ThrowIfNotOnUIThread();
             int hr = resourceManager.LoadResourceString(ref packageGuid, -1, resourceName, out resourceValue);
             Microsoft.VisualStudio.ErrorHandler.ThrowOnFailure(hr);
             return resourceValue;
@@ -1353,7 +1400,11 @@ namespace XSharp.Project
 
                 // Get the QueryEditQuerySave service
                 IVsQueryEditQuerySave2 queryEditQuerySave = null;
-                UIThread.DoOnUIThread (() => queryEditQuerySave = (IVsQueryEditQuerySave2)GetService(typeof(SVsQueryEditQuerySave)));
+                ThreadHelper.JoinableTaskFactory.Run(async delegate
+                {
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    queryEditQuerySave = (IVsQueryEditQuerySave2)GetService(typeof(SVsQueryEditQuerySave));
+                });
 
                 // Now call the QueryEdit method to find the edit status of this file
                 string[] documents = { this.fileName };
@@ -1363,6 +1414,7 @@ namespace XSharp.Project
                 // Note that this function can popup a dialog to ask the user to checkout the file.
                 // When this dialog is visible, it is possible to receive other request to change
                 // the file and this is the reason for the recursion guard.
+                ThreadHelper.ThrowIfNotOnUIThread();
                 int hr = queryEditQuerySave.QueryEditFiles(
                     0,              // Flags
                     1,              // Number of elements in the array
@@ -1415,7 +1467,11 @@ namespace XSharp.Project
             // responsible for handling the collection of commands implemented by the package.
 
             IMenuCommandService mcs = null;
-            UIThread.DoOnUIThread( () => mcs = GetService(typeof(IMenuCommandService)) as IMenuCommandService);
+            ThreadHelper.JoinableTaskFactory.Run(async delegate
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                mcs = GetService(typeof(IMenuCommandService)) as IMenuCommandService;
+            });
             if (null != mcs)
             {
                 // Now create one object derived from MenuCommnad for each command defined in

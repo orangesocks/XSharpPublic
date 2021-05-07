@@ -1,6 +1,6 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\XSharp\XSharp.Default.props" />
+  <Import Project="$(XSharpMsBuildDir)\XSharp.Default.props" />
   <PropertyGroup>
     <Name>VOXPorter</Name>
     <ProjectGuid>939b111b-6ebd-490f-a7f4-ce923d758a3b</ProjectGuid>
@@ -8,12 +8,11 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>VOXPorter</RootNamespace>
     <AssemblyName>VOXPorter</AssemblyName>
-    <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <Nologo>true</Nologo>
     <GenerateFullPaths>true</GenerateFullPaths>
     <Dialect>Core</Dialect>
     <OutputName>VOXPorter</OutputName>
-    <XSharpProjectExtensionsPath>$(MSBuildExtensionsPath)\XSharp\</XSharpProjectExtensionsPath>
     <StartupObject />
     <ApplicationIcon />
     <VulcanCompatibleResources>True</VulcanCompatibleResources>
@@ -40,9 +39,10 @@
     <VO14>false</VO14>
     <VO15>false</VO15>
     <VO16>false</VO16>
-    <XSharpProjectversion>2.4.1.0</XSharpProjectversion>
+    <XSharpProjectversion>2.8.0.10</XSharpProjectversion>
     <Includepaths>$(SolutionDir)Common</Includepaths>
     <Nostandarddefs>false</Nostandarddefs>
+    <Allowdot>True</Allowdot>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'" Label="Configuration">
     <PlatformTarget>x86</PlatformTarget>
@@ -56,7 +56,7 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <IntermediateOutputPath>$(SolutionDir)Binaries\obj\$(Configuration)\$(ProjectName)\</IntermediateOutputPath>
     <UseSharedCompilation>true</UseSharedCompilation>
-    <DisabledWarnings />
+    <DisabledWarnings>9101,165</DisabledWarnings>
     <SignAssembly>false</SignAssembly>
     <DelaySign>false</DelaySign>
     <AssemblyOriginatorKeyFile>
@@ -77,7 +77,7 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <IntermediateOutputPath>$(SolutionDir)Binaries\obj\$(Configuration)\$(ProjectName)\</IntermediateOutputPath>
     <UseSharedCompilation>true</UseSharedCompilation>
-    <DisabledWarnings />
+    <DisabledWarnings>9101,165</DisabledWarnings>
     <SignAssembly>false</SignAssembly>
     <DelaySign>false</DelaySign>
     <AssemblyOriginatorKeyFile>
@@ -85,8 +85,9 @@
     <CommandLineOption />
     <PPO>false</PPO>
     <Prefer32Bit>False</Prefer32Bit>
+    <RegisterForComInterop>False</RegisterForComInterop>
   </PropertyGroup>
-  <Import Project="$(MSBuildExtensionsPath)\XSharp\XSharp.targets" />
+  <Import Project="$(XSharpMsBuildDir)\XSharp.targets" />
   <ItemGroup>
     <Reference Include="SDK_Defines, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
       <Name>SDK_Defines</Name>
@@ -127,8 +128,9 @@
     <Reference Include="XSharp.VODesigners">
       <Name>XSharp.VODesigners</Name>
       <AssemblyName>XSharp.VODesigners.dll</AssemblyName>
+      <SpecificVersion>False</SpecificVersion>
       <Private>True</Private>
-      <HintPath>..\..\..\..\Binaries\Debug\XSharp.VODesigners.dll</HintPath>
+      <HintPath>$(Solutiondir)\Binaries\$(Configuration)\XSharp.VODesigners.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>

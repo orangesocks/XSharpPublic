@@ -9,8 +9,8 @@ USING System.Collections.Generic
 USING System.Text
 
 
-#command VFPPROP <cName> <cType> => PROPERTY <cName> AS <cType> GET _GetProperty(<"cName">) SET _SetProperty(<"cName">, value)
-#command VFPPROP <cName> <cType> <cLit> => PROPERTY <cName> AS <cType> GET _GetProperty(<(cLit)>) SET _SetProperty(<(cLit)>, value)
+#command VFPPROP <cName> <cType> => PROPERTY <cName> AS <cType> GET SELF:_GetProperty(<"cName">) SET SELF:_SetProperty(<"cName">, value)
+#command VFPPROP <cName> <cType> <cLit> => PROPERTY <cName> AS <cType> GET SELF:_GetProperty(<(cLit)>) SET SELF:_SetProperty(<(cLit)>, value)
 
 /// <summary>
 /// The Abstract class.
@@ -27,12 +27,12 @@ ABSTRACT CLASS XSharp.VFP.Abstract INHERIT XSharp.VFP.Empty
 
     CONSTRUCTOR()
         SUPER()
-        SELF:Name := ""
-        SELF:Class := ClassName(SELF)
-        SELF:ParentClass := SELF:GetType():BaseType:Name
-        SELF:ClassLibrary := SELF:GetType():Assembly:ToString()
-        SELF:Comment := ""
-        SELF:BaseClass := ""
+        SELF:Name           := ""
+        SELF:Class          := ClassName(SELF)
+        SELF:ParentClass    := SELF:GetType():BaseType:Name
+        SELF:ClassLibrary   := SELF:GetType():Assembly:ToString()
+        SELF:Comment        := ""
+        SELF:BaseClass      := ""
         RETURN
         
 END CLASS

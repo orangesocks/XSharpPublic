@@ -5,7 +5,7 @@
 //
 
 
-
+#pragma options("vo15", on)
 
 /// <summary>-- todo --</summary>
 /// <include file="VFPDocs.xml" path="Runtimefunctions/newobject/*" />
@@ -21,19 +21,8 @@ FUNCTION Normalize( cExpression ) AS STRING
     THROW NotImplementedException{}
     // RETURN ""
 
-/// <summary>-- todo --</summary>
-/// <include file="VFPDocs.xml" path="Runtimefunctions/numlock/*" />
 
-FUNCTION NumLock( lExpression ) AS LOGIC
-    THROW NotImplementedException{}
-    // RETURN FALSE
 
-/// <summary>-- todo --</summary>
-/// <include file="VFPDocs.xml" path="Runtimefunctions/nvl/*" />
-
-FUNCTION NVL( eExpression1, eExpression2) AS USUAL
-    THROW NotImplementedException{}
-    // RETURN NIL
 
 /// <summary>-- todo --</summary>
 /// <include file="VFPDocs.xml" path="Runtimefunctions/oldval/*" />

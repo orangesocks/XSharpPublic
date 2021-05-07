@@ -26,12 +26,13 @@ BEGIN NAMESPACE XSharp.RDD.NTX
         PRIVATE CONST NTX_COUNT         := 16    AS WORD
         PRIVATE CONST STACK_DEPTH       := 20    AS WORD
         PRIVATE CONST MAX_TRIES         := 50 AS WORD
-        PRIVATE CONST LOCKOFFSET_OLD    := 1000000000 AS LONG
-        PRIVATE CONST LOCKOFFSET_NEW    := -1 AS LONG
+        PRIVATE CONST LOCKOFFSET_OLD    := 1000000000 AS DWORD
+        PRIVATE CONST LOCKOFFSET_NEW    := 0xFFFFFFFF AS DWORD
         INTERNAL CONST NTX_EXTENSION     := ".NTX" AS STRING
         #endregion
         #region fields
         PRIVATE _hFile AS IntPtr
+        PRIVATE _oStream AS FileStream
         PRIVATE _Shared AS LOGIC
         PRIVATE _Hot AS LOGIC
         PRIVATE _Unique AS LOGIC
@@ -83,6 +84,7 @@ BEGIN NAMESPACE XSharp.RDD.NTX
         INTERNAL PROPERTY KeyDecimals     AS WORD GET _keyDecimals
         INTERNAL PROPERTY KeyExprType     AS LONG GET _keyExprType
         INTERNAL PROPERTY Handle AS IntPtr GET _hFile
+        INTERNAL PROPERTY Stream AS FileStream GET _oStream
         INTERNAL PROPERTY Condition AS STRING GET _ForExpr
         INTERNAL PROPERTY CurrentStack       AS RddStack GET  SELF:_stack[SELF:_TopStack]
         INTERNAL PROPERTY OrderName AS STRING GET _orderName
@@ -143,6 +145,7 @@ BEGIN NAMESPACE XSharp.RDD.NTX
             SELF:_newvalue      := RddKeyData{MAX_KEY_LEN}
             SELF:_fileName      := NULL
             SELF:_hFile         := IntPtr.Zero
+            SELF:_oStream       := NULL
             SELF:_oRdd          := oRDD
             SELF:_Header        := NULL 
             SELF:_stack         := RddStack[]{ STACK_DEPTH }
@@ -163,11 +166,12 @@ BEGIN NAMESPACE XSharp.RDD.NTX
             SELF:_oRdd:GoCold()
             SELF:_Shared := SELF:_oRdd:Shared
             SELF:_hFile    := FOpen(SELF:FullPath, SELF:_oRdd:_OpenInfo:FileMode) 
+            SELF:_oStream  := FGetStream(SELF:_hFile)
             IF SELF:_hFile == F_ERROR 
                 SELF:_oRdd:_dbfError( ERDD.OPEN_ORDER, Gencode.EG_OPEN, SELF:FileName)
                 RETURN FALSE
             ENDIF
-            SELF:_Header := NtxHeader{ SELF, SELF:_hFile }
+            SELF:_Header := NtxHeader{ SELF, _oStream }
             IF !SELF:_Header:Read()
                 SELF:_oRdd:_dbfError(ERDD.OPEN_ORDER, Gencode.EG_OPEN, SELF:FileName)
                 RETURN FALSE
@@ -184,8 +188,7 @@ BEGIN NAMESPACE XSharp.RDD.NTX
             ENDIF
             // For Condition
             SELF:_Shared := SELF:_oRdd:Shared
-            FSeek3( SELF:_hFile, 0, FS_END )
-            SELF:_fileSize  := (LONG) FTell( SELF:_hFile ) 
+            SELF:_fileSize  := (LONG) _oStream:Length
             SELF:_Hot := FALSE
             SELF:ClearStack()
             SELF:_entrySize := SELF:_Header:EntrySize
@@ -332,7 +335,7 @@ BEGIN NAMESPACE XSharp.RDD.NTX
                 SELF:_Header:FirstPageOffset        := SELF:_firstPageOffset
                 SELF:_Header:Write( )
             ENDIF
-            FFlush( SELF:_hFile )
+            _oStream:Flush()
             RETURN TRUE
 
         PUBLIC METHOD Commit() AS LOGIC
@@ -343,7 +346,7 @@ BEGIN NAMESPACE XSharp.RDD.NTX
                 SELF:_Header:FirstPageOffset        := SELF:_firstPageOffset
                 SELF:_Header:Write( )
             ENDIF
-            FFlush( SELF:_hFile )
+            _oStream:Flush()
             RETURN TRUE
             
         PUBLIC METHOD Close() AS LOGIC
@@ -354,12 +357,12 @@ BEGIN NAMESPACE XSharp.RDD.NTX
                 ENDIF
                 IF SELF:_hFile != F_ERROR
                     FClose( SELF:_hFile )
-                    SELF:_hFile := F_ERROR
                 ENDIF
                 
             FINALLY
                 SELF:_HPLocking := FALSE
                 SELF:_hFile := F_ERROR
+                SELF:_oStream := NULL
             END TRY
             RETURN TRUE
             
@@ -371,7 +374,7 @@ BEGIN NAMESPACE XSharp.RDD.NTX
 
         INTERNAL METHOD GoHot() AS LOGIC
             // Is called to save the current for value and key value
-            RETURN _saveCurrentKey(SELF:_oRdd:RecNo, SELF:_currentvalue)
+            RETURN SELF:_saveCurrentKey(SELF:_oRdd:RecNo, SELF:_currentvalue)
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)];
         INTERNAL METHOD __Compare( aLHS AS BYTE[], aRHS AS BYTE[], nLength AS LONG) AS LONG

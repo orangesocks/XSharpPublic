@@ -13,58 +13,6 @@ namespace XSharp.MacroCompiler.Syntax
     {
         internal virtual void Emit(ILGenerator ilg) { throw new InternalError(); }
     }
-    abstract internal partial class Stmt : Node
-    {
-        internal Codeblock Codeblock;
-        internal List<Action> FinallyClauses;
-        internal virtual void EmitStmt(ILGenerator ilg) { throw new InternalError(); }
-        internal sealed override void Emit(ILGenerator ilg)
-        {
-            if (RequireExceptionHandling)
-            {
-                FinallyClauses = new List<Action>();
-                ilg.BeginExceptionBlock();
-            }
-            EmitStmt(ilg);
-            if (RequireExceptionHandling)
-            {
-                if (FinallyClauses.Count > 0)
-                {
-                    ilg.BeginFinallyBlock();
-                    foreach (var a in FinallyClauses) a();
-                }
-                ilg.EndExceptionBlock();
-            }
-        }
-    }
-    internal partial class ReturnStmt : Stmt
-    {
-        internal override void EmitStmt(ILGenerator ilg)
-        {
-            bool isVoid = true;
-            if (Expr != null)
-            {
-                isVoid &= Expr.Datatype.NativeType == NativeType.Void;
-                Expr.Emit(ilg, true);
-            }
-            if (Symbol != null)
-            {
-                if (isVoid)
-                {
-                    EmitDefault(ilg, (TypeSymbol)Symbol);
-                }
-                if (RequireExceptionHandling)
-                {
-                    if (Codeblock.Symbol == null)
-                    {
-                        var temp = ilg.DeclareLocal(((TypeSymbol)Symbol).Type);
-                        Codeblock.Symbol = new LocalSymbol((TypeSymbol)Symbol, temp.LocalIndex);
-                    }
-                    Codeblock.Symbol.EmitSet(ilg);
-                }
-            }
-        }
-    }
     abstract internal partial class Expr : Node
     {
         internal virtual void Emit(ILGenerator ilg, bool preserve) { throw new InternalError(); }
@@ -146,6 +94,19 @@ namespace XSharp.MacroCompiler.Syntax
             Expr.Emit(ilg);
             Symbol.EmitSet(ilg);
         }
+    }
+    internal partial class ArrayLengthExpr : MemberAccessExpr
+    {
+        internal override void Emit(ILGenerator ilg, bool preserve)
+        {
+            Expr.Emit(ilg, preserve);
+            if (preserve)
+            {
+                ilg.Emit(OpCodes.Ldlen);
+                ilg.Emit(OpCodes.Conv_I4);
+            }
+        }
+        internal override void EmitSet(ILGenerator ilg, bool preserve) => throw new InternalError();
     }
     internal partial class QualifiedNameExpr : NameExpr
     {
@@ -318,6 +279,33 @@ namespace XSharp.MacroCompiler.Syntax
             }
         }
     }
+    internal partial class IsVarExpr : IsExpr
+    {
+        internal override void Emit(ILGenerator ilg, bool preserve)
+        {
+            Expr.Emit(ilg, preserve);
+            if (preserve)
+            {
+                Var.Declare(ilg);
+                if (Check == null)
+                {
+                    ilg.Emit(OpCodes.Isinst, (Symbol as TypeSymbol).Type);
+                    ilg.Emit(OpCodes.Dup);
+                    Var.EmitSet(ilg);
+                    ilg.Emit(OpCodes.Ldnull);
+                    ilg.Emit(OpCodes.Cgt_Un);
+                }
+                else
+                {
+                    Var.EmitSet(ilg);
+                    if (Check == true)
+                        ilg.Emit(OpCodes.Ldc_I4_1);
+                    else
+                        ilg.Emit(OpCodes.Ldc_I4_0);
+                }
+            }
+        }
+    }
     internal partial class AsTypeExpr : Expr
     {
         internal override void Emit(ILGenerator ilg, bool preserve)
@@ -405,6 +393,28 @@ namespace XSharp.MacroCompiler.Syntax
             ilg.Emit(Self == null ? OpCodes.Call : OpCodes.Callvirt, m.Setter.Method);
             if (!preserve && !isVoid)
                 ilg.Emit(OpCodes.Pop);
+        }
+    }
+    internal partial class NativeArrayAccessExpr : ArrayAccessExpr
+    {
+        internal override void Emit(ILGenerator ilg, bool preserve)
+        {
+            if (Self != null) Self.Emit(ilg);
+            Args.Emit(ilg);
+            ilg.Emit(OpCodes.Ldelem, Datatype.Type);
+            if (!preserve)
+                ilg.Emit(OpCodes.Pop);
+        }
+        internal override void EmitSet(ILGenerator ilg, bool preserve)
+        {
+            if (preserve)
+                ilg.Emit(OpCodes.Dup);
+            var t = ilg.DeclareLocal(Datatype.Type);
+            ilg.Emit(OpCodes.Stloc, t.LocalIndex);
+            if (Self != null) Self.Emit(ilg);
+            Args.Emit(ilg);
+            ilg.Emit(OpCodes.Ldloc, t.LocalIndex);
+            ilg.Emit(OpCodes.Stelem, Datatype.Type);
         }
     }
     internal partial class EmptyExpr : Expr
@@ -653,7 +663,10 @@ namespace XSharp.MacroCompiler.Syntax
 
                     ParamArray.EmitGet(ilg);
                     lidx.EmitGet(ilg);
-                    ilg.Emit(OpCodes.Ldelem_Ref);
+                    if (ls.Type.IsReferenceType)
+                        ilg.Emit(OpCodes.Ldelem_Ref);
+                    else
+                        ilg.Emit(OpCodes.Ldelem,ls.Type.Type);
                     ls.EmitSet(ilg);
 
                     ilg.MarkLabel(skip);
@@ -667,7 +680,6 @@ namespace XSharp.MacroCompiler.Syntax
                 ilg.Emit(OpCodes.Conv_I4);
                 PCount.EmitSet(ilg);
             }
-            Body.Codeblock = this;
             Body.Emit(ilg);
             if (Symbol != null) Symbol.EmitGet(ilg);
             ilg.Emit(OpCodes.Ret);
@@ -679,9 +691,21 @@ namespace XSharp.MacroCompiler.Syntax
         {
             // Emit nested codeblock
             var source = Token.ToString();
-            var dlg = NestedBinder.Emit(Codeblock, source) as RuntimeCodeblockDelegate;
-            var rtc = new RuntimeCodeblock(dlg, NestedBinder.ParamCount);
-            CbList[CbIndex] = new _Codeblock(rtc, source, true, NestedBinder.CreatesAutoVars);
+            if (usualMacro)
+            {
+                var dlg = NestedBinder.Emit(Codeblock, source) as UsualMacro.MacroCodeblockDelegate;
+                if (NestedBinder.CreatesAutoVars)
+                    CbList[CbIndex] = new UsualMacro.MacroMemVarCodeblock(dlg, NestedBinder.ParamCount, source, true);
+                else
+                    CbList[CbIndex] = new UsualMacro.MacroCodeblock(dlg, NestedBinder.ParamCount, source, true);
+            }
+            else
+            {
+                var dlg = NestedBinder.Emit(Codeblock, source) as ObjectMacro.MacroCodeblockDelegate;
+                ICodeblock rtc = NestedBinder.CreatesAutoVars ? new ObjectMacro.MacroMemVarCodeblock(dlg, NestedBinder.ParamCount)
+                                                              : new ObjectMacro.MacroCodeblock(dlg, NestedBinder.ParamCount);
+                CbList[CbIndex] = new _Codeblock(rtc, source, true, false);
+            }
 
             // Emit code to retrieve codeblock
             var lidx = Constant.Create(CbIndex);

@@ -6,18 +6,10 @@
 
 /// <summary>-- todo --</summary>
 /// <include file="VFPDocs.xml" path="Runtimefunctions/evl/*" />
-
+#pragma options("vo15", on)
 FUNCTION EVL( eExpression1, eExpression2 ) AS USUAL
     THROW NotImplementedException{}
     // RETURN NIL
-
-/// <summary>-- todo --</summary>
-/// <include file="VFPDocs.xml" path="Runtimefunctions/execscript/*" />
-
-FUNCTION ExecScript( cExpression , eParameter1, eParameter2) AS USUAL
-    THROW NotImplementedException{}
-    // RETURN NIL
-
 
 
 /// <summary>-- todo --</summary>

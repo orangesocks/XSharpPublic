@@ -1,10 +1,13 @@
-//#using System.Drawing
-#using System.Collections
-#using System.Collections.Generic
-#using System.Drawing
+//
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
+// See License.txt in the project root for license information.
+//
+USING System.Collections
+USING System.Collections.Generic
+USING System.Drawing
 
 
-#include "VOWin32APILibrary.vh"
 
 ENUM PropertyType
 	MEMBER None
@@ -222,7 +225,7 @@ CLASS VODesignProperty INHERIT DesignProperty
 					SELF:oValue := MenuAccelerator{"" , FALSE , FALSE , FALSE}
 					TRY
 						cValue := cValue:Trim()
-						nAt := cValue:IndexOf("+")
+						nAt := cValue:LastIndexOf("+")
 						IF nAt != -1 .and. cValue != "+"
 							cAccelerator := cValue:Substring(nAt + 1):Trim()
 							cValue := cValue:Substring(0 , nAt):Trim():ToUpper()
@@ -236,6 +239,8 @@ CLASS VODesignProperty INHERIT DesignProperty
 								EXIT
 							END IF
 						NEXT
+               CATCH
+                  NOP
 					END TRY
 					RETURN
 					
@@ -262,6 +267,8 @@ CLASS VODesignProperty INHERIT DesignProperty
 							IF rSize > (REAL4)500 // TODO big bad ugly hack
 								rSize := rSize / (REAL4)100.0
 							ENDIF
+                  CATCH
+                     NOP
 						END TRY
 						FOR n := 3 UPTO aFont:Length
 							SWITCH aFont[n]:ToUpper() 
@@ -277,6 +284,8 @@ CLASS VODesignProperty INHERIT DesignProperty
 						NEXT
 						TRY
 							oFont := Font{cFont , rSize , eStyle}
+                  CATCH
+                     NOP
 						END TRY
 						SELF:oValue := oFont
 						RETURN
@@ -558,7 +567,9 @@ CLASS DesignProperty
 			IF _oValue:GetType() == TypeOf(STRING)
 				TRY
 					SELF:oValue := Convert.ToInt32((STRING)_oValue)
-				END
+            CATCH
+               NOP
+				END TRY
 			ELSE
 				SELF:oValue := _oValue
 			ENDIF
@@ -665,9 +676,9 @@ END CLASS
 
 
 STATIC CLASS VODefines
-	STATIC PRIVATE aDefines AS Dictionary<STRING,DWORD>
+	STATIC PRIVATE aDefines AS Dictionary<STRING,LONG>
 	STATIC CONSTRUCTOR()
-		VODefines.aDefines := Dictionary<STRING,DWORD>{}
+		VODefines.aDefines := Dictionary<STRING,LONG>{}
 
 		VODefines.aDefines:Add("WS_OVERLAPPED" , WS_OVERLAPPED)
 		VODefines.aDefines:Add("WS_POPUP" , WS_POPUP)

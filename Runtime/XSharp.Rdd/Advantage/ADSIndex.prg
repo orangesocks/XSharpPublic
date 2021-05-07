@@ -192,6 +192,8 @@ CLASS XSharp.ADS.ADSIndex INHERIT BaseIndex
             ENDIF
             
         CASE DBOI_FILEHANDLE
+            info:Result := IntPtr.Zero
+        CASE DBOI_FILESTREAM
             info:Result := NULL
             
         CASE DBOI_FULLPATH
@@ -508,11 +510,9 @@ CLASS XSharp.ADS.ADSIndex INHERIT BaseIndex
         LOCAL oTmpInfo AS DbOrderInfo
         oTmpInfo :=DbOrderInfo{}
         SELF:OrderInfo(DBOI_NAME,oTmpInfo)
-        IF !info:IsEmpty
-            SELF:Index := SELF:_FindIndex(info,"OrderListFocus")
-            SELF:_ReadNames(SELF:Index)
-            SELF:oRDD:RecordMovement()
-        ENDIF
+        SELF:Index := SELF:_FindIndex(info,"OrderListFocus")
+        SELF:_ReadNames(SELF:Index)
+        SELF:oRDD:RecordMovement()
         info:Result := oTmpInfo:Result
         RETURN TRUE
         

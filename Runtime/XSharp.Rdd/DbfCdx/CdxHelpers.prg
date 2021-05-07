@@ -12,10 +12,8 @@ USING System.Diagnostics
 BEGIN NAMESPACE XSharp.RDD.CDX
 
     INTERNAL STATIC CLASS CdxHelpers
-        STATIC METHOD ToAscii (SELF bytes AS BYTE[]) AS STRING
-            RETURN ToAscii(bytes, FALSE)
 
-        STATIC METHOD ToAscii (SELF bytes AS BYTE[], lHex AS LOGIC) AS STRING
+        STATIC METHOD ToAscii (SELF bytes AS BYTE[], lHex := FALSE AS LOGIC) AS STRING
             VAR sb := System.Text.StringBuilder{}
             IF bytes == NULL
                 RETURN ""
@@ -66,10 +64,13 @@ BEGIN NAMESPACE XSharp.RDD.CDX
     [DebuggerDisplay("Stack: {Count}")];
     INTERNAL SEALED CLASS CdxPageStack
         PRIVATE _pages AS List<CdxStackEntry>
-        CONSTRUCTOR(tag AS CdxTag)
+#ifdef DEBUG            
+        PRIVATE _oldStack as List<CdxStackEntry>
+#endif        
+        INTERNAL CONSTRUCTOR(tag AS CdxTag)
             _pages := List<CdxStackEntry>{20}
 
-        PROPERTY Count AS LONG GET _pages:Count
+        INTERNAL PROPERTY Count AS LONG GET _pages:Count
         // for debugging: easy access to the levels on the stack
         INTERNAL PROPERTY Entries AS List<CdxStackEntry> GET _pages
         METHOD Push(page AS CdxTreePage, nPos AS WORD)  AS LONG
@@ -77,14 +78,14 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             _pages:Add(entry)
             RETURN _pages:Count
 
-        METHOD Pop() AS LOGIC
+        INTERNAL METHOD Pop() AS LOGIC
             IF _pages:Count > 0
                 _pages:RemoveAt(_pages:Count-1)
                 RETURN TRUE
             ENDIF
             RETURN FALSE
 
-        PROPERTY Top AS CdxStackEntry
+        INTERNAL PROPERTY Top AS CdxStackEntry
             GET
                 IF _pages:Count > 0
                     RETURN _pages[_pages:Count-1]
@@ -93,9 +94,9 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             END GET
         END PROPERTY
 
-        PROPERTY Empty AS LOGIC GET _pages:Count == 0
+        INTERNAL PROPERTY Empty AS LOGIC GET _pages:Count == 0
 
-        PROPERTY Root AS CdxStackEntry
+        INTERNAL PROPERTY Root AS CdxStackEntry
             GET
                 IF _pages:Count > 0
                     RETURN _pages[0]
@@ -104,7 +105,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             END GET
         END PROPERTY
 
-        METHOD FindPage(nPage AS LONG) AS LONG     
+        INTERNAL METHOD FindPage(nPage AS LONG) AS LONG     
             IF _pages:Count > 0
                 FOR VAR i := 0 TO _pages:Count -1
                     IF _pages[i]:Page:PageNo == nPage
@@ -114,7 +115,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             ENDIF
             RETURN -1
 
-        METHOD ReplacePage(nIndex AS LONG, oNewPage AS CdxTreePage) AS LOGIC
+        INTERNAL METHOD ReplacePage(nIndex AS LONG, oNewPage AS CdxTreePage) AS LOGIC
             IF nIndex >= 0 .AND. nIndex < SELF:_pages:Count
                 VAR entry := _pages[nIndex]
                 entry:Page := oNewPage
@@ -122,10 +123,10 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             ENDIF
             RETURN FALSE
 
-        METHOD FindPage(oPage AS CdxTreePage) AS LONG
+        INTERNAL METHOD FindPage(oPage AS CdxTreePage) AS LONG
             RETURN SELF:FindPage(oPage:PageNo)
 
-        METHOD Replace(originalPage AS CdxTreePage, newPage AS CdxTreePage, nPos := 0 AS WORD) AS LOGIC
+        INTERNAL METHOD Replace(originalPage AS CdxTreePage, newPage AS CdxTreePage, nPos := 0 AS WORD) AS LOGIC
             VAR index := SELF:FindPage(originalPage)
             IF index >= 0
                 _pages[index] := CdxStackEntry{}{Page := newPage, Pos := nPos}
@@ -133,11 +134,11 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             ENDIF
             RETURN FALSE
         
-        METHOD InsertOnTop(newPage AS CdxTreePage) AS LOGIC
+        INTERNAL METHOD InsertOnTop(newPage AS CdxTreePage) AS LOGIC
             _pages:Insert(0,CdxStackEntry{}{Page := newPage, Pos := 0})
              RETURN TRUE
 
-        METHOD SetPos(oPage AS CdxTreePage, nPos AS WORD) AS LOGIC
+        INTERNAL METHOD SetPos(oPage AS CdxTreePage, nPos AS WORD) AS LOGIC
             VAR index := SELF:FindPage(oPage)
             IF index >= 0
                 _pages[index]:Pos := nPos
@@ -145,14 +146,26 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             ENDIF
             RETURN FALSE
             
-        METHOD GetParent(oPage AS CdxTreePage) AS CdxTreePage
+        INTERNAL METHOD GetParent(oPage AS CdxTreePage) AS CdxTreePage
             VAR index := SELF:FindPage(oPage)
             IF index > 0
-                RETURN _pages[index-1]:Page
+                LOCAL oParent := (CdxBranchPage) _pages[index-1]:Page AS CdxBranchPage
+                RETURN oParent
             ENDIF
             RETURN NULL
+
+        INTERNAL METHOD GetLevel(oPage AS CdxTreePage) AS LONG
+            IF oPage != NULL
+                VAR index := SELF:FindPage(oPage)
+                RETURN index
+            ENDIF
+            RETURN -1
             
-        METHOD Clear() AS VOID
+        INTERNAL METHOD Clear() AS VOID
+#ifdef DEBUG
+            SELF:_oldStack := List<CdxStackEntry>{}
+            SELF:_oldStack:AddRange(SELF:_pages)
+#endif            
             SELF:_pages:Clear()
             RETURN
     END CLASS
@@ -160,12 +173,12 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 
     [DebuggerDisplay("Action {Type}")];
     INTERNAL SEALED CLASS CdxAction
-        INTERNAL Type  	       AS CdxActionType 
+        INTERNAL Type  	 AS CdxActionType 
         INTERNAL PageNo  := -1 AS LONG   
         INTERNAL PageNo2 := -1 AS LONG   
-        INTERNAL Pos   	:= -1  AS LONG    
-        INTERNAL Recno 	:= -1  AS LONG    
-        INTERNAL Key   	:= NULL AS BYTE[] 
+        INTERNAL Pos   	 := -1  AS LONG    
+        INTERNAL Recno 	 := -1  AS LONG    
+        INTERNAL Key   	 := NULL AS BYTE[] 
         INTERNAL ChildPage := -1 AS LONG  
         PRIVATE STATIC _Ok AS CdxAction
 
@@ -175,10 +188,9 @@ BEGIN NAMESPACE XSharp.RDD.CDX
         PRIVATE CONSTRUCTOR(nType AS CdxActionType)
             Type   	:= nType
 
-        STATIC PROPERTY Ok AS CdxAction GET _Ok
+        INTERNAL STATIC PROPERTY Ok AS CdxAction GET _Ok
 
-        METHOD IsOk AS LOGIC
-            RETURN SELF:Type == CdxActionType.Ok
+        INTERNAL PROPERTY IsOk AS LOGIC GET SELF:Type == CdxActionType.Ok
 
         INTERNAL STATIC METHOD AddKey( nRecno AS LONG, bKey AS BYTE[]) AS CdxAction
             RETURN CdxAction{CdxActionType.AddKey}{Recno := nRecno, Key := bKey}
@@ -213,8 +225,8 @@ BEGIN NAMESPACE XSharp.RDD.CDX
         INTERNAL STATIC METHOD SplitBranch(oPage AS CdxTreePage,  nChild AS LONG, nRecno AS LONG, bKey AS BYTE[], nPos AS INT) AS CdxAction
             RETURN CdxAction{CdxActionType.AddBranch}{PageNo := oPage:PageNo, ChildPage := nChild, Recno := nRecno, Key := bKey, Pos := nPos}
 
-        INTERNAL STATIC METHOD DeleteFromParent(oPage AS CdxTreePage) AS CdxAction
-            RETURN CdxAction{CdxActionType.DeleteFromParent}{PageNo := oPage:PageNo}
+        INTERNAL STATIC METHOD DeleteFromParent(oPage AS CdxTreePage, nLevel AS LONG) AS CdxAction
+            RETURN CdxAction{CdxActionType.DeleteFromParent}{PageNo := oPage:PageNo, Pos := nLevel}
 
         INTERNAL STATIC METHOD ExpandRecnos(oPage AS CdxLeafPage, nRecno AS LONG, bKey AS BYTE[], nPos AS INT) AS CdxAction
             RETURN CdxAction{CdxActionType.ExpandRecnos}{PageNo := oPage:PageNo, Recno := nRecno, Key := bKey, Pos := nPos}
@@ -224,7 +236,31 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 
         INTERNAL STATIC METHOD OutOfBounds(oPage AS CdxTreePage) AS CdxAction
             RETURN CdxAction{CdxActionType.OutOfBounds}{PageNo := oPage:PageNo}
-            
+
+        OVERRIDE METHOD ToString() AS STRING
+            var sb := System.Text.StringBuilder{}
+            sb:Append("CdxAction: ")
+            sb:Append(SELF:Type:ToString())
+            IF SELF:PageNo != 0
+                sb:Append(" PageNo: "+SELF:PageNo:ToString("X"))
+            ENDIF
+            IF SELF:PageNo2 != 0
+                sb:Append(" PageNo2: "+SELF:PageNo2:ToString("X"))
+            ENDIF
+            IF SELF:Pos != 0
+                sb:Append(" Pos: "+SELF:Pos:ToString())
+            ENDIF
+            IF SELF:Recno != 0
+                sb:Append(" Recno: "+SELF:Recno:ToString())
+            ENDIF
+            IF SELF:ChildPage!= 0
+                sb:Append(" ChildPage: "+SELF:ChildPage:ToString("X"))
+            ENDIF
+            IF SELF:Key != NULL
+                sb:Append(" Key: "+SELF:Key:ToAscii(FALSE))
+            ENDIF
+            RETURN sb:ToString()
+
     END CLASS
 
 END NAMESPACE

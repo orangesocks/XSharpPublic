@@ -4,40 +4,10 @@
 // See License.txt in the project root for license information.
 //
 /// <summary>-- todo --</summary>
-/// <include file="VFPDocs.xml" path="Runtimefunctions/dbalias/*" />
-
-FUNCTION DBAlias ()
-    THROW NotImplementedException{}
-    // RETURN ""
 
 
-/// <summary>-- todo --</summary>
-/// <include file="VFPDocs.xml" path="Runtimefunctions/dbc/*" />
+#pragma options("vo15", on)
 
-FUNCTION DBC( )
-    THROW NotImplementedException{}
-    // RETURN ""
-
-/// <summary>-- todo --</summary>
-/// <include file="VFPDocs.xml" path="Runtimefunctions/dbgetprop/*" />
-
-FUNCTION DbGetProp( cName, cType, cProperty) 
-    THROW NotImplementedException{}
-    // RETURN NIL
-    
-/// <summary>-- todo --</summary>
-/// <include file="VFPDocs.xml" path="Runtimefunctions/dbsetprop/*" />
-
-FUNCTION DbSetProp(cName, cType, cProperty, ePropertyValue )
-    THROW NotImplementedException{}
-    // RETURN FALSE
-    
-/// <summary>-- todo --</summary>
-/// <include file="VFPDocs.xml" path="Runtimefunctions/dbused/*" />
-
-FUNCTION DbUsed( cDatabaseName )
-    THROW NotImplementedException{}
-    // RETURN FALSE
 
 /// <summary>-- todo --</summary>
 /// <include file="VFPDocs.xml" path="Runtimefunctions/defaultext/*" />

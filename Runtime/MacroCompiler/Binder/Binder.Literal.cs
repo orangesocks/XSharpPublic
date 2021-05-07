@@ -29,6 +29,8 @@ namespace XSharp.MacroCompiler
                     return Constant.Create(Literals.StringValue(Value));
                 case TokenType.SYMBOL_CONST:
                     return Constant.CreateSymbol(Value.StartsWith("#") ? Value.Substring(1).ToUpperInvariant() : Value.ToUpperInvariant());
+                case TokenType.BINARY_CONST:
+                    return Constant.CreateBinary(Literals.BinaryValue(Value));
                 case TokenType.HEX_CONST:
                     switch (Value.Last())
                     {
@@ -86,7 +88,8 @@ namespace XSharp.MacroCompiler
                             }
                     }
                 case TokenType.REAL_CONST:
-                    switch (Value.Last())
+                    char spec = Value.First() == '$' ? '$' : Value.Last();
+                    switch (spec)
                     {
                         case 'M':
                         case 'm':
@@ -113,6 +116,15 @@ namespace XSharp.MacroCompiler
                             try
                             {
                                 return Constant.Create(double.Parse(Value.Substring(0, Value.Length - 1), System.Globalization.CultureInfo.InvariantCulture));
+                            }
+                            catch (OverflowException)
+                            {
+                                throw expr.Error(ErrorCode.LiteralFloatOverflow);
+                            }
+                        case '$':
+                            try
+                            {
+                                return Constant.CreateCurrency(decimal.Parse(Value.Substring(1, Value.Length - 1), System.Globalization.CultureInfo.InvariantCulture));
                             }
                             catch (OverflowException)
                             {
@@ -203,6 +215,8 @@ namespace XSharp.MacroCompiler
                 case TokenType.NULL:
                     return Constant.Create((object)null);
                 case TokenType.NIL:
+                    if (Options.Dialect == XSharpDialect.FoxPro)
+                        return Constant.Create(false);
                     return Constant.CreateDefault(Compilation.Get(NativeType.Usual));
                 case TokenType.DATE_CONST:
                     {

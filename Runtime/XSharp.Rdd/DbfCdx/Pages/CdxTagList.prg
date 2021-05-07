@@ -18,7 +18,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 	/// </summary>
 	INTERNAL SEALED CLASS CdxTagList INHERIT CdxLeafPage
         PRIVATE _tags AS List<CdxTag>
-        PROPERTY Encoding as System.Text.Encoding GET _bag:Encoding
+        INTERNAL PROPERTY Encoding as System.Text.Encoding GET _bag:Encoding
 
         INTERNAL CONSTRUCTOR( bag AS CdxOrderBag , nPage AS Int32 , buffer AS BYTE[], nKeyLen AS WORD)
             SUPER(bag, nPage, buffer, nKeyLen)
@@ -29,6 +29,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
         INTERNAL METHOD ReadTags() AS List<CdxTag>
             _tags := List<CdxTag>{}
             System.Diagnostics.Debug.Assert (SELF:PageType:HasFlag(CdxPageType.Leaf) .AND. SELF:PageType:HasFlag(CdxPageType.Root))
+            local oError := NULL_OBJECT as Exception
             FOR VAR nI := 0 TO SELF:NumKeys-1
                 LOCAL nRecno    := SELF:GetRecno(nI) AS Int32
                 LOCAL bName     := SELF:GetKey(nI)  AS BYTE[]
@@ -36,12 +37,18 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 cName           := cName:TrimEnd(<CHAR>{'\0'})
                 VAR tag         := CdxTag{_bag,  nRecno, cName:Trim()}
                 _tags:Add(tag)
+                IF !tag:IsOpen
+                    oError := RuntimeState.LastRddError
+                ENDIF
             NEXT
             // default sort for tags in an orderbag is on pageno. 
-            _tags:Sort( { tagX, tagY => tagX:Page - tagY:Page} ) 
+            _tags:Sort( { tagX, tagY => tagX:Page - tagY:Page} )
+            if oError != NULL
+                RuntimeState.LastRddError := oError
+            ENDIF
             RETURN _tags
 
-        PROPERTY Tags AS IList<CdxTag> GET _tags
+        INTERNAL PROPERTY Tags AS IList<CdxTag> GET _tags
 
         INTERNAL METHOD Initialize(keyLength AS WORD) AS VOID
             SUPER:Initialize(keyLength)
@@ -91,15 +98,15 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 
                 LOCAL action := SELF:Add(tag:Header:PageNo, bytes) AS CdxAction
                 IF action:Type == CdxActionType.ExpandRecnos
-                    VAR leaves := SELF:GetLeaves()
+                    VAR leaves := SELF:GetKeys()
                     LOCAL stream    AS Stream
                     LOCAL fileSize  AS LONG
                     stream   := FGetStream(_bag:_hFile)
                     fileSize := (LONG) stream:Length
                     SELF:SetRecordBits(fileSize)
-                    SELF:SetLeaves(leaves, 0, leaves:Count)
+                    SELF:SetKeys(leaves, 0, leaves:Count)
                     action := SELF:Add(tag:Header:PageNo, bytes)
-                    Debug.Assert(action:IsOk())
+                    Debug.Assert(action:IsOk)
                 ENDIF
             NEXT
             SELF:Compress()
@@ -110,7 +117,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             _tags:AddRange(aTags)
             RETURN TRUE
 
-        METHOD Add(oTag AS CdxTag) AS LOGIC
+        INTERNAL METHOD Add(oTag AS CdxTag) AS LOGIC
             SELF:_tags:Add(oTag)
             SELF:_WriteTags(_tags)
             RETURN TRUE

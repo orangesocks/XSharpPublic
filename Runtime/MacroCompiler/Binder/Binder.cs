@@ -46,18 +46,20 @@ namespace XSharp.MacroCompiler
         static List<ContainerSymbol> RuntimeFunctions = null;
         static Dictionary<Type, TypeSymbol> TypeCache = null;
 
-        internal static StringComparer LookupComprer = StringComparer.OrdinalIgnoreCase;
+        internal static StringComparer LookupComparer = StringComparer.OrdinalIgnoreCase;
 
         internal MacroOptions Options;
 
-        internal Dictionary<string, Symbol> LocalCache = new Dictionary<string, Symbol>(LookupComprer);
+        internal Dictionary<string, Symbol> LocalCache = new Dictionary<string, Symbol>(LookupComparer);
         internal List<LocalSymbol> Locals = new List<LocalSymbol>();
         internal List<ArgumentSymbol> Args = new List<ArgumentSymbol>();
         internal TypeSymbol ObjectType;
         internal Type DelegateType;
-        internal List<_Codeblock> NestedCodeblocks;
+        internal List<XSharp.Codeblock> NestedCodeblocks;
         internal bool CreatesAutoVars = false;
         internal Stack<Stmt> StmtStack = new Stack<Stmt>();
+        internal Stack<int> ScopeStack = new Stack<int>();
+        internal Node Entity = null;
 
         protected Binder(Type objectType, Type delegateType, MacroOptions options)
         {
@@ -69,7 +71,7 @@ namespace XSharp.MacroCompiler
             NestedCodeblocks = null;
         }
 
-        internal static Binder<T, R> Create<T,R>(MacroOptions options) where R: class
+        internal static Binder<T, R> Create<T,R>(MacroOptions options) where R: Delegate
         {
             return new Binder<T, R>(options);
         }
@@ -289,6 +291,14 @@ namespace XSharp.MacroCompiler
             return FindType(nt);
         }
 
+        internal static TypeSymbol ArrayOf(TypeSymbol t, int rank)
+        {
+            if (t == null)
+                return null;
+            var nt = rank == 1 ? t.Type.MakeArrayType() : t.Type.MakeArrayType(rank);
+            return FindType(nt);
+        }
+
         internal static TypeSymbol PointerOf(TypeSymbol t)
         {
             if (t == null)
@@ -332,6 +342,7 @@ namespace XSharp.MacroCompiler
         internal static Symbol LookupName(string name)
         {
             Symbol v = Global.Lookup(name);
+
             foreach (var u in Usings)
                 v = Symbol.Join(v, u.Lookup(name));
             if (!v.HasFunctions())
@@ -408,7 +419,11 @@ namespace XSharp.MacroCompiler
             local.IsParam = isParam;
             Locals.Add(local);
             if (!string.IsNullOrEmpty(name))
+            {
+                if (LocalCache.ContainsKey(name))
+                    return null;
                 LocalCache.Add(name, local);
+            }
             return local;
         }
 
@@ -423,7 +438,11 @@ namespace XSharp.MacroCompiler
             else
                 Args.Add(arg);
             if (!string.IsNullOrEmpty(name))
+            {
+                if (LocalCache.ContainsKey(name))
+                    return null;
                 LocalCache.Add(name, arg);
+            }
             return arg;
         }
 
@@ -432,14 +451,48 @@ namespace XSharp.MacroCompiler
             var variable = new VariableSymbol(name, type);
             Locals.Add(variable);
             if (!string.IsNullOrEmpty(name))
+            {
+                if (LocalCache.ContainsKey(name))
+                    return null;
                 LocalCache.Add(name, variable);
+            }
             return variable;
         }
 
-        internal void AddConstant(string name, Constant c)
+        internal MemvarSymbol AddMemvar(string name)
+        {
+            var variable = new MemvarSymbol(name);
+            Locals.Add(variable);
+            if (!string.IsNullOrEmpty(name))
+            {
+                if (LocalCache.ContainsKey(name))
+                    return null;
+                LocalCache.Add(name, variable);
+            }
+            return variable;
+        }
+        internal FieldAliasSymbol AddFieldAlias(string name, string wa = null)
+        {
+            var variable = new FieldAliasSymbol(name, wa);
+            Locals.Add(variable);
+            if (!string.IsNullOrEmpty(name))
+            {
+                if (LocalCache.ContainsKey(name))
+                    return null;
+                LocalCache.Add(name, variable);
+            }
+            return variable;
+        }
+
+        internal Constant AddConstant(string name, Constant c)
         {
             if (!string.IsNullOrEmpty(name))
+            {
+                if (LocalCache.ContainsKey(name))
+                    return null;
                 LocalCache.Add(name, c);
+            }
+            return c;
         }
 
         internal int ParamCount
@@ -454,11 +507,41 @@ namespace XSharp.MacroCompiler
             }
         }
 
+        internal int OpenScope()
+        {
+            ScopeStack.Push(Locals.Count);
+            return Locals.Count;
+        }
+
+        internal void CloseScope()
+        {
+            var scopeBase = ScopeStack.Pop();
+            for (var i = scopeBase; i <Locals.Count; i++)
+            {
+                if (!string.IsNullOrEmpty(Locals[i].Name))
+                {
+                    LocalCache.Remove(Locals[i].Name);
+                }
+            }
+        }
+
+        internal T FindOuter<T>() where T: class
+        {
+            foreach(var s in StmtStack)
+            {
+                if (s is T ts)
+                {
+                    return ts;
+                }
+            }
+            return null;
+        }
+
         internal int AddNestedCodeblock(out Symbol argSym)
         {
             if (NestedCodeblocks == null)
             {
-                NestedCodeblocks = new List<_Codeblock>();
+                NestedCodeblocks = new List<XSharp.Codeblock>();
                 argSym = AddParam(XSharpSpecialNames.NestedCodeblockArgs, ArrayOf(Compilation.Get(WellKnownTypes.XSharp_Codeblock)), true);
             }
             else
@@ -476,29 +559,31 @@ namespace XSharp.MacroCompiler
         internal abstract Delegate CreateDelegate(DynamicMethod dm);
     }
 
-    internal class Binder<T,R> : Binder where R: class
+    internal class Binder<T,R> : Binder where R: Delegate
     {
         internal Binder(MacroOptions options) : base(typeof(T),typeof(R), options) { }
 
+        internal delegate T MacroDelegate(params T[] args);
+
         internal class NestedWrapper
         {
-            internal delegate T EvalDelegate(_Codeblock[] cbs, params dynamic[] args);
+            internal delegate T EvalDelegate(XSharp.Codeblock[] cbs, params T[] args);
 
-            _Codeblock[] nested_cbs_;
+            XSharp.Codeblock[] nested_cbs_;
             EvalDelegate eval_func_;
 
-            internal NestedWrapper(_Codeblock[] nested_cbs, EvalDelegate eval_func) {
+            internal NestedWrapper(XSharp.Codeblock[] nested_cbs, EvalDelegate eval_func) {
                 nested_cbs_ = nested_cbs;
                 eval_func_ = eval_func;
             }
 
-            internal dynamic Eval(params dynamic[] args)
+            internal T Eval(params T[] args)
             {
                 return eval_func_(nested_cbs_, args);
             }
         }
 
-        internal Codeblock Bind(Codeblock macro)
+        internal U Bind<U>(U macro) where U: Node
         {
             Bind(ref macro);
             return macro;
@@ -512,7 +597,7 @@ namespace XSharp.MacroCompiler
         internal override DynamicMethod CreateMethod(string source)
         {
             if (HasNestedCodeblocks)
-                return new DynamicMethod(source, typeof(T), new Type[] { typeof(_Codeblock[]), typeof(T[]) });
+                return new DynamicMethod(source, typeof(T), new Type[] { typeof(XSharp.Codeblock[]), typeof(T[]) });
             else
                 return new DynamicMethod(source, typeof(T), new Type[] { typeof(T[]) });
         }
@@ -522,8 +607,7 @@ namespace XSharp.MacroCompiler
             if (HasNestedCodeblocks)
             {
                 var eval_dlg = dm.CreateDelegate(typeof(NestedWrapper.EvalDelegate)) as NestedWrapper.EvalDelegate;
-                RuntimeCodeblockDelegate dlg = new NestedWrapper(NestedCodeblocks.ToArray(), eval_dlg).Eval;
-                return dlg;
+                return Delegate.CreateDelegate(typeof(R), new NestedWrapper(NestedCodeblocks.ToArray(), eval_dlg), "Eval", false);
             }
             else
                 return dm.CreateDelegate(typeof(R));

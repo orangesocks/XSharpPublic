@@ -143,7 +143,7 @@ FUNCTION DiskFree(cDrive AS STRING) AS INT64
     END TRY
     RETURN result
 
-/// <inheritdoc cref="M:XSharp.Core.Functions.DiskFree(System.String)" />	
+/// <inheritdoc cref="DiskFree" />	
 /// <param name="nDrive">The number of the disk drive to query, where 1 is drive A, 2 is B, 3 is C, and so on. </param>
 FUNCTION DiskFree(nDrive AS INT) AS INT64
 	RETURN DiskFree(DiskNo2DiskName(nDrive))
@@ -165,7 +165,7 @@ FUNCTION DiskSpace(nDrive AS INT) AS INT64
 	cDisk := DiskNo2DiskName(nDrive)
 	RETURN DiskSpace(cDisk)
 
-/// <inheritdoc cref="M:XSharp.Core.Functions.DiskSpace(System.Int32)" />
+/// <inheritdoc cref="DiskSpace" />
 /// <param name="cDrive">The name of the drive as a string, for example "C:", "A:".   If you do not specify a drive, the Windows default is used.</param>
 FUNCTION DiskSpace(cDrive AS STRING) AS INT64
     LOCAL result AS INT64
@@ -216,12 +216,24 @@ FUNCTION LockTries(nValue AS DWORD) AS DWORD
 	RETURN nResult
 
 
+INTERNAL FUNCTION BadFileParam(cFunction AS STRING, cParam AS STRING, nParam AS DWORD) AS VOID
+    RuntimeState.FileError      := FERROR_PARAM
+    RuntimeState.FileException  := Error.ArgumentError(cFunction,cParam, nParam,"Empty file or directoryname is not allowed")
+    RuntimeState.NetErr         := FALSE
+RETURN 
+    
+
+
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/dirchange/*" />
 FUNCTION DirChange(pszDir AS STRING) AS INT
 	LOCAL result AS INT
 	TRY
-       XSharp.IO.File.ClearErrorState()
+		XSharp.IO.File.ClearErrorState()
+		IF String.IsNullOrEmpty(pszDir)
+		   BadFileParam(__FUNCTION__, nameof(pszDir), 1)
+		   RETURN -1
+		ENDIF        
 		IF Directory.Exists(pszDir)
 			Directory.SetCurrentDirectory(pszDir)
 			result := 0
@@ -239,6 +251,11 @@ FUNCTION DirMake(pszNewDir AS STRING) AS INT
 	LOCAL result AS INT
 	TRY
         XSharp.IO.File.ClearErrorState()
+		XSharp.IO.File.ClearErrorState()
+		IF String.IsNullOrEmpty(pszNewDir)
+		   BadFileParam(__FUNCTION__, nameof(pszNewDir), 1)
+		   RETURN -1
+		ENDIF        
 		IF !Directory.Exists(pszNewDir)
 			Directory.CreateDirectory(pszNewDir)
 			result := 0
@@ -255,7 +272,11 @@ FUNCTION DirMake(pszNewDir AS STRING) AS INT
 FUNCTION DirRemove(pszDirName AS STRING) AS INT
 	LOCAL result AS INT
 	TRY
-        XSharp.IO.File.ClearErrorState()
+		XSharp.IO.File.ClearErrorState()
+		IF String.IsNullOrEmpty(pszDirName)
+		   BadFileParam(__FUNCTION__, nameof(pszDirName), 1)
+		   RETURN -1
+		ENDIF        
 		IF Directory.Exists(pszDirName)
 			Directory.Delete(pszDirName,FALSE)
 			result := 0

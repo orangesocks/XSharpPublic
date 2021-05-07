@@ -1,0 +1,8 @@
+﻿
+//#define TESTCDX
+#ifndef TESTCDX
+#translate DUMP( [<list,...>] ) => NOP
+#else
+#translate DUMP( [<list,...>] ) => Self:Debug(<list>)
+#endif
+ 

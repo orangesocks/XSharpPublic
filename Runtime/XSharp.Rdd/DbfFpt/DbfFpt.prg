@@ -10,6 +10,7 @@ USING XSharp.RDD.Support
 USING XSharp.RDD.CDX
 USING System.Diagnostics
 USING System.IO
+USING STATIC XSharp.Conversions
 BEGIN NAMESPACE XSharp.RDD
     /// <summary>DBFFPT RDD. For DBF/FPT. No index support at this level</summary>
     CLASS DBFFPT INHERIT DBF 
@@ -84,7 +85,7 @@ BEGIN NAMESPACE XSharp.RDD
                     element := bData[nOffset] != 0
                     nOffset += 1
                 CASE FlexArrayTypes.Array    
-                    element := DecodeFlexArray(FlexFieldType.Array16, bData, REF nOffset)
+                    element := SELF:DecodeFlexArray(FlexFieldType.Array16, bData, REF nOffset)
 
                 CASE FlexArrayTypes.CodeBlock
                     element := NULL
@@ -181,7 +182,7 @@ BEGIN NAMESPACE XSharp.RDD
                 bData := BYTE[] { sValue:Length+8}
                 token := FtpMemoToken{bData}
                 token:DataType := FlexFieldType.String
-                token:Length   := (DWORD) sValue:Length
+                token:Length   := sValue:Length
                 VAR bytes := SELF:_Encoding:GetBytes(sValue)
                 System.Array.Copy(bytes,0, bData,8, bytes:Length)
                 RETURN bData
@@ -207,7 +208,7 @@ BEGIN NAMESPACE XSharp.RDD
             CASE FlexFieldType.Array16
             CASE FlexFieldType.Array32
                 offset := 8
-                RETURN DecodeFlexArray(token:DataType, bData, REF offset)
+                RETURN SELF:DecodeFlexArray(token:DataType, bData, REF offset)
             CASE FlexFieldType.Picture
             CASE FlexFieldType.OleObject
                 VAR buffer := BYTE[]{ bData:Length - 8}
@@ -241,13 +242,13 @@ BEGIN NAMESPACE XSharp.RDD
             CASE FlexFieldType.Byte
                 RETURN (BYTE) bData[8]
             CASE FlexFieldType.Short
-                RETURN FoxToShort(bData, 8)
+                RETURN BuffToShortFox(bData, 8)
             CASE FlexFieldType.Word
-                RETURN FoxToWord(bData, 8)
+                RETURN BuffToWordFox(bData, 8)
             CASE FlexFieldType.Long
-                RETURN FoxToLong(bData, 8)
+                RETURN BuffToLongFox(bData, 8)
             CASE FlexFieldType.Dword
-                RETURN FoxToDword(bData, 8)
+                RETURN BuffToDwordFox(bData, 8)
             CASE FlexFieldType.Double
                 RETURN BitConverter.ToDouble(bData, 8)
             CASE FlexFieldType.Double10
@@ -259,7 +260,7 @@ BEGIN NAMESPACE XSharp.RDD
             CASE FlexFieldType.ItemClipper
                 RETURN NULL
             CASE FlexFieldType.LogicLong
-                RETURN FoxToLong(bData, 8) != 0
+                RETURN BuffToLongFox(bData, 8) != 0
             CASE FlexFieldType.StringEmpty
                 RETURN ""
             CASE FlexFieldType.Illegal
@@ -272,6 +273,14 @@ BEGIN NAMESPACE XSharp.RDD
             IF SELF:_isMemoField( nFldPos )
                 // At this level, the return value is the raw Data, in BYTE[]
                 VAR rawData := (BYTE[])SUPER:GetValue(nFldPos)
+                var column  := SELF:_GetColumn(nFldPos)
+                IF column:IsBinary
+                    if rawData != NULL
+                        return rawData
+                    else
+                        return <byte>{}
+                    endif
+                ENDIF
                 IF rawData != NULL
                     // So, extract the "real" Data
                     RETURN SELF:DecodeValue(rawData)
@@ -291,7 +300,7 @@ BEGIN NAMESPACE XSharp.RDD
                 IF ! SELF:_Hot
                     SELF:GoHot()
                 ENDIF
-                VAR oColumn := SELF:_GetColumn(nFldPos)
+                VAR oColumn := SELF:_GetColumn(nFldPos) ASTYPE DbfColumn
                 IF oColumn != NULL
                     IF oColumn:IsMemo
                         IF SELF:HasMemo
@@ -303,7 +312,11 @@ BEGIN NAMESPACE XSharp.RDD
                                 RETURN oColumn:PutValue(NULL, SELF:_RecordBuffer)
                             ENDIF
                             LOCAL bData AS BYTE[]
-                            bData := SELF:EncodeValue(oValue)
+                            if oColumn:IsBinary
+                                bData := (Byte[]) oValue
+                            ELSE
+                                bData := SELF:EncodeValue(oValue)
+                            ENDIF
                             IF SELF:_oFptMemo:PutValue(nFldPos, bData)
                                 // Update the Field Info with the new MemoBlock Position
                                 RETURN oColumn:PutValue(SELF:_oFptMemo:LastWrittenBlockNumber, SELF:_RecordBuffer)
@@ -330,7 +343,12 @@ BEGIN NAMESPACE XSharp.RDD
                 ELSE
                     oResult := IntPtr.Zero
                 ENDIF
-                    
+            CASE DbInfo.DBI_MEMOSTREAM
+                IF ( SELF:_oFptMemo != NULL .AND. SELF:_oFptMemo:IsOpen)
+                    oResult := SELF:_oFptMemo:_oStream
+                ELSE
+                    oResult := NULL
+                ENDIF                    
             CASE DbInfo.DBI_MEMOEXT
                 IF ( SELF:_oFptMemo != NULL .AND. SELF:_oFptMemo:IsOpen)
                     oResult := System.IO.Path.GetExtension(SELF:_oFptMemo:FileName)

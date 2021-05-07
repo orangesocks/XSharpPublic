@@ -209,6 +209,9 @@ PROTECTED METHOD _FieldSub() AS LOGIC
         CASE AdsFieldType.NCHAR
         CASE AdsFieldType.NVARCHAR
             fi:FieldType := DbFieldType.Character
+        CASE AdsFieldType.GUID
+            fi:FieldType := DbFieldType.Character
+            fi:Length := 36
         CASE AdsFieldType.MEMO
         CASE AdsFieldType.BINARY
         CASE AdsFieldType.IMAGE
@@ -464,8 +467,9 @@ RETURN SELF:RecordMovement()
     // Date Length must be 8, Number are long enough to store Dot and Decs (if any), ...
 PROTECT OVERRIDE METHOD _checkFields(info AS RddFieldInfo) AS LOGIC
     // FieldName
-    info:Name := info:Name:ToUpper():Trim()
-    IF info:Name:Length > 10 
+    info:Name := info:Name:Trim()
+    IF info:Name:Length > 10 .and. SELF:_TableType != ACE.ADS_ADT
+        info:Name := info:Name:ToUpper()
         info:Name := info:Name:Substring(0,10)
     ENDIF
     IF ! info:Validate()
@@ -923,10 +927,11 @@ RETURN TRUE
     #region Relations 
     /// <inheritdoc />
 VIRTUAL METHOD ClearRel() AS LOGIC
+    VAR lOk := SUPER:ClearRel()
     IF SELF:_Table != System.IntPtr.Zero
         SELF:_CheckError(ACE.AdsClearRelation(SELF:_Table))
     ENDIF
-RETURN TRUE
+RETURN lOk
 
       /// <inheritdoc />
 VIRTUAL METHOD SetRel(relinfo AS DbRelInfo) AS LOGIC
@@ -935,9 +940,12 @@ VIRTUAL METHOD SetRel(relinfo AS DbRelInfo) AS LOGIC
         SELF:ADSERROR(ERDD.UNSUPPORTED, XSharp.Gencode.EG_UNSUPPORTED, "SetRel", "Related workareas must be opened with the same driver.")
         RETURN FALSE
     ENDIF
-    LOCAL child := (ADSRDD) relinfo:Child AS ADSRDD
-    SELF:_CheckError(ACE.AdsSetRelation(SELF:_Table, child:ACEIndexHandle, relinfo:Key))
-RETURN TRUE
+    VAR lOk :=  SUPER:SetRel(relinfo)
+    IF lOk 
+        LOCAL child := (ADSRDD) relinfo:Child AS ADSRDD
+        SELF:_CheckError(ACE.AdsSetRelation(SELF:_Table, child:ACEIndexHandle, relinfo:Key))
+    ENDIF
+RETURN lOk
 
       #endregion
 
@@ -989,7 +997,7 @@ VIRTUAL METHOD RecInfo(uiOrdinal AS LONG, iRecID AS OBJECT, oNewValue AS OBJECT)
             SELF:ADSERROR(ERDD_DATATYPE, EG_DATATYPE, "RecInfo")
             RETURN FALSE
         END TRY
-        _CheckError(ACE.AdsIsRecordLocked(SELF:_Table, dwRecno, OUT VAR locked))
+        SELF:_CheckError(ACE.AdsIsRecordLocked(SELF:_Table, dwRecno, OUT VAR locked))
         RETURN locked != 0
         
     CASE DbRecordInfo.DBRI_RECSIZE

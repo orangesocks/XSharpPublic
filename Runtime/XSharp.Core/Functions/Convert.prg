@@ -6,6 +6,7 @@
 USING System.Text
 USING System.Globalization
 USING System.Collections.Generic
+USING System.Reflection
 
 INTERNAL STATIC CLASS XSharp.ConversionHelpers
     STATIC INTERNAL usCulture AS CultureInfo
@@ -62,7 +63,7 @@ FUNCTION Bin2Logic(pszLogical AS STRING) AS LOGIC
 /// Convert a intptr to a string
 /// </summary>
 /// <include file="CoreComments.xml" path="Comments/PtrBin/*" />
-/// <seealso cref='M:XSharp.Core.Functions.Bin2Ptr(System.String)' >Bin2Ptr</seealso>
+/// <seealso cref='Bin2Ptr' >Bin2Ptr</seealso>
 FUNCTION Ptr2Bin(p AS IntPtr) AS STRING
     IF IntPtr.Size == 4
         RETURN L2Bin( p:ToInt32())
@@ -74,7 +75,7 @@ FUNCTION Ptr2Bin(p AS IntPtr) AS STRING
 /// </summary>
 /// <param name="cPointer"></param>
 /// <include file="CoreComments.xml" path="Comments/PtrBin/*" />
-/// <seealso cref='M:XSharp.Core.Functions.Ptr2Bin(System.IntPtr)' >Ptr2Bin</seealso>
+/// <seealso cref='Ptr2Bin' >Ptr2Bin</seealso>
 FUNCTION Bin2Ptr(cPointer AS STRING) AS IntPtr
     IF IntPtr.Size == 4
         RETURN (IntPtr) Bin2L(cPointer)
@@ -135,8 +136,8 @@ FUNCTION Bin2W(cUnsignedInt AS STRING) AS WORD
 /// <param name="c"></param>
 /// <returns>
 /// </returns>
-/// <seealso cref='M:XSharp.Core.Functions.LTOC(System.Boolean)' >LTOC</seealso>
-/// <seealso cref='M:XSharp.Core.Functions.Logic2Bin(System.Boolean)' >Logic2Bin</seealso>
+/// <seealso cref='LTOC' >LTOC</seealso>
+/// <seealso cref='Logic2Bin' >Logic2Bin</seealso>
 
 FUNCTION CTOL(c AS STRING) AS LOGIC
     IF c != NULL 
@@ -155,7 +156,7 @@ FUNCTION CTOL(c AS STRING) AS LOGIC
 ///  ? _C2Hex("abcdef", FALSE)               // 616263646566<br/>
 /// </example>
 /// <seealso cref='M:XSharp.RT.Functions.AsHexString(XSharp.__Usual)' >AsHexString</seealso>
-/// <seealso cref='M:XSharp.Core.Functions.C2Hex(System.String)' >C2Hex</seealso>
+/// <seealso cref='C2Hex' >C2Hex</seealso>
 FUNCTION _C2Hex(cSource AS STRING, lAddSpace as LOGIC) AS STRING
     LOCAL sb AS StringBuilder
     sb := StringBuilder{cSource:Length*2}
@@ -175,7 +176,7 @@ FUNCTION _C2Hex(cSource AS STRING, lAddSpace as LOGIC) AS STRING
 ///  ? C2Hex("abcdef")               // 616263646566<br/>
 /// </example>
 /// <seealso cref='M:XSharp.RT.Functions.AsHexString(XSharp.__Usual)' >AsHexString</seealso>
-/// <seealso cref='M:XSharp.Core.Functions._C2Hex(System.String,System.Boolean)' >_C2Hex</seealso>
+/// <seealso cref='_C2Hex' >_C2Hex</seealso>
 FUNCTION C2Hex(cSource AS STRING) AS STRING
     RETURN _C2Hex(cSource, FALSE)
 
@@ -207,7 +208,7 @@ FUNCTION HiWord(dwValue AS DWORD) AS WORD
 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/i2bin/*" />
-/// <seealso cref='M:XSharp.Core.Functions.Bin2I(System.String)' >Bin2I</seealso>
+/// <seealso cref='Bin2I' >Bin2I</seealso>
 FUNCTION I2Bin(siValue AS SHORT) AS STRING
     LOCAL byteArray := BitConverter.GetBytes( siValue ) AS BYTE[]
     RETURN _bytes2String(byteArray)
@@ -377,7 +378,20 @@ FUNCTION _Val(cNumber AS STRING) AS OBJECT
 
 
 
-
+FUNCTION GetPartialEnumName(cName as STRING, oType as System.Type) AS STRING
+    LOCAL aFields   := oType:GetFields() AS FieldInfo[]
+    LOCAL aNames    := List<STRING>{} AS List<STRING>
+    FOREACH VAR oFld IN aFields
+        IF oFld:IsLiteral .AND. oFld:Name:StartsWith(cName, StringComparison.OrdinalIgnoreCase) 
+            aNames:Add(oFld:Name)
+        ENDIF
+    NEXT
+    IF aNames:Count == 1
+        cName := aNames[0]
+    ELSE
+        cName := ""
+    ENDIF
+    RETURN cName
 
 
 

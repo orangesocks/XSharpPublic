@@ -3,7 +3,7 @@
 // Licensed under the Apache License, Version 2.0.
 // See License.txt in the project root for license information.
 //
-
+#pragma options("vo15", on)
 
 /// <summary>-- todo --</summary>
 /// <include file="VFPDocs.xml" path="Runtimefunctions/id/*" />
@@ -43,12 +43,6 @@ FUNCTION InputBox( cInputPrompt , cDialogCaption , cDefaultValue , nTimeout ,cTi
     THROW NotImplementedException{}
     // RETURN ""
 
-/// <summary>-- todo --</summary>
-/// <include file="VFPDocs.xml" path="Runtimefunctions/insmode/*" />
-
-FUNCTION InsMode( lExpression ) AS LOGIC
-    THROW NotImplementedException{}
-    // RETURN FALSE
 
 /// <summary>-- todo --</summary>
 /// <include file="VFPDocs.xml" path="Runtimefunctions/isblank/*" />

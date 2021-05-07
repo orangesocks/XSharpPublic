@@ -1,3 +1,6 @@
+USING System.Reflection
+USING System.Linq
+/// <include file="Gui.xml" path="doc/App/*" />
 CLASS App INHERIT VObject
 	PROTECT oParent AS OBJECT
 	PROTECT liWindowCount AS LONGINT
@@ -10,53 +13,67 @@ CLASS App INHERIT VObject
 	PROTECT hMdiClientWnd AS PTR
 	PROTECT lBeforeDisp AS LOGIC
 	PROTECT lAfterDisp AS LOGIC
+    PROTECT oBeforeDisp AS MethodInfo
+    PROTECT oAfterDisp  AS MethodInfo
+
 
 	//PP-030828 Strong typing
-	ACCESS __HelpCursor() AS PTR STRICT 
+ /// <exclude />
+	ACCESS __HelpCursor() AS PTR STRICT
 	//PP-030828 Strong typing
 	LOCAL hRet AS PTR
+
 
 #ifdef __VULCAN__
    BEGIN LOCK __WCCSApp
 #else
    EnterCriticalSection(@__WCCSApp)
-#endif   
+#endif
    hRet := hHelpCursor
 #ifdef __VULCAN__
    END LOCK
-#else   
+#else
    LeaveCriticalSection(@__WCCSApp)
 #endif
 
+
 	RETURN hRet
 
-ACCESS __HelpWndHandle AS PTR STRICT 
+
+ /// <exclude />
+ACCESS __HelpWndHandle AS PTR STRICT
 	//PP-030828 Strong typing
 	LOCAL hRet AS PTR
 
+
 #ifdef __VULCAN__
    BEGIN LOCK __WCCSApp
 #else
    EnterCriticalSection(@__WCCSApp)
-#endif   
+#endif
    hRet := hHelpWnd
 #ifdef __VULCAN__
    END LOCK
-#else   
+#else
    LeaveCriticalSection(@__WCCSApp)
 #endif
 	RETURN hRet
 
-METHOD __SetHelpWind(hHandle AS PTR, wMode AS LONGINT) AS App STRICT 
+
+ /// <exclude />
+METHOD __SetHelpWind(hHandle AS PTR, wMode AS LONGINT) AS App STRICT
 	//PP-030828 Strong typing
+
 
 #ifdef __VULCAN__
    BEGIN LOCK __WCCSApp
 #else
    EnterCriticalSection(@__WCCSApp)
-#endif   
+#endif
+
 
 	hHelpWnd := hHandle
+
 
 	DO CASE
 	CASE (wMode == HM_GENERAL)
@@ -67,54 +84,67 @@ METHOD __SetHelpWind(hHandle AS PTR, wMode AS LONGINT) AS App STRICT
 		hHelpAccel := NULL_PTR
 	ENDCASE
 
+
 	IF (hHelpCursor == 0) //Load help cursor first time through
 		hHelpCursor := LoadCursor(_GetInst(), String2Psz("HelpCursor"))
 	ENDIF
 
+
 #ifdef __VULCAN__
    END LOCK
-#else   
+#else
    LeaveCriticalSection(@__WCCSApp)
 #endif
+
 
 	RETURN SELF
 
-ACCESS __WindowCount AS LONGINT STRICT 
+
+ /// <exclude />
+ACCESS __WindowCount AS LONGINT STRICT
 	//PP-030828 Strong typing
 	LOCAL lRet AS LONGINT
 
+
 #ifdef __VULCAN__
    BEGIN LOCK __WCCSApp
 #else
    EnterCriticalSection(@__WCCSApp)
-#endif   
+#endif
    lRet := liWindowCount
 #ifdef __VULCAN__
    END LOCK
-#else   
+#else
    LeaveCriticalSection(@__WCCSApp)
 #endif
 
+
 	RETURN lRet
 
-ASSIGN __WindowCount(nValue AS LONGINT)  STRICT 
+
+ /// <exclude />
+ASSIGN __WindowCount(nValue AS LONGINT)  STRICT
 	//PP-030828 Strong typing
+
 
 #ifdef __VULCAN__
    BEGIN LOCK __WCCSApp
 #else
    EnterCriticalSection(@__WCCSApp)
-#endif   
+#endif
    liWindowCount := nValue
 #ifdef __VULCAN__
    END LOCK
-#else   
+#else
    LeaveCriticalSection(@__WCCSApp)
 #endif
 
-	RETURN 
 
-METHOD Exec(kExecType, oObject) 
+	RETURN
+
+
+/// <include file="Gui.xml" path="doc/App.Exec/*" />
+METHOD Exec(kExecType, oObject)
 	// The Exec() method is designed to be used in three ways. One, as the
 	// central event loop of the application. Two, a way of yeilding control
 	// to Windows during an intensive CPU operation. Three, a nested loop
@@ -127,9 +157,13 @@ METHOD Exec(kExecType, oObject)
 	LOCAL lTranslated AS LOGIC	//RvdH 050426
 
 
+
+
 	DEFAULT(@kExecType, EXECNORMAL)
 
+
 	lObject := !IsNil(oObject)
+
 
 	DO WHILE !lObject .OR. oObject:Active()
 		IF (KExecType == EXECNORMAL)
@@ -142,29 +176,34 @@ METHOD Exec(kExecType, oObject)
 			ENDIF
 		ENDIF
 
+
 		// RvdH 070314 Make sure WM_QUIT also goes to BeforeDispatch
 		// IF !retVal
 		// 	EXIT
 		// ENDIF
 
+
 		IF lBeforeDisp
-			IF Send(SELF, #BeforeDispatch, msg:hwnd, msg:message, msg:wParam, msg:lParam) == FALSE
+            IF _Send(SELF, oBeforeDisp, msg:hwnd, msg:message, msg:wParam, msg:lParam ) == FALSE
+			//IF Send(SELF, #BeforeDispatch, msg:hwnd, msg:message, msg:wParam, msg:lParam) == FALSE
 				IF retVal	// When processing WM_QUIT we want to EXIT below
 					LOOP
 				ENDIF
 			ENDIF
 		ENDIF
 
+
 		IF !retVal
 			EXIT
 		ENDIF
+
 
 		IF (hMdiClientWnd == NULL_PTR) .OR. (lObject) .OR. !TranslateMDISysAccel(hMDIClientWnd, @msg)
 #ifndef __VULCAN__
          lTranslated := _VOOLETranslateMsg(@msg)
 #else
          lTranslated := FALSE
-#endif                  
+#endif
 			IF  !lTranslated
 				IF (hHelpAccel == NULL_PTR) .OR. (TranslateAccelerator(hHelpWnd, hHelpAccel, @msg) == 0)
 					IF (hAccel == NULL_PTR) .OR. (TranslateAccelerator(hAccelWnd, hAccel, @msg) == 0)
@@ -198,8 +237,10 @@ METHOD Exec(kExecType, oObject)
 		ENDIF
 		//RvdH 050331 Moved from below
 		IF lAfterDisp
-			Send(SELF, #AfterDispatch, msg:hwnd, msg:message, msg:wParam, msg:lParam)
+            _Send(SELF, oAfterDisp, msg:hwnd, msg:message, msg:wParam, msg:lParam ,)
+			//Send(SELF, #AfterDispatch, msg:hwnd, msg:message, msg:wParam, msg:lParam)
 		ENDIF
+
 
 	ENDDO
 	//RvdH 050331 Moved inside DO WHILE
@@ -209,105 +250,154 @@ METHOD Exec(kExecType, oObject)
 
 
 
+
+
+
 	//RvdH 070314 PostQuitMessage should always happen and return 1 (below) as well
 	IF /*(KExecType == ExecNormal) .and. */ lObject .AND. (msg:message == WM_QUIT)
 		PostQuitMessage(0)
 	ENDIF
 
+
 	IF (msg:message != WM_QUIT)  // .AND. (KExecType == EXECNORMAL)
 		RETURN 1
 	ENDIF
 
+
 	RETURN 0
 
+
+/// <include file="Gui.xml" path="doc/App.GetAccel/*" />
 METHOD GetAccel()  AS PTR
    LOCAL hCurrentAccel		AS PTR
 	// DHer: 18/12/2008
 	hCurrentAccel := SELF:hAccel
 
+
 RETURN hCurrentAccel
 
+
+/// <include file="Gui.xml" path="doc/App.GetAccelWindow/*" />
 METHOD GetAccelWindow()  AS PTR
    LOCAL hCurrentAccelWnd		AS PTR
    // DHer: 18/12/2008
    hCurrentAccelWnd := SELF:hAccelWnd
    RETURN hCurrentAccelWnd
 
+
+/// <include file="Gui.xml" path="doc/App.GetMdiClientWindow/*" />
 METHOD GetMdiClientWindow()  AS PTR
    LOCAL hCurrentMdiClientWnd		AS PTR
 	// DHer: 18/12/2008
 	hCurrentMdiClientWnd := SELF:hMdiClientWnd
    RETURN hCurrentMdiClientWnd
 
+
+/// <include file="Gui.xml" path="doc/App.GetDialogWindow/*" />
 METHOD GetDialogWindow() AS PTR
 	RETURN hDialogWnd
 
+
+/// <include file="Gui.xml" path="doc/App.Handle/*" />
 METHOD Handle() AS PTR
+
 
 	RETURN _GetInst()
 
-CONSTRUCTOR(oOwner) 
+
+/// <include file="Gui.xml" path="doc/App.ctor/*" />
+CONSTRUCTOR(oOwner)
+
 
 	SUPER()
+
 
 	IF !IsNil(oOwner)
 		oParent := oOwner
 	ENDIF
 
+
    // dcaton 070329 this is already done in __WCInitCriticalSections
    //InitializeCriticalSection(@__WCCSApp)
 
-	lBeforeDisp := IsMethod(SELF, #BeforeDispatch)
-	lAfterDisp := IsMethod(SELF, #AfterDispatch)
+
+    oBeforeDisp := SELF:GetType():GetMethods():Where( {x => x:Name:ToUpper() == "BEFOREDISPATCH"}):FirstOrDefault()
+    oAfterDisp := SELF:GetType():GetMethods():Where( {x => x:Name:ToUpper() == "AFTERDISPATCH"}):FirstOrDefault()
+    lBeforeDisp := oBeforeDisp != NULL_OBJECT
+    lAfterDisp := oAfterDisp != NULL_OBJECT
    #ifdef __VULCAN__
       // Set GLOBAL oApp since the application doesn't
       // have access to it
       oApp := SELF
    #endif
 
-	RETURN 
 
-METHOD Quit() 
+	RETURN
+
+
+/// <include file="Gui.xml" path="doc/App.Quit/*" />
+METHOD Quit()
+
 
 	PostQuitMessage(0)
 
+
 	RETURN NIL
 
-METHOD Run(sCommand) 
+
+/// <include file="Gui.xml" path="doc/App.Run/*" />
+METHOD Run(sCommand)
+
 
 	RETURN WinExec(String2Psz(sCommand), SW_SHOWNORMAL)
 
-METHOD SetAccel(hNewAccel) 
+
+/// <include file="Gui.xml" path="doc/App.SetAccel/*" />
+METHOD SetAccel(hNewAccel)
    BEGIN LOCK __WCCSApp
       hAccel := hNewAccel
    END LOCK
 
+
 	RETURN NIL
 
-METHOD SetAccelWindow(hNewAccelWnd) 
+
+/// <include file="Gui.xml" path="doc/App.SetAccelWindow/*" />
+METHOD SetAccelWindow(hNewAccelWnd)
+
 
    BEGIN LOCK __WCCSApp
       hAccelWnd := hNewAccelWnd
    END LOCK
 
+
 	RETURN NIL
 
-METHOD SetDialogWindow(hNewDialogWnd) 
+
+/// <include file="Gui.xml" path="doc/App.SetDialogWindow/*" />
+METHOD SetDialogWindow(hNewDialogWnd)
+
 
    BEGIN LOCK __WCCSApp
       hDialogWnd := hNewDialogWnd
    END LOCK
 
+
 	RETURN NIL
 
-METHOD SetMdiClientWindow(hNewMdiClientWnd) 
+
+/// <include file="Gui.xml" path="doc/App.SetMdiClientWindow/*" />
+METHOD SetMdiClientWindow(hNewMdiClientWnd)
+
 
    BEGIN LOCK __WCCSApp
       hMdiClientWnd := hNewMdiClientWnd
    END LOCK
 
+
 	RETURN NIL
 END CLASS
+
 
 /// <exclude/>
 GLOBAL gatomVOObjPtr AS DWORD
@@ -316,13 +406,17 @@ GLOBAL gdwDragListMsg AS DWORD
 /// <exclude/>
 GLOBAL glCAPaintInit := FALSE AS LOGIC
 
+
 /// <exclude/>
 GLOBAL gpfnInitCommonControlsEx AS InitCommonControlsEx PTR
 /// <exclude/>
 GLOBAL gsymBrowserDef AS SYMBOL
 
+
+ /// <exclude />
 PROCEDURE __InitFunctionPointer() _INIT3
 	LOCAL icex IS _winINITCOMMONCONTROLSEX
+
 
 	//SE-070411
 	LOCAL hModule AS PTR
@@ -332,6 +426,7 @@ PROCEDURE __InitFunctionPointer() _INIT3
 	ENDIF
 	if hModule != NULL_PTR
 		gpfnInitCommonControlsEx := GetProcAddress(hModule, String2Psz("InitCommonControlsEx"))
+
 
 		IF (gpfnInitCommonControlsEx != NULL_PTR)
 			icex:dwSize := _SIZEOF(_winINITCOMMONCONTROLSEX)
@@ -347,48 +442,63 @@ PROCEDURE __InitFunctionPointer() _INIT3
 			ENDIF
 		ENDIF
 
+
 		IF (gpfnInitCommonControlsEx == NULL_PTR)
-			InitCommonControls()                                    
+			InitCommonControls()
 		ENDIF
+
 
 		gdwDragListMsg := RegisterWindowMessage(String2Psz(DRAGLISTMSGSTRING))
 		gatomVOObjPtr 	:= GlobalAddAtom(String2Psz("__VOObjPtr"))
 		gsymBrowserDef := IIF(File("CATO3CNT.DLL"), #DataBrowser, #DataListView)
-	// else 
+	// else
 	// should throw an error here ?
 	endif
 	RETURN
 
+
 GLOBAL oApp AS App
 
+
+/// <include file="Gui.xml" path="doc/ApplicationExec/*" />
 FUNCTION ApplicationExec(kExecType)
 	//For 1.0 compatibility
+
 
 	IF (oApp != NULL_OBJECT)
 		oApp:Exec(kExecType)
 	ENDIF
 
+
 	RETURN NIL
+
 
 /// <exclude/>
 FUNCTION InitCommonControlsEx(lpicex AS PTR) AS LOGIC STRICT
 	//SYSTEM
 	RETURN FALSE
 
+
 /// <exclude/>
 FUNCTION SetAccelerator(hWnd AS PTR, hAccel AS PTR) AS LOGIC STRICT
+
 
 	IF (oApp != NULL_OBJECT)
 		oApp:SetAccelWindow(hWnd)
 		oApp:SetAccel(hAccel)
 	ENDIF
 
+
 	RETURN TRUE
 
+
 #ifndef __VULCAN__
+/// <include file="Gui.xml" path="doc/Start/*" />
 FUNCTION Start()
 
+
 	oApp := App{}
+
 
 	IF IsMethod(oApp, #Start)
 		Send(oApp, #Start)
@@ -397,10 +507,14 @@ FUNCTION Start()
 		TextBox{,"Visual Objects","App:Start method missing", BOXICONEXCLAMATION}:Show()
 	ENDIF
 
+
 	WCDCClear()
+
 
 	RETURN NIL
 #endif
+
+
 
 
 INTERNAL FUNCTION __ParentIsDialogWindow(hWnd AS PTR, o OUT DialogWindow) AS LOGIC
@@ -420,6 +534,7 @@ INTERNAL FUNCTION __ParentIsDialogWindow(hWnd AS PTR, o OUT DialogWindow) AS LOG
     ENDIF
     o := NULL
     RETURN FALSE
+
 
 INTERNAL FUNCTION __HandleClipperKeys( wParam AS DWORD, hWnd AS PTR, o AS DialogWindow) AS LOGIC
     SWITCH wParam

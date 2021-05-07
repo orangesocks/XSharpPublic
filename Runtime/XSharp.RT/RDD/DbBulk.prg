@@ -107,7 +107,7 @@ FUNCTION DbApp(cSourceFile, acFields, cbForCondition, cbWhileCondition,nNext, nR
 		
 		DbUseArea(TRUE, cDriver, cSourceFile, __UniqueAlias(cSourceFile), TRUE, TRUE,/*aStru*/,/*cDelim*/, acRDDs)
 		siFrom := VoDbGetSelect()
-        DbMoveToMemory()
+		DbMoveToMemory()
 		
 		acFields := {}
 		
@@ -127,8 +127,9 @@ FUNCTION DbApp(cSourceFile, acFields, cbForCondition, cbWhileCondition,nNext, nR
 		ENDIF
 		
 		IF (siFrom > 0)
-            VoDbSetSelect((INT) siFrom)
-			VoDbCloseArea()
+		   VoDbSetSelect((INT) siFrom)
+		   DbMoveToDisk()
+		   VoDbCloseArea()
 		ENDIF
 		
 		VoDbSetSelect(INT(siTo))
@@ -324,13 +325,14 @@ FUNCTION DbCopy(cTargetFile, acFields, cbForCondition, cbWhileCondition, nNext, 
 			ENDIF
 			
 			DbUseArea(.T., cDriver, cTargetFile, __UniqueAlias(cTargetFile),,,,,acRDDs)
-			DbMoveToMemory()
+		    DbMoveToMemory()
 			VoDbSelect(siFrom, REF siTo)
 			
 			lRetCode := DbTrans(siTo, aStruct, cbForCondition, cbWhileCondition, nNext, nRecord, lRest)
 			
 			IF (siTo > 0)
 				VoDbSetSelect(INT(siTo))
+		                DbMoveToDisk()
 				VoDbCloseArea()
 			ENDIF
 			
@@ -440,7 +442,7 @@ FUNCTION DbCopyDelim (cTargetFile, cDelim, acFields, cbForCondition, cbWhileCond
 		lDbfAnsi := DbInfo(DBI_ISANSI)
 
         IF cDelim:IsNil
-            cDelim := RuntimeState.StringDelimiter
+            cDelim := RuntimeState.FieldDelimiter
         END
 
         // Note that by passing TRUE we are telling the backend to keep the file open
@@ -641,7 +643,7 @@ FUNCTION DbSort(	cTargetFile, acFields, cbForCondition, cbWhileCondition, nNext,
 	
 	siFrom := VoDbGetSelect()
 	siTo   := 0
-	DEFAULT(REF lRest, .F.)
+	@@Default(REF lRest, .F.)
 	
 	TRY
 		
@@ -924,18 +926,10 @@ FUNCTION DbUpdate(cAlias, cbKey, lRand, cbReplace) AS LOGIC CLIPPER
 
 
 FUNCTION DbMoveToMemory() AS LOGIC
-IF Used()
-    LOCAL hFile AS IntPtr
-    hFile := (IntPtr) DbInfo(DBI_FILEHANDLE)
-    FConvertToMemoryStream(hFile)
-    hFile := (IntPtr) DbInfo(DBI_MEMOHANDLE)
-    IF hFile != IntPtr.Zero
-        FConvertToMemoryStream(hFile)
-    ENDIF
-    RETURN TRUE
-ENDIF
 RETURN FALSE
     
+FUNCTION DbMoveToDisk() AS LOGIC
+RETURN FALSE
 
 
 

@@ -20,7 +20,7 @@ using Microsoft.VisualStudio.Project.Automation;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using MSBuild = Microsoft.Build.Evaluation;
-using XSharp.Project;
+using XSharpModel;
 
 namespace Microsoft.VisualStudio.Project
 {
@@ -76,7 +76,7 @@ namespace Microsoft.VisualStudio.Project
         /// <summary>
         /// This is the object that will be returned by EnvDTE.Project.Object for this project
         /// </summary>
-        internal override object Object
+        public override object Object
         {
             get { return new OASolutionFolder<ProjectContainerNode>(this); }
         }
@@ -140,7 +140,9 @@ namespace Microsoft.VisualStudio.Project
         {
             HierarchyNode hierNode = this.NodeFromItemId(itemId);
             Debug.Assert(hierNode != null, "Hierarchy node not found");
-            if(hierNode != this)
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            if (hierNode != this)
             {
                 return ErrorHandler.ThrowOnFailure(hierNode.IsItemDirty(itemId, punkDocData, out pfDirty));
             }
@@ -154,7 +156,9 @@ namespace Microsoft.VisualStudio.Project
         {
             HierarchyNode hierNode = this.NodeFromItemId(itemid);
             Debug.Assert(hierNode != null, "Hierarchy node not found");
-            if(hierNode != this)
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            if (hierNode != this)
             {
                 return ErrorHandler.ThrowOnFailure(hierNode.SaveItem(dwSave, silentSaveAsName, itemid, punkDocData, out pfCancelled));
             }
@@ -182,8 +186,9 @@ namespace Microsoft.VisualStudio.Project
         /// <returns>If the method succeeds, it returns S_OK. If it fails, it returns an error code. </returns>
         public override int ReloadItem(uint itemId, uint reserved)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             #region precondition
-            if(this.IsClosed)
+            if (this.IsClosed)
             {
                 return VSConstants.E_FAIL;
             }
@@ -215,6 +220,7 @@ namespace Microsoft.VisualStudio.Project
         /// </summary>
         protected override void Reload()
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             base.Reload();
             this.CreateNestedProjectNodes();
         }
@@ -223,6 +229,8 @@ namespace Microsoft.VisualStudio.Project
         #region IVsParentProject
         public virtual int OpenChildren()
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             IVsSolution solution = this.GetService(typeof(IVsSolution)) as IVsSolution;
 
             Debug.Assert(solution != null, "Could not retrieve the solution from the services provided by this project");
@@ -260,7 +268,7 @@ namespace Microsoft.VisualStudio.Project
                     Utilities.ShowMessageBox(this.Site, title, e.Message, icon, buttons, defaultButton);
                 }
 
-                XSharpProjectPackage.Instance.DisplayException(e);
+                XSettings.DisplayException(e);
                 throw;
             }
             finally
@@ -281,6 +289,7 @@ namespace Microsoft.VisualStudio.Project
         public virtual int CloseChildren()
         {
             int returnValue = VSConstants.S_OK; // be optimistic.
+            ThreadHelper.ThrowIfNotOnUIThread();
 
             IVsSolution solution = this.GetService(typeof(IVsSolution)) as IVsSolution;
             Debug.Assert(solution != null, "Could not retrieve the solution from the services provided by this project");
@@ -361,6 +370,7 @@ namespace Microsoft.VisualStudio.Project
                 }
             }
 
+            ThreadHelper.ThrowIfNotOnUIThread();
             // We do not care of file changes after this.
             this.NestedProjectNodeReloader.FileChangedOnDisk -= this.OnNestedProjectFileChangedOnDisk;
             this.NestedProjectNodeReloader.Dispose();
@@ -386,6 +396,7 @@ namespace Microsoft.VisualStudio.Project
             {
                 creationFlags |= __VSCREATEPROJFLAGS.CPF_OPENFILE;
             }
+            ThreadHelper.ThrowIfNotOnUIThread();
 
             foreach (MSBuild.ProjectItem item in this.BuildProject.Items)
             {
@@ -433,6 +444,7 @@ namespace Microsoft.VisualStudio.Project
             string filename = elementToUse.GetFullPathForElement();
             // Delegate to AddNestedProjectFromTemplate. Because we pass flags that specify open project rather then clone, this will works.
             Debug.Assert((creationFlags & __VSCREATEPROJFLAGS.CPF_OPENFILE) == __VSCREATEPROJFLAGS.CPF_OPENFILE, "__VSCREATEPROJFLAGS.CPF_OPENFILE should have been specified, did you mean to call AddNestedProjectFromTemplate?");
+            ThreadHelper.ThrowIfNotOnUIThread();
             return AddNestedProjectFromTemplate(filename, Path.GetDirectoryName(filename), Path.GetFileName(filename), elementToUse, creationFlags);
         }
 
@@ -450,58 +462,63 @@ namespace Microsoft.VisualStudio.Project
         [SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "Vs")]
         protected internal void RunVsTemplateWizard(ProjectElement element, bool silent)
         {
-            ProjectElement elementToUse = (element == null) ? this.nestedProjectElement : element;
-
-            if(elementToUse == null)
+            ThreadHelper.JoinableTaskFactory.Run(async delegate
             {
-                throw new ArgumentNullException("element");
-            }
-            this.nestedProjectElement = elementToUse;
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
-            Automation.OAProject oaProject = GetAutomationObject() as Automation.OAProject;
-            if(oaProject == null || oaProject.ProjectItems == null)
-                throw new System.InvalidOperationException(SR.GetString(SR.InvalidAutomationObject, CultureInfo.CurrentUICulture));
-            Debug.Assert(oaProject.Object != null, "The project automation object should have set the Object to the SolutionFolder");
-            Automation.OASolutionFolder<ProjectContainerNode> folder = oaProject.Object as Automation.OASolutionFolder<ProjectContainerNode>;
+                ProjectElement elementToUse = (element == null) ? this.nestedProjectElement : element;
 
-            // Prepare the parameters to pass to RunWizardFile
-            string destination = elementToUse.GetFullPathForElement();
-            string template = this.GetProjectTemplatePath(elementToUse);
-
-            object[] wizParams = new object[7];
-            wizParams[0] = EnvDTE.Constants.vsWizardAddSubProject;
-            wizParams[1] = Path.GetFileNameWithoutExtension(destination);
-            wizParams[2] = oaProject.ProjectItems;
-            wizParams[3] = Path.GetDirectoryName(destination);
-            wizParams[4] = Path.GetFileNameWithoutExtension(destination);
-            wizParams[5] = Path.GetDirectoryName(folder.DTE.FullName); //VS install dir
-            wizParams[6] = silent;
-
-            IVsDetermineWizardTrust wizardTrust = this.GetService(typeof(SVsDetermineWizardTrust)) as IVsDetermineWizardTrust;
-            if(wizardTrust != null)
-            {
-                Guid guidProjectAdding = Guid.Empty;
-
-                // In case of a project template an empty guid should be added as the guid parameter. See env\msenv\core\newtree.h IsTrustedTemplate method definition.
-                wizardTrust.OnWizardInitiated(template, ref guidProjectAdding);
-            }
-
-            try
-            {
-                // Make the call to execute the wizard. This should cause AddNestedProjectFromTemplate to be
-                // called back with the correct set of parameters.
-                EnvDTE.IVsExtensibility extensibilityService = (EnvDTE.IVsExtensibility)GetService(typeof(EnvDTE.IVsExtensibility));
-                EnvDTE.wizardResult result = extensibilityService.RunWizardFile(template, 0, ref wizParams);
-                if(result == EnvDTE.wizardResult.wizardResultFailure)
-                    throw new COMException();
-            }
-            finally
-            {
-                if(wizardTrust != null)
+                if (elementToUse == null)
                 {
-                    wizardTrust.OnWizardCompleted();
+                    throw new ArgumentNullException("element");
                 }
-            }
+                this.nestedProjectElement = elementToUse;
+
+                Automation.OAProject oaProject = GetAutomationObject() as Automation.OAProject;
+                if (oaProject == null || oaProject.ProjectItems == null)
+                    throw new System.InvalidOperationException(SR.GetString(SR.InvalidAutomationObject, CultureInfo.CurrentUICulture));
+                Debug.Assert(oaProject.Object != null, "The project automation object should have set the Object to the SolutionFolder");
+                Automation.OASolutionFolder<ProjectContainerNode> folder = oaProject.Object as Automation.OASolutionFolder<ProjectContainerNode>;
+
+                // Prepare the parameters to pass to RunWizardFile
+                string destination = elementToUse.GetFullPathForElement();
+                string template = this.GetProjectTemplatePath(elementToUse);
+
+                object[] wizParams = new object[7];
+                wizParams[0] = EnvDTE.Constants.vsWizardAddSubProject;
+                wizParams[1] = Path.GetFileNameWithoutExtension(destination);
+                wizParams[2] = oaProject.ProjectItems;
+                wizParams[3] = Path.GetDirectoryName(destination);
+                wizParams[4] = Path.GetFileNameWithoutExtension(destination);
+                wizParams[5] = Path.GetDirectoryName(folder.DTE.FullName); //VS install dir
+                wizParams[6] = silent;
+
+                IVsDetermineWizardTrust wizardTrust = this.GetService(typeof(SVsDetermineWizardTrust)) as IVsDetermineWizardTrust;
+                if (wizardTrust != null)
+                {
+                    Guid guidProjectAdding = Guid.Empty;
+
+                    // In case of a project template an empty guid should be added as the guid parameter. See env\msenv\core\newtree.h IsTrustedTemplate method definition.
+                    wizardTrust.OnWizardInitiated(template, ref guidProjectAdding);
+                }
+
+                try
+                {
+                    // Make the call to execute the wizard. This should cause AddNestedProjectFromTemplate to be
+                    // called back with the correct set of parameters.
+                    EnvDTE.IVsExtensibility extensibilityService = (EnvDTE.IVsExtensibility)GetService(typeof(EnvDTE.IVsExtensibility));
+                    EnvDTE.wizardResult result = extensibilityService.RunWizardFile(template, 0, ref wizParams);
+                    if (result == EnvDTE.wizardResult.wizardResultFailure)
+                        throw new COMException();
+                }
+                finally
+                {
+                    if (wizardTrust != null)
+                    {
+                        wizardTrust.OnWizardCompleted();
+                    }
+                }
+            });
         }
 
         /// <summary>
@@ -520,6 +537,7 @@ namespace Microsoft.VisualStudio.Project
             }
             string destination = elementToUse.GetFullPathForElement();
             string template = this.GetProjectTemplatePath(elementToUse);
+            ThreadHelper.ThrowIfNotOnUIThread();
 
             return this.AddNestedProjectFromTemplate(template, Path.GetDirectoryName(destination), Path.GetFileName(destination), elementToUse, creationFlags);
         }
@@ -535,8 +553,9 @@ namespace Microsoft.VisualStudio.Project
         {
             // If this is project creation and the template specified a subproject in its project file, this.nestedProjectElement will be used
             ProjectElement elementToUse = (element == null) ? this.nestedProjectElement : element;
+            ThreadHelper.ThrowIfNotOnUIThread();
 
-            if(elementToUse == null)
+            if (elementToUse == null)
             {
                 // If this is null, this means MSBuild does not know anything about our subproject so add an MSBuild item for it
                 elementToUse = new ProjectElement(this, fileName, ProjectFileConstants.SubProject);
@@ -582,7 +601,8 @@ namespace Microsoft.VisualStudio.Project
         /// </summary>
         protected virtual void AddVirtualProjects()
         {
-            for(HierarchyNode child = this.FirstChild; child != null; child = child.NextSibling)
+            ThreadHelper.ThrowIfNotOnUIThread();
+            for (HierarchyNode child = this.FirstChild; child != null; child = child.NextSibling)
             {
                 NestedProjectNode nestedProjectNode = child as NestedProjectNode;
                 if(nestedProjectNode != null)
@@ -640,7 +660,7 @@ namespace Microsoft.VisualStudio.Project
         {
             ProjectElement elementToUse = (element == null) ? this.nestedProjectElement : element;
 
-            if(elementToUse == null)
+            if (elementToUse == null)
             {
                 throw new ArgumentNullException("element");
             }
@@ -649,19 +669,23 @@ namespace Microsoft.VisualStudio.Project
             string typeGuidString = elementToUse.GetMetadataAndThrow(ProjectFileConstants.TypeGuid, new Exception());
             Guid projectFactoryGuid = new Guid(typeGuidString);
 
-            EnvDTE.DTE dte = this.ProjectMgr.Site.GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
-            Debug.Assert(dte != null, "Could not get the automation object from the services exposed by this project");
-
-            if(dte == null)
-                throw new InvalidOperationException();
-
-            RegisteredProjectType registeredProjectType = RegisteredProjectType.CreateRegisteredProjectType(projectFactoryGuid);
-            Debug.Assert(registeredProjectType != null, "Could not read the registry setting associated to this project.");
-            if(registeredProjectType == null)
+            return ThreadHelper.JoinableTaskFactory.Run(async delegate
             {
-                throw new InvalidOperationException();
-            }
-            return registeredProjectType;
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                EnvDTE.DTE dte = this.ProjectMgr.Site.GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+                Debug.Assert(dte != null, "Could not get the automation object from the services exposed by this project");
+
+                if (dte == null)
+                    throw new InvalidOperationException();
+
+                RegisteredProjectType registeredProjectType = RegisteredProjectType.CreateRegisteredProjectType(projectFactoryGuid);
+                Debug.Assert(registeredProjectType != null, "Could not read the registry setting associated to this project.");
+                if (registeredProjectType == null)
+                {
+                    throw new InvalidOperationException();
+                }
+                return registeredProjectType;
+            });
         }
 
         /// <summary>
@@ -674,6 +698,7 @@ namespace Microsoft.VisualStudio.Project
             {
                 throw new ArgumentNullException("node");
             }
+            ThreadHelper.ThrowIfNotOnUIThread();
 
             IVsSolution solution = this.GetService(typeof(IVsSolution)) as IVsSolution;
 
@@ -778,6 +803,8 @@ namespace Microsoft.VisualStudio.Project
 
             // test if we actually have a document for this id.
             string moniker;
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             this.GetMkDocument(e.ItemID, out moniker);
             Debug.Assert(NativeMethods.IsSamePath(moniker, e.FileName), " The file + " + e.FileName + " has changed but we could not retrieve the path for the item id associated to the path.");
             #endregion
@@ -793,8 +820,9 @@ namespace Microsoft.VisualStudio.Project
                 OLEMSGDEFBUTTON defaultButton = OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST;
                 reload = (Utilities.ShowMessageBox(this.Site, message, title, icon, buttons, defaultButton) == NativeMethods.IDYES);
             }
+            ThreadHelper.ThrowIfNotOnUIThread();
 
-            if(reload)
+            if (reload)
             {
                 // We have to use here the interface method call, since it might be that specialized project nodes like the project container item
                 // is overwriting the default functionality.

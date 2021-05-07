@@ -222,6 +222,9 @@
   <data name="EDB_NOORDER" xml:space="preserve">
     <value>No order specified</value>
   </data>
+  <data name="EDB_NODB" xml:space="preserve">
+    <value>No database is opened</value>
+  </data>
   <data name="EDB_ASSERTION" xml:space="preserve">
     <value>Assertion failed</value>
   </data>
@@ -2293,7 +2296,7 @@
     <value>Too many threads</value>
   </data>
   <data name="RT_MSG_ERR_43" xml:space="preserve">
-    <value>Reserved error number</value>
+    <value>Database error</value>
   </data>
   <data name="RT_MSG_ERR_44" xml:space="preserve">
     <value>Reserved error number</value>
@@ -2620,6 +2623,15 @@
   </data>
   <data name="ERRORDIALOG_CLOSE" xml:space="preserve">
     <value>Close</value>
+  </data>
+  <data name="ERRORDIALOG_ABORT" xml:space="preserve">
+    <value>&amp;Abort</value>
+  </data>
+  <data name="ERRORDIALOG_RETRY" xml:space="preserve">
+    <value>&amp;Retry</value>
+  </data>
+  <data name="ERRORDIALOG_IGNORE" xml:space="preserve">
+    <value>&amp;Ignore</value>
   </data>
   <data name="ERRORDIALOG_COPY" xml:space="preserve">
     <value>&amp;Copy To Clipboard</value>

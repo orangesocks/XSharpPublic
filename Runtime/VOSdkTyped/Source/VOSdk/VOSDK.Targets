@@ -37,7 +37,7 @@
     <VO12>false</VO12>
     <VO13>false</VO13>
     <VO14>true</VO14>
-    <vo15>true</vo15>
+    <vo15>false</vo15>
     <VO16>false</VO16>
     <XPP1>false</XPP1>
     <StandardDefs />
@@ -62,20 +62,22 @@
     <EmitDebugInformation>true</EmitDebugInformation>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DefineConstants>DEBUG;TRACE;RUNTIME</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Documentation|AnyCPU'" Label="Configuration">
     <EmitDebugInformation>true</EmitDebugInformation>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <DefineConstants>DEBUG;TRACE;DOCUMENTATION</DefineConstants>
-    <DisabledWarnings>1591</DisabledWarnings>
+    <DefineConstants>DEBUG;TRACE;DOCUMENTATION;RUNTIME</DefineConstants>
+    <DisabledWarnings>1591,9015,169,649</DisabledWarnings>
     <CommandLineOption>/noclipcall</CommandLineOption>
+	<vo15>true</vo15>
+	<vo5>false</vo5>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'" Label="Configuration">
     <EmitDebugInformation>false</EmitDebugInformation>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <DefineConstants>TRACE</DefineConstants>
+    <DefineConstants>TRACE;RUNTIME</DefineConstants>
   </PropertyGroup>
 </Project>

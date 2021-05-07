@@ -23,7 +23,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;RUNTIME</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <SignAssembly>true</SignAssembly>
@@ -32,7 +32,7 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <DefineConstants>TRACE</DefineConstants>
+    <DefineConstants>TRACE;RUNTIME</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <RunCodeAnalysis>false</RunCodeAnalysis>
@@ -48,6 +48,7 @@
     </Compile>
     <Compile Include="Binder\Binder.Access.cs" />
     <Compile Include="Binder\Binder.Error.cs" />
+    <Compile Include="Binder\Node.Bound.Stmt.cs" />
     <Compile Include="Binder\Node.Constant.cs" />
     <Compile Include="Binder\Operator.Binary.cs" />
     <Compile Include="Binder\Binder.Argument.cs" />
@@ -68,6 +69,7 @@
     <Compile Include="Binder\Symbol.cs" />
     <Compile Include="Binder\Operator.Unary.cs" />
     <Compile Include="Binder\Symbol.Extensions.cs" />
+    <Compile Include="CodeGen\Node.Emit.Stmt.cs" />
     <Compile Include="CodeGen\Operator.Binary.Emit.cs" />
     <Compile Include="CodeGen\CodeGen.cs" />
     <Compile Include="CodeGen\CodeGen.Emit.cs" />
@@ -82,6 +84,7 @@
     <Compile Include="Common\WellKnownMembers.cs" />
     <Compile Include="Common\WellKnownTypes.cs" />
     <Compile Include="Compiler\Compiler.cs" />
+    <Compile Include="Compiler\MacroCodeblock.cs" />
     <Compile Include="Compiler\MacroCompiler.cs" />
     <Compile Include="Diagnostic\Error.cs" />
     <Compile Include="Diagnostic\Location.cs" />
@@ -90,8 +93,11 @@
     <Compile Include="Binder\Intrinsic.cs" />
     <Compile Include="Syntax\Lexer.cs" />
     <Compile Include="Syntax\Literal.cs" />
+    <Compile Include="Syntax\Node.Syntax.Stmt.cs" />
     <Compile Include="Syntax\Parser.cs" />
     <Compile Include="Syntax\Node.Syntax.cs" />
+    <Compile Include="Syntax\Parser.Expr.cs" />
+    <Compile Include="Syntax\Parser.Stmt.cs" />
     <Compile Include="Syntax\SyntaxToken.cs" />
   </ItemGroup>
   <ItemGroup>

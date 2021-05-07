@@ -21,14 +21,14 @@ FUNCTION DbSeek(uKey, lSoftSeek, lLast) AS LOGIC CLIPPER
 	LOCAL dbsci     AS DbScopeInfo
 	LOCAL lRet      AS LOGIC
 	
-	DEFAULT(REF lSoftSeek, SetSoftSeek())
+	@@Default(REF lSoftSeek, SetSoftSeek())
 	
 	dbsci := DbScopeInfo{}
 	IF lLast:IsNil
 		lLast := FALSE
 	ENDIF
 	VoDb.SetScope( dbsci)
-	DEFAULT(REF uKey, "")
+	@@Default(REF uKey, "")
     IF lRet := _DbThrowErrorOnFailure(__FUNCTION__, VoDb.Seek(uKey, lSoftSeek, lLast))
 	    lRet := VoDb.Found()
 	    VoDb.SetScope(dbsci)
@@ -62,7 +62,7 @@ FUNCTION DbSetIndex(cIndexFile, uOrder) AS LOGIC CLIPPER
 	
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/dbsetorder/*" />
 FUNCTION DbSetOrder(uOrder, cIndexFile) AS LOGIC CLIPPER
-	DEFAULT( REF cIndexFile, "")
+	@@Default( REF cIndexFile, "")
 	RETURN VoDb.OrdSetFocus(cIndexFile, uOrder)
 	
 
@@ -97,7 +97,7 @@ FUNCTION IndexKey(nPosition) AS STRING CLIPPER
 FUNCTION IndexOrd() AS INT STRICT
 	LOCAL uRetVal := NIL AS USUAL
 	uRetVal := DbOrderInfo(DBOI_NUMBER, "", NIL)
-	DEFAULT( REF uRetVal, 0)
+	@@Default( REF uRetVal, 0)
     RETURN uRetVal
 	
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/ordsetrelation/*" />
@@ -395,7 +395,7 @@ FUNCTION OrdNumber(uOrder, cIndexFile) AS USUAL CLIPPER
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/dbsetorder/*" />	
 FUNCTION OrdSetFocus(uOrder, cIndexFile) AS USUAL CLIPPER
 	LOCAL cOrder := ""   AS   STRING
-	DEFAULT( REF cIndexFile, "")
+	@@Default( REF cIndexFile, "")
 	VoDb.OrdSetFocus(cIndexFile, uOrder, OUT cOrder)
 	RETURN cOrder
 	
@@ -404,8 +404,8 @@ FUNCTION OrdSetFocus(uOrder, cIndexFile) AS USUAL CLIPPER
     /// <param name="uScope">An optional constant that indicates which scope needs to be set.<br/>
     /// <include file="RTComments.xml" path="Comments/ScopeParams/*"  /> <br/></param>
     /// <returns><include file="RTComments.xml" path="Comments/ScopeReturn/*"  /></returns>
-    /// <seealso cref='M:XSharp.RT.Functions.DbSetScope(System.Int32,XSharp.__Usual)' />
-    /// <seealso cref='M:XSharp.RT.Functions.DbClearScope(XSharp.__Usual)' />
+    /// <seealso cref='DbSetScope' />
+    /// <seealso cref='DbClearScope' />
 
 FUNCTION DbScope(uScope) AS USUAL CLIPPER
     IF IsNil(uScope)
@@ -436,8 +436,8 @@ FUNCTION DbScope(uScope) AS USUAL CLIPPER
     /// The type of the value must match the type of the index expression.</param>
     /// <returns>TRUE when the scope was set succesfully and when the record pointer has been successfully moved to the first record in the scope, otherwise FALSE.</returns>
     /// <remarks>The record pointer is moved to the first record in the scope when setting of the scope was succesfull.</remarks>
-    /// <seealso cref='M:XSharp.RT.Functions.DbClearScope(XSharp.__Usual)' />
-    /// <seealso cref='M:XSharp.RT.Functions.DbScope(XSharp.__Usual)' />
+    /// <seealso cref='DbClearScope' />
+    /// <seealso cref='DbScope' />
 
 FUNCTION DbSetScope(nScope AS LONG, uValue AS USUAL) AS LOGIC
     LOCAL lResult := TRUE AS LOGIC
@@ -470,8 +470,8 @@ FUNCTION DbSetScope(nScope AS LONG, uValue AS USUAL) AS LOGIC
     /// <param name="nScope">An optional constant that indicates which scope needs to be set.<br/>
     /// <include file="RTComments.xml" path="Comments/ScopeParams/*"  /></param>
     /// <returns>TRUE when the scope was cleared succesfully, otherwise FALSE.</returns>
-    /// <seealso cref='M:XSharp.RT.Functions.DbSetScope(System.Int32,XSharp.__Usual)' />
-    /// <seealso cref='M:XSharp.RT.Functions.DbScope(XSharp.__Usual)' />
+    /// <seealso cref='DbSetScope' />
+    /// <seealso cref='DbScope' />
 
 FUNCTION DbClearScope(uScope) AS LOGIC CLIPPER
     LOCAL lResult := TRUE AS LOGIC

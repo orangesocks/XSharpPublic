@@ -1,7 +1,12 @@
-﻿using System;
+﻿//
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
+// See License.txt in the project root for license information.
+//
+using System;
 using Microsoft.VisualStudio.Imaging.Interop;
 
-namespace XSharpLanguage
+namespace XSharp.ProjectSystem
 {
     public static class XSharpImagesMonikers
     {
@@ -10,7 +15,7 @@ namespace XSharpLanguage
         private const int ProjectIcon = 1;
         private const int ItemIcon = 2;
 
-        public static ImageMoniker ProjectIconImageMoniker
+        public static ImageMoniker ProjectImage
         {
             get
             {
@@ -18,7 +23,7 @@ namespace XSharpLanguage
             }
         }
 
-        public static ImageMoniker ItemIconImageMoniker
+        public static ImageMoniker FileImage
         {
             get
             {

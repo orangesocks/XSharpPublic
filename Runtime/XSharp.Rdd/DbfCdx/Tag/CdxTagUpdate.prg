@@ -16,6 +16,9 @@ USING XSharp.RDD.Enums
 USING XSharp.RDD.Support
 USING System.Linq
 
+//#define TESTCDX
+//#define VALIDATE
+//define LOGGING := FALSE
 BEGIN NAMESPACE XSharp.RDD.CDX
 
     INTERNAL PARTIAL SEALED CLASS CdxTag
@@ -39,7 +42,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 #endif
                 SELF:OrderBag:SetPage(oLeaf)
             CATCH ex AS Exception
-                _UpdateError(ex,"CdxTag.NewLeafPage","Could not allocate Leaf page")
+                SELF:_UpdateError(ex,"CdxTag.NewLeafPage","Could not allocate Leaf page")
             END TRY
             RETURN oLeaf
 
@@ -60,7 +63,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 #endif
                 SELF:OrderBag:SetPage(oBranch)
             CATCH ex AS Exception
-                _UpdateError(ex,"CdxTag.NewBranchPage","Could not alPagelocate Branch page")
+                SELF:_UpdateError(ex,"CdxTag.NewBranchPage","Could not alPagelocate Branch page")
             END TRY
             RETURN oBranch
 
@@ -118,31 +121,36 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 
                         CASE CdxActionType.OutOfBounds
                         // Throw an exception
-                            _UpdateError(NULL, "CdxTag.DoAction","Out of Bounds when writing to a page")
+                            SELF:_UpdateError(NULL, "CdxTag.DoAction","Out of Bounds when writing to a page")
                             action := CdxAction.Ok
                         CASE CdxActionType.ExpandRecnos
                         // after expanding we either need to split or update the current page, so no nextlevel
                             action := SELF:ExpandRecnos(action)
                         OTHERWISE
-                            _UpdateError(NULL, "CdxTag.DoAction","Unexpected Enum value "+action:Type:ToString())
+                            SELF:_UpdateError(NULL, "CdxTag.DoAction","Unexpected Enum value "+action:ToString())
                     END SWITCH
                 ENDDO
+                
+
             CATCH ex AS Exception
-                _UpdateError(ex,"CdxTag.DoAction","Error performing action "+action:Type:ToString())
+                SELF:_UpdateError(ex,"CdxTag.DoAction","Error performing action "+action:ToString())
 
             END TRY
             RETURN action
-
+#ifdef DEBUG
+        PRIVATE METHOD ValidateAllLevels() AS LOGIC
+            RETURN TRUE
+#endif
         PRIVATE METHOD DeletePage(action AS CdxAction) AS CdxAction
             VAR oPage := SELF:GetPage(action:PageNo )
             IF oPage == NULL
                 // Should not happen...
-                _UpdateError(NULL, "CdxTag.DeletePage","DeletePage called without page reference")
+                SELF:_UpdateError(NULL, "CdxTag.DeletePage","DeletePage called without page reference")
                 RETURN CdxAction.Ok
             ENDIF
             // now update the reference to this page in the parent node
-            VAR oParent := SELF:Stack:GetParent(oPage)
-            IF oParent == NULL
+            VAR oParent     := SELF:Stack:GetParent(oPage)
+            IF oParent == NULL .AND. oPage == Stack:Root:Page
                // Then this was the top level leaf page. So the tag has no keys anymore is empty now
                 oPage:SetEmptyRoot()
                 SELF:OrderBag:FlushPages()
@@ -175,27 +183,37 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 // if oPageR has no LeftPtr .and. also no RightPtr then the level may be removed ?
                 //Debug.Assert(pageR:HasLeft .or. pageR:HasRight)
             ENDIF
-            VAR result := CdxAction.DeleteFromParent(oPage)
-            SELF:OrderBag:FreePage(oPage)
+            VAR result := CdxAction.DeleteFromParent(oPage,-1)
+            SELF:OrderBag:AddFreePage(oPage)
             RETURN result
 
         PRIVATE METHOD DeleteFromParent(action AS CdxAction) AS CdxAction
             VAR oPage   := SELF:GetPage(action:PageNo) 
             VAR oParent := SELF:Stack:GetParent(oPage) ASTYPE CdxBranchPage
             VAR result := CdxAction.Ok
-
+            VAR found   := FALSE
+            LOCAL nPos  := 0 AS LONG
             IF oParent != NULL_OBJECT
                 // this can be the top level. In that case we should not get here at all
-                LOCAL nPos AS LONG
                 nPos := oParent:FindPage(action:PageNo)
                 IF nPos != -1
-                    result := oParent:Delete(nPos)
+                    found := TRUE
                 ELSE
-                    // Todo: this is a logical problem
-                    _UpdateError(NULL, "CdxTag.DeleteFromParent","Could not find entry for child on parent page")
+                    // when there are duplicate keys then our record can also be on the next page
+                    DO WHILE oParent != NULL .AND. oParent:HasRight .AND. ! found
+                        oParent := SELF:GetPage(oParent:RightPtr) ASTYPE CdxBranchPage
+                        nPos := oParent:FindPage(action:PageNo)
+                        IF nPos != -1
+                            found := TRUE
+                        ENDIF
+                    ENDDO
                 ENDIF 
             ELSE
-                _UpdateError(NULL, "CdxTag.DeleteFromParent","DeleteFromParent called when there is no Parent on the stack")
+            ENDIF
+            IF found
+                result := oParent:Delete(nPos)
+            ELSE
+                SELF:_UpdateError(NULL, "CdxTag.DeleteFromParent","DeleteFromParent called when there is no Parent on the stack")
             ENDIF
             RETURN result
 
@@ -237,7 +255,10 @@ BEGIN NAMESPACE XSharp.RDD.CDX
         INTERNAL METHOD ChangeParent(action AS CdxAction) AS CdxAction
             VAR oPage     := SELF:GetPage(action:PageNo)
             VAR oPage2    := SELF:GetPage(action:PageNo2)   // only filled after a pagesplit
-            VAR oParent   := SELF:FindParent(oPage) 
+            VAR oParent   := SELF:FindParent(oPage)
+            IF oParent == NULL .AND. oPage2 != NULL
+                oParent   := SELF:FindParent(oPage2)
+            ENDIF
             VAR result    := CdxAction.Ok
             VAR oLast     := oPage:LastNode
             LOCAL oGrandParent := NULL AS CdxBranchPage
@@ -245,7 +266,9 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 
                 #ifdef TESTCDX
                     oPage:Debug("Changeparent could not find new parent")
+                    IF oPage2 != NULL
                     oPage2:Debug("Changeparentcould not find new parent")
+                    ENDIF
                     
                 #endif
                 NOP
@@ -299,12 +322,12 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             // and insert it
             // when our key is after the last key, then make sure that we do not need to insert
             // the key on the Branch page to the right of the oParent
-
+    
             // First check to see if the parent has room for an extra child node
             IF oParent:NumKeys >= oParent:MaxKeys
                 VAR tmp := CdxAction.AddBranch(oParent, oPage:PageNo, oLast:Recno,oLast:KeyBytes )
                 result := SELF:AddBranch(tmp)
-                IF ! result.IsOk()
+                IF ! result.IsOk
                     RETURN SELF:DoAction(result)
                 ENDIF
             ENDIF
@@ -313,7 +336,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             oLast    := oPage:LastNode
             nPos     := oParent:FindKey(oLast:KeyBytes, oLast:Recno, oLast:KeyBytes:Length)
             IF nPos >= oParent:NumKeys -1
-                VAR nDiff := SELF:__Compare(oParent:LastNode:KeyBytes, oLast:KeyBytes, oLast:KeyBytes:Length)
+                VAR nDiff := SELF:__Compare(oParent:LastNode:KeyBytes, oLast:KeyBytes, oLast:KeyBytes:Length,oParent:LastNode:Recno, oLast:Recno)
                 IF nDiff > 0
                     #ifdef TESTCDX
                         IF LOGGING
@@ -418,7 +441,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             ELSE
                 // Error
                 oOldRoot := NULL
-                _UpdateError(NULL,"CdxTag.InsertParent","Left page missing")
+                SELF:_UpdateError(NULL,"CdxTag.InsertParent","Left page missing")
             ENDIF
             // now swap the pages for oNewRoot and oLeft
             SELF:_bag:_PageList:Delete(oNewRoot:PageNo)
@@ -436,6 +459,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             #endif
             VAR lWasRoot := oOldRoot:IsRoot
             // Adjust new sibling
+            //DebOut32("Make sure root page keeps same number "+ oOldRoot:PageNoX+ " Swap with "+ oNewRoot:PageNoX)
             oNewSibling:LeftPtr := 0
             oNewSibling:Write()
             // swap page numbers for both pages
@@ -465,7 +489,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 ENDIF
             ENDIF
             Header:RootPage := oPage:PageNo
-            Header:Write()
+            Header:Write() 
             oPage:SetRoot()
             oPage:Write()
             _rootPage := oPage:PageNo
@@ -494,7 +518,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             #endif
             action := oPageL:Split(oPageR, action,TRUE)
             IF action:Type != CdxActionType.Ok
-                _UpdateError(NULL,"CdxTag.AddBranch","Could not insert key into new Branch page")
+                SELF:_UpdateError(NULL,"CdxTag.AddBranch","Could not insert key into new Branch page")
             ENDIF
 
             IF oPageL:IsRoot
@@ -599,7 +623,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                     SELF:Stack:Top:Pos++
                 ENDIF
             ELSE
-                _UpdateError(NULL,"CdxTag.AddKey","Page is not a Leaf page")
+                SELF:_UpdateError(NULL,"CdxTag.AddKey","Page is not a Leaf page")
             ENDIF
             RETURN action
 
@@ -607,14 +631,14 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             IF SELF:GetPage(action:PageNo) IS CdxLeafPage VAR leaf
                 RETURN leaf:Delete(action:Pos)
             ENDIF
-            _UpdateError(NULL,"CdxTag.DeleteKey","Page is not a Leaf page")
+            SELF:_UpdateError(NULL,"CdxTag.DeleteKey","Page is not a Leaf page")
             RETURN CdxAction.Ok
 
         INTERNAL METHOD InsertKey(action AS CdxAction) AS CdxAction
             IF SELF:GetPage(action:PageNo) IS CdxLeafPage VAR leaf
                 RETURN leaf:Insert(action:Pos, action:Recno, action:Key)
             ENDIF
-            _UpdateError(NULL,"CdxTag.AddKey","Page is not a Leaf page")
+            SELF:_UpdateError(NULL,"CdxTag.AddKey","Page is not a Leaf page")
             RETURN CdxAction.Ok
 
             
@@ -644,7 +668,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 action := oPageR:Add(action:Recno, action:Key)
             ENDIF
             IF action:Type != CdxActionType.Ok
-                _UpdateError(NULL,"CdxTag.AddLeaf","Could not insert key into new leaf page")
+                SELF:_UpdateError(NULL,"CdxTag.AddLeaf","Could not insert key into new leaf page")
             ENDIF
             IF oPageL:IsRoot
 
@@ -666,13 +690,13 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             
         PRIVATE METHOD ExpandRecnos(action AS CdxAction) AS CdxAction
             VAR oPageL   := SELF:CurrentLeaf
-            VAR leaves   := oPageL:GetLeaves()
+            VAR leaves   := oPageL:GetKeys()
             LOCAL result AS CdxAction
             // Only allocate page when we think that it does not fit.
             // To be safe we assume expanding takes 1 byte per key + we want the new key to fit as well
             IF oPageL:Freespace > (oPageL:DataBytes + SELF:KeyLength + leaves:Count +1)
                 SELF:SetLeafProperties(oPageL)
-                oPageL:SetLeaves(leaves, 0, leaves:Count)
+                oPageL:SetKeys(leaves, 0, leaves:Count)
                 result := oPageL:Insert(action:Pos, action:Recno, action:Key)
                 RETURN result
             ENDIF
@@ -680,13 +704,13 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             VAR oPageR   := SELF:NewLeafPage()
             oPageL:AddRightSibling(oPageR)
             SELF:SetLeafProperties(oPageL)
-            result := oPageL:SetLeaves(leaves, 0, nHalf)
-            IF ! result:IsOk()
+            result := oPageL:SetKeys(leaves, 0, nHalf)
+            IF ! result:IsOk
                 result := SELF:DoAction(result)
             ENDIF
             SELF:SetLeafProperties(oPageR)
-            result := oPageR:SetLeaves(leaves, nHalf, leaves:Count - nHalf)
-            IF ! result:IsOk()
+            result := oPageR:SetKeys(leaves, nHalf, leaves:Count - nHalf)
+            IF ! result:IsOk
                 result := SELF:DoAction(result)
             ENDIF
             VAR pos := action:Pos
@@ -707,7 +731,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             ELSE
                 result := oPageR:Add(action:Recno, action:Key)
             ENDIF
-            IF ! result:IsOk()
+            IF ! result:IsOk
                 result := SELF:DoAction(result)
             ENDIF
             action := CdxAction.ChangeParent(oPageL, oPageR)
@@ -764,7 +788,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 IF !lNewRecord
                     // find and delete existing key
                     IF ! changed
-                        changed := SELF:__Compare(SELF:_newvalue:Key, SELF:_currentvalue:Key, SELF:_keySize) != 0
+                        changed := SELF:__Compare(SELF:_newvalue:Key, SELF:_currentvalue:Key, SELF:_keySize,recordNo, recordNo) != 0
                     ENDIF
                     IF changed
                         SELF:Stack:Clear()
@@ -775,13 +799,14 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                             IF changed .AND. _currentvalue:ForCond .AND. recno == recordNo
                                 VAR page := SELF:Stack:Top:Page
                                 VAR pos  := SELF:Stack:Top:Pos
+                                Debug.Assert(page IS CdxLeafPage)
                                 SELF:DoAction(CdxAction.DeleteKey(page, pos))
                             ENDIF
                         ELSE
                             IF !SELF:Unique .AND. !SELF:_Conditional .AND. !SELF:Custom
                                 // do not throw an error but ignore the fact that the record was missing
                                 //SELF:_oRdd:_dbfError( Subcodes.ERDD_KEY_NOT_FOUND, Gencode.EG_DATATYPE,SELF:fileName)
-                                NOP
+                                _DebOut32("DBFCDX Key for record "+recordNo:ToString()+" was not found. This is being ignored")
                             ENDIF
                         ENDIF
                     ENDIF
@@ -793,6 +818,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                         IF SELF:_locate(SELF:_newvalue:Key, SELF:_keySize, SearchMode.Left, SELF:_rootPage,recordNo)  == 0
                             VAR page := SELF:Stack:Top:Page
                             VAR pos  := SELF:Stack:Top:Pos
+                            Debug.Assert(page IS CdxLeafPage)
                             SELF:DoAction(CdxAction.InsertKey(page, pos, SELF:_newvalue:Recno, SELF:_newvalue:Key))
                         ELSE
                             SELF:ClearStack()
@@ -802,8 +828,10 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                         IF !SELF:Stack:Empty
                             VAR page := SELF:Stack:Top:Page
                             VAR pos  := SELF:Stack:Top:Pos
+                            Debug.Assert(page IS CdxLeafPage)
                             SELF:DoAction(CdxAction.InsertKey(page, pos, SELF:_newvalue:Recno, SELF:_newvalue:Key))
                         ELSE
+                           _DebOut32("DBFCDX Could not find the location to insert new key for record "+recordNo:ToString())
                             RETURN FALSE
                         ENDIF
                     ENDIF
@@ -814,10 +842,14 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 RETURN TRUE
             FINALLY
                 IF SELF:Shared
+#ifdef DEBUG                     
+                    SELF:ValidateAllLevels()
+#endif                     
                     SELF:UnLock()
                 ENDIF
             END TRY
-            
+
+
         PRIVATE METHOD _getLeaf AS CdxLeafPage
             VAR page    := SELF:CurrentStack:Page
             IF page IS CdxLeafPage VAR leaf
