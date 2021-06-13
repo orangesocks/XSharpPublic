@@ -89,6 +89,11 @@
     <Compile Include="Diagnostic\Error.cs" />
     <Compile Include="Diagnostic\Location.cs" />
     <Compile Include="Diagnostic\Symbol.Name.cs" />
+    <Compile Include="Preprocessor\XSharpPPHelpers.cs" />
+    <Compile Include="Preprocessor\XSharpPPRule.cs" />
+    <Compile Include="Preprocessor\XSharpPPRuleTokens.cs" />
+    <Compile Include="Preprocessor\XSharpPPTokenExtensions.cs" />
+    <Compile Include="Preprocessor\XSharpPreprocessor.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Binder\Intrinsic.cs" />
     <Compile Include="Syntax\Lexer.cs" />
@@ -98,6 +103,7 @@
     <Compile Include="Syntax\Node.Syntax.cs" />
     <Compile Include="Syntax\Parser.Expr.cs" />
     <Compile Include="Syntax\Parser.Stmt.cs" />
+    <Compile Include="Syntax\Syntax.Semantic.cs" />
     <Compile Include="Syntax\SyntaxToken.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -112,6 +118,9 @@
       <Project>{ef8d2bf2-e81a-479a-ba4f-294c4c348b66}</Project>
       <Name>XSharp.RT</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Preprocessor\StandardHeaders.resx" />
   </ItemGroup>
   <!-- On machines where the runtime output path exists the macro compiler will be copied to the runtime output folder  -->
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

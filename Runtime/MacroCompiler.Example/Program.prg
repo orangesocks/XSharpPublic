@@ -7,16 +7,10 @@ USING XSharp.MacroCompiler
 
 BEGIN NAMESPACE MacroCompilerTest
 
-	FUNCTION Start() AS VOID
-	    SetMacroCompiler(typeof(XSharp.Runtime.MacroCompiler))
+    FUNCTION Start() AS VOID
+        SetMacroCompiler(typeof(XSharp.Runtime.MacroCompiler))
         // test conflict between field name and global/define
-        /*
-        DbCreate("Test",{{"TEST","C",10,0},{"TEST2","C",10,0}})
-        DbUseArea(TRUE,,"TEST")
-        DbCreateIndex("test","UPPER(Test)")
-        DbCreateIndex("test2","UPPER(Test2)")
-        DbCloseArea()
-        */        
+
         ReportMemory("initial")
         VAR mc := CreateMacroCompiler()
         VAR fmc := CreateFoxMacroCompiler()
@@ -39,15 +33,19 @@ BEGIN NAMESPACE MacroCompilerTest
 
         /*var sc := CreateScriptCompiler()
         EvalMacro(sc, String.Join(e"\n",<STRING>{;
-            "PARAMETERS a, b, c",;
-            "RETURN a+b+c"}),1,2,3)
+        "PARAMETERS a, b, c",;
+        "RETURN a+b+c"}),1,2,3)
         wait*/
 
         ParserTestsFox(CreateFoxScriptCompiler())
         ParserTests(CreateScriptCompiler())
         ScriptTests()
+        TestPreProcessor(CreateScriptCompiler())
         VoTests(mc)
         FoxTests(fmc)
+
+        ResetOverrides()
+        testUDC(CreateScriptCompiler())
 
         RunPerf(mc, "Console.WriteLine(123)")
 
@@ -57,5 +55,6 @@ BEGIN NAMESPACE MacroCompilerTest
         Console.WriteLine("Press any key to exit...")
         Console.ReadKey()
 
-END NAMESPACE
+    END NAMESPACE
+
 

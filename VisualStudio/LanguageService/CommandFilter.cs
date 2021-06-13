@@ -191,6 +191,9 @@ namespace XSharp.LanguageService
             // Some exceptions are (pseudo) functions. These should not be formatted
             switch (token.Type)
             {
+                case XSharpLexer.UDC_KEYWORD:
+                    syncKeyword = XSettings.UDCKeywordCase;
+                    break;
                 case XSharpLexer.NAMEOF:
                 case XSharpLexer.SIZEOF:
                 case XSharpLexer.TYPEOF:
@@ -773,6 +776,9 @@ namespace XSharp.LanguageService
             {
                 if (XSettings.DisableGotoDefinition)
                     return;
+                var file = this.TextView.TextBuffer.GetFile();
+                if (file == null || file.XFileType != XFileType.SourceCode)
+                    return;
                 WriteOutputMessage("CommandFilter.GotoDefn()");
                 XSharpModel.ModelWalker.Suspend();
                 // First, where are we ?
@@ -783,9 +789,6 @@ namespace XSharp.LanguageService
                 var snapshot = this.TextView.TextBuffer.CurrentSnapshot;
                 int caretPos = ssp.Position;
                 int lineNumber = ssp.GetContainingLine().LineNumber;
-                XSharpModel.XFile file = this.TextView.TextBuffer.GetFile();
-                if (file == null)
-                    return;
                 // Check if we can get the member where we are
                 var member = XSharpLookup.FindMember(lineNumber, file);
                 if (member == null)
@@ -802,7 +805,7 @@ namespace XSharp.LanguageService
                     if (tokens.SnapShot.Version != snapshot.Version)
                         return;
                 }
-                String currentNS = "";
+                string currentNS = "";
                 if (currentNamespace != null)
                 {
                     currentNS = currentNamespace.Name;
@@ -1235,6 +1238,11 @@ namespace XSharp.LanguageService
             if (file == null)
                 return false;
             var member = XSharpLookup.FindMember(lineNumber, file);
+            if (member != null && member.Range.StartLine == lineNumber)
+            {
+                // if we are at the start of an entity then do not start a signature session
+                return false;
+            }
             var currentNamespace = XSharpTokenTools.FindNamespace(caretPos, file);
             string currentNS = "";
             if (currentNamespace != null)
@@ -1335,14 +1343,19 @@ namespace XSharp.LanguageService
 
         public int QueryStatus(ref Guid pguidCmdGroup, uint cCmds, OLECMD[] prgCmds, IntPtr pCmdText)
         {
+            bool isSource = _file != null && _file.XFileType == XFileType.SourceCode;
             if (pguidCmdGroup == VSConstants.VSStd2K)
             {
                 switch ((VSConstants.VSStd2KCmdID)prgCmds[0].cmdID)
                 {
                     case VSConstants.VSStd2KCmdID.AUTOCOMPLETE:
                     case VSConstants.VSStd2KCmdID.COMPLETEWORD:
-                        prgCmds[0].cmdf = (uint)OLECMDF.OLECMDF_ENABLED | (uint)OLECMDF.OLECMDF_SUPPORTED;
-                        return VSConstants.S_OK;
+                        if (isSource)
+                        {
+                            prgCmds[0].cmdf = (uint)OLECMDF.OLECMDF_ENABLED | (uint)OLECMDF.OLECMDF_SUPPORTED;
+                            return VSConstants.S_OK;
+                        }
+                        break;
                 }
             }
             else if (pguidCmdGroup == VSConstants.GUID_VSStandardCommandSet97)
@@ -1350,8 +1363,12 @@ namespace XSharp.LanguageService
                 switch ((VSConstants.VSStd97CmdID)prgCmds[0].cmdID)
                 {
                     case VSConstants.VSStd97CmdID.GotoDefn:
-                        prgCmds[0].cmdf = (uint)OLECMDF.OLECMDF_ENABLED | (uint)OLECMDF.OLECMDF_SUPPORTED;
-                        return VSConstants.S_OK;
+                        if (isSource)
+                        {
+                            prgCmds[0].cmdf = (uint)OLECMDF.OLECMDF_ENABLED | (uint)OLECMDF.OLECMDF_SUPPORTED;
+                            return VSConstants.S_OK;
+                        }
+                        break;
                 }
             }
             int result = 0;

@@ -24,7 +24,6 @@ namespace XSharp.Project
     internal partial class XLanguagePropertyPagePanel : XPropertyPagePanel
     {
 
-        //todo Conditionally enable/disable certain options
         #region Constants
         internal const string LanguageCaption = "Language";
         internal const string CMDCaption = "Extra Command Line Options";
@@ -191,25 +190,6 @@ namespace XSharp.Project
                 chkLB.Checked = false;
                 this.ParentPropertyPage.IsDirty = true;
             }
-            switch (dialect)
-            {
-                case "core":
-                case "foxpro":
-                    if (!chkAllowDot.Checked)
-                    {
-                        chkAllowDot.Checked = true;
-                        this.ParentPropertyPage.IsDirty = true;
-                    }
-                    break; 
-                default:
-                    if (chkAllowDot.Checked)
-                    {
-                        chkAllowDot.Checked = false;
-                        this.ParentPropertyPage.IsDirty = true;
-                    }
-                    break;
-
-            }
         }
 
         internal void Project_OnProjectPropertyChanged(object sender, ProjectPropertyChangedArgs e)
@@ -237,7 +217,7 @@ namespace XSharp.Project
         {
             base.BindProperties();
             ThreadHelper.ThrowIfNotOnUIThread();
-            SetDialectOptions(ParentPropertyPage.GetProperty(XSharpProjectFileConstants.Dialect));
+            SetDialectOptions(ParentPropertyPage.GetProperty(XSharpProjectFileConstants.Dialect) ?? "Core");
             EnabledisableStandardDefs();
         }
 

@@ -390,7 +390,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             SELF:ClearStack()
 
         PRIVATE METHOD _saveCurrentRecord( node AS CdxNode) AS VOID
-            IF SELF:_currentvalue:Recno != node:Recno .AND. ! SELF:RDD:EoF
+            IF SELF:_currentvalue:Recno != node:Recno .AND. ! SELF:RDD:EoF .AND. node:Recno > 0
                 SELF:_currentvalue:Recno := node:Recno
                 Array.Copy(node:KeyBytes, SELF:_currentvalue:Key, _keySize)
             ENDIF
@@ -767,7 +767,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 DO WHILE nPage != 0 .AND. nPage != -1
                     VAR oFree := SELF:GetPage(nPage) ASTYPE CdxTreePage
                     IF oFree != NULL
-                        nPage := oFree:NextFree
+                        nPage := oFree:LeftPtr
                         sbFree:AppendLine("Next free : "+ nPage:ToString("X8"))
                     ELSE
                         EXIT

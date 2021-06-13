@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -21,6 +22,21 @@ namespace XSharp.MacroCompiler
         Entities,
     }
 
+    [Flags] public enum RuntimeAssemblies
+    {
+        None = 0,
+        SdkDefines = 1,
+        XSharpCore = 2,
+        VoGui = 4,
+        VoInet = 8,
+        VoRdd = 16,
+        VoReport = 32,
+        VoSql = 64,
+        VoSystem = 128,
+        VoWin32 = 256,
+        XSharpXPP = 512,
+    }
+
     public class MacroOptions
     {
         public static MacroOptions Default { get => new MacroOptions(); }
@@ -34,6 +50,7 @@ namespace XSharp.MacroCompiler
         public bool AllowFourLetterAbbreviations = false;
         public bool AllowOldStyleComments = true;
         public bool AllowSingleQuotedStrings = true;
+        public bool AllowBracketStrings = true;
         public bool AllowPackedDotOperators = true;
         public bool AllowMissingSyntax = true;
         public bool AllowExtraneousSyntax = true;
@@ -55,6 +72,14 @@ namespace XSharp.MacroCompiler
         public VariableResolution UndeclaredVariableResolution = VariableResolution.TreatAsFieldOrMemvar;
 
         public ParseMode ParseMode = ParseMode.Expression;
+
+        public bool PreProcessor = true;
+        public bool CaseSensitivePreprocessor = false;
+        public List<string> IncludePaths = null;
+        public string DefaultIncludeDir = null;
+        public List<string> PreprocessorSymbols = null;
+        public RuntimeAssemblies RuntimeAssemblies = RuntimeAssemblies.None;
+
         internal bool ParseEntities { get => ParseMode == ParseMode.Entities; }
         internal bool ParseStatements { get => ParseMode == ParseMode.Statements || ParseMode == ParseMode.Entities; }
 

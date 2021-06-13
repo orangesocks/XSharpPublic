@@ -115,6 +115,18 @@ BEGIN NAMESPACE XSharpModel
          SELF:Parse(stream, lBlocks, lLocals)
          RETURN
 
+      METHOD AddCommentLine(comment AS STRING, token AS XSharpToken, cmtToken AS XCommentToken) AS VOID
+        comment := comment:Trim()
+        IF comment:IndexOf(cmtToken:Text, StringComparison.OrdinalIgnoreCase) == 0 .AND. ;
+            comment:Length > cmtToken:Text:Length
+            VAR nextchar := comment[cmtToken:Text:Length]
+            IF ! Char.IsLetterOrDigit(nextchar)
+                VAR item := XCommentTask{}{ File:=_file, Line := token:Line, Column := token:Column, Priority := cmtToken:Priority, Comment := comment}
+                _commentTasks:Add(item)
+            ENDIF
+        ENDIF
+
+
       METHOD Parse( tokenStream AS ITokenStream, lBlocks AS LOGIC, lLocals AS LOGIC) AS VOID
          LOCAL aAttribs        AS IList<XSharpToken>
          LOCAL cXmlDoc   := "" AS STRING
@@ -133,14 +145,18 @@ BEGIN NAMESPACE XSharpModel
                IF XSharpLexer.IsComment(token:Type)
                   FOREACH VAR cmtToken IN cmtTokens
                      VAR pos := token:Text:IndexOf(cmtToken:Text, StringComparison.OrdinalIgnoreCase)
+                     VAR include := FALSE
                      IF pos >= 0
-                        VAR comment := token:Text:Substring(pos)
-                        pos := comment:IndexOf('\r')
-                        IF pos > 0
-                           comment := comment.Substring(0, pos)
+                        IF token:Type == XSharpLexer.SL_COMMENT
+                            VAR comment := token:Text:Substring(2):Trim()
+                            AddCommentLine(comment, token, cmtToken)
+                         ELSEIF token:Type == XSharpLexer.ML_COMMENT
+                            VAR comment := token:Text:Substring(2, token:Text:Length-4)
+                            VAR lines :=comment:Split(<CHAR>{'\r','\n'}, StringSplitOptions.RemoveEmptyEntries)
+                            FOREACH VAR line IN lines
+                                AddCommentLine(line, token, cmtToken)
+                            NEXT
                         ENDIF
-                         VAR item := XCommentTask{}{ File:=_file, Line := token:Line, Column := token:Column, Priority := cmtToken:Priority, Comment := comment}
-                         _commentTasks:Add(item)
                      ENDIF
                   NEXT
                ENDIF
@@ -273,7 +289,10 @@ BEGIN NAMESPACE XSharpModel
                   EXIT
                ENDDO
                SELF:ReadLine()
-
+            ELSEIF aAttribs:Count > 0 .AND. La1 == XSharpLexer.EOS
+                // Add Attribute
+                VAR attribute := ParseAttribute(aAttribs)
+                _EntityList:Add(attribute)
             ELSEIF ParseBlock()
                NOP
             ELSE
@@ -337,6 +356,16 @@ BEGIN NAMESPACE XSharpModel
                 lastEntity:Range        := lastEntity:Range:WithEnd(LastToken)
                 lastEntity:Interval     := lastEntity:Interval:WithEnd(LastToken)
             ENDIF
+         ELSE
+             // Add at least one entity that represents the global namespace
+             SELF:GetSourceInfo(_tokens[0], _tokens[_tokens:Count-1], OUT VAR range, OUT VAR interval, OUT VAR source)
+
+             VAR xmember := XSourceMemberSymbol{_globalType:Name,Kind.Namespace, ;
+                Modifiers.Export, range, interval, "", FALSE}
+             xmember.File := _file
+             xmember.SourceCode := source
+             SELF:_EntityList:Add(xmember)
+             SELF:_globalType:AddMember(xmember)
          ENDIF
          IF ! lLocals
             _file:SetTypes(typelist, _usings, _staticusings, SELF:_EntityList)
@@ -382,13 +411,51 @@ BEGIN NAMESPACE XSharpModel
             IF _PPBlockStack:Count > 0
                _PPBlockStack:Peek():Children:Add( XSourceBlock{SELF:Lt1,SELF:Lt2})
             ENDIF
+         CASE XSharpLexer.PP_DEFINE
+         CASE XSharpLexer.PP_UNDEF
+         CASE XSharpLexer.PP_COMMAND
+         CASE XSharpLexer.PP_TRANSLATE
+             VAR type := SELF:La1
+             VAR start := SELF:Lt1
+             VAR name  := SELF:Lt2:Text
+             VAR eol   := SELF:Lt2
+             DO WHILE SELF:La1 != XSharpLexer.EOS
+                eol := SELF:Lt1
+                SELF:Consume()
+             ENDDO
+             SELF:GetSourceInfo(start, eol, OUT VAR range, OUT VAR interval, OUT VAR source)
+             LOCAL kind AS Kind
+             SWITCH type
+             CASE XSharpLexer.PP_DEFINE
+                 kind := Kind.Define
+             CASE XSharpLexer.PP_UNDEF
+                 kind := Kind.Undefine
+             CASE XSharpLexer.PP_COMMAND
+                 kind := Kind.Command
+                 VAR cType := start:Text[1]
+                 IF cType == c'x' .OR. cType == c'X'
+                    kind := Kind.XCommand
+                 ENDIF
+             CASE XSharpLexer.PP_TRANSLATE
+                 kind := Kind.Translate
+                 VAR cType := start:Text[1]
+                 IF cType == c'x' .OR. cType == c'X'
+                    kind := Kind.XTranslate
+                 ENDIF
+             END SWITCH
+             VAR entity := XSourceMemberSymbol{name, kind, Modifiers.None,;
+                            range,interval,"",FALSE}
+             entity:SourceCode := source
+             entity:File := _file
+             _EntityList.Add(entity)
+             _globalType:AddMember(entity)
          OTHERWISE
             RETURN FALSE
          END SWITCH
          SELF:ReadLine()
          RETURN TRUE
 
-      PRIVATE METHOD ParseUsing() AS LOGIC
+        PRIVATE METHOD ParseUsing() AS LOGIC
 /*
 using_              : USING (Static=STATIC)? (Alias=identifierName Op=assignoperator)? Name=name EOS
                     ;
@@ -1108,6 +1175,16 @@ attributeParam      : Name=identifierName Op=assignoperator Expr=expression     
          RETURN ""
 
 
+      PRIVATE METHOD ParseAttribute(aAttribs AS IList<XSharpToken>) AS XSourceEntity
+            VAR name := SELF:TokensAsString(aAttribs, FALSE)
+            SELF:GetSourceInfo(aAttribs[0], aAttribs[aAttribs:Count-1], OUT VAR range, OUT VAR interval, OUT VAR source)
+            VAR entity := XSourceMemberSymbol{name, Kind.Attribute, Modifiers.None,;
+                            range,interval,"",FALSE}
+            entity.SourceCode := source
+            entity.File := _file
+            _globalType:AddMember(entity)
+            RETURN entity
+
       PRIVATE METHOD ParseOptionalClassClause() AS STRING
          IF SELF:La1 == XSharpLexer.CLASS
             SELF:Consume()
@@ -1128,7 +1205,7 @@ attributeParam      : Name=identifierName Op=assignoperator Expr=expression     
          ENDIF
          RETURN SELF:TokensAsString(Tokens)
 
-      PRIVATE METHOD TokensAsString(tokens AS IList<XSharpToken>) AS STRING
+      PRIVATE METHOD TokensAsString(tokens AS IList<XSharpToken>, lAddTrivia := TRUE AS LOGIC) AS STRING
          LOCAL sb AS StringBuilder
          IF (tokens == NULL .or. tokens:Count == 0)
             RETURN ""
@@ -1136,7 +1213,7 @@ attributeParam      : Name=identifierName Op=assignoperator Expr=expression     
          sb := StringBuilder{}
 
          FOREACH t AS XSharpToken IN tokens
-            IF t:HasTrivia
+            IF t:HasTrivia .AND. lAddTrivia
                 sb:Append(t:TriviaAsText)
             ENDIF
             IF t:Text:StartsWith("@@")
@@ -2346,7 +2423,12 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
             ENDIF
          END SWITCH
          IF result:Length > 0
-            result += ParseTypeSuffix()
+            VAR suffix := ParseTypeSuffix()
+            IF suffix:Trim() == "?"
+                result := "Nullable<"+result+">"
+            ELSE
+                result += suffix
+            ENDIF
          ENDIF
          RETURN result:Trim()
 
@@ -2355,7 +2437,7 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
          IF SELF:La1 == XSharpLexer.PTR
             RETURN " "+SELF:ConsumeAndGet():GetText()
          ELSEIF SELF:La1 = XSharpLexer.QMARK
-            RETURN " "+SELF:ConsumeAndGet():GetText()
+            RETURN SELF:ConsumeAndGet():GetText()
          ELSEIF SELF:La1 == XSharpLexer.LBRKT
             VAR tokens := List<XSharpToken>{}
             tokens:Add(SELF:ConsumeAndGet())
@@ -2437,6 +2519,14 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
       PRIVATE METHOD ParseForLocalDeclaration() AS VOID
          VAR tokens := List<IToken>{}
          VAR firstToken := SELF:Lt1
+         SWITCH firstToken.Type
+         CASE XSharpLexer.LOCAL
+         CASE XSharpLexer.STATIC
+         CASE XSharpLexer.VAR
+            SELF:ParseDeclarationStatement()
+            RETURN
+         END SWITCH
+
          DO WHILE ! SELF:Eos()
             IF SELF:Matches(XSharpLexer.IMPLIED, XSharpLexer.VAR)
                IF SELF:IsId(SELF:La2)
@@ -2572,6 +2662,9 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
             SELF:ReadLine()
             RETURN
          ENDIF
+         DO WHILE SELF:Eos() .AND. !SELF:Eoi()
+             Consume()
+         ENDDO
          SWITCH SELF:La1
          CASE XSharpLexer.FIELD
             IF !SELF:ParseFieldStatement()
@@ -2690,8 +2783,9 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
             SELF:_locals:Add(xVar)
          NEXT
          FOREACH VAR xMissing IN missingTypes
-            xMissing:TypeName := XLiterals.UsualType
+            xMissing:TypeName := _missingType
          NEXT
+         SELF:ReadLine()
          RETURN TRUE
 
       PRIVATE METHOD ParseLocalVar AS XSourceVariableSymbol
@@ -2720,7 +2814,7 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
          VAR type     := SELF:ParseAsIsType()
          SELF:GetSourceInfo(start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR _)
          IF String.IsNullOrEmpty(type)
-            type := _missingType
+            type := XLiterals.NoType
          ENDIF
          VAR xVar     := XSourceVariableSymbol{SELF:CurrentEntity, id, range, interval, type} {IsArray := lDim .OR. !String.IsNullOrEmpty(arraysub)}
          IF type:EndsWith("[]")

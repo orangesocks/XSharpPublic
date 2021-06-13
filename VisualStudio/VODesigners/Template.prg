@@ -118,7 +118,7 @@ STATIC CLASS VOWindowEditorTemplate
 		LOCAL cParent AS STRING
 		LOCAL cPage AS STRING
 		LOCAL cType AS STRING
-		LOCAL cProperType AS STRING
+		LOCAL cInitMethod AS STRING
 		LOCAL cEnumValues AS STRING
 		LOCAL eSection AS CavoWedInfSection
 		LOCAL aPages AS List<STRING>
@@ -137,11 +137,21 @@ STATIC CLASS VOWindowEditorTemplate
 					LOOP
 				ENDIF
 				cType := ""
-				IF cUpper[cUpper:Length - 1] == ')'
+                cInitMethod := ""
+				IF cUpper[cUpper:Length - 1] == ')' .OR. cUpper:StartsWith("INITMETHOD")
 					nAt := cUpper:LastIndexOf('(')
 					IF nAt != -1
-						cProperType := cLine:Substring(nAt + 1 , cLine:Length - nAt - 2)
-						cType := cProperType:ToUpper()
+						cType := cLine:Substring(nAt + 1 , cLine:Length - nAt - 2):ToUpper()
+						nAt := cLine:IndexOf('(')
+						IF nAt == -1
+							nAt := cLine:IndexOf("=")
+							IF nAt == -1
+								nAt := 0
+							ELSE
+								nAt ++
+							END IF
+						END IF
+						cInitMethod := cLine:Substring(nAt)
 						cUpper := cUpper:Substring(0 , nAt)
 						cLine := cLine:Substring(0 , nAt)
 					ENDIF
@@ -259,7 +269,7 @@ STATIC CLASS VOWindowEditorTemplate
 									oControl:cInitMethod := cRight
 								ENDIF
 							ENDIF*/
-							oControl:cInitMethod := cProperType
+							oControl:cInitMethod := cInitMethod
 						CASE cLeft == "STYLE"
 							oControl:aStyles := Funcs.SplitString(cRight , '|')
 						CASE cLeft == "EXSTYLE"
@@ -326,7 +336,7 @@ STATIC CLASS VOWindowEditorTemplate
 									nAt := cType:IndexOf("CLASS:")
 									oProp:cType := cType:Substring(nAt + 6)
 									oControl:aProperties:Add(oProp)
-								CASE cType:IndexOf(',') == -1
+								CASE cType:IndexOf(',') == -1 .AND. cType:Length != 0
 									IF cType[0] != '%'
 										oProp := VODesignProperty{cCaption , cCaption , cProp , cType}
 									ELSE

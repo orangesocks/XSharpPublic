@@ -1,19 +1,22 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web;
 
 namespace XSharp.MacroCompiler.Syntax
 {
     internal enum Channel
     {
-        XMLDOCCHANNEL,
-        DEFOUTCHANNEL,
-        PREPROCESSORCHANNEL,
-        PRAGMACHANNEL,
-        HIDDENCHANNEL,
+        Default,
+        XmlDoc,
+        PreProcessor,
+        Pragma,
+        Hidden,
     };
 
     internal enum TokenType
@@ -46,6 +49,7 @@ namespace XSharp.MacroCompiler.Syntax
 
 
         FIRST_POSITIONAL_KEYWORD,
+
         // New Vulcan Keywords (no 4 letter abbreviations) [entity]
         ABSTRACT, ANSI, AUTO, CONSTRUCTOR, DELEGATE, DESTRUCTOR, ENUM, EVENT, EXPLICIT, GET, IMPLEMENTS, INITONLY, INTERFACE, INTERNAL,
         NAMESPACE, NEW, OPERATOR, PARTIAL, PROPERTY, SEALED, SET, STRUCTURE, UNICODE, UNTIL, VALUE, VIRTUAL, VOSTRUCT,
@@ -67,7 +71,8 @@ namespace XSharp.MacroCompiler.Syntax
         AWAIT, ASYNC, ASTYPE, CHECKED, UNCHECKED,
 
         // Fox kws
-        M,
+        M, TEXT, ENDTEXT, ADDITIVE, TEXTMERGE, PRETEXT, FLAGS, NOSHOW,
+
         LAST_POSITIONAL_KEYWORD,
 
         // Predefined types
@@ -134,6 +139,8 @@ namespace XSharp.MacroCompiler.Syntax
         STRING_CONST, ESCAPED_STRING_CONST, INTERPOLATED_STRING_CONST, INCOMPLETE_STRING_CONST,
         STRING_CONST_SINGLE,
         BINARY_CONST,
+        // FoxPro
+        TEXT_STRING_CONST,
         LAST_CONSTANT,
 
         // Pre processor symbols [entity]
@@ -170,26 +177,97 @@ namespace XSharp.MacroCompiler.Syntax
         LAST
     }
 
+    internal class TokenSource
+    {
+        internal IList<Token> Tokens;
+        internal string SourceText;
+        internal string SourceName;
+        internal TokenSource(string source)
+        {
+            SourceName = null;
+            SourceText = source;
+            Tokens = new List<Token>();
+        }
+        internal Token Get(int index) => index < Tokens.Count ? Tokens[index] : EofToken;
+        internal Token EofToken = new Token(TokenType.EOF);
+        internal int Size => Tokens.Count;
+        internal bool HasTextBefore(int index)
+        {
+            if (index >= 0 && index < Tokens.Count)
+            {
+                if (index == 0)
+                    return Tokens[index].Start > 0;
+                return Tokens[index-1].end < Tokens[index].Start;
+            }
+            return false;
+        }
+        internal string TextBefore(int index)
+        {
+            if (index >= 0 && index < Tokens.Count)
+            {
+                if (index == 0)
+                    return SourceText.Substring(0, Tokens[index].Start);
+                var t1 = Tokens[index - 1];
+                var t2 = Tokens[index];
+                return SourceText.Substring(t1.end, t2.Start - t1.end);
+            }
+            return null;
+        }
+        internal string TextAfter(int index)
+        {
+            if (index >= 0 && index < Tokens.Count)
+            {
+                if (index == Tokens.Count-1)
+                    return SourceText.Substring(Tokens[index].end, SourceText.Length - Tokens[index].end);
+                var t1 = Tokens[index];
+                var t2 = Tokens[index + 1];
+                return SourceText.Substring(t1.end, t2.Start - t1.end);
+            }
+            return null;
+        }
+    }
+
+    [DebuggerDisplay("{Type} {Text}")]
     internal class Token
     {
-        internal TokenType type;
-        internal TokenType subtype;
-        internal Channel channel;
-        internal int start;
-        internal int length;
-        internal string value;
+        internal TokenType Type;
+        internal TokenType SubType;
+        internal Channel Channel;
+        internal int Start;
+        internal int Length;
+        internal string Value;
+        internal TokenSource Source = null;
+        internal int Index = -1;
+        internal Token SourceSymbol = null;
         internal Token(TokenType type, TokenType subtype, int start, int length, string value, Channel channel)
         {
-            this.type = type;
-            this.subtype = subtype;
-            this.start = start;
-            this.length = length;
-            this.channel = channel;
-            this.value = value;
+            this.Type = type;
+            this.SubType = subtype;
+            this.Start = start;
+            this.Length = length;
+            this.Channel = channel;
+            this.Value = value;
         }
-        internal static readonly Token None = new Token(TokenType.UNRECOGNIZED, TokenType.UNRECOGNIZED, -1, 0, null, Channel.DEFOUTCHANNEL);
-        public override string ToString() => ( !string.IsNullOrEmpty(value) ? value : TokenAttr.TokenText(type) ) ;
+        internal Token(Token o) : this(o.Type, o.SubType, o.Start, o.Length, o.Value, o.Channel)
+        {
+            Source = o.Source;
+            Index = o.Index;
+        }
+        internal Token(TokenType type) : this(type, TokenType.UNRECOGNIZED, -1, -1, type.ToString(), Channel.Default) { }
+        internal Token(TokenType type, string value) : this(type, TokenType.UNRECOGNIZED, -1, -1, value, Channel.Default) { }
+        internal Token(Token o, TokenType type, string value) : this(o) { this.Type = type; this.Value = value; }
+        internal static readonly Token None = new Token(TokenType.UNRECOGNIZED, TokenType.UNRECOGNIZED, -1, 0, null, Channel.Default);
+        internal int end => Start + Length;
+        public override string ToString() => ( !string.IsNullOrEmpty(Value) ? Value : TokenAttr.TokenText(Type) ) ;
         internal CompilationError Error(ErrorCode e, params object[] args) => Compilation.Error(this, e, args);
+        internal string SourceText => Source?.SourceText.Substring(Start, Length);
+        internal string Text => Value ?? SourceText;
+        internal Token Prev => Index == 0 ? null : Index < 0 ? Source.Tokens.Last() : Source.Tokens[Index - 1];
+        internal Token Next => Index >= Source.Tokens.Count-1 ? null : Index < 0 ? null : Source.Tokens[Index + 1];
+        internal bool HasTrivia => Source?.HasTextBefore(Index) ?? false;
+        internal string TriviaAsText => LeadingWhitespace;
+        internal string LeadingWhitespace => Source?.TextBefore(Index);
+        internal string TrailingWhitespace => Source?.TextAfter(Index);
     }
 
     internal class TokenAttr
@@ -215,7 +293,7 @@ namespace XSharp.MacroCompiler.Syntax
         static internal readonly IDictionary<string, TokenType> foxKwIdsE;
 
         static internal readonly IDictionary<string, TokenType> symIds;
-        static internal readonly IDictionary<string, TokenType> symIdsE;
+        static internal readonly IDictionary<string, TokenType> symIdsS;
 
         static internal readonly TokenType[] specialTable;
         static readonly BitArray softKws;
@@ -498,6 +576,13 @@ namespace XSharp.MacroCompiler.Syntax
                 // FoxPro keywords
                 {"PARAMETERS", TokenType.PARAMETERS},
                 {"LPARAMETERS", TokenType.LPARAMETERS},
+                {"TEXT", TokenType.TEXT},
+                {"ENDTEXT", TokenType.ENDTEXT},
+                {"ADDITIVE", TokenType.ADDITIVE},
+                {"TEXTMERGE", TokenType.TEXTMERGE},
+                {"PRETEXT", TokenType.PRETEXT},
+                {"FLAGS", TokenType.FLAGS},
+                {"NOSHOW", TokenType.NOSHOW},
             };
 
             var Keywords = new Dictionary<string, TokenType>
@@ -615,7 +700,7 @@ namespace XSharp.MacroCompiler.Syntax
                 {"#NULL_SYMBOL", TokenType.NULL_SYMBOL},
             };
 
-            symIdsE = new Dictionary<string, TokenType>(symIds, StringComparer.OrdinalIgnoreCase)
+            symIdsS = new Dictionary<string, TokenType>(symIds, StringComparer.OrdinalIgnoreCase)
             {
                 { "#COMMAND", TokenType.PP_COMMAND},		// #command   <matchPattern> => <resultPattern>
                 { "#DEFINE", TokenType.PP_DEFINE},			// #define <idConstant> [<resultText>] or #define <idFunction>([<arg list>]) [<exp>]
@@ -945,5 +1030,6 @@ namespace XSharp.MacroCompiler.Syntax
                 }
             }
         }
+        internal static SourceLocation Location(this Token token) => new SourceLocation(token.Source.SourceText, token.Start);
     }
 }

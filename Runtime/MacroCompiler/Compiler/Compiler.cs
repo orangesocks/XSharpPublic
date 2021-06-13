@@ -1,9 +1,11 @@
+#define DUMPTOKENS
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using XSharp.MacroCompiler.Syntax;
 
 namespace XSharp.MacroCompiler
 {
@@ -80,7 +82,9 @@ namespace XSharp.MacroCompiler
             }
             catch (CompilationError e)
             {
-                return new CompilationResult(source, new CompilationError(e, source));
+                if (e.Location.Line == 0)
+                    e = new CompilationError(e, source);
+                return new CompilationResult(source, e);
             }
         }
 
@@ -94,7 +98,9 @@ namespace XSharp.MacroCompiler
             }
             catch (CompilationError e)
             {
-                return new CompilationResult(source, new CompilationError(e, source));
+                if (e.Location.Line == 0)
+                    e = new CompilationError(e, source);
+                return new CompilationResult(source, e);
             }
         }
 
@@ -106,7 +112,13 @@ namespace XSharp.MacroCompiler
         internal virtual Syntax.Node Parse(string source)
         {
             var lexer = new Lexer(source, options);
-            var parser = new Parser(lexer, options);
+            IList<Token> tokens = lexer.AllTokens();
+            if (options.PreProcessor && options.ParseStatements)
+            {
+                var pp = new Preprocessor.XSharpPreprocessor(lexer, options, null, Encoding.Default);
+                tokens = pp.PreProcess();
+            }
+            var parser = new Parser(tokens, options);
             return parser.ParseMacro();
         }
     }
@@ -119,7 +131,13 @@ namespace XSharp.MacroCompiler
         internal override Syntax.Node Parse(string source)
         {
             var lexer = new Lexer(source, options);
-            var parser = new Parser(lexer, options);
+            IList<Token> tokens = lexer.AllTokens();
+            if (options.PreProcessor && options.ParseStatements)
+            {
+                var pp = new Preprocessor.XSharpPreprocessor(lexer, options, null, Encoding.Default);
+                tokens = pp.PreProcess();
+            }
+            var parser = new Parser(tokens, options);
             return parser.ParseScript();
         }
     }
