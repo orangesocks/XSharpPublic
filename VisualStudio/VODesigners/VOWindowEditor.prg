@@ -3,7 +3,7 @@
 // Licensed under the Apache License, Version 2.0.
 // See License.txt in the project root for license information.
 //
-
+#pragma warnings(162, off) // unreachable code
 USING System.Windows.Forms
 USING System.Drawing
 USING System.Collections.Generic
@@ -525,7 +525,7 @@ RETURN
 				LOCAL cSelectedTab := "" AS STRING
 				FOR m := 1 UPTO oTabControl:TabPages:Count
 					oPageOptions := oTabControl:GetTabPageOptions(m)
-					IF oPageOptions:cCaption == "Page" // TODO Should check if page window exists
+					IF String.IsNullOrWhiteSpace(oPageOptions:cName) .OR. oPageOptions:cCaption == "Page" // TODO Should check if page window exists
 						LOOP
 					ENDIF
 					cLine := e"\t"
@@ -1030,7 +1030,7 @@ RETURN
 				LOCAL cSelectedTab := "" AS STRING
 				FOR m := 1 UPTO oTabControl:TabPages:Count
 					oPageOptions := oTabControl:GetTabPageOptions(m)
-					IF oPageOptions:cCaption == "Page" // TODO Should check if page window exists
+					IF String.IsNullOrWhiteSpace(oPageOptions:cName) .OR. oPageOptions:cCaption == "Page" // TODO Should check if page window exists
 						LOOP
 					ENDIF
 					cLine := e"\t"

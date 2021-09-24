@@ -23,6 +23,7 @@ BEGIN NAMESPACE XSharpModel
       PROPERTY SourceCode   AS STRING AUTO
       #region constructors
 
+
       CONSTRUCTOR(name AS STRING, kind AS Kind, attributes AS Modifiers, ;
             span AS TextRange, position AS TextInterval, returnType AS STRING, isStatic := FALSE AS LOGIC)
          SUPER(name, kind, attributes, span, position)
@@ -31,7 +32,7 @@ BEGIN NAMESPACE XSharpModel
          SELF:IsStatic     := isStatic
          SELF:_signature   := XMemberSignature{}
 
-      CONSTRUCTOR(sig as XMemberSignature, kind AS Kind, attributes AS Modifiers,  ;
+      CONSTRUCTOR(sig AS XMemberSignature, kind AS Kind, attributes AS Modifiers,  ;
             span AS TextRange, position AS TextInterval, isStatic := FALSE AS LOGIC)
          SUPER(sig:Id, kind, attributes, span, position)
          SELF:Parent       := NULL
@@ -42,6 +43,17 @@ BEGIN NAMESPACE XSharpModel
             par:Parent := SELF
          NEXT
          #endregion
+
+
+     STATIC METHOD FromDbResult( dbresult AS XDbResult, project AS XProject) AS XSourceMemberSymbol
+         LOCAL xmember AS XSourceMemberSymbol
+         VAR range    := TextRange{dbresult:StartLine,dbresult:StartColumn, dbresult:EndLine, dbresult:EndColumn}
+         VAR position := TextInterval{dbresult:Start, dbresult:Stop}
+         xmember := XSourceMemberSymbol{dbresult:MemberName, dbresult:Kind, dbresult:Attributes, range, position, dbresult:ReturnType, dbresult:Modifiers:HasFlag(Modifiers.Static)}
+         xmember:SourceCode  := dbresult:SourceCode
+         xmember:XmlComments := dbresult:XmlComments
+         xmember:File        := XFile{dbresult:FileName, project}
+         RETURN xmember
 
 
       METHOD AddParameters( list AS IList<XSourceParameterSymbol>) AS VOID
@@ -69,21 +81,25 @@ BEGIN NAMESPACE XSharpModel
 
       PROPERTY ParameterList      AS STRING GET _signature:ParameterList
 
-     PROPERTY ComboParameterList AS STRING
+      PROPERTY ComboParameterList AS STRING
          GET
-            VAR parameters := ""
-            FOREACH variable AS IXParameterSymbol IN SELF:Parameters
-               IF (parameters:Length > 0)
-                  parameters := parameters + ", "
-               ENDIF
-               VAR cType := variable:ShortTypeName
-               IF variable:IsTyped .AND. variable:ParamType != ParamType.As
-                  parameters += variable:ParamTypeDesc + cType
-               ELSE
-                  parameters += cType
-               ENDIF
-            NEXT
-            RETURN parameters
+            TRY
+                VAR parameters := ""
+                FOREACH variable AS IXParameterSymbol IN SELF:Parameters
+                   IF (parameters:Length > 0)
+                      parameters := parameters + ", "
+                   ENDIF
+                   VAR cType := variable:ShortTypeName
+                   IF variable:IsTyped .AND. variable:ParamType != ParamType.As
+                      parameters += variable:ParamTypeDesc + cType
+                   ELSE
+                      parameters += cType
+                   ENDIF
+                NEXT
+                RETURN parameters
+            CATCH
+                RETURN ""
+            END TRY
          END GET
       END PROPERTY
       PROPERTY Parameters         AS IList<IXParameterSymbol> GET _signature:Parameters:ToArray()
@@ -96,42 +112,50 @@ BEGIN NAMESPACE XSharpModel
 
       PROPERTY ComboPrototype AS STRING
          GET
-            IF SELF:Kind == Kind.Undefine
-                RETURN "("+SELF:Name+")"
-            ENDIF
-            VAR vars := ""
-            VAR desc := ""
-            IF SELF:Kind:HasParameters()
-               IF ( SELF:Kind == Kind.@@Constructor )
-                  vars := "{" + SELF:ComboParameterList + "}"
-               ELSEIF SELF:Kind:IsProperty()
-                    IF SELF:ParameterCount > 0
-                        vars := "[" + SELF:ComboParameterList + "]"
-                    ENDIF
-               ELSE
-                  vars := "(" + SELF:ComboParameterList + ")"
-               ENDIF
-            ENDIF
-            IF ( SELF:Kind == Kind.@@Constructor )
-               desc := SELF:Parent:Name + vars
-            ELSE
-               desc := SELF:Name + vars
-            ENDIF
-            IF SELF:Kind:HasReturnType()
-               desc := desc +  XLiterals.AsKeyWord + SELF:TypeName
-            ENDIF
-            RETURN desc
+            TRY
+                IF SELF:Kind == Kind.Undefine
+                    RETURN "("+SELF:Name+")"
+                ENDIF
+                VAR vars := ""
+                VAR desc := ""
+                IF SELF:Kind:HasParameters()
+                   IF ( SELF:Kind == Kind.@@Constructor )
+                      vars := "{" + SELF:ComboParameterList + "}"
+                   ELSEIF SELF:Kind:IsProperty()
+                        IF SELF:ParameterCount > 0
+                            vars := "[" + SELF:ComboParameterList + "]"
+                        ENDIF
+                   ELSE
+                      vars := "(" + SELF:ComboParameterList + ")"
+                   ENDIF
+                ENDIF
+                IF ( SELF:Kind == Kind.@@Constructor )
+                   desc := SELF:Parent:Name + vars
+                ELSE
+                   desc := SELF:Name + vars
+                ENDIF
+                IF SELF:Kind:HasReturnType()
+                   desc := desc +  XLiterals.AsKeyWord + SELF:TypeName
+                ENDIF
+                RETURN desc
+            CATCH
+                RETURN ""
+            END TRY
          END GET
       END PROPERTY
 
       PROPERTY ParentType     AS IXTypeSymbol
       GET
-         IF SELF:Parent IS IXTypeSymbol
-            RETURN (IXTypeSymbol) SELF:Parent
-         ENDIF
-         IF SELF:Parent IS IXMemberSymbol
-            RETURN ((IXMemberSymbol) SELF:Parent):ParentType
-         ENDIF
+         TRY
+            IF SELF:Parent IS IXTypeSymbol
+               RETURN (IXTypeSymbol) SELF:Parent
+            ENDIF
+            IF SELF:Parent IS IXMemberSymbol
+               RETURN ((IXMemberSymbol) SELF:Parent):ParentType
+            ENDIF
+         CATCH
+            NOP
+         END TRY
          RETURN NULL
       END GET
       END PROPERTY

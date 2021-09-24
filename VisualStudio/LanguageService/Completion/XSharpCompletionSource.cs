@@ -231,15 +231,7 @@ namespace XSharp.LanguageService
                         }
                     }
                 }
-                // Special Phil
                 bool dotSelector = (typedChar == '.');
-                //
-                // Alternative Token list (dot is a selector)
-                List<XSharpToken> altTokenList;
-                if (showInstanceMembers)
-                    altTokenList = XSharpTokenTools.GetTokenList(location, out state);
-                else
-                    altTokenList = tokenList;
 
                 // TODO: Based on the Project.Settings, we should add the Vulcan.VO namespace
                 int tokenType = XSharpLexer.UNRECOGNIZED;
@@ -288,18 +280,6 @@ namespace XSharp.LanguageService
                     }
                     session.Properties[XsCompletionProperties.Type] = type;
                 }
-                else
-                {
-                    if (showInstanceMembers)
-                    {
-                        symbol = XSharpLookup.RetrieveElement(location, altTokenList, CompletionState.General).FirstOrDefault();
-                        // Check for members, locals etc and convert the type of these to IXTypeSymbol
-                        if (symbol != null && symbol is IXTypeSymbol)
-                        {
-                            session.Properties[XsCompletionProperties.Type] = symbol;
-                        }
-                    }
-                }
                 if (dotSelector || state != CompletionState.None)
                 {
                     if (string.IsNullOrEmpty(filterText))
@@ -310,18 +290,12 @@ namespace XSharp.LanguageService
                     }
                     if (state.HasFlag(CompletionState.Namespaces))
                     {
-                        if (symbol is null)
-                        {
-                            AddNamespaces(compList, _file.Project, filterText);
-                        }
+                        AddNamespaces(compList, _file.Project, filterText);
                     }
                     if (state.HasFlag(CompletionState.Types) || state.HasFlag(CompletionState.Interfaces))
                     {
-                        if (symbol is null)
-                        {
-                            AddTypeNames(compList, _file.Project, filterText, location.Usings);
-                            AddXSharpKeywordTypeNames(kwdList, filterText);
-                        }
+                        AddTypeNames(compList, _file.Project, filterText, location.Usings);
+                        AddXSharpKeywordTypeNames(kwdList, filterText);
                     }
                     if (state.HasFlag(CompletionState.StaticMembers))
                     {
@@ -344,6 +318,7 @@ namespace XSharp.LanguageService
                         AddNamespaces(compList, _file.Project, filterText);
                         AddTypeNames(compList, _file.Project, filterText, location.Usings);
                         AddXSharpKeywordTypeNames(kwdList, filterText);
+                        // Todo Add Global members from this project and from all global namespaces ?
                     }
                 }
                 if (showInstanceMembers && ! (symbol is IXTypeSymbol))
@@ -672,7 +647,7 @@ namespace XSharp.LanguageService
             // We are looking for NameSpaces, in References
             if (startWith == null)
                 return;
-            var namespaces = project.GetAssemblyNamespaces();
+            var namespaces = project.AllNamespaces;
             // Calculate the length we must remove
             int startLen = 0;
             int dotPos = startWith.LastIndexOf('.');
@@ -729,7 +704,7 @@ namespace XSharp.LanguageService
             if (dotPos != -1)
                 startLen = dotPos + 1;
             // And our own Namespaces
-            var xsNamespaces = project.Namespaces;
+            var xsNamespaces = project.ProjectNamespaces;
             foreach (string nameSpace in xsNamespaces.Where(ns => nameStartsWith(ns, startWith)))
             {
                 string realNamespace = nameSpace;
@@ -870,6 +845,11 @@ namespace XSharp.LanguageService
                         { 
                             add = elt.IsVisible(minVisibility);
                         }
+                        if (staticOnly && elt.IsStatic && type != null )
+                        {
+                            if (elt.Parent.FullName == "System.Object" && type.FullName != "System.Object")
+                                add = false;
+                        }
                         break;
                 }
                 if (type != null && elt.IsStatic && type.Kind == Kind.Enum && elt.DeclaringType != type.FullName && elt.Name != "HasFlag" )
@@ -963,13 +943,25 @@ namespace XSharp.LanguageService
                 include = true;
             for (int pos = 0; pos < tokenList.Count; pos++)
             {
+                var t = tokenList[pos];
                 if (include)
                 {
-                    retValue += tokenList[pos].Text;
+                    switch (t.Type)
+                    {
+                        case XSharpLexer.ID:
+                        case XSharpLexer.DOT:
+                        case XSharpLexer.COLON:
+                        case XSharpLexer.COLONCOLON:
+                        case XSharpLexer.LPAREN:
+                        case XSharpLexer.RPAREN:
+                            retValue += t.Text; 
+                            break;
+                    }
+                    
                 }
                 else
                 {
-                    include = tokenList[pos] == fromToken;
+                    include = (t == fromToken);
                 }
             }
             return retValue;

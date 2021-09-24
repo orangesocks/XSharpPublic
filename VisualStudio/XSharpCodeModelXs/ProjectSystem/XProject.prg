@@ -40,9 +40,11 @@ BEGIN NAMESPACE XSharpModel
       PRIVATE _dependentProjectList              AS STRING
       PRIVATE _dependentAssemblyList             AS STRING
       PRIVATE _name                              AS STRING
-      private _lastRefCheck                      AS DateTime
-      PUBLIC  FileWalkComplete						AS XProject.OnFileWalkComplete
-	  PUBLIC  ProjectWalkComplete					   AS XProject.OnProjectWalkComplete
+      PRIVATE _lastRefCheck                      AS DateTime
+
+      PRIVATE _cachedAllNamespaces               AS IList<STRING>
+      PUBLIC  FileWalkComplete				     AS XProject.OnFileWalkComplete
+	  PUBLIC  ProjectWalkComplete				 AS XProject.OnProjectWalkComplete
 
       #endregion
       #region Properties
@@ -156,9 +158,12 @@ BEGIN NAMESPACE XSharpModel
          SELF:_OtherFilesDict    := XFileDictionary{}
          SELF:_name              := System.IO.Path.GetFileNameWithoutExtension(project:Url)
          SELF:_lastRefCheck      := DateTime.MinValue
+         SELF:_cachedAllNamespaces   := NULL
+
          SELF:Loaded := TRUE
          SELF:FileWalkCompleted := FALSE
          XSolution.Add(SELF)
+
       PUBLIC METHOD Close() AS VOID
          ModelWalker.GetWalker():RemoveProject(SELF)
          XSolution.Remove(SELF)
@@ -169,6 +174,7 @@ BEGIN NAMESPACE XSharpModel
       PRIVATE METHOD _clearTypeCache() AS VOID
          _ImplicitNamespaces    := NULL
          _dependentAssemblyList := NULL
+         _cachedAllNamespaces   := NULL
          RETURN
          #region AssemblyReferences
 
@@ -231,7 +237,7 @@ BEGIN NAMESPACE XSharpModel
                      SELF:_AssemblyReferences:Remove(asm)
                      EXIT
                   ENDIF
-               NEXT
+                NEXT
             ENDIF
 
          PRIVATE METHOD LoadReference(cDLL AS STRING) AS VOID
@@ -700,21 +706,34 @@ BEGIN NAMESPACE XSharpModel
          IF result:Count > 0
             // Get the source code and parse it into a member
             // we know that it will be of the globals class
-            VAR element    := result:First()
-            VAR source     := element:SourceCode
-            VAR file       := XFile{element:FileName,SELF}
-            file:Virtual   := TRUE
+            // the global class that will be shared by the functions/globals will only
+            // contain the members from the result collection
+            LOCAL source AS STRING
+            LOCAL file := NULL AS XFile
+            VAR members := List<XSourceMemberSymbol>{}
+            source := ""
+            FOREACH VAR element IN result
+                VAR xmember := XSourceMemberSymbol.FromDbResult(element, SELF)
+                source += element:SourceCode+Environment.NewLine
+                members:Add(xmember)
+                file := xmember:File
+            NEXT
             VAR walker := SourceWalker{file}
-            walker:Parse(source, FALSE)
-            IF walker:EntityList:Count > 0
-               VAR xElement      := walker:EntityList:First()
-               IF xElement IS XSourceMemberSymbol VAR xmember
-                  xmember:Range       := TextRange{element:StartLine, element:StartColumn, element:EndLine, element:EndColumn}
-                  xmember:Interval    := TextInterval{element:Start, element:Stop}
-                  xmember:XmlComments := element:XmlComments
-                  RETURN xmember
-               ENDIF
-            ENDIF
+            walker:Parse(source, TRUE)
+            VAR first := (XSourceMemberSymbol) walker:EntityList:First()
+            VAR parentType := (XSourceTypeSymbol) first:ParentType
+            VAR entities := List<XSourceMemberSymbol>{}
+            FOR VAR i := 0 TO walker:EntityList:Count -1
+                VAR entity := walker:EntityList[i]
+                IF entity IS XSourceMemberSymbol VAR xsms
+                    entities:Add(xsms)
+                    IF i < result:Count
+                        xsms:XmlComments := result[i]:XmlComments
+                    ENDIF
+                ENDIF
+            NEXT
+            parentType:SetMembers(entities)
+            RETURN first
          ENDIF
          RETURN NULL
 
@@ -763,8 +782,7 @@ BEGIN NAMESPACE XSharpModel
          ENDIF
          RETURN type
 
-      METHOD GetAssemblyNamespaces() AS IList<STRING>
-         RETURN SystemTypeController.GetNamespaces(SELF:_AssemblyReferences)
+      PROPERTY AssemblyNamespaces AS IList<STRING> GET SystemTypeController.GetNamespaces(SELF:_AssemblyReferences)
 
       METHOD GetCommentTasks() AS IList<XCommentTask>
          VAR tasks := XDatabase.GetCommentTasks(SELF:Id:ToString())
@@ -960,7 +978,13 @@ BEGIN NAMESPACE XSharpModel
             idProject      := oType:IdProject
             VAR name       := oType:TypeName
             VAR xElement      := walker:EntityList:First()
-            IF xElement IS XSourceTypeSymbol VAR xtype
+            LOCAL xtype AS XSourceTypeSymbol
+            IF xElement IS XSourceTypeSymbol VAR xE
+                xtype := xE
+            ELSEIF xElement IS XSourceMemberSymbol VAR xE2
+                xtype := (XSourceTypeSymbol) xE2:ParentType
+            ENDIF
+            IF xtype != NULL
                xtype:SetInterfaces(aIF)
                xtype:BaseType    := baseTypeName
                xtype:Range       := TextRange{oType:StartLine, oType:StartColumn, oType:EndLine, oType:EndColumn}
@@ -1222,7 +1246,7 @@ BEGIN NAMESPACE XSharpModel
          END GET
       END PROPERTY
 
-      PROPERTY Namespaces AS IList<STRING>
+      PROPERTY ProjectNamespaces AS IList<STRING>
          GET
             VAR list := XDatabase.GetNamespaces(SELF:DependentProjectList)
             VAR result := List<STRING>{}
@@ -1231,9 +1255,32 @@ BEGIN NAMESPACE XSharpModel
             NEXT
             RETURN result
          END GET
-      END PROPERTY
+     END PROPERTY
+
+      PROPERTY AllNamespaces AS IList<STRING>
+         GET
+            IF _cachedAllNamespaces != NULL
+                RETURN _cachedAllNamespaces
+            ENDIF
+            VAR result := SELF:ProjectNamespaces
+            VAR asmNS  := SELF:AssemblyNamespaces
+            FOREACH ns AS STRING IN asmNS
+                IF !result:Contains(ns)
+                    result:Add(ns)
+                ENDIF
+            NEXT
+            _cachedAllNamespaces := result
+            RETURN result
+         END GET
+     END PROPERTY
+
+
 
       PROPERTY OtherFiles AS List<STRING> GET SELF:_OtherFilesDict:Keys:ToList()
+
+      METHOD ResetParseOptions(newOptions AS XSharpParseOptions) AS VOID
+         SELF:_parseOptions := newOptions
+         RETURN
 
       PROPERTY ParseOptions AS XSharpParseOptions
          GET

@@ -152,9 +152,8 @@ namespace XSharp.LanguageService
                 XSettings.EditorCompletionListTabs = _intellisensePage.CompletionListTabs;
                 XSettings.EditorCommitChars = _intellisensePage.CommitChars;
                 XSettings.EditorCompletionAutoPairs = _intellisensePage.AutoPairs;
-                XSettings.EditorCompletionListAfterEachChar = _intellisensePage.ShowAfterChar;
+                XSettings.EditorCompletionListAfterEachChar = false; // _intellisensePage.ShowAfterChar;
                 XSettings.EditorKeywordsInAll = _intellisensePage.KeywordsInAll;
-                XSettings.EditorUseDotAsUniversalSelector = _intellisensePage.UseDotAsUniversalSelector;
 
                 XSettings.EditorNavigationSorted = _intellisensePage.SortNavigationBars;
                 XSettings.EditorNavigationIncludeFields = _intellisensePage.IncludeFieldsInNavigationBars;
@@ -201,7 +200,7 @@ namespace XSharp.LanguageService
 
             // register property changed event handler
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
+            XSharpXMLDocTools.Initialize();
             var shell = await this.GetServiceAsync(typeof(SVsShell)) as IVsShell;
             if (shell != null)
             {

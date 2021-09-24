@@ -1878,6 +1878,7 @@ enummember          : (Attributes=attributes)? MEMBER? Id=identifier (Op=assigno
          VAR xMember := XSourceMemberSymbol{id, Kind.EnumMember, _attributes, range, interval, type} {SingleLine := TRUE, @@Value := strValue}
          xMember:File := SELF:_file
          xMember:SourceCode := source
+         xMember:IsStatic := TRUE
          RETURN <XSourceEntity>{xMember}
 
          #endregion

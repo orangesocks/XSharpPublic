@@ -5,6 +5,8 @@ USING System.Text
 USING XUnit
 BEGIN NAMESPACE XSharp.VFP.Tests
 
+#pragma warnings(1998, off)
+
 	CLASS FoxArrayTests
         [Fact, Trait("Category", "FoxArray")];
 		ASYNC METHOD SimpleArrayTests() AS VOID
@@ -25,9 +27,9 @@ BEGIN NAMESPACE XSharp.VFP.Tests
             Assert.True( a[2,1] == 3)
             Assert.True( a[5,2] == 10)
             // Alen with nArrayAttribute
-            Assert.True( ALen(a,1) == 5)
-            Assert.True( ALen(a,2) == 2)
-            Assert.True( ALen(a) == 10)
+            Assert.Equal(5U,  ALen(a,1) )
+            Assert.Equal(2U,  ALen(a,2) )
+            Assert.Equal(10U,  ALen(a) )
             // AElement = returns element number
             Assert.True( AElement(a, 1,1) == 1)
             Assert.True( AElement(a, 1,2) == 2)
@@ -41,7 +43,7 @@ BEGIN NAMESPACE XSharp.VFP.Tests
             Assert.True( AElement(a, 5,2) == 10)
             // Now delete column 1
             FillArray(a)
-            ADel(a, 1, 2)
+            Assert.Equal(1U,  ADel(a, 1, 2) )
             Assert.True( a[ 1,1] == 2)
             Assert.True( a[ 1,2] == NIL)
             Assert.True( a[ 2,1] == 4)
@@ -54,7 +56,7 @@ BEGIN NAMESPACE XSharp.VFP.Tests
             Assert.True( a[ 5,2] == NIL)
             // Now insert column 1
             FillArray(a)
-            AIns(a, 1, 2)
+            Assert.Equal(1U,  AIns(a, 1, 2) )
             Assert.True( a[ 1,1] == NIL)
             Assert.True( a[ 1,2] == 1)
             Assert.True( a[ 2,1] == NIL)
@@ -66,7 +68,7 @@ BEGIN NAMESPACE XSharp.VFP.Tests
             Assert.True( a[ 5,1] == NIL)
             Assert.True( a[ 5,2] == 9)
             FillArray(a)
-            AIns(a, 2, 2)
+            Assert.Equal(1U, AIns(a, 2, 2) )
             Assert.True( a[ 1,1] == 1)
             Assert.True( a[ 1,2] == NIL)
             Assert.True( a[ 2,1] == 3)
@@ -79,7 +81,7 @@ BEGIN NAMESPACE XSharp.VFP.Tests
             Assert.True( a[ 5,2] == NIL)
             FillArray(a)
             // delete row 1
-            ADel(a, 1, 1)
+            Assert.Equal(1U, ADel(a, 1, 1) )
             Assert.True( a[ 1,1] == 3)
             Assert.True( a[ 1,2] == 4)
             Assert.True( a[ 2,1] == 5)
@@ -93,7 +95,7 @@ BEGIN NAMESPACE XSharp.VFP.Tests
 
             FillArray(a)
             // delete row 5
-            ADel(a, 5, 1)
+            Assert.Equal(1U, ADel(a, 5, 1) )
             Assert.True( a[ 1,1] == 1)
             Assert.True( a[ 1,2] == 2)
             Assert.True( a[ 2,1] == 3)
@@ -107,7 +109,7 @@ BEGIN NAMESPACE XSharp.VFP.Tests
 
             FillArray(a)
             // delete row 5
-            AIns(a, 1, 1)
+            Assert.Equal(1U, AIns(a, 1, 1))
             Assert.True( a[ 1,1] == NIL)
             Assert.True( a[ 1,2] == NIL)
             Assert.True( a[ 2,1] == 1)
@@ -122,7 +124,7 @@ BEGIN NAMESPACE XSharp.VFP.Tests
 
             FillArray(a)
             // delete row 5
-            AIns(a, 5, 1)
+            Assert.Equal(1U, AIns(a, 5, 1))
             Assert.True( a[ 1,1] == 1)
             Assert.True( a[ 1,2] == 2)
             Assert.True( a[ 2,1] == 3)
