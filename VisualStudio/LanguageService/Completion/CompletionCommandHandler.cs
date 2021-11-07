@@ -92,10 +92,10 @@ namespace XSharp.LanguageService
                         handled = StartCompletionSession(nCmdID, '\0', true);
                         break;
                     case (int)VSConstants.VSStd2KCmdID.RETURN:
-                        handled = CompleteCompletionSession();
+                        handled = CompleteCompletionSession('\0');
                         break;
                     case (int)VSConstants.VSStd2KCmdID.TAB:
-                        handled = CompleteCompletionSession( );
+                        handled = CompleteCompletionSession('\t' );
                         break;
                     case (int)VSConstants.VSStd2KCmdID.CANCEL:
                         handled = CancelCompletionSession();
@@ -105,21 +105,26 @@ namespace XSharp.LanguageService
                         if (_completionSession != null)
                         {
                             if (char.IsLetterOrDigit(ch) || ch == '_')
-                                FilterCompletionSession(ch);
+                            {
+                                ; // do nothing now. Let the provider filter the list for us.
+                            }
                             else
                             {
-                                if (completionWasSelected && (XSettings.EditorCommitChars.Contains(ch)))
+                                if (ch == '=' && _completionSession.Properties.TryGetProperty(XsCompletionProperties.Char, out char triggerChar) && triggerChar == ':')
                                 {
-                                    handled = CompleteCompletionSession(true, ch); ;
+                                    CancelCompletionSession();
+                                }
+                                else if (ch == '.' || ch == ':')
+                                {
+                                    handled = CompleteCompletionSession(ch);
+                                }
+                                else if (XSettings.EditorCommitChars.Contains(ch))
+                                {
+                                    handled = CompleteCompletionSession( ch); 
                                 }
                                 else
                                 {
                                     CancelCompletionSession();
-                                }
-                                if ((ch == ':') || (ch == '.'))
-                                {
-                                    handled = false; // Allow the char to be typed to start new completion session for 
-                                    StartCompletionSession(nCmdID, ch);
                                 }
                             }
                             //
@@ -177,9 +182,13 @@ namespace XSharp.LanguageService
                                         StartCompletionSession(nCmdID, ch);
                                         break;
                                     default:
-                                        completeCurrentToken(nCmdID, ch);
+                                        //completeCurrentToken(nCmdID, ch);
                                         break;
                                 }
+                            }
+                            else
+                            {
+                                FilterCompletionSession(ch);
                             }
                             break;
                         default:
@@ -191,38 +200,39 @@ namespace XSharp.LanguageService
             
             return result;
         }
-        private void completeCurrentToken(uint nCmdID, char ch)
-        {
-            SnapshotPoint caret = _textView.Caret.Position.BufferPosition;
-            if (cursorIsInStringorComment(caret))
-            {
-                return;
-            }
-            if (char.IsLetterOrDigit(ch) || ch == '_')
-            {
-                var line = caret.GetContainingLine();
 
-                var lineText = line.GetText();
-                var pos = caret.Position - line.Start.Position;
-                int chars = 0;
-                // count the number of characters in the current word. When > limit set in the options dialog then trigger completion
-                for (int i = pos - 1; i >= 0; i--)
-                {
-                    var c = lineText[i];
-                    if (! char.IsLetterOrDigit(c) && c != '_' )
-                    { 
-                        break;
-                    }
-                    chars++;
-                    if (chars >= XSettings.CompleteNumChars)
-                        break;
-                }
-                if (chars >= XSettings.CompleteNumChars)
-                {
-                    StartCompletionSession(nCmdID, '\0', true);
-                }
-            }
-        }
+        //private void completeCurrentToken(uint nCmdID, char ch)
+        //{
+        //    SnapshotPoint caret = _textView.Caret.Position.BufferPosition;
+        //    if (cursorIsInStringorComment(caret))
+        //    {
+        //        return;
+        //    }
+        //    if (char.IsLetterOrDigit(ch) || ch == '_')
+        //    {
+        //        var line = caret.GetContainingLine();
+
+        //        var lineText = line.GetText();
+        //        var pos = caret.Position - line.Start.Position;
+        //        int chars = 0;
+        //        // count the number of characters in the current word. When > limit set in the options dialog then trigger completion
+        //        for (int i = pos - 1; i >= 0; i--)
+        //        {
+        //            var c = lineText[i];
+        //            if (! char.IsLetterOrDigit(c) && c != '_' )
+        //            { 
+        //                break;
+        //            }
+        //            chars++;
+        //            if (chars >= XSettings.CompleteNumChars)
+        //                break;
+        //        }
+        //        if (chars >= XSettings.CompleteNumChars)
+        //        {
+        //            StartCompletionSession(nCmdID, '\0', true, true);
+        //        }
+        //    }
+        //}
 
         private void FilterCompletionSession(char ch)
         {
@@ -261,7 +271,7 @@ namespace XSharp.LanguageService
             return true;
         }
 
-        bool CompleteCompletionSession(bool force = false, char ch = ' ')
+        bool CompleteCompletionSession(char ch )
         {
             if (_completionSession == null)
             {
@@ -287,16 +297,39 @@ namespace XSharp.LanguageService
                 {
                     kind = xscompletion.Kind;
                 }
+                bool ctor = false;
+                // some tokens need to be added to the insertion text.
                 switch (kind)
                 {
                     case Kind.Keyword:
-                        formatKeyword(completion); ;
+                        formatKeyword(completion); 
                         break;
                     case Kind.Class:
                     case Kind.Structure:
                     case Kind.Constructor:
-                        if (ch == '{' || ch == '}')
-                            completion.InsertionText += '{';
+                        ctor = true;
+                        goto default;
+                    default:
+                        switch (ch)
+                        {
+                            case '{' when ctor:
+                            case '}' when ctor:
+                                if (!completion.InsertionText.EndsWith("{"))
+                                    completion.InsertionText += "{";
+                                break;
+                            case '\t': // Tab
+                            case '\r': // CR
+                            case '\n': // CR
+                            case '.': // DOT
+                            case ':': // COLON
+                            case '\0':
+                                break;
+                            default:
+                                var s = ch.ToString();
+                                if (!completion.InsertionText.EndsWith(s))
+                                    completion.InsertionText += s;
+                                break;
+                        }
                         break;
                 }
                 if ((_completionSession.SelectedCompletionSet.Completions.Count > 0) && (_completionSession.SelectedCompletionSet.SelectionStatus.IsSelected))
@@ -318,7 +351,7 @@ namespace XSharp.LanguageService
                     }
                     commit = true;
                 }
-                else if (force)
+                else
                 {
                     if (completion != null)
                     {
@@ -360,19 +393,23 @@ namespace XSharp.LanguageService
                 WriteOutputMessage(" --> Commit");
                 var session = _completionSession;
                 session.Properties.TryGetProperty(XsCompletionProperties.Type, out IXTypeSymbol type);
-                string method = _completionSession.SelectedCompletionSet.SelectionStatus.Completion.InsertionText;
+                string insertionText = completion.InsertionText;
                 session.Properties.TryGetProperty(XsCompletionProperties.Char, out char triggerChar);
-                if (triggerChar == '\0')
-                    triggerChar = ch;
+                if (ch == '.' || ch == ':')
+                {
+                    if (insertionText.IndexOfAny("({".ToCharArray()) == -1)
+                        completion.InsertionText += ch;
+
+                }
                 _completionSession.Commit();
                 if (moveBack && (caret != null))
                 {
                     caret.MoveToPreviousCaretPosition();
                 }
                 // if a method or constructor was chosen, then trigger the signature help
-                if (method.Contains('(') || method.Contains('{'))
+                if (insertionText.Contains('(') || insertionText.Contains('{'))
                 {
-                    TriggerSignatureHelp(type, method, triggerChar);
+                    TriggerSignatureHelp(type, insertionText, triggerChar);
                 }
                 return true;
             }
@@ -383,7 +420,7 @@ namespace XSharp.LanguageService
 
             return false;
         }
-        bool StartCompletionSession(uint nCmdId, char typedChar, bool includeKeywords = false)
+        bool StartCompletionSession(uint nCmdId, char typedChar, bool includeKeywords = false, bool autoType = false)
         {
             WriteOutputMessage("StartCompletionSession()");
 
@@ -413,6 +450,7 @@ namespace XSharp.LanguageService
 
             _completionSession.Properties[XsCompletionProperties.Command] = nCmdId;
             _completionSession.Properties[XsCompletionProperties.Char] = typedChar;
+            _completionSession.Properties[XsCompletionProperties.AutoType] = autoType;
             _completionSession.Properties[XsCompletionProperties.Type] = null;
             _completionSession.Properties[XsCompletionProperties.IncludeKeywords] = includeKeywords;
             try

@@ -72,7 +72,7 @@ METHOD __FocusTV AS ExplorerWindow STRICT
 	oTreeView:SetFocus()
 	RETURN SELF
 
-METHOD Destroy() AS USUAL CLIPPER
+METHOD Destroy() AS USUAL 
 	oLabelLeft := NULL_OBJECT
 	oLabelRight := NULL_OBJECT
 	oTreeView := NULL_OBJECT

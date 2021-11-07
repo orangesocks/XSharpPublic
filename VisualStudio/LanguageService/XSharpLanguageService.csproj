@@ -120,12 +120,6 @@
     <Compile Include="OptionsPages\FormattingOptionsControl.Designer.cs">
       <DependentUpon>FormattingOptionsControl.cs</DependentUpon>
     </Compile>
-    <Compile Include="OptionsPages\CompletionOptionsControl.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="OptionsPages\CompletionOptionsControl.Designer.cs">
-      <DependentUpon>CompletionOptionsControl.cs</DependentUpon>
-    </Compile>
     <Compile Include="OptionsPages\OtherOptionsControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -139,9 +133,6 @@
       <DependentUpon>IntellisenseOptionsControl.cs</DependentUpon>
     </Compile>
     <Compile Include="OptionsPages\FormattingOptionsPage.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="OptionsPages\CompletionOptionsPage.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="OptionsPages\OtherOptionsPage.cs">
@@ -208,8 +199,8 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Community.VisualStudio.Toolkit">
-      <Version>15.0.76.270-pre</Version>
+    <PackageReference Include="Community.VisualStudio.Toolkit.15">
+      <Version>15.0.0-pre</Version>
     </PackageReference>
     <PackageReference Include="editorconfig">
       <Version>0.12.2</Version>
@@ -230,9 +221,6 @@
   <ItemGroup>
     <EmbeddedResource Include="OptionsPages\FormattingOptionsControl.resx">
       <DependentUpon>FormattingOptionsControl.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="OptionsPages\CompletionOptionsControl.resx">
-      <DependentUpon>CompletionOptionsControl.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="OptionsPages\OtherOptionsControl.resx">
       <DependentUpon>OtherOptionsControl.cs</DependentUpon>

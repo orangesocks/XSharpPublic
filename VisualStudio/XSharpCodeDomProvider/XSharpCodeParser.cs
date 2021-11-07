@@ -50,7 +50,7 @@ namespace XSharp.CodeDom
             CodeCompileUnit ccu;
             if (codeStream == null)
             {
-                ccu = new CodeCompileUnit();
+                ccu = new XCodeCompileUnit();
             }
             else
             {
@@ -101,10 +101,17 @@ namespace XSharp.CodeDom
                 walker.Walk(discover, xtree);
                 //
                 ccu = discover.CodeCompileUnit;
-                ccu.UserData[XSharpCodeConstants.USERDATA_FILENAME] = this.FileName;
-                ccu.UserData[XSharpCodeConstants.USERDATA_CODE]     = source;
+                var firstType = ccu.GetFirstClass();
+                if (firstType != null)
+                {
+                    // save a copy of the member list to the CCU
+                    ccu.Members = firstType.Members;
+                }
+                // save file name & original source
+                ccu.FileName = this.FileName;
+                ccu.Source = source;
             }
-            catch ( Exception ex )
+            catch (Exception ex)
             {
                 if (System.Diagnostics.Debugger.IsAttached)
                     Debug.WriteLine(ex.Message + Environment.NewLine + ex.StackTrace);

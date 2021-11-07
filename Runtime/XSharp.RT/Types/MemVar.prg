@@ -116,10 +116,11 @@ END CLASS
 /// <include file="RTComments.xml" path="Comments/Memvar/*" />
 [DebuggerDisplay("Memvar: {Name,nq}: {Value}")];
 PUBLIC CLASS XSharp.MemVar
-    // Delegates for reading and writing
+    /// <summary>Delegate for reading memvars.</summary>
     /// <param name="name">Name of the Memvar for which the value has to be retrieved</param>
     /// <returns>The value of the memory variable. </returns>
     DELEGATE Getter(name AS STRING) AS USUAL
+    /// <summary>Delegate for writing memvars.</summary>
     /// <param name="name">Name of the Memvar for which the value has to be retrieved</param>
     /// <param name="value">Value to assign to the memory variable</param>
     /// <remarks>When the variable does not exist then a new memory variable may be created.</remarks>
@@ -139,7 +140,7 @@ PUBLIC CLASS XSharp.MemVar
                     IF Depth > _isSystem:Length
                         _isSystem:Length := Depth+32
                     ENDIF
-                    _isSystem:Set(Depth-1, VALUE)
+                    _isSystem:@@Set(Depth-1, VALUE)
                 ENDIF
             END SET
             GET
@@ -147,7 +148,7 @@ PUBLIC CLASS XSharp.MemVar
                     IF Depth > _isSystem:Length
                         _isSystem:Length := Depth+32
                     ENDIF
-                    RETURN _isSystem:Get(Depth-1)
+                    RETURN _isSystem:@@Get(Depth-1)
                 ENDIF
                 // Public Level
                 RETURN FALSE
@@ -249,12 +250,11 @@ PUBLIC CLASS XSharp.MemVar
 
     /// <summary>Find a private variable. Try on the current level on the stack first and when not found then walk the stack.</summary>
 	STATIC METHOD PrivateFind(name AS STRING) AS XSharp.MemVar
-        VAR curr := MemVarLevels:Peek()
+        VAR curr := CheckCurrent()
 		IF curr != NULL .AND. curr:TryGetValue(name, OUT VAR oMemVar)
 			RETURN oMemVar
 		ENDIF
         RETURN GetHigherLevelPrivate(name)
-
 
     /// <summary>Release a private variable</summary>
 	STATIC METHOD Release(name AS STRING) AS VOID
@@ -326,6 +326,9 @@ PUBLIC CLASS XSharp.MemVar
 
     /// <summary>Get the total number of unique private variable names.</summary>
 	STATIC METHOD PrivatesCount(lCurrentOnly := FALSE AS LOGIC) AS INT
+	    IF MemVarLevels:Count() == 0
+	        RETURN 0
+	    ENDIF
 		RETURN _GetUniquePrivates(lCurrentOnly):Count
 
 

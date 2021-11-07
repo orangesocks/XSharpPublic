@@ -62,6 +62,7 @@ namespace XSharp.CodeDom
     class XSharpClassDiscover : XSharpBaseDiscover
     {
         private XCodeMemberMethod initComponent;
+        public Stack<CodeTypeDeclaration> CurrentTypeStack { get; protected set; }
 
         public XSharpClassDiscover(IProjectTypeHelper projectNode, CodeTypeDeclaration typeInOtherFile) : base(projectNode, typeInOtherFile)
         {
@@ -70,6 +71,7 @@ namespace XSharp.CodeDom
             // The default Namespace, so we can work if none is provided... :)
             this.CurrentNamespace = new XCodeNamespace("");
             this.CodeCompileUnit.Namespaces.Add(this.CurrentNamespace);
+            CurrentTypeStack = new Stack<CodeTypeDeclaration>();
 
             // If we have some Nested Namespaces, we will need to keep track
             this.NamespaceStack = new Stack<XCodeNamespace>();
@@ -174,69 +176,8 @@ namespace XSharp.CodeDom
             return result;
         }
 
-        public override void EnterClass_(XSharpParser.Class_Context context)
+        private void addFields(XCodeTypeDeclaration newClass, XSharpParserRuleContext context)
         {
-            XCodeTypeDeclaration newClass = new XCodeTypeDeclaration(context.Id.GetCleanText());
-            if (context.Attributes != null)
-            {
-                newClass.CustomAttributes = GenerateAttributes(context.Attributes);
-            }
-            CurrentClass = newClass;
-            // and push into the Namespace
-            CurrentNamespace.Types.Add(newClass);
-            // That's a Class
-            newClass.IsClass = true;
-            writeTrivia(newClass, context);
-            //
-            if (context.Modifiers == null)
-            {
-                newClass.TypeAttributes = System.Reflection.TypeAttributes.Public;
-            }
-            else
-            {
-                // Modifiers
-                foreach (var t in context.Modifiers._Tokens)
-                {
-                    switch (t.Type)
-                    {
-                        case XSharpParser.PARTIAL:
-                            newClass.IsPartial = true;
-                            break;
-                        case XSharpParser.SEALED:
-                            newClass.Attributes |= MemberAttributes.Final;
-                            break;
-                        case XSharpParser.ABSTRACT:
-                            newClass.Attributes |= MemberAttributes.Abstract;
-                            break;
-                        case XSharpParser.INTERNAL:
-                            newClass.Attributes |= MemberAttributes.Assembly;
-                            break;
-                        case XSharpParser.PUBLIC:
-                            newClass.Attributes |= MemberAttributes.Public;
-                            break;
-                    }
-                }
-                // What Visibility ?
-                newClass.TypeAttributes = ContextToClassModifiers(context.Modifiers);
-            }
-            // INHERIT from ?
-            if (context.BaseType != null)
-            {
-                string baseName = context.BaseType.GetCleanText();
-                newClass.BaseTypes.Add(BuildTypeReference(baseName));
-            }
-            // IMPLEMENTS ?
-            if ((context._Implements != null) && (context._Implements.Count > 0))
-            {
-                foreach (var interfaces in context._Implements)
-                {
-                    var ifName = interfaces.GetCleanText();
-                    newClass.BaseTypes.Add(BuildTypeReference(ifName));
-                }
-            }
-            //
-            // Add the variables from this class to the Members collection and lookup table
-            ClearMembers();
             if (FieldList.ContainsKey(context))
             {
                 var fields = FieldList[context];
@@ -254,121 +195,204 @@ namespace XSharp.CodeDom
                     }
                 }
             }
-            var token = context.Stop as XSharpToken;
-            var tokenIndex = token.OriginalTokenIndex;
-            var line = token.Line;
-            for (;;)
+        }
+
+        public void addInterfaces( XCodeTypeDeclaration newClass, IList<XSharpParser.DatatypeContext> parents)
+        {
+            if ((parents != null) && (parents.Count > 0))
             {
-                if (tokenIndex >= _tokens.Count - 1)
-                    break;
-                tokenIndex++;
-                if (_tokens[tokenIndex].Line > line)
-                    break;
+                foreach (var typecontext in parents)
+                {
+                    var ifName = typecontext.GetCleanText();
+                    var baseType = BuildTypeReference(ifName);
+                    SaveSourceCode(baseType, typecontext);
+                    newClass.BaseTypes.Add(baseType);
+                }
             }
         }
 
-        public override void EnterStructure_(XSharpParser.Structure_Context context)
+        public void addAttributes(CodeTypeDeclaration newClass, XSharpParser.AttributesContext attributes)
         {
-            XCodeTypeDeclaration newClass = new XCodeTypeDeclaration(context.Id.GetCleanText());
-            // Set as Current working Class
-            CurrentClass = newClass;
-            if (context.Attributes != null)
+            if (attributes != null)
             {
-                newClass.CustomAttributes = GenerateAttributes(context.Attributes);
+                newClass.CustomAttributes = GenerateAttributes(attributes);
             }
-            // and push into the Namespace
-            CurrentNamespace.Types.Add(newClass);
-            // That's a Class
-            newClass.IsStruct = true;
-            writeTrivia(newClass, context);
-            //
-            if (context.Modifiers == null)
+        }
+
+        private void pushCurrentType(CodeTypeDeclaration newClass)
+        {
+            if (CurrentType != null)
             {
-                newClass.TypeAttributes = System.Reflection.TypeAttributes.Public;
+                CurrentTypeStack.Push(CurrentType);
+                CurrentType.Members.Add(newClass);
             }
             else
             {
-                // Modifiers
-                foreach (var t in context.Modifiers._Tokens)
-                {
-                    switch (t.Type)
-                    {
-                        case XSharpParser.PARTIAL:
-                            newClass.IsPartial = true;
-                            break;
-                        case XSharpParser.SEALED:
-                            newClass.Attributes |= MemberAttributes.Final;
-                            break;
-                        case XSharpParser.ABSTRACT:
-                            newClass.Attributes |= MemberAttributes.Abstract;
-                            break;
-                        case XSharpParser.INTERNAL:
-                            newClass.Attributes |= MemberAttributes.Assembly;
-                            break;
-                        case XSharpParser.PUBLIC:
-                            newClass.Attributes |= MemberAttributes.Public;
-                            break;
-                    }
-                }
-                // What Visibility ?
-                newClass.TypeAttributes = ContextToStructureModifiers(context.Modifiers);
+                CurrentNamespace.Types.Add(newClass);
             }
+            CurrentType = newClass;
+        }
+       
 
-            // IMPLEMENTS ?
-            if ((context._Implements != null) && (context._Implements.Count > 0))
+        public override void EnterClass_(XSharpParser.Class_Context context)
+        {
+            base.EnterClass_(context);
+            XCodeTypeDeclaration newClass = new XCodeTypeDeclaration(context.Id.GetCleanText());
+            newClass.IsClass = true;
+            bool nested = CurrentType != null;
+            pushCurrentType(newClass);
+            addAttributes(newClass, context.Attributes);
+            writeTrivia(newClass, context);
+
+            ContextToTypeAttributes(newClass, context.Modifiers);
+            ContextToTypeModifiers(newClass, context.Modifiers);
+
+            // INHERIT from ?
+            if (context.BaseType != null)
             {
-                foreach (var interfaces in context._Implements)
-                {
-                    var ifName = interfaces.GetCleanText();
-                    newClass.BaseTypes.Add(BuildTypeReference(ifName));
-                }
+                string baseName = context.BaseType.GetCleanText();
+                var baseType = BuildTypeReference(baseName);
+                SaveSourceCode(baseType, context.BaseType);
+                newClass.BaseTypes.Add(baseType);
             }
+            // IMPLEMENTS ?
+            addInterfaces(newClass, context._Implements);
             //
             // Add the variables from this class to the Members collection and lookup table
             ClearMembers();
-            if (FieldList.ContainsKey(context))
+            addFields(newClass, context);
+            if (nested)
             {
-                var fields = FieldList[context];
-                foreach (var f in fields)
-                {
-                    newClass.Members.Add(f);
-                    addClassMember(new XMemberType(f.Name, MemberTypes.Field, false, findType(f.Type.BaseType), f.Type.BaseType));
-                }
-            }
-            var token = context.Stop as XSharpToken;
-            var tokenIndex = token.OriginalTokenIndex;
-            var line = token.Line;
-            for (;;)
-            {
-                if (tokenIndex >= _tokens.Count - 1)
-                    break;
-                tokenIndex++;
-                if (_tokens[tokenIndex].Line > line)
-                    break;
+                SaveSourceCode(newClass, context);
             }
         }
 
-        public override void ExitStructure_([NotNull] XSharpParser.Structure_Context context)
+        public override void EnterEnum_([NotNull] XSharpParser.Enum_Context context)
         {
-            var lastmember = context._Members.LastOrDefault();
-            if (lastmember != null)
+            base.EnterEnum_(context);
+            XCodeTypeDeclaration newClass = new XCodeTypeDeclaration(context.Id.GetCleanText());
+            newClass.IsEnum = true;
+
+            pushCurrentType(newClass);
+            addAttributes(newClass, context.Attributes);
+            writeTrivia(newClass, context);
+            ContextToTypeModifiers(newClass, context.Modifiers);
+            ContextToTypeAttributes(newClass, context.Modifiers);
+            ClearMembers();
+            addFields(newClass, context);
+            SaveSourceCode(newClass, context);
+        }
+
+        public override void ExitEnum_([NotNull] XSharpParser.Enum_Context context)
+        {
+            base.ExitEnum_(context);
+            closeType(null);
+        }
+
+        public override void EnterDelegate_([NotNull] XSharpParser.Delegate_Context context)
+        {
+            base.EnterDelegate_(context);
+            var newClass = new XCodeTypeDelegate(context.Id.GetCleanText());
+            newClass.ReturnType = BuildDataType(context.Type);
+            newClass.Parameters.AddRange(GetParametersList(context.ParamList));
+            pushCurrentType(newClass);
+            addAttributes(newClass, context.Attributes);
+            writeTrivia(newClass, context);
+            SaveSourceCode(newClass, context);
+
+        }
+        public override void ExitDelegate_([NotNull] XSharpParser.Delegate_Context context)
+        {
+            base.ExitDelegate_(context);
+            closeType(null);
+        }
+
+        public override void EnterInterface_([NotNull] XSharpParser.Interface_Context context)
+        {
+            base.EnterInterface_(context);
+            XCodeTypeDeclaration newClass = new XCodeTypeDeclaration(context.Id.GetCleanText());
+            newClass.IsInterface = true;
+
+            pushCurrentType(newClass);
+            addAttributes(newClass, context.Attributes);
+            writeTrivia(newClass, context);
+
+            ContextToTypeModifiers(newClass, context.Modifiers);
+            ContextToTypeAttributes(newClass, context.Modifiers);
+
+            // Interfaces
+            addInterfaces(newClass, context._Parents);
+            //
+            // Add the variables from this class to the Members collection and lookup table
+            ClearMembers();
+            addFields(newClass, context);
+            SaveSourceCode(newClass, context);
+
+        }
+        public override void EnterStructure_(XSharpParser.Structure_Context context)
+        {
+            base.EnterStructure_(context);
+            XCodeTypeDeclaration newClass = new XCodeTypeDeclaration(context.Id.GetCleanText());
+            newClass.IsStruct = true;
+
+            pushCurrentType(newClass);
+            addAttributes(newClass, context.Attributes);
+            writeTrivia(newClass, context);
+            //
+            ContextToTypeAttributes(newClass, context.Modifiers);
+            ContextToTypeModifiers(newClass, context.Modifiers);
+
+            // Interfaces
+            addInterfaces(newClass, context._Implements);
+            //
+            // Add the variables from this class to the Members collection and lookup table
+            ClearMembers();
+            addFields(newClass, context);
+            SaveSourceCode(newClass, context);
+
+
+        }
+
+        private void closeType(IList<XSharpParser.ClassmemberContext> members)
+        {
+            if (members != null)
             {
-                // collect trivia after last member
-                writeTrivia(CurrentClass, lastmember, true);
+                var lastmember = members.LastOrDefault();
+                if (lastmember != null)
+                {
+                    // collect trivia after last member
+                    writeTrivia(CurrentType, lastmember, true);
+                }
             }
             ClearMembers();
+            if (CurrentTypeStack.Count > 0)
+            {
+                CurrentType = CurrentTypeStack.Pop();
+            }
+            else
+            {
+                CurrentType = null;
+            }
+        }
+        public override void ExitStructure_([NotNull] XSharpParser.Structure_Context context)
+        {
+            closeType(context._Members);
+            base.ExitStructure_(context);
         }
 
         public override void ExitClass_([NotNull] XSharpParser.Class_Context context)
         {
-            var lastmember = context._Members.LastOrDefault();
-            if (lastmember != null)
-            {
-                // collect trivia after last member
-                writeTrivia(CurrentClass, lastmember, true);
-            }
-            ClearMembers();
+            closeType(context._Members);
+            base.ExitClass_(context);
         }
+
+        public override void ExitInterface_([NotNull] XSharpParser.Interface_Context context)
+        {
+            closeType(context._Members);
+            base.ExitInterface_(context);
+        }
+
+
         public override void EnterMethod([NotNull] XSharpParser.MethodContext context)
         {
             _locals.Clear();
@@ -417,19 +441,27 @@ namespace XSharp.CodeDom
 
                 if (context.StmtBlk != null)
                 {
-                    // Copy all source code to User_Data
-                    // --> See XSharpCodeGenerator.GenerateMethod for writing
-                    FillCodeSource(newMethod, context, _tokens);
 
                     // The designer will need to locate the code in the file, so we must add the location
+                    // When there are no statements then we position on the line after the member declaration
+                    int line = context.Start.Line + 1;
+                    int column = context.Start.Column;
                     if (context.StmtBlk.ChildCount > 0)
-                        FillCodeDomDesignerData(newMethod, context.StmtBlk.Start.Line, context.StmtBlk.Start.Column);
-                    else
-                        FillCodeDomDesignerData(newMethod, context.Start.Line + 1, context.Start.Column);
+                    {
+                        line = context.StmtBlk.Start.Line;
+                        column = context.StmtBlk.Start.Column;
+                    }
+                    FillCodeDomDesignerData(newMethod, line, column);
+                    // Copy all source code to User_Data
+                    // --> See XSharpCodeGenerator.GenerateMethod for writing
+                    SaveSourceCode(newMethod, context);
+
                 }
             }
             //
-            this.CurrentClass.Members.Add(newMethod);
+            this.CurrentType.Members.Add(newMethod);
+            // write original source for the attributes
+            AddMemberAttributes(newMethod, newMethod.Attributes, context.Modifiers);
             this.addClassMember(new XMemberType(newMethod.Name, MemberTypes.Method, false, returnType.BaseType));
 
         }
@@ -473,27 +505,28 @@ namespace XSharp.CodeDom
                 }
             }
             //
-            this.CurrentClass.Members.Add(evt);
+            this.CurrentType.Members.Add(evt);
+            // write original source for the attributes
+            AddMemberAttributes(evt, evt.Attributes, context.Modifiers);
             this.addClassMember(new XMemberType(evt.Name, MemberTypes.Event, false, null, "Void"));
+            SaveSourceCode(evt, context);
         }
 
         public override void EnterConstructor([NotNull] XSharpParser.ConstructorContext context)
         {
             var ctor = new XCodeConstructor();
             writeTrivia(ctor, context);
-            FillCodeDomDesignerData(ctor, context.Start.Line, context.Start.Column);
             ctor.Attributes = MemberAttributes.Public;
             ctor.Parameters.AddRange(GetParametersList(context.ParamList));
-            //
             if (context.Modifiers != null)
             {
-                // Get standard Visibilities
                 ctor.Attributes = ContextToConstructorModifiers(context.Modifiers);
-                if (context.Modifiers.STATIC().Length > 0)
-                    ctor.Attributes |= MemberAttributes.Static;
             }
-            FillCodeSource(ctor, context, _tokens);
-            this.CurrentClass.Members.Add(ctor);
+            FillCodeDomDesignerData(ctor, context.Start.Line, context.Start.Column);
+            SaveSourceCode(ctor, context);
+            // write original source for the attributes
+            AddMemberAttributes(ctor, ctor.Attributes, context.Modifiers);
+            this.CurrentType.Members.Add(ctor);
         }
 
         public override void EnterDestructor([NotNull] XSharpParser.DestructorContext context)
@@ -502,7 +535,7 @@ namespace XSharp.CodeDom
             // we will just copy the whole source code in a Snippet Member
             CodeSnippetTypeMember snippet = CreateSnippetMember(context);
             writeTrivia(snippet, context);
-            this.CurrentClass.Members.Add(snippet);
+            this.CurrentType.Members.Add(snippet);
         }
 
         public override void EnterProperty([NotNull] XSharpParser.PropertyContext context)
@@ -511,7 +544,7 @@ namespace XSharp.CodeDom
             // we will just copy the whole source code in a Snippet Member
             CodeSnippetTypeMember snippet = CreateSnippetMember(context);
             writeTrivia(snippet, context);
-            this.CurrentClass.Members.Add(snippet);
+            this.CurrentType.Members.Add(snippet);
         }
 
         public override void EnterOperator_([NotNull] XSharpParser.Operator_Context context)
@@ -520,7 +553,7 @@ namespace XSharp.CodeDom
             // we will just copy the whole source code in a Snippet Member
             CodeSnippetTypeMember snippet = CreateSnippetMember(context);
             writeTrivia(snippet, context);
-            this.CurrentClass.Members.Add(snippet);
+            this.CurrentType.Members.Add(snippet);
         }
 
         public override void EnterLocalvar([NotNull] XSharpParser.LocalvarContext context)
@@ -606,46 +639,7 @@ namespace XSharp.CodeDom
             return local;
         }
 
-        /// <summary>
-        /// Resolve SELF:Name or SUPER:Name
-        /// </summary>
-        /// <param name="lhs"></param>
-        /// <param name="name"></param>
-        /// <returns></returns>
-        private CodeExpression ResolveSelfExpression(CodeExpression lhs, string name)
-        {
-            CodeExpression expr = null;
-            if (this.isField(name))
-            {
-                expr = new XCodeFieldReferenceExpression(lhs, name);
-            }
-            else if (this.isProperty(name))
-            {
-                expr = new XCodePropertyReferenceExpression(lhs, name);
-            }
-            else if (this.isMethod(name))
-            {
-                expr = new XCodeMethodReferenceExpression(lhs, name);
-            }
-            if (expr != null && _members.ContainsKey(name))
-            {
-                var inherited = _members[name].Inherited;
-                if (inherited)  // always valid for both SELF and SUPER
-                {
-                    return expr;
-                }
-                else if (lhs is CodeThisReferenceExpression)
-                {
-                    return expr;
-                }
-                else
-                {
-                    // LHS is Super and not an inherited member
-                    expr = null;
-                }
-            }
-            return expr;
-        }
+        
         private IXTypeSymbol findType(CodeExpression expr)
         {
             IXTypeSymbol type;
@@ -699,11 +693,6 @@ namespace XSharp.CodeDom
             }
             return null;
         }
-
-    
-
-
- 
 
 
     }

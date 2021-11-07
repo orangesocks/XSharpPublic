@@ -18,7 +18,7 @@ BEGIN NAMESPACE XSharpModel
         // Methods
         CONSTRUCTOR(parent AS XSourceEntity, name AS STRING, span AS TextRange, position AS TextInterval, typeName AS STRING)
             SUPER(name, Kind.Local, Modifiers.None, span, position)
-            SELF:TypeName       := iif (String.IsNullOrEmpty(typeName), "System.Object", typeName)
+            SELF:TypeName       := typeName
             SUPER:Parent        := parent
             SELF:LocalType      := LocalType.As
             IF parent != NULL
@@ -81,8 +81,6 @@ BEGIN NAMESPACE XSharpModel
                 RETURN cType
             END GET
         END PROPERTY
-        PROPERTY IsArray      AS LOGIC AUTO
-        PROPERTY IsTyped      AS LOGIC GET TRUE
         PROPERTY Value        AS STRING AUTO
 
         METHOD DebuggerDisplay() AS STRING
@@ -96,7 +94,14 @@ BEGIN NAMESPACE XSharpModel
             RETURN (IXVariableSymbol) SELF:MemberwiseClone()
 
     END CLASS
+    CLASS XSourceUndeclaredVariableSymbol INHERIT XSourceVariableSymbol
 
+        // Methods
+        CONSTRUCTOR(parent AS XSourceEntity, name AS STRING, span AS TextRange, position AS TextInterval)
+        SUPER(parent, name, span, position,"USUAL")
+        SELF:Kind := Kind.Undeclared
+
+    END CLASS
 
 END NAMESPACE
 

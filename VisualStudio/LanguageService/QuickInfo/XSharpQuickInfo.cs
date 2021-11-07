@@ -205,42 +205,40 @@ namespace XSharp.LanguageService
             {
             }
 
-            protected void addVarInfo(List<ClassifiedTextRun> list, IXVariableSymbol var, out int len)
+            protected void addVarInfo(List<ClassifiedTextRun> list, IXVariableSymbol var)
             {
                 var name = var.Name;
-                len = 0;
                 var hasValue = !string.IsNullOrEmpty(var.Value);
-                if (var.Kind == Kind.DbField)
+                if (hasValue && var.Kind == Kind.DbField)
                 {
-                    if (hasValue)
-                    {
-                        name = var.Value + "->" + name;
-                    }
+                    name = var.Value + "->" + name;
                 }
-                len += name.Length + 1;
                 list.addText(name + " ");
                 if (hasValue && var.Kind != Kind.DbField) // default value
                 {
                     var text = " :=  " + var.Value + " ";
                     list.addText(text);
-                    len += text.Length;
 
                 }
-                if (var is IXParameterSymbol xps)
+                if (var is IXParameterSymbol xps )
                 {
-                    list.addPair(xps.ParamTypeDesc + " ", var.TypeName);
-                    len += xps.ParamTypeDesc.Length + 1;
+                    if (var.Kind == Kind.Parameter)
+                        list.addPair(xps.ParamTypeDesc + " ", var.TypeName);
                 }
                 else if (var is XSourceVariableSymbol xsvs)
                 {
-                    list.addPair(xsvs.LocalTypeDesc + " ", var.TypeName);
-                    len += xsvs.LocalTypeDesc.Length + 1;
+                    if (var.Kind == Kind.Undeclared)
+                    {
+
+                    }
+                    else
+                    {
+                        list.addPair(xsvs.LocalTypeDesc + " ", var.TypeName);
+                    }
                 }
-                len += var.TypeName.Length;
                 if (var.IsArray)
                 {
                     list.addText("[] ");
-                    len += 2;
                 }
             }
 
@@ -343,7 +341,7 @@ namespace XSharp.LanguageService
                 if (!this.typeMember.Kind.IsGlobalTypeMember())
                 {
                     name = this.typeMember.Parent.Name;
-                    var pos = name.IndexOf("<");
+                    var pos = name.IndexOfAny(new char[]{ '`','<'});
                     {
                         if (pos > 0)
                         {
@@ -368,8 +366,7 @@ namespace XSharp.LanguageService
                             content.addText(", ");
                         }
                         first = false;
-                        int varlen;
-                        addVarInfo(content, var, out varlen);
+                        addVarInfo(content, var);
                     }
                     content.addKeyword(this.typeMember.Kind == XSharpModel.Kind.Constructor ? "}" : ")");
                 }
@@ -455,7 +452,7 @@ namespace XSharp.LanguageService
                     if (xVar.Kind == Kind.DbField)
                         kind = "Field";
                     content.addKeyword(XSettings.FormatKeyword(kind + " "));
-                    addVarInfo(content, xVar, out _);
+                    addVarInfo(content, xVar);
                     return content.ToArray();
                 }
 

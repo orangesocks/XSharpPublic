@@ -14,6 +14,7 @@ using XSharpModel;
 using Microsoft.VisualStudio.Editor;
 using LanguageService.CodeAnalysis.XSharp.SyntaxParser;
 
+
 #pragma warning disable CS0649 // Field is never assigned to, for the imported fields
 namespace XSharp.LanguageService
 {
@@ -140,10 +141,14 @@ namespace XSharp.LanguageService
                                 case ')':
                                 case '}':
                                     CancelSignatureSession();
-                                    StartSignatureSession(false, triggerchar: typedChar);
+                                    if (hasopenSignatureSession())
+                                    {
+                                        StartSignatureSession(false, triggerchar: typedChar);
+                                    }
                                     break;
                                 case ',':
-                                    StartSignatureSession(true, triggerchar: typedChar);
+                                     StartSignatureSession(true, triggerchar: typedChar);
+                                    //MoveSignature();
                                     break;
                                 case ':':
                                 case '.':
@@ -170,6 +175,38 @@ namespace XSharp.LanguageService
             }
             return result;
         }
+
+        bool hasopenSignatureSession()
+        {
+            SnapshotPoint ssp = this._textView.Caret.Position.BufferPosition;
+            var level = 0;
+            bool done = false;
+            while (ssp.Position > 0 && ! done)
+            {
+                ssp = ssp - 1;
+                var ch = ssp.GetChar();
+                {
+                    switch (ch)
+                    {
+                        case '(':
+                        case '{':
+                            level += 1;
+                            break;
+                        case ')':
+                        case '}':
+                            level -= 1;
+                            break;
+                        case '\r':
+                        case '\n':
+                            done = true;
+                            break;
+
+                    }
+                }
+            }
+            return level > 0;
+        }
+
         bool IsCompletionActive()
         {
 #if !ASYNCCOMPLETION
@@ -188,77 +225,139 @@ namespace XSharp.LanguageService
             ThreadHelper.ThrowIfNotOnUIThread();
             return m_nextCommandHandler.QueryStatus(ref pguidCmdGroup, cCmds, prgCmds, pCmdText);
         }
-        IXMemberSymbol findElementAt(bool comma, SnapshotPoint ssp, XSharpSearchLocation location)
+        IXMemberSymbol findElementAt(bool comma, SnapshotPoint ssp, XSharpSignatureProperties props)
         {
             // when coming from the completion list then there is no need to check a lot of stuff
             // we can then simply lookup the method and that is it.
             // Also no need to filter on visibility since that has been done in the completionlist already !
             // First, where are we ?
+            var location = props.Location;
             IXMemberSymbol currentElement = null;
-            int Level = 0;
-            do
-            {
-                ssp = ssp - 1;
-                char leftCh = ssp.GetChar();
-                bool done = false;
-                switch (leftCh)
-                {
-                    case ')':
-                    case '}':
-                        Level += 1;
-                        break;
-                    case '(':
-                    case '{':
-                        Level -= 1;
-                        done = Level < 0;
-                        break;
-                }
-                if (done)
-                    break;
-            } while (ssp.Position > 0);
-            //
-            if (ssp.Position > 0)
-            {
-                ssp -= 1;
-            }
             // When we have a multi line source line this is the line where the open paren or open curly is
 
-            var member = _textView.FindMember(ssp);
-            if (member != null && member.Range.StartLine == ssp.GetContainingLine().LineNumber)
+            if (location.Member != null && location.Member.Range.StartLine == ssp.GetContainingLine().LineNumber)
             {
                 // if we are at the start of an entity then do not start a signature session
                 return null;
             }
-
             // Then, the corresponding Type/Element if possible
             // Check if we can get the member where we are
 
             var tokenList = XSharpTokenTools.GetTokenList(location, out var state);
-            if (comma)
+            while (tokenList.Count > 0)
             {
-                bool hasOpenToken = false;
-                // check to see if there is a lparen or lcurly before the comma
-                foreach (var token in tokenList)
+                var last = tokenList[tokenList.Count - 1];
+                if (last.Position > ssp.Position)
                 {
-                    if (token.Position > location.Position)
-                        break;
-                    switch (token.Type)
+                    tokenList.RemoveAt(tokenList.Count - 1);
+                }
+                else if (last.Position == ssp.Position )
+                {
+                    bool delete = false;
+                    switch (last.Type)
                     {
-                        case XSharpLexer.LPAREN:
+                        case XSharpLexer.COMMA:
+                            delete = props.triggerChar != ',';
+                            break;
                         case XSharpLexer.LCURLY:
-                            hasOpenToken = true;
+                            delete = props.triggerChar != ',' && props.triggerChar != '{';
+                            break;
+                        case XSharpLexer.LPAREN:
+                            delete = props.triggerChar != ',' && props.triggerChar != '(';
+                            break;
+                        case XSharpLexer.RPAREN:
+                            if (props.triggerChar == ')')
+                                delete = props.triggerPosition != last.Position;
+                            else
+                                delete = true;
+                            break;
+                        case XSharpLexer.RCURLY:
+                            if (props.triggerChar == '}')
+                                delete = props.triggerPosition != last.Position;
+                            else
+                                delete = true;
+                            break;
+                        default:
+                            delete = true;
                             break;
                     }
-                    if (hasOpenToken)
+                    if (delete)
+                    {
+                        tokenList.RemoveAt(tokenList.Count - 1);
+                    }
+                    else
                         break;
                 }
-                if (!hasOpenToken)
-                    return null;
+                else 
+                {
+                    break;
+                }
             }
+            if (comma)
+            {
+                // check to see if there is a lparen or lcurly before the comma
+                bool done = false;
+                int nested = 0;
+                while (tokenList.Count > 0 && ! done)
+                {
+                    var token = tokenList[tokenList.Count-1];
+                    bool delete = false;
+                    switch (token.Type)
+                    {
+                        case XSharpLexer.RPAREN:
+                        case XSharpLexer.RBRKT:
+                        case XSharpLexer.RCURLY:
+                            nested += 1;
+                            delete = true;
+                            break;
+                        case XSharpLexer.LBRKT:
+                            nested -= 1;
+                            delete = true;
+                            break;
+                        case XSharpLexer.LPAREN:
+                        case XSharpLexer.LCURLY:
+                            nested -= 1;
+                            if (nested < 0)
+                            {
+                                done = true;
+                            }
+                            else
+                            {
+                                delete = true;
+                            }
+                            break;
+                        default:
+                            delete = true;
+                            break;
+                    }
+                    if (delete)
+                    {
+                        tokenList.RemoveAt(tokenList.Count - 1);
+                    }
+                }
+            }
+            
             // We don't care of the corresponding Type, we are looking for the currentElement
             var element = XSharpLookup.RetrieveElement(location, tokenList, state, out var notProcessed, true).FirstOrDefault();
             if (element is IXMemberSymbol mem)
+            {
                 currentElement = mem;
+                if (currentElement.Kind == Kind.Constructor)
+                {
+                    bool done = false;
+                    for (int i = tokenList.Count -1; ! done && i > 0; i--)
+                    {
+                        var token = tokenList[i];
+                        switch (token.Type)
+                        {
+                            case XSharpLexer.LPAREN:
+                            case XSharpLexer.LCURLY:
+                                props.triggerToken = tokenList[i - 1].Text;
+                                break;
+                        }
+                    }
+                }
+            }
             else if (element is IXTypeSymbol xtype)
             {
                 currentElement = xtype.Members.Where(m => m.Kind == Kind.Constructor).FirstOrDefault();
@@ -275,19 +374,26 @@ namespace XSharp.LanguageService
                 return false;
             IXMemberSymbol currentElement = null;
             SnapshotPoint ssp = this._textView.Caret.Position.BufferPosition;
-            if (triggerchar == '(' && ssp.GetChar() == ')')
+            if (triggerchar == '(' && ssp.Position < ssp.Snapshot.Length && ssp.GetChar() == ')')
                 ssp -= 1;
             var location = _textView.FindLocation(ssp);
             if (location == null)
                 return false;
+            if (location.Member.Range.StartLine == location.LineNumber)
+                return false;
+
+            var props = new XSharpSignatureProperties(location);
+            props.triggerChar = triggerchar;
+            props.triggerPosition = this._textView.Caret.Position.BufferPosition.Position;
+
             if (type != null && methodName != null)
             {
                 var findStatic = triggerchar == '.';
-                currentElement = XSharpLookup.SearchMethod(location, type, methodName, XSharpModel.Modifiers.Private, findStatic).FirstOrDefault();
+                currentElement = XSharpLookup.SearchMethod(location, type, methodName, Modifiers.Private, findStatic).FirstOrDefault();
             }
             else
             {
-                currentElement = findElementAt(comma, ssp, location);
+                currentElement = findElementAt(comma, ssp, props);
             }
             if (currentElement == null)
                 return false;
@@ -295,25 +401,42 @@ namespace XSharp.LanguageService
             SnapshotPoint caret = _textView.Caret.Position.BufferPosition;
             ITextSnapshot caretsnapshot = caret.Snapshot;
             //
-            if (!_signatureBroker.IsSignatureHelpActive(_textView))
-            {
-                _signatureSession = _signatureBroker.CreateSignatureHelpSession(_textView, caretsnapshot.CreateTrackingPoint(caret, PointTrackingMode.Positive), true);
-            }
-            else
+            if (_signatureBroker.IsSignatureHelpActive(_textView))
             {
                 _signatureSession = _signatureBroker.GetSessions(_textView)[0];
             }
-
-            _signatureSession.Dismissed += OnSignatureSessionDismiss;
-            if (currentElement != null)
+            else
             {
-                _signatureSession.Properties[SignatureProperties.Element] = currentElement;
+                _signatureSession = _signatureBroker.CreateSignatureHelpSession(_textView, caretsnapshot.CreateTrackingPoint(caret, PointTrackingMode.Positive), true);
             }
+            _signatureSession.Properties[typeof(XSharpSignatureProperties)] = props;
 
-            _signatureSession.Properties[SignatureProperties.Line] = ssp.GetContainingLine().LineNumber;
-            _signatureSession.Properties[SignatureProperties.Start] = ssp.Position;
-            _signatureSession.Properties[SignatureProperties.Length] = _textView.Caret.Position.BufferPosition.Position - ssp.Position;
-            _signatureSession.Properties[SignatureProperties.File] = _textView.GetFile();
+            if (location.Member.Kind.IsGlobalTypeMember())
+            {
+                props.Visibility = Modifiers.Public;
+            }
+            else
+            {
+                props.Visibility = Modifiers.Protected;
+            }
+            _signatureSession.Dismissed += OnSignatureSessionDismiss;
+            props.Element = currentElement;
+            if (comma)
+            {
+                // calculate where the lparen before the comma is.
+                if (ssp.Position >= ssp.Snapshot.Length)
+                    ssp -= 1;
+                while (ssp.Position > 0 && ssp.GetChar() != '(' && ssp.GetChar() != '{')
+                {
+                    ssp = ssp - 1;
+                }
+                props.Start = ssp.Position;
+            }
+            else
+            {
+                props.Start = ssp.Position;
+            }
+            props.Length = _textView.Caret.Position.BufferPosition.Position - ssp.Position;
 
             try
             {
@@ -347,8 +470,9 @@ namespace XSharp.LanguageService
         {
             if (_signatureSession == null)
                 return false;
-
-            _signatureSession.Properties.TryGetProperty(SignatureProperties.Start, out int start);
+            if (! _signatureSession.Properties.TryGetProperty(typeof(XSharpSignatureProperties), out XSharpSignatureProperties props))
+                return false;
+            var start = props.Start;
             int pos = this._textView.Caret.Position.BufferPosition.Position;
 
             ((XSharpVsSignature)_signatureSession.SelectedSignature).ComputeCurrentParameter(pos - start - 1);

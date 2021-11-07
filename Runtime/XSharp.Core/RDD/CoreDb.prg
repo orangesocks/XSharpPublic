@@ -588,15 +588,10 @@ CLASS XSharp.CoreDb
             ENDIF
             IF ret
                 LOCAL dboi := DbOpenInfo{} AS DbOpenInfo
-                dboi:FileName  := Path.ChangeExtension( cName, NULL )
-                IF cName:EndsWith(".")
-                    dboi:Extension := "."
-                ELSE
-                    dboi:Extension := Path.GetExtension( cName )
-                ENDIF
+                dboi:FullName  := cName
                 var path := System.IO.Path.GetDirectoryName(cName)
-                path          := CoreDb.AdjustPath(path)
-                dboi:FileName := System.IO.Path.Combine(path, System.IO.Path.GetFileName(dboi:FileName))
+                path           := CoreDb.AdjustPath(path)
+                dboi:FullName  := System.IO.Path.Combine(path, System.IO.Path.GetFileName(dboi:FullName))
                 dboi:Shared    := FALSE
                 dboi:ReadOnly  := FALSE
                 dboi:Alias     := cAlias
@@ -1036,7 +1031,7 @@ CLASS XSharp.CoreDb
 
     STATIC METHOD  Header() AS LONG
         LOCAL oValue := NULL AS OBJECT
-	    IF CoreDb.Info(DBI_GETHEADERSIZE, REF oValue)
+        IF CoreDb.Info(DBI_GETHEADERSIZE, REF oValue)
             RETURN (LONG) oValue
         ENDIF
         RETURN 0
@@ -1178,6 +1173,7 @@ CLASS XSharp.CoreDb
             oRegRDD:Load()
             oRdd := CoreDb.CreateRDDInstance( oRegRDD:RddType, "XXTEMPXX" )
         ENDIF
+        // Note that we do not close oRDD here. When it was crated the GC will throw it away
         RETURN (STRING) oRdd:Info(DBI_MEMOEXT, NULL)
         })
         /// <summary>
@@ -1294,7 +1290,7 @@ CLASS XSharp.CoreDb
             info:BagName := cBagName
             info:Order   := oOrder
             info:Result  := oTemp
-			oRdd:OrderInfo(nOrdinal, info)
+            oRdd:OrderInfo(nOrdinal, info)
             oTemp :=  info:Result
             RETURN TRUE
         })
@@ -1664,6 +1660,9 @@ CLASS XSharp.CoreDb
     STATIC METHOD RLock(uRecId AS OBJECT) AS LOGIC
         RETURN CoreDb.Do ({ =>
         LOCAL oRdd := CoreDb.CWA(__FUNCTION__) AS IRdd
+        IF oRdd:RecCount  == 0
+            RETURN TRUE
+        ENDIF
         LOCAL lockInfo AS DbLockInfo
         lockInfo := DbLockInfo{}
         lockInfo:RecId := uRecId
@@ -2169,10 +2168,8 @@ CLASS XSharp.CoreDb
                     LOCAL dboi := DbOpenInfo{} AS DbOpenInfo
                     LOCAL uiArea AS DWORD
                     uiArea := Workareas:CurrentWorkareaNO
-                    var path := Path.GetDirectoryName(cName)
-                    dboi:FileName    := System.IO.Path.Combine(path, System.IO.Path.GetFileNameWithoutExtension(cName))
-                    dboi:FileName    := Path.Combine(path,Path.GetFileNameWithoutExtension(cName))
-                    dboi:Extension   := Path.GetExtension( cName )
+                    var path         := Path.GetDirectoryName(cName)
+                    dboi:FullName    := Path.Combine(path, System.IO.Path.GetFileName(cName))
                     dboi:Shared      := lShare
                     dboi:ReadOnly    := lReadOnly
                     dboi:Alias       := cAlias

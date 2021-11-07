@@ -61,12 +61,17 @@ $WINDIR$	The Windows folder.
 
 // The following lines ensure that the right versions of the various DLLs are loaded.
 // They will be included in the generated PkgDef folder for the project system
+#if DEV2020
+[assembly: ProvideCodeBase(AssemblyName = "XSharp.CodeDom.XSharpCodeDomProvider", CodeBase = "XSharpCodeDomProvider2020.dll", Culture = "neutral", PublicKeyToken = XSharp.Constants.PublicKey, Version = XSharp.Constants.Version)]
+#else
 [assembly: ProvideCodeBase(AssemblyName = "XSharp.CodeDom.XSharpCodeDomProvider", CodeBase = "XSharpCodeDomProvider.dll", Culture = "neutral", PublicKeyToken = XSharp.Constants.PublicKey, Version = XSharp.Constants.Version)]
+#endif
 [assembly: ProvideCodeBase(AssemblyName = "XSharp.VsParser", CodeBase = "XSharp.VsParser.dll", Culture = "neutral", PublicKeyToken = XSharp.Constants.PublicKey, Version = XSharp.Constants.Version)]
 [assembly: ProvideCodeBase(AssemblyName = "XSharpModel", CodeBase = "XSharpModel.dll", Culture = "neutral", PublicKeyToken = XSharp.Constants.PublicKey, Version = XSharp.Constants.Version)]
 [assembly: ProvideCodeBase(AssemblyName = "XSharpMonoCecil", CodeBase = "XSharpMonoCecil.dll", Culture = "neutral", PublicKeyToken = "50cebf1cceb9d05e", Version = "0.11.3.0")]
-[assembly: ProvideCodeBase(AssemblyName = "System.Data.SQLite", CodeBase = "System.Data.SQLite.dll", Culture = "neutral", PublicKeyToken = "db937bc2d44ff139", Version = "1.0.113.0")]
+[assembly: ProvideCodeBase(AssemblyName = "System.Data.SQLite")]
 [assembly: ProvideCodeBase(AssemblyName = "Community.VisualStudio.Toolkit")]
+
 namespace XSharp.Project
 {
 
@@ -233,34 +238,32 @@ namespace XSharp.Project
             {
                 shell.AdviseShellPropertyChanges(this, out shellCookie);
             }
-            GetEditorOptions();
             _langservice = await GetServiceAsync(typeof(XSharpLanguageService)) as XSharpLanguageService;
             await this.RegisterCommandsAsync();
+            await GetEditorOptionsAsync();
+
         }
 
 
 
-        public void GetEditorOptions()
+        public async Task<bool> GetEditorOptionsAsync()
         {
-            System.Threading.Tasks.Task.Run(async () =>
-            {
-                var woptions = await Options.WindowEditorOptions.GetLiveInstanceAsync();
-                XEditorSettings.ShowGrid = woptions.ShowGrid;
-                XEditorSettings.GridX = woptions.GridX;
-                XEditorSettings.GridY = woptions.GridY;
-                XEditorSettings.PasteOffSetX = woptions.PasteOffSetX;
-                XEditorSettings.PasteOffSetY = woptions.PasteOffSetY;
-                XEditorSettings.PartialLasso = woptions.PartialLasso;
+            var woptions = await Options.WindowEditorOptions.GetLiveInstanceAsync();
+            XEditorSettings.ShowGrid = woptions.ShowGrid;
+            XEditorSettings.GridX = woptions.GridX;
+            XEditorSettings.GridY = woptions.GridY;
+            XEditorSettings.PasteOffSetX = woptions.PasteOffSetX;
+            XEditorSettings.PasteOffSetY = woptions.PasteOffSetY;
+            XEditorSettings.PartialLasso = woptions.PartialLasso;
 
-                var options = await Options.OtherEditorOptions.GetLiveInstanceAsync();
-                XEditorSettings.DbServerDefaultRDD = options.DbServerDefaultRDD;
-                XEditorSettings.DbServerParentClass = options.DbServerParentClass;
-                XEditorSettings.MenuParentClass = options.MenuParentClass;
-                XEditorSettings.FieldSpecParentClass = options.FieldSpecParentClass;
-                XEditorSettings.ToolbarParentClass = options.ToolbarParentClass;
-
-            }).FireAndForget();
-
+            var options = await Options.OtherEditorOptions.GetLiveInstanceAsync();
+            XEditorSettings.DbServerDefaultRDD = options.DbServerDefaultRDD;
+            XEditorSettings.DbServerParentClass = options.DbServerParentClass;
+            XEditorSettings.MenuParentClass = options.MenuParentClass;
+            XEditorSettings.FieldSpecParentClass = options.FieldSpecParentClass;
+            XEditorSettings.ToolbarParentClass = options.ToolbarParentClass;
+            XEditorSettings.Disassembler = options.Disassembler;
+            return true;
         }
         /// <summary>
         /// Read the comment tokens from the Tools/Options dialog and pass them to the CodeModel assembly
@@ -300,7 +303,7 @@ namespace XSharp.Project
                 if (!(bool)var)
                 {
                     SetCommentTokens();
-                    GetEditorOptions();
+                    GetEditorOptionsAsync().FireAndForget();
                 }
             }
             return VSConstants.S_OK;

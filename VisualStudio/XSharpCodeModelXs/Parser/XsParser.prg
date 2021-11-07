@@ -25,8 +25,7 @@ BEGIN NAMESPACE XSharpModel
 
    CLASS XsParser IMPLEMENTS VsParser.IErrorListener
       PRIVATE  _stream       AS BufferedTokenStream
-      PRIVATE  _input        AS IList<XSharpToken>
-      PRIVATE  _index        AS LONG
+      PRIVATE  _list         AS XSharpTokenList
       PRIVATE  _file         AS XFile
       PRIVATE  _usings       AS IList<STRING>
       PRIVATE  _staticusings AS IList<STRING>
@@ -36,7 +35,6 @@ BEGIN NAMESPACE XSharpModel
       PRIVATE  _BlockStack    AS Stack<XSourceBlock>
       PRIVATE  _PPBlockStack  AS Stack<XSourceBlock>
       PRIVATE  _locals        AS IList<XSourceVariableSymbol>
-      PRIVATE  _lastToken     AS IToken
       PRIVATE  _collectLocals AS LOGIC
       PRIVATE  _collectBlocks AS LOGIC
       PRIVATE  _errors        AS IList<XError>
@@ -65,12 +63,6 @@ BEGIN NAMESPACE XSharpModel
       END PROPERTY
       PRIVATE PROPERTY CurrentBlock       AS XSourceBlock   GET IIF(_BlockStack:Count > 0, _BlockStack:Peek(), NULL_OBJECT)
       PRIVATE PROPERTY CurrentEntityKind  AS Kind     GET IIF(_EntityStack:Count > 0, CurrentEntity:Kind, Kind:Unknown)
-      PRIVATE PROPERTY La1 AS INT GET SELF:La(1)
-      PRIVATE PROPERTY La2 AS INT GET SELF:La(2)
-      PRIVATE PROPERTY La3 AS INT GET SELF:La(3)
-      PRIVATE PROPERTY Lt1 AS IToken GET SELF:Lt(1)
-      PRIVATE PROPERTY Lt2 AS IToken GET SELF:Lt(2)
-      PRIVATE PROPERTY LastToken AS IToken GET _lastToken
       PRIVATE PROPERTY InFoxClass AS LOGIC GET CurrentType != NULL .AND. CurrentType:ClassType == XSharpDialect.FoxPro
       PRIVATE PROPERTY InXppClass AS LOGIC GET CurrentType != NULL .AND. CurrentType:ClassType == XSharpDialect.XPP
       PROPERTY EntityList AS IList<XSourceEntity>  GET _EntityList
@@ -138,7 +130,7 @@ BEGIN NAMESPACE XSharpModel
          _collectBlocks := lBlocks
          _stream        := (BufferedTokenStream) tokenStream
          _tokens        := _stream:GetTokens()
-         _input         := List<XSharpToken>{}
+         VAR _input         := List<XSharpToken>{}
          FOREACH token AS XSharpToken IN _tokens
             SWITCH token:Channel
             CASE TokenConstants.HiddenChannel
@@ -171,9 +163,8 @@ BEGIN NAMESPACE XSharpModel
              END SWITCH
          NEXT
          _file:CommentTasks := _commentTasks
-         _input 	:= _input:ToArray()
-         _index 	:= 0
-         _lastToken     := _tokens:FirstOrDefault()
+         _list :=XSharpTokenList{_input}
+
 
          DO WHILE ! SELF:Eoi()
             VAR tokenBefore := LastToken
@@ -351,21 +342,21 @@ BEGIN NAMESPACE XSharpModel
               typelist:Add(type:FullName, type)
             ENDIF
             last := type
-         NEXT
+            NEXT
+         VAR lasttoken := _tokens[_tokens.Count -1]
          IF last != NULL .AND. last:Range:StartLine == last:Range:EndLine .and. ! last:SingleLine
             // adjust the end of the type with the start of the current line
             // find the last token in the stream
-            VAR index := _tokens.Count -1
-            VAR token := _tokens[index]
-            last:Range     := last:Range:WithEnd(token)
-            last:Interval  := last:Interval:WithEnd(token)
+
+            last:Range     := last:Range:WithEnd(lasttoken)
+            last:Interval  := last:Interval:WithEnd(lasttoken)
          ENDIF
          Log(i"Completed, found {_EntityList.Count} entities and {typelist.Count} types")
          IF SELF:_EntityList:Count > 0
             VAR lastEntity          := SELF:_EntityList:Last()
             if ! lastEntity:Kind:IsClassMember(_dialect)
-                lastEntity:Range        := lastEntity:Range:WithEnd(LastToken)
-                lastEntity:Interval     := lastEntity:Interval:WithEnd(LastToken)
+                lastEntity:Range        := lastEntity:Range:WithEnd(lasttoken)
+                lastEntity:Interval     := lastEntity:Interval:WithEnd(lasttoken)
             ENDIF
          ELSE
              // Add at least one entity that represents the global namespace
@@ -426,12 +417,25 @@ BEGIN NAMESPACE XSharpModel
          CASE XSharpLexer.PP_UNDEF
          CASE XSharpLexer.PP_COMMAND
          CASE XSharpLexer.PP_TRANSLATE
+
              VAR type := SELF:La1
              VAR start := SELF:Lt1
              VAR name  := SELF:Lt2:Text
              VAR eol   := SELF:Lt2
+             var hasId := IsId(SELF:La2)
+             if SELF:La2 == XSharpLexer.BACKSLASH
+                eol   := SELF:Lt3
+                if ! hasId .and. IsId(eol:Type)
+                    name  := eol:Text
+                    hasId := TRUE
+                endif
+             ENDIF
              DO WHILE SELF:La1 != XSharpLexer.EOS
                 eol := SELF:Lt1
+                if ! hasId .and. IsId(eol:Type)
+                    name  := eol:Text
+                    hasId := TRUE
+                endif
                 SELF:Consume()
              ENDDO
              SELF:GetSourceInfo(start, eol, OUT VAR range, OUT VAR interval, OUT VAR source)
@@ -697,7 +701,7 @@ attributeParam      : Name=identifierName Op=assignoperator Expr=expression     
                 entityKind := Kind.Assign
             ENDIF
          CASE XSharpLexer.PROPERTY
-            IF SELF:IsId(SELF:La2)
+            IF SELF:IsId(SELF:La2) .or. SELF:La2 == XSharpLexer.SELF
                 entityKind := Kind.Property
             ENDIF
          CASE XSharpLexer.OPERATOR
@@ -1105,105 +1109,32 @@ attributeParam      : Name=identifierName Op=assignoperator Expr=expression     
 
 
 
-         #region GetTokens
-      PRIVATE METHOD La(nToken AS LONG) AS LONG
-         nToken += _index-1
-         IF (nToken < _input:Count)
-            VAR t := _input[nToken]
-            RETURN t:Type
-         ENDIF
-         RETURN XSharpLexer.Eof
-
-      PRIVATE METHOD Lt(nToken AS LONG) AS IToken
-         nToken += _index-1
-         IF (nToken < _input:Count)
-            RETURN _input[nToken]
-         ENDIF
-         RETURN NULL
-
-      PRIVATE METHOD Eoi() AS LOGIC
-         RETURN _index >= _input:Count
-
-      PRIVATE METHOD Eos() AS LOGIC
-         RETURN SELF:La1 == XSharpLexer.EOS .OR. Eoi()
-
-      PRIVATE METHOD SaveLastToken() AS VOID
-         IF ! SELF:Eoi() .AND. SELF:La1 != XSharpLexer.EOS
-            _lastToken := _input[_index]
-         ENDIF
-
-
-      PRIVATE METHOD PushBack() AS VOID
-         _index-= 1
-         RETURN
-
-
-      PRIVATE METHOD Consume() AS VOID
-         SELF:SaveLastToken()
-         _index+= 1
-         RETURN
-
-      PRIVATE METHOD ConsumeAndGet() AS XSharpToken
-         VAR t := _input[_index]
-         _lastToken := t
-         _index+= 1
-         RETURN t
-
-      PRIVATE METHOD ConsumeAndGetText() AS STRING
-         VAR t := _input[_index]
-         _lastToken := t
-         _index+= 1
-         RETURN t:GetText()
-
-      PRIVATE METHOD Matches(nTypes PARAMS LONG[]) AS LOGIC
-         IF nTypes:Contains(SELF:La1)
-            RETURN TRUE
-         ENDIF
-         RETURN FALSE
-
-      PRIVATE METHOD ConsumeAndGetAny(nTypes PARAMS LONG[]) AS IToken
-         IF nTypes:Contains(SELF:La1)
-            RETURN SELF:ConsumeAndGet()
-         ENDIF
-         RETURN NULL
-
-
-
-      PRIVATE METHOD Expect(nType AS LONG) AS LOGIC
-         IF SELF:La1 == nType
-            SELF:Consume()
-            RETURN TRUE
-         ENDIF
-         RETURN FALSE
-
-      PRIVATE METHOD ExpectAny(nTypes PARAMS LONG[]) AS LOGIC
-         IF nTypes:Contains(SELF:La1)
-            SELF:Consume()
-            RETURN TRUE
-         ENDIF
-         RETURN FALSE
+         #region Properties and Methods that are delegated to the XSharpTokenList type
+      PRIVATE PROPERTY La1 AS INT => _list:La1
+      PRIVATE PROPERTY La2 AS INT => _list:La2
+      PRIVATE PROPERTY La3 AS INT => _list:La3
+      PRIVATE PROPERTY Lt1 AS XSharpToken => _list:Lt1
+      PRIVATE PROPERTY Lt2 AS XSharpToken => _list:Lt2
+      PRIVATE PROPERTY Lt3 AS XSharpToken => _list:Lt3
+      PRIVATE PROPERTY LastToken AS XSharpToken => _list:LastToken
+      PRIVATE METHOD La(nToken AS LONG) AS LONG => _list:La(nToken)
+      PRIVATE METHOD Lt(nToken AS LONG) AS XSharpToken => _list:Lt(nToken)
+      PRIVATE METHOD Eoi() AS LOGIC => _list:Eoi()
+      PRIVATE METHOD Eos() AS LOGIC => _list:Eos()
+      PRIVATE METHOD Consume() AS VOID =>_list:Consume()
+      PRIVATE METHOD ConsumeAndGet() AS XSharpToken => _list:ConsumeAndGet()
+      PRIVATE METHOD ConsumeAndGetAny(nTypes PARAMS LONG[]) AS XSharpToken => _list:ConsumeAndGetAny(nTypes)
+      PRIVATE METHOD ConsumeAndGetText() AS STRING => _list:ConsumeAndGetText()
+      PRIVATE METHOD Expect(nType AS LONG) AS LOGIC => _list:Expect(nType)
+      PRIVATE METHOD ExpectAny(nTypes PARAMS LONG[]) AS LOGIC => _list:ExpectAny(nTypes)
+      PRIVATE METHOD ExpectAndGet(nType AS LONG, t OUT IToken) AS LOGIC => _list:ExpectAndGet(nType, OUT t)
+      PRIVATE METHOD Matches(nTypes PARAMS LONG[]) AS LOGIC => _list:Matches(nTypes)
+      PRIVATE METHOD PushBack() AS VOID => _list:PushBack()
+      PRIVATE METHOD ReadLine() AS VOID => _list:ReadLine()
+         #endregion
 
       PRIVATE METHOD ExpectAssignOp() AS LOGIC
          RETURN SELF:ExpectAny(XSharpLexer.ASSIGN_OP, XSharpLexer.EQ)
-
-      PRIVATE METHOD ExpectAndGet(nType AS LONG, t OUT IToken) AS LOGIC
-         IF SELF:La1 == nType
-            t := SELF:ConsumeAndGet()
-            RETURN TRUE
-         ENDIF
-         t := NULL
-         RETURN FALSE
-
-
-      PRIVATE METHOD ReadLine() AS VOID
-         DO WHILE ! SELF:Eos()
-            SELF:Consume()
-         ENDDO
-         DO WHILE SELF:La1 == XSharpLexer.EOS
-            SELF:Consume() // Consume the EOS
-         ENDDO
-         RETURN
-         #endregion
 
       PRIVATE METHOD IsId(token AS LONG) AS LOGIC
          IF token == XSharpLexer.ID .OR. token == XSharpLexer.KWID
@@ -1516,7 +1447,9 @@ structure_          : (Attributes=attributes)? (Modifiers=classModifiers)?
             // read to EndOfLine
             SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
             SELF:ReadLine()
-
+            if typePars != null && typePars:Count > 0
+                id += "`"+typePars:Count:ToString()
+            endif
             VAR xType := XSourceTypeSymbol{id, kind, _attributes, range, interval, _file}
             xType:SourceCode := source
 
@@ -1839,7 +1772,7 @@ operator_           : Attributes=attributes? Modifiers=operatorModifiers?
          IF ! Expect(XSharpLexer.CONSTRUCTOR)
             RETURN NULL
          ENDIF
-         VAR id  := ".ctor"
+         VAR id  := XLiterals.ConstructorName
          VAR aParams     := SELF:ParseParameterList(FALSE, OUT VAR _)
          VAR asType      := SELF:ParseDataType(FALSE)
          VAR callconv    := SELF:ParseCallingConvention()
@@ -1872,7 +1805,7 @@ destructor          : (Attributes=attributes)? (Modifiers=destructorModifiers)?
             RETURN NULL
          ENDIF
 
-         VAR id  := ".dtor"
+         VAR id  := XLiterals.DestructorName
          IF SELF:La1 == XSharpLexer.LPAREN .AND. SELF:La2 == XSharpLexer.RPAREN
             Consume()
             Consume()
@@ -2250,6 +2183,12 @@ signature             : Id=identifier
             oSig:TypeParameterContraints:Add(SELF:ParseTypeParameterConstraints())
          ENDDO
          oSig:CallingConvention  := SELF:ParseCallingConvention()
+         IF oSig:CallingConvention == CallingConvention.Clipper
+             FOREACH var parameter in oSig:Parameters
+                 parameter:TypeName := XLiterals.UsualType
+                 parameter:ParamType := ParamType.As
+             NEXT
+         ENDIF
          SELF:ParseExpressionBody()
          RETURN oSig
 
@@ -2296,9 +2235,6 @@ signature             : Id=identifier
             VAR atts := SELF:TokensAsString(ParseAttributes())
             VAR sId   := ""
             VAR sTypeName := ""
-            IF _file:Project:ParseOptions:VOUntypedAllowed
-                sTypeName := "USUAL"
-            ENDIF
             IF SELF:La1 == XSharpLexer.SELF
                isSelf := TRUE
                Consume()
@@ -2316,24 +2252,17 @@ signature             : Id=identifier
                   Consume()
                ENDIF
                sTypeName := SELF:ParseTypeName()
+            ELSE
+                IF _file:Project:ParseOptions:VOUntypedAllowed
+                    sTypeName := "USUAL"
+                ENDIF
             ENDIF
             LOCAL variable AS XSourceParameterSymbol
             VAR endToken := SELF:LastToken
             SELF:GetSourceInfo(start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR _)
             variable := XSourceParameterSymbol{CurrentEntity, sId, range,interval, sTypeName}
             IF token != NULL
-               SWITCH token:Type
-               CASE XSharpLexer.AS
-                  variable:ParamType := ParamType.As
-               CASE XSharpLexer.IN
-                  variable:ParamType := ParamType.In
-               CASE XSharpLexer.OUT
-                  variable:ParamType := ParamType.Out
-               CASE XSharpLexer.REF
-                  variable:ParamType := ParamType.Ref
-               CASE XSharpLexer.PARAMS
-                  variable:ParamType := ParamType.Params
-               END SWITCH
+               variable:ParamType := (ParamType) token.Type
             ENDIF
             IF defaultExpr != NULL
                variable:Value := SELF:TokensAsString(defaultExpr)
@@ -2473,7 +2402,7 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
             result := SELF:ParseQualifiedName()
 
          CASE XSharpLexer.ARRAY
-            result :=  ConsumeAndGet():GetText()
+            result :=  ConsumeAndGetText()
             IF SELF:La1 == XSharpLexer.OF
                SELF:Consume()
                var subtype := SELF:ParseTypeName()
@@ -2485,7 +2414,7 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
         CASE XSharpLexer.PSZ
         CASE XSharpLexer.SYMBOL
         CASE XSharpLexer.USUAL
-            result :=  ConsumeAndGet():GetText()
+            result :=  ConsumeAndGetText()
         CASE XSharpLexer.BYTE
         CASE XSharpLexer.CHAR
         CASE XSharpLexer.DATETIME
@@ -2505,10 +2434,10 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
         CASE XSharpLexer.UINT64
         CASE XSharpLexer.VOID
          CASE XSharpLexer.WORD
-            result :=  SELF:ConsumeAndGet():GetText()
+            result :=  SELF:ConsumeAndGetText()
          OTHERWISE
             IF XSharpLexer.IsKeyword(SELF:La1)
-               result :=  SELF:ConsumeAndGet():GetText()
+               result :=  SELF:ConsumeAndGetText()
             ENDIF
          END SWITCH
          IF result:Length > 0
@@ -2524,10 +2453,10 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
 
       PRIVATE METHOD ParseTypeSuffix AS STRING
          IF SELF:La1 == XSharpLexer.PTR
-            RETURN " "+SELF:ConsumeAndGet():GetText()
+            RETURN " "+SELF:ConsumeAndGetText()
          ELSEIF SELF:La1 = XSharpLexer.QMARK
-            RETURN SELF:ConsumeAndGet():GetText()
-         ELSEIF SELF:La1 == XSharpLexer.LBRKT
+            RETURN SELF:ConsumeAndGetText()
+         ELSEIF SELF:La1 == XSharpLexer.LBRKT .and. (SELF:La2 != XSharpLexer.ID .and. SELF:La2 != XSharpLexer.UDC_KEYWORD .and. ! XSharpLexer.IsKeyword(SELF:La2))
             VAR tokens := List<XSharpToken>{}
             tokens:Add(SELF:ConsumeAndGet())
             LOCAL openCount := 1 as LONG
@@ -2572,12 +2501,14 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
 
          DO WHILE ! SELF:Eos() .AND. ! done
             SWITCH SELF:La1
-               CASE XSharpLexer.LPAREN
-               CASE XSharpLexer.LBRKT
+            CASE XSharpLexer.LT
+            CASE XSharpLexer.LPAREN
+            CASE XSharpLexer.LBRKT
             CASE XSharpLexer.LCURLY
                nested++
-               CASE XSharpLexer.RPAREN
-               CASE XSharpLexer.RBRKT
+            CASE XSharpLexer.GT
+            CASE XSharpLexer.RPAREN
+            CASE XSharpLexer.RBRKT
             CASE XSharpLexer.RCURLY
                   nested--
 
@@ -2610,8 +2541,18 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
          VAR firstToken := SELF:Lt1
          SWITCH firstToken.Type
          CASE XSharpLexer.LOCAL
+         CASE XSharpLexer.VAR
          CASE XSharpLexer.STATIC
             RETURN SELF:ParseDeclarationStatement()
+         CASE XSharpLexer.PUBLIC
+         CASE XSharpLexer.PRIVATE
+         CASE XSharpLexer.MEMVAR
+         CASE XSharpLexer.PARAMETERS
+         CASE XSharpLexer.LPARAMETERS
+         CASE XSharpLexer.DIMENSION
+         CASE XSharpLexer.DECLARE
+            RETURN SELF:ParseXBaseDeclarationStatement()
+
          END SWITCH
 
          DO WHILE ! SELF:Eos()
@@ -2779,7 +2720,7 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
                SELF:ReadLine()
             ENDIF
          CASE XSharpLexer.ID
-            IF _lastToken != NULL .AND. (_lastToken:Type == XSharpLexer.PUBLIC .OR. _lastToken:Type == XSharpLexer.PRIVATE)
+            IF SELF:LastToken != NULL .AND. (SELF:LastToken:Type == XSharpLexer.PUBLIC .OR. SELF:LastToken:Type == XSharpLexer.PRIVATE)
                SELF:PushBack()
                IF ! SELF:ParseXBaseDeclarationStatement()
                   SELF:ReadLine()
@@ -2803,7 +2744,7 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
 //                   // but the treetransformation will produce an error 9044 for STATIC implied
 //                   | STATIC=STATIC? VAR           ImpliedVars+=impliedvar (COMMA ImpliedVars+=impliedvar)*  END=eos #varLocalDecl
 //                   | STATIC=STATIC LOCAL? IMPLIED ImpliedVars+=impliedvar (COMMA ImpliedVars+=impliedvar)*  END=eos #varLocalDecl
-//                   | LO
+
 
          LOCAL lStatic AS LOGIC
          LOCAL lImplied := FALSE AS LOGIC
@@ -2819,6 +2760,9 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
             ENDIF
             IF SELF:La1 == XSharpLexer.STATIC
                lStatic := TRUE
+               Consume()
+            ENDIF
+            IF SELF:La1 == XSharpLexer.ARRAY .and. _dialect == XSharpDialect.FoxPro
                Consume()
             ENDIF
          ELSEIF SELF:La1 == XSharpLexer.STATIC
@@ -2914,6 +2858,13 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
             xVar:IsArray := TRUE
          ENDIF
          xVar:Expression := expr
+         IF expr != NULL
+            var sb := StringBuilder{}
+            foreach var token in expr
+                sb:Append(token:TextWithTrivia)
+            next
+            xVar:Value := sb:ToString():Trim()
+         endif
          RETURN xVar
 
       PRIVATE METHOD ParseImpliedVar() AS XSourceVariableSymbol
@@ -2967,8 +2918,6 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
          CASE XSharpLexer.DIMENSION
          CASE XSharpLexer.DECLARE
             ParseFoxProDim()
-         CASE XSharpLexer.FIELD
-            ParseFieldStatement()
          END SWITCH
          RETURN TRUE
 
@@ -3048,6 +2997,14 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
          VAR xVar       := XSourceVariableSymbol{SELF:CurrentEntity, id, range, interval, type} {IsArray := !String.IsNullOrEmpty(arraysub)}
          xVar.Kind      := Kind.MemVar
          xVar:Expression := expr
+         if expr != NULL
+                var sb := StringBuilder{}
+                foreach var token in expr
+                    sb:Append(token:TextWithTrivia)
+                next
+                xVar:Value := sb:ToString()
+         endif
+
          RETURN xVar
 
 
@@ -3086,6 +3043,7 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
             type := "ARRAY"
          ENDIF
          VAR xVar     := XSourceVariableSymbol{SELF:CurrentEntity, id, range, interval, type}
+         xVar:Kind    := Kind.MemVar
          IF type != "ARRAY"
             xVar:IsArray := !String.IsNullOrEmpty(arraysub)
          ENDIF
@@ -3483,7 +3441,7 @@ xppclassMember      : Member=xppmethodvis                           #xppclsvisib
                   ENDDO
                   type := SELF:ParseDataType(FALSE)
                ENDIF
-               SELF:GetSourceInfo(_start, _lastToken, OUT VAR range, OUT VAR interval, OUT VAR _)
+               SELF:GetSourceInfo(_start, SELF:LastToken, OUT VAR range, OUT VAR interval, OUT VAR _)
                // eat all tokens
                DO WHILE ExpectAny(XSharpLexer.SHARED, XSharpLexer.READONLY, XSharpLexer.ASSIGNMENT, ;
                                   XSharpLexer.HIDDEN, XSharpLexer.PROTECTED, XSharpLexer.EXPORTED, XSharpLexer.NOSAVE)
@@ -3532,7 +3490,7 @@ xppclassMember      : Member=xppmethodvis                           #xppclsvisib
                      propName := SELF:ParseIdentifier()
                   ENDIF
                   VAR type := SELF:ParseDataType(FALSE)
-                  SELF:GetSourceInfo(_start, _lastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
+                  SELF:GetSourceInfo(_start, SELF:LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
                   SELF:ReadLine()
                   VAR xmember := XSourceMemberSymbol{id+XLiterals.XppDeclaration, Kind.Property, _OR(_xppVisibility, _attributes), range, interval, type, isStatic}
                   xmember:SourceCode := source
@@ -3576,7 +3534,7 @@ xppclassMember      : Member=xppmethodvis                           #xppclsvisib
                ids:Add(SELF:ParseIdentifier())
             ENDDO
          ENDIF
-         SELF:GetSourceInfo(_start, _lastToken, OUT VAR range, OUT VAR interval, OUT VAR _)
+         SELF:GetSourceInfo(_start, SELF:LastToken, OUT VAR range, OUT VAR interval, OUT VAR _)
          VAR result := List<XSourceEntity>{}
          FOREACH VAR id IN ids
             VAR xmethod := XSourceMemberSymbol{id+XLiterals.XppDeclaration, Kind.Method, _xppVisibility, range, interval, "", FALSE}
@@ -3670,7 +3628,7 @@ xppclassMember      : Member=xppmethodvis                           #xppclsvisib
             IF SELF:La1 == XSharpLexer.AS
                type := SELF:ParseDataType(FALSE)
             ENDIF
-            SELF:GetSourceInfo(_start, _lastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
+            SELF:GetSourceInfo(_start, SELF:LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
             SELF:ReadLine()
             VAR xmethod := XSourceMemberSymbol{id, Kind.Method, _xppVisibility, range, interval, type, isStatic}
             xmethod:SourceCode := source
@@ -3727,7 +3685,7 @@ xppclassMember      : Member=xppmethodvis                           #xppclsvisib
             IF SELF:La1 == XSharpLexer.AS
                type := SELF:ParseDataType(FALSE)
             ENDIF
-            SELF:GetSourceInfo(_start, _lastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
+            SELF:GetSourceInfo(_start, SELF:LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
             SELF:ReadLine()
             VAR xmethod := XSourceMemberSymbol{id, kind, Modifiers.None, range, interval, type, isStatic}
             // we need to lookup the visibility in the types list
@@ -3890,18 +3848,24 @@ xppclassMember      : Member=xppmethodvis                           #xppclsvisib
          RETURN FALSE
 
       PRIVATE METHOD IsKeywordXpp(token AS LONG) AS LOGIC
-         SWITCH token
-         CASE XSharpLexer.SHARING
-         CASE XSharpLexer.SHARED
-         CASE XSharpLexer.ASSIGNMENT
-         CASE XSharpLexer.EXPORTED
-         CASE XSharpLexer.READONLY
-         CASE XSharpLexer.NOSAVE
-            RETURN TRUE
-         END SWITCH
+        if _dialect != XSharpDialect.XPP
+                RETURN FALSE
+        ENDIF
+        SWITCH token
+        CASE XSharpLexer.SHARING
+        CASE XSharpLexer.SHARED
+        CASE XSharpLexer.ASSIGNMENT
+        CASE XSharpLexer.EXPORTED
+        CASE XSharpLexer.READONLY
+        CASE XSharpLexer.NOSAVE
+        RETURN TRUE
+        END SWITCH
          RETURN FALSE
 
       PRIVATE METHOD IsKeywordFox(token AS LONG) AS LOGIC
+        if _dialect != XSharpDialect.FoxPro
+                RETURN FALSE
+        ENDIF
          SWITCH token
          CASE XSharpLexer.OLEPUBLIC
          CASE XSharpLexer.EACH

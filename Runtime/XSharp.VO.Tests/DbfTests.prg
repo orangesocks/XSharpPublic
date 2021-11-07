@@ -2175,7 +2175,12 @@ RETURN
 			aStruct := {}
 			FOR LOCAL n := 1 AS INT UPTO 10
 				AAdd(aStruct , {"MEMO" + n:ToString() , "M" , 10 , 0})
-			NEXT
+            NEXT
+            local cCdx as STRING
+            cCdx := Path.ChangeExtension(cDbf,".CDX")
+            IF File(cCdx)
+                Ferase(cCdx)
+            ENDIF
 			DbCreate(cDbf , aStruct)
 			DbUseArea(,,cDbf)
 			DbAppend()
@@ -2380,7 +2385,7 @@ RETURN
 			DbCloseArea()
 
 			Assert.Equal(26, GetLastByte())
-			
+
 			DbUseArea( TRUE ,,cDBF )
 			DbGoBottom()
 			LOCAL c123 AS STRING
@@ -2402,24 +2407,24 @@ RETURN
 
 			DbfTests.CreateDatabase(cDbf, {{"MFIELD","M",10,0},{"CFIELD","C",10,0}}, {"rec1","rec2"})
 			DbCloseArea()
-			
+
 			DbUseArea(TRUE,,cDbf,"alias1",TRUE)
 			DbUseArea(TRUE,,cDbf,"alias2",TRUE)
 			alias1->DbAppend()
 			alias1->FieldPut(1,"rec3")
 //			alias1->DbCommit() // not making a difference
 //			alias1->DbUnLock()
-			
+
 			alias2->DbGoto(1)
 			alias2->DbRLock()
 			cUpdate1 := Repl("A long update that should be visible only in record 1",10)
 			alias2->FieldPut(1, cUpdate1)
 //			alias2->DbCommit() // not making a difference
 //			alias2->DbUnLock()
-			                
+
 			DbCloseAll()
-			
-			
+
+
 			DbUseArea(TRUE,,cDbf,"alias1",TRUE)
 			DbGoTop()
 			Assert.Equal(cUpdate1, (STRING)FieldGet(1))
@@ -2427,22 +2432,191 @@ RETURN
 			Assert.Equal("rec2", (STRING)FieldGet(1))
 			DbGoBottom()
 			Assert.Equal("rec3", (STRING)FieldGet(1))
-			
+
 			// updating record 3 only...
 			cUpdate2 := "Putting a new value in record 3 only"
 			RLock()
 			FieldPut(1, cUpdate2)
-			
+
 			DbGoTop()
 			Assert.Equal(cUpdate1, (STRING)FieldGet(1))
 			DbSkip()
 			Assert.Equal("rec2", (STRING)FieldGet(1))
 			DbGoBottom()
 			Assert.Equal(cUpdate2, (STRING)FieldGet(1))
-			
+
 			DbCloseArea()
 
 		RETURN
+
+
+		[Fact, Trait("Category", "DBF")];
+		METHOD TestDescendOrderDeletedSeek_ntx() AS VOID
+			LOCAL cDbf AS STRING
+			LOCAL lDeleted AS LOGIC
+			cDbf := GetTempFileName()
+
+			RddSetDefault("DBFNTX")
+
+			DbfTests.CreateDatabase(cDbf, {{ "FLD1", "C", 10, 0 }})
+
+			lDeleted := SetDeleted( TRUE )
+
+			DbUseArea(TRUE,,cDbf)
+			DbCreateOrder( "ORDER1",cDbf, "FLD1")
+			FOR LOCAL nI := 1 AS INT UPTO 10
+				DbAppend()
+				FieldPut(1,Str(nI,10))
+			NEXT
+			DbSetOrder("ORDER1")
+			OrdDescend(,, TRUE)
+
+			Assert.True( DbSeek( Str( 3, 10 ), FALSE ) )
+			Assert.Equal( 3U, RecNo() )
+
+			Assert.True( DbDelete() )
+
+			Assert.False( DbSeek( Str( 3, 10 ), FALSE ) )
+			Assert.Equal( 11U, RecNo() )
+
+			DbCloseAll()
+
+			SetDeleted( lDeleted )
+		RETURN
+
+
+        [Fact, Trait("Category", "DBF")];
+		METHOD SetDeleted_SetDeleted_and_OrdScope_Ntx() AS VOID
+			LOCAL aValues AS ARRAY
+			LOCAL cDBF AS STRING
+
+			TRY
+
+			RddSetDefault("DBFNTX")
+			cDBF := GetTempFileName()
+
+			DbfTests.CreateDatabase(cDbf , { { "LAST" , "C" , 20 , 0 } } )
+			aValues := { "a1" , "a2", "a3" , "a4" , "a5" , "a6" ,"g1", "g2" , "g3" , "g4" , "g5" , "o1" , "o2" , "o3" , "o4" , "o5" , "u1", "u2","u3" , "u4" }
+
+			DbUseArea( ,,cDBF , , TRUE )
+
+			FOR LOCAL i := 1 AS INT UPTO ALen ( aValues )
+				DbAppend()
+				FieldPut ( 1 , aValues [ i ] )
+				IF InList ( Upper ( aValues [ i ] ) , "G1" , "G2" , "O5" )
+					DbDelete()
+				ENDIF
+			NEXT
+
+			DbCreateOrder ( "ORDER1" , cDbf , "upper(LAST)" , { || Upper ( _FIELD->LAST) } )
+
+			DbSetOrder ( 1 )
+
+			OrdScope ( TOPSCOPE, "G" )
+			OrdScope ( BOTTOMSCOPE, "G" )
+//			OrdScope ( TOPSCOPE, "A" )
+//			OrdScope ( BOTTOMSCOPE, "G" )
+
+			Assert.Equal(5, (INT) OrdKeyCount() )
+
+			SetDeleted ( TRUE )  // no problem if set to FALSE
+
+			OrdDescend ( , , TRUE )
+			DbGoTop()
+
+			// SetDeleted(TRUE) causes a endless loop ...
+			LOCAL nCount := 0 AS INT
+			DO WHILE ! Eof()
+//				? AllTrim(FieldGet ( 1 ) ) , RecNo(), Eof(), Bof()
+				DbSkip ( 1 )
+				nCount ++
+				IF nCount > 100
+					THROW Exception{"Skip() loop never ends"}
+				END IF
+			ENDDO
+
+			Assert.Equal(3, (INT) OrdKeyCount() )
+
+
+			SetDeleted ( TRUE )
+			OrdDescend ( , , TRUE )
+			DbGoTop()
+			Assert.Equal(3, (INT) OrdKeyCount() )
+
+			SetDeleted ( FALSE )
+			OrdDescend ( , , TRUE )
+			DbGoTop()
+			Assert.Equal(5, (INT) OrdKeyCount() )
+
+			SetDeleted ( TRUE )
+			OrdDescend ( , , FALSE )
+			DbGoTop()
+			Assert.Equal(3, (INT) OrdKeyCount() )
+
+			SetDeleted ( FALSE )
+			OrdDescend ( , , FALSE )
+			DbGoTop()
+			Assert.Equal(5, (INT) OrdKeyCount() )
+
+
+			DbCloseAll()
+
+			CATCH
+
+				THROW
+
+			FINALLY
+
+			SetDeleted(FALSE)
+
+			END TRY
+		RETURN
+
+
+		[Fact, Trait("Category", "DBF")];
+		METHOD TestFieldPutBytes_ntx() AS VOID
+			LOCAL cDbf AS STRING
+			RddSetDefault("DBFNTX")
+
+			cDbf := GetTempFileName()
+			DbCreate(cDbf, {{"FLD1","C",10,0},{"MEMO1","M",10,0}})
+
+			DbUseArea(,,cDbf)
+			DbAppend()
+			FieldPutBytes( 1, <BYTE>{1,2,3,4,5} )
+			FieldPutBytes( 2, <BYTE>{6,7,8} )
+
+			LOCAL a AS BYTE[]
+			a := FieldGetBytes(1)
+			Assert.Equal(5, a:Length)
+			FOR LOCAL n := 1 AS INT UPTO 5
+				Assert.Equal((BYTE)n, a[n])
+			NEXT
+
+			a := FieldGetBytes(2)
+			Assert.Equal(3, a:Length)
+			FOR LOCAL n := 1 AS INT UPTO 3
+				Assert.Equal((BYTE)(n+5), a[n])
+			NEXT
+
+			a := BYTE[]{10_000}
+			FOR LOCAL n := 1 AS INT UPTO a:Length
+				a[n] := (BYTE)(n % 256)
+			NEXT
+			FieldPutBytes( 2, a )
+			a := FieldGetBytes(2)
+			Assert.Equal(10_000, a:Length)
+			LOCAL lSame := TRUE AS LOGIC
+			FOR LOCAL n := 1 AS INT UPTO 10_000
+				IF a[n] != (BYTE)(n % 256)
+					lSame := FALSE
+					EXIT
+				END IF
+			NEXT
+			Assert.True( lSame )
+
+			DbCloseArea()
+
 
 
 		STATIC PRIVATE METHOD GetTempFileName() AS STRING

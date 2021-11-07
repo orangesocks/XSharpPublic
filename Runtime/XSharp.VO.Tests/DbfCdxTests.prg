@@ -3025,7 +3025,41 @@ RETURN
 				END IF
 			ENDDO
 
+			SetDeleted ( FALSE )
+			OrdDescend ( , , FALSE )
+            // deleted = false and OrdDescend = False
+            // should result in 5 rows
+			Assert.Equal(5, (INT) OrdKeyCount() )
+
+
+			SetDeleted ( TRUE )
+			OrdDescend ( , , TRUE )
+            // deleted = TRUE and OrdDescend = TRUE
+            // should result in 3 rows because 2 deleted rows are not included
+			DbGoTop()
 			Assert.Equal(3, (INT) OrdKeyCount() )
+
+			SetDeleted ( FALSE )
+			OrdDescend ( , , TRUE )
+            // deleted = FALSE and OrdDescend = TRUE
+            // should result in 5 rows because deletion state is ignored
+			DbGoTop()
+			Assert.Equal(5, (INT) OrdKeyCount() )
+
+			SetDeleted ( TRUE )
+			OrdDescend ( , , FALSE )
+            // deleted = TRUE and OrdDescend = FALSE
+            // should result in 3 rows because 2 deleted rows are not included
+			DbGoTop()
+			Assert.Equal(3, (INT) OrdKeyCount() )
+
+			SetDeleted ( FALSE )
+			OrdDescend ( , , FALSE )
+			DbGoTop()
+            // deleted = false and OrdDescend = False
+            // should result in 5 rows
+			Assert.Equal(5, (INT) OrdKeyCount() )
+
 
 			DbCloseAll()
 
@@ -4827,7 +4861,7 @@ RETURN
 			DbCloseArea()
 
 			Assert.Equal(175, GetLastByte())
-			
+
 			DbUseArea( TRUE ,,cDBF )
 			DbGoBottom()
 			LOCAL c123 AS STRING
@@ -4849,24 +4883,24 @@ RETURN
 
 			DbfTests.CreateDatabase(cDbf, {{"MFIELD","M",10,0},{"CFIELD","C",10,0}}, {"rec1","rec2"})
 			DbCloseArea()
-			
+
 			DbUseArea(TRUE,,cDbf,"alias1",TRUE)
 			DbUseArea(TRUE,,cDbf,"alias2",TRUE)
 			alias1->DbAppend()
 			alias1->FieldPut(1,"rec3")
 //			alias1->DbCommit() // not making a difference
 //			alias1->DbUnLock()
-			
+
 			alias2->DbGoto(1)
 			alias2->DbRLock()
 			cUpdate1 := "A long update that should be visible only in record 1"
 			alias2->FieldPut(1, cUpdate1)
 //			alias2->DbCommit() // not making a difference
 //			alias2->DbUnLock()
-			                
+
 			DbCloseAll()
-			
-			
+
+
 			DbUseArea(TRUE,,cDbf,"alias1",TRUE)
 			DbGoTop()
 			Assert.Equal(cUpdate1, (STRING)FieldGet(1))
@@ -4874,22 +4908,207 @@ RETURN
 			Assert.Equal("rec2", (STRING)FieldGet(1))
 			DbGoBottom()
 			Assert.Equal("rec3", (STRING)FieldGet(1))
-			
+
 			// updating record 3 only...
 			cUpdate2 := "Putting a new value in record 3 only"
 			RLock()
 			FieldPut(1, cUpdate2)
-			
+
 			DbGoTop()
 			Assert.Equal(cUpdate1, (STRING)FieldGet(1))
 			DbSkip()
 			Assert.Equal("rec2", (STRING)FieldGet(1))
 			DbGoBottom()
 			Assert.Equal(cUpdate2, (STRING)FieldGet(1))
-			
+
 			DbCloseArea()
 
 		RETURN
+
+		[Fact, Trait("Category", "DBF")];
+		METHOD TestDescendOrderDeletedSeek_cdx() AS VOID
+			LOCAL cDbf AS STRING
+			LOCAL lDeleted AS LOGIC
+			cDbf := GetTempFileName()
+
+			RddSetDefault("DBFCDX")
+
+			DbfTests.CreateDatabase(cDbf, {{ "FLD1", "C", 10, 0 }})
+
+			lDeleted := SetDeleted( TRUE )
+
+			DbUseArea(TRUE,,cDbf)
+			DbCreateOrder( "ORDER1",cDbf, "FLD1")
+			FOR LOCAL nI := 1 AS INT UPTO 10
+				DbAppend()
+				FieldPut(1,Str(nI,10))
+			NEXT
+			DbSetOrder("ORDER1")
+			OrdDescend(,, TRUE)  // without orderdescend its work how expeced
+
+			Assert.True( DbSeek( Str( 3, 10 ), FALSE ) )
+			Assert.Equal( 3U, RecNo() )
+
+			Assert.True( DbDelete() )
+
+			Assert.False( DbSeek( Str( 3, 10 ), FALSE ) )
+			Assert.Equal( 11U, RecNo() )
+
+			DbCloseAll()
+
+			SetDeleted( lDeleted )
+		RETURN
+
+
+		[Fact, Trait("Category", "DBF")];
+		METHOD TestFieldPutBytes_cdx() AS VOID
+			LOCAL cDbf AS STRING
+			RddSetDefault("DBFCDX")
+
+			cDbf := GetTempFileName()
+			DbCreate(cDbf, {{"FLD1","C",10,0},{"MEMO1","M",10,0}})
+
+			DbUseArea(,,cDbf)
+			DbAppend()
+			FieldPutBytes( 1, <BYTE>{1,2,3,4,5} )
+			FieldPutBytes( 2, <BYTE>{6,7,8} )
+
+			LOCAL a AS BYTE[]
+			a := FieldGetBytes(1)
+			Assert.Equal(5, a:Length)
+			FOR LOCAL n := 1 AS INT UPTO 5
+				Assert.Equal((BYTE)n, a[n])
+			NEXT
+
+			a := FieldGetBytes(2)
+			Assert.Equal(3, a:Length)
+			FOR LOCAL n := 1 AS INT UPTO 3
+				Assert.Equal((BYTE)(n+5), a[n])
+			NEXT
+
+			a := BYTE[]{10_000}
+			FOR LOCAL n := 1 AS INT UPTO a:Length
+				a[n] := (BYTE)(n % 256)
+			NEXT
+			FieldPutBytes( 2, a )
+			a := FieldGetBytes(2)
+			Assert.Equal(10_000, a:Length)
+			LOCAL lSame := TRUE AS LOGIC
+			FOR LOCAL n := 1 AS INT UPTO 10_000
+				IF a[n] != (BYTE)(n % 256)
+					lSame := FALSE
+					EXIT
+				END IF
+			NEXT
+			Assert.True( lSame )
+
+			DbCloseArea()
+
+
+
+		[Fact, Trait("Category", "DBF")];
+		METHOD TestDBSeek() AS VOID // https://github.com/X-Sharp/XSharpPublic/issues/807
+			LOCAL cDbf AS STRING
+			RddSetDefault("DBFCDX")
+
+			cDbf := GetTempFileName()
+			DbCreate(cDbf, {{"FLD1","C",3,0} , {"FLD2","C",3,0}})
+
+			DbUseArea(,,cDbf)
+			DbCreateIndex(cDbf,"FLD1+FLD2")
+			DbAppend()
+			FieldPut(1, "AAA") ; FieldPut(2, "abc")
+			DbAppend()
+			FieldPut(1, "BBB") ; FieldPut(2, "def")
+			DbAppend()
+			FieldPut(1, "DDD") ; FieldPut(2, "ghi")
+			DbAppend()
+			FieldPut(1, "AAA") ; FieldPut(2, "jkl")
+
+			Assert.True ( DbSeek( "AAA" , , FALSE ) )
+			Assert.False( Eof() )
+			Assert.Equal( 1U, RecNo() )
+
+			Assert.True ( DbSeek( "AAA" , , TRUE ) )
+			Assert.False( Eof() )
+			Assert.Equal( 4U, RecNo() )
+
+			Assert.False( DbSeek( "CCC" , , FALSE ) )
+			Assert.True ( Eof() )
+			Assert.Equal( 5U, RecNo() )
+
+			Assert.False( DbSeek( "CCC" , , TRUE ) )
+			Assert.True ( Eof() )
+			Assert.Equal( 5U, RecNo() )
+
+			DbCloseArea()
+
+
+
+		[Fact, Trait("Category", "DBF")];
+		METHOD BLOBDirectPut_Test() AS VOID // https://github.com/X-Sharp/XSharpPublic/issues/832
+			LOCAL cDbf AS STRING
+			LOCAL aStruct AS ARRAY
+			LOCAL nRecSize, nBlockNo AS INT
+			LOCAL pRecord, pField AS BYTE PTR
+			LOCAL aRecordBuf AS BYTE[]
+
+			RddSetDefault("DBFCDX")
+
+			cDbf := GetTempFileName()
+			DbCreate(cDbf, { { "DATA", "M", 10, 0, "DATA" } })
+
+			DbUseArea(,,cDbf)
+			nRecSize := DbInfo(DBI_GETRECSIZE)
+			pRecord := MemAlloc((DWORD)nRecSize)
+			#define ASC_SP 32
+			pRecord[1] := ASC_SP
+			aRecordBuf := BYTE[]{ nRecSize }
+
+			// record 1
+			pField := pRecord + 1
+			nBlockNo := BLOBDirectPut(0, "record 1")
+			MemCopyString(pField, Str(nBlockNo, 10, 0), 10)
+			DbAppend()
+			System.Runtime.InteropServices.Marshal.Copy((IntPtr)pRecord, aRecordBuf, 0, nRecSize)
+			VoDbRecordPut(aRecordBuf)
+
+			// record 2 (several blocks)
+			pField := pRecord + 1
+			nBlockNo := BLOBDirectPut(0, Replicate("a", 100))
+			MemCopyString(pField, Str(nBlockNo, 10, 0), 10)
+			DbAppend()
+			System.Runtime.InteropServices.Marshal.Copy((IntPtr)pRecord, aRecordBuf, 0, nRecSize)
+			VoDbRecordPut(aRecordBuf)
+
+			// record 3
+			pField := pRecord + 1
+			nBlockNo := BLOBDirectPut(0, "record 3")
+			MemCopyString(pField, Str(nBlockNo, 10, 0), 10)
+			DbAppend()
+			System.Runtime.InteropServices.Marshal.Copy((IntPtr)pRecord, aRecordBuf, 0, nRecSize)
+			VoDbRecordPut(aRecordBuf)
+
+			VoDbCommit()
+			VoDbCloseArea()
+			MemFree(pRecord)
+
+			// TEST
+			Assert.True( DbUseArea(TRUE, "DBFCDX", cDbf, "MEMOTEST", FALSE, FALSE) )
+			VoDbGoTop()
+			Assert.True( !VoDbEof() )
+			Assert.Equal( "record 1", STRING( FieldGetSym(#DATA) ) )
+			VoDbSkip(1)
+			Assert.True( !VoDbEof() )
+			Assert.Equal( Replicate("a", 100), STRING( FieldGetSym(#DATA) ) )
+			VoDbSkip(1)
+			Assert.True( !VoDbEof() )
+			Assert.Equal( "record 3", STRING( FieldGetSym(#DATA) ) )
+			VoDbSkip(1)
+			Assert.True( VoDbEof() )
+			VoDbCloseArea()
+
+
 
 
 		STATIC PRIVATE METHOD GetTempFileName() AS STRING

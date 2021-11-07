@@ -34,6 +34,11 @@ namespace XSharp.CodeDom
         internal Dictionary<ParserRuleContext, List<XCodeMemberField>> FieldList { get; set; }
         internal string SourceCode { get; set; }
         internal string CurrentFile { get; set; }
+        internal Stack<ParserRuleContext> contextStack;
+        internal ParserRuleContext currentContext;
+        public CodeTypeDeclaration CurrentType { get; protected set; }
+       
+
 #if DUMPSNIPPETS
         const string SnippetsTxt = @"D:\Snippets.txt";
 #endif
@@ -60,6 +65,8 @@ namespace XSharp.CodeDom
             this._locals = new Dictionary<string, IXTypeSymbol>(StringComparer.OrdinalIgnoreCase);
             this._members = new Dictionary<string, XMemberType>(StringComparer.OrdinalIgnoreCase);
             this._typeInOtherFile = otherType;
+            currentContext = null;
+            contextStack = new Stack<ParserRuleContext>();
 
         }
 
@@ -184,8 +191,75 @@ namespace XSharp.CodeDom
         }
 
 
-#endregion
+        #endregion
 
+        #region Type Enter and Exit
+        private void enterType(XSharpParserRuleContext context)
+        {
+            if (currentContext != null)
+                contextStack.Push(currentContext);
+            currentContext = context;
+            if (! FieldList.ContainsKey(context))
+            {
+                FieldList.Add(context, new List<XCodeMemberField>());
+            }
+
+        }
+        private void exitType(XSharpParserRuleContext context)
+        {
+            if (contextStack.Count > 0)
+            {
+                currentContext = contextStack.Pop();
+            }
+            else
+            {
+                currentContext = null;
+            }
+
+        }
+        public override void EnterInterface_(XSharpParser.Interface_Context context)
+        {
+            enterType(context);
+        }
+        public override void ExitInterface_(XSharpParser.Interface_Context context)
+        {
+            exitType(context);
+
+        }
+        public override void EnterDelegate_([NotNull] XSharpParser.Delegate_Context context)
+        {
+            enterType(context);
+        }
+        public override void ExitDelegate_([NotNull] XSharpParser.Delegate_Context context)
+        {
+            exitType(context);
+        }
+        public override void EnterStructure_(XSharpParser.Structure_Context context)
+        {
+            enterType(context);
+        }
+
+        public override void ExitStructure_(XSharpParser.Structure_Context context)
+        {
+            exitType(context);
+        }
+        public override void EnterClass_(XSharpParser.Class_Context context)
+        {
+            enterType(context);
+        }
+        public override void ExitClass_(XSharpParser.Class_Context context)
+        {
+            exitType(context);
+        }
+        public override void EnterEnum_([NotNull] XSharpParser.Enum_Context context)
+        {
+            enterType(context);
+        }
+        public override void ExitEnum_([NotNull] XSharpParser.Enum_Context context)
+        {
+            exitType(context);
+        }
+        #endregion
         public override void EnterSource([NotNull] XSharpParser.SourceContext context)
         {
             var source = (XSharpLexer)context.Start.TokenSource;
@@ -195,6 +269,27 @@ namespace XSharp.CodeDom
         
 
 #region Helpers
+        /// <summary>
+        /// Save the original source for the attributes to the userdata, so Hidden, Export etc are
+        /// saved even when the code generator uses PRIVATE and PUBLIC
+        /// </summary>
+        /// <param name="codeobject"></param>
+        /// <param name="attributes"></param>
+        /// <param name="context"></param>
+        protected void AddMemberAttributes( CodeObject codeobject, MemberAttributes attributes, XSharpParserRuleContext context)
+        {
+            string sourceText = "";
+            if (context != null)
+            {
+                sourceText = context.SourceText(true);
+
+                if (!string.IsNullOrWhiteSpace(sourceText))
+                {
+                   // Save original modifiers, so we can keep their preference
+                    codeobject.SetModifiers(attributes, sourceText);
+                }
+            }
+        }
         /*
          datatype           : ARRAY OF TypeName=typeName                                   #arrayOfType
                             | TypeName=typeName PTR                                         #ptrDatatype
@@ -259,7 +354,7 @@ namespace XSharp.CodeDom
             if (sName.Contains("[") || sName.Contains(">") || customType)
             {
                 // work around to fix type problems with generics and arrays
-                expr.UserData[XSharpCodeConstants.USERDATA_CODE] = sName;
+                expr.SetSourceCode(sName);
             }
             return expr;
         }
@@ -322,7 +417,7 @@ namespace XSharp.CodeDom
             //
             if (expr != null)
             {
-                expr.UserData[XSharpCodeConstants.USERDATA_CODE] = source;
+                expr.SetSourceCode(source);
             }
             return expr;
         }
@@ -696,12 +791,10 @@ namespace XSharp.CodeDom
             return expr;
         }
 
-        public XCodeTypeDeclaration CurrentClass { get; protected set; }
-
 
         private bool findMemberInBaseTypes(string name, MemberTypes mtype)
         {
-            var baseTypes = CurrentClass.BaseTypes;
+            var baseTypes = this.CurrentType.BaseTypes;
             if (baseTypes.Count == 0 && _typeInOtherFile != null)
                 baseTypes = _typeInOtherFile.BaseTypes;
 
@@ -1026,19 +1119,47 @@ namespace XSharp.CodeDom
             }
             return expr;
         }
-        protected TypeAttributes ContextToClassModifiers(XSharpParser.ClassModifiersContext modifiers)
+
+        protected void ContextToTypeAttributes(XCodeTypeDeclaration newClass, XSharpParser.ClassModifiersContext modifiers)
         {
+            if (modifiers == null)
+                return;
+            foreach (var t in modifiers._Tokens)
+            {
+                switch (t.Type)
+                {
+                    case XSharpParser.PARTIAL:
+                        newClass.IsPartial = true;
+                        break;
+                    case XSharpParser.SEALED:
+                        newClass.Attributes |= MemberAttributes.Final;
+                        break;
+                    case XSharpParser.ABSTRACT:
+                        newClass.Attributes |= MemberAttributes.Abstract;
+                        break;
+                    case XSharpParser.INTERNAL:
+                        newClass.Attributes |= MemberAttributes.Assembly;
+                        break;
+                    case XSharpParser.PUBLIC:
+                        newClass.Attributes |= MemberAttributes.Public;
+                        break;
+                }
+            }
+        }
+        protected void ContextToTypeModifiers(XCodeTypeDeclaration type, XSharpParser.ClassModifiersContext modifiers)
+        {
+            if (modifiers == null)
+            {
+                type.TypeAttributes = System.Reflection.TypeAttributes.Public;
+                return;
+            }
             TypeAttributes retValue = TypeAttributes.Public;
-            //
             if (modifiers.INTERNAL().Length > 0)
                 retValue = TypeAttributes.NestedAssembly;
-            //
             if (modifiers.HIDDEN().Length > 0)
                 retValue = TypeAttributes.NestedPrivate;
-            //
             if (modifiers.PRIVATE().Length > 0)
                 retValue = TypeAttributes.NestedPrivate;
-            //
             if (modifiers.PROTECTED().Length > 0)
             {
                 if (modifiers.INTERNAL().Length > 0)
@@ -1046,38 +1167,13 @@ namespace XSharp.CodeDom
                 else
                     retValue = TypeAttributes.NestedFamily;
             }
-            //
             if (modifiers.EXPORT().Length > 0 || modifiers.PUBLIC().Length > 0)
                 retValue = TypeAttributes.Public;
-            //
-            return retValue;
+
+            type.TypeAttributes = retValue;
+            return;
         }
-        protected TypeAttributes ContextToStructureModifiers(XSharpParser.ClassModifiersContext modifiers)
-        {
-            TypeAttributes retValue = TypeAttributes.Public;
-            //
-            if (modifiers.INTERNAL().Length > 0)
-                retValue = TypeAttributes.NestedAssembly;
-            //
-            if (modifiers.HIDDEN().Length > 0)
-                retValue = TypeAttributes.NestedPrivate;
-            //
-            if (modifiers.PRIVATE().Length > 0)
-                retValue = TypeAttributes.NestedPrivate;
-            //
-            if (modifiers.PROTECTED().Length > 0)
-            {
-                if (modifiers.INTERNAL().Length > 0)
-                    retValue = TypeAttributes.NestedFamORAssem;
-                else
-                    retValue = TypeAttributes.NestedFamily;
-            }
-            //
-            if (modifiers.EXPORT().Length > 0 || modifiers.PUBLIC().Length > 0)
-                retValue = TypeAttributes.Public;
-            //
-            return retValue;
-        }
+        
         // memberModifiers     : (Tokens+=(NEW | PRIVATE | HIDDEN | PROTECTED | PUBLIC | EXPORT |
         //                             INTERNAL | STATIC | VIRTUAL | SEALED | ABSTRACT | ASYNC | UNSAFE | EXTERN | OVERRIDE) )+
 
@@ -1139,7 +1235,10 @@ namespace XSharp.CodeDom
         }
         protected MemberAttributes ContextToConstructorModifiers(XSharpParser.ConstructorModifiersContext modifiers)
         {
-            return decodeMemberAttributes(modifiers._Tokens);
+            var result = decodeMemberAttributes(modifiers._Tokens);
+            if (modifiers.STATIC().Length > 0)
+                result |= MemberAttributes.Static;
+            return result;
         }
 
         protected MemberAttributes ContextToEventModifiers(XSharpParser.MemberModifiersContext modifiers)
@@ -1185,11 +1284,17 @@ namespace XSharp.CodeDom
         }
 
 
+        /// <summary>
+        /// Save the location of the member in the UserData of the CodeObject, so the editor will open the right line when selecting an event.
+        /// </summary>
+        /// <param name="newElement"></param>
+        /// <param name="line"></param>
+        /// <param name="col"></param>
         protected void FillCodeDomDesignerData(CodeObject newElement, int line, int col)
         {
             CodeDomDesignerData data = new CodeDomDesignerData();
             //
-            data.CaretPosition = new System.Drawing.Point(col, line);
+            data.CaretPosition = new System.Drawing.Point(col-1, line);
             data.FileName = this.CurrentFile;
             // point is where the designer will try to focus if the
             // user wants to add event handler stuff.
@@ -1197,31 +1302,53 @@ namespace XSharp.CodeDom
             newElement.UserData[typeof(System.Drawing.Point)] = data.CaretPosition;
         }
 
-        protected void FillCodeSource(CodeObject element, ParserRuleContext context, IList<IToken> tokens)
+        /// <summary>
+        /// Save the source code for a member in the UserData of the CodeObject
+        /// </summary>
+        /// <param name="element"></param>
+        /// <param name="context"></param>
+        /// <param name="tokens"></param>
+        protected void SaveSourceCode(CodeObject element, ParserRuleContext context)
         {
-            StringBuilder prototype = new StringBuilder();
-            var index = ((XSharpToken) context.Start).OriginalTokenIndex;
-            var lastindex = ((XSharpToken)context.Stop).OriginalTokenIndex;
-            while (index > 0 && index < tokens.Count)
-            {
-                prototype.Append(tokens[index].Text);
-                if (index == lastindex)
-                    break;
-                index++;
-            }
-            element.UserData[XSharpCodeConstants.USERDATA_CODE] = prototype.ToString();
+            var source = GetRuleSource(context);
+            if (element.HasLeadingTrivia())
+                source = source.TrimStart();
+            element.SetSourceCode(source);
             FillCodeDomDesignerData(element, context.Start.Line, context.Start.Column);
         }
 
-        protected CodeSnippetTypeMember CreateSnippetMember(ParserRuleContext context)
+
+        protected string GetRuleSource(ParserRuleContext context)
         {
-            // The original source code
             var xtoken = context.Start as XSharpToken;
             var start = xtoken.OriginalTokenIndex;
 
             var startIndex = _tokens[start].StartIndex;
             int length = context.Stop.StopIndex - startIndex + 1;
             string sourceCode = this.SourceCode.Substring(startIndex, length);
+            if (xtoken.HasTrivia)
+            {
+                var sb = new StringBuilder();
+                foreach (var t in xtoken.Trivia)
+                {
+                    if (t.Line == xtoken.Line)
+                    {
+                        sb.Append(t.Text);
+                    }
+                }
+                if (sb.Length > 0)
+                {
+                    sb.Append(sourceCode);
+                    sourceCode = sb.ToString();
+                }
+            }
+            return sourceCode;
+        }
+
+        protected CodeSnippetTypeMember CreateSnippetMember(ParserRuleContext context)
+        {
+            // The original source code
+            string sourceCode = GetRuleSource(context);
             XCodeSnippetTypeMember snippet = new XCodeSnippetTypeMember(sourceCode);
             FillCodeDomDesignerData(snippet, context.Start.Line, context.Start.Column);
             return snippet;
@@ -1752,7 +1879,7 @@ namespace XSharp.CodeDom
     }
     internal static class ParserExtensions
     {
-        internal static string SourceText(this XSharpParserRuleContext context)
+        internal static string SourceText(this XSharpParserRuleContext context, bool noComments = false)
         {
             StringBuilder result = new StringBuilder();
             foreach (var token in context.children)
@@ -1763,13 +1890,27 @@ namespace XSharp.CodeDom
                 }
                 else if (token is XSharpToken xtoken)
                 {
-                    result.Append(xtoken.TriviaAsText);
-                    result.Append(xtoken.Text);
+                    if (! noComments)
+                    {
+                        result.Append(xtoken.TriviaAsText);
+                    }
+                    else
+                    {
+                        result.Append(xtoken.Text);
+                        result.Append(' ');
+                    }
                 }
                 else if (token.Payload is XSharpToken xtoken2)
                 {
-                    result.Append(xtoken2.TriviaAsText);
-                    result.Append(xtoken2.Text);
+                    if (!noComments)
+                    {
+                        result.Append(xtoken2.TriviaAsText);
+                    }
+                    else
+                    {
+                        result.Append(xtoken2.Text);
+                        result.Append(' ');
+                    }
 
                 }
                 else
@@ -1779,5 +1920,6 @@ namespace XSharp.CodeDom
             }
             return result.ToString();
         }
+       
     }
 }

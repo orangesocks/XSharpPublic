@@ -11,6 +11,8 @@ USING System.Linq
 BEGIN NAMESPACE XSharpModel
 
    STATIC CLASS XTypeExtensions
+      STATIC METHOD IsGlobalType(SELF type as IXTypeSymbol) AS LOGIC
+          RETURN type:Name == XLiterals.GlobalName
       STATIC METHOD GetDescription(SELF type as IXTypeSymbol) AS STRING
          VAR modVis := type:ModVis
          IF  type:IsStatic
@@ -19,12 +21,20 @@ BEGIN NAMESPACE XSharpModel
          RETURN modVis + type:Kind:ToString() + " " + type:Prototype
 
       STATIC METHOD GetFullName(SELF type as IXTypeSymbol) AS STRING
+         LOCAL result as STRING
+         result := iif(type:IsGeneric, type:GenericName, type:Name)
          IF ! String.IsNullOrEmpty(type:Namespace) .AND. type:Kind != Kind.Namespace
-            var result := type:Namespace + "." + type:Name
-            RETURN result
+            result := type:Namespace + "." +result
          ENDIF
-         RETURN type:Name
+         RETURN result
 
+      INTERNAL STATIC METHOD _GetGenericName(SELF type as IXTypeSymbol) AS STRING
+            var result := type:Name
+            var pos := result:IndexOfAny(<char>{'`','<'})
+            if pos > 0
+                result := result:Substring(0, pos)+"<"+type:TypeParameterList+">"
+            endif
+            return result
 
       STATIC METHOD GetMethods(SELF type as IXTypeSymbol, declaredOnly := false AS LOGIC) AS IXMemberSymbol[]
          if declaredOnly
@@ -71,8 +81,6 @@ BEGIN NAMESPACE XSharpModel
             RETURN "T:"+peType:OriginalTypeName
          ENDIF
          RETURN "T:"+tm:FullName
-      STATIC METHOD IsPublic(SELF type as IXTypeSymbol) AS LOGIC
-            return type:Visibility >= Modifiers.Public
       STATIC METHOD IsVoStruct(SELF type AS IXTypeSymbol) AS LOGIC
         IF (type == NULL)
             RETURN FALSE

@@ -56,9 +56,9 @@ namespace XSharp.MacroCompiler.Preprocessor
   
     internal class PPErrorMessage
     {
-        internal Token Token { get; private set; }
+        internal XSharpToken Token { get; private set; }
         internal string Message { get; private set; }
-        internal PPErrorMessage(Token token, string message)
+        internal PPErrorMessage(XSharpToken token, string message)
         {
             Token = token;
             Message = message;
@@ -339,14 +339,14 @@ namespace XSharp.MacroCompiler.Preprocessor
             // check to see if this is already there
             if (_list.Count == _maxDepth)
             {
-                _pp.Error(tokens[0], ErrorCode.PreProcessorRecursiveRule, rule.Name);
+                _pp.Error(tokens[0], ErrorCode.ERR_PreProcessorRecursiveRule, rule.Name);
                 return true;
             }
             foreach (var item in _list)
             {
                 if (item.isDuplicate(rule, tokens))
                 {
-                    _pp.Error(tokens[0], ErrorCode.PreProcessorRecursiveRule, rule.Name);
+                    _pp.Error(tokens[0], ErrorCode.ERR_PreProcessorRecursiveRule, rule.Name);
                     return true;
                 }
             }

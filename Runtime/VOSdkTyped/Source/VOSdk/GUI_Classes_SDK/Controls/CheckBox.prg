@@ -66,7 +66,7 @@ CLASS CheckBox INHERIT Button
 
 		RETURN 
 
-	METHOD Destroy() AS USUAL CLIPPER
+	METHOD Destroy() AS USUAL 
 		IF SELF:__IsValid 
 			lSavedChecked := SELF:Checked
 		ENDIF

@@ -25,6 +25,7 @@ BEGIN NAMESPACE XSharpModel
       PRIVATE _isClone        AS LOGIC
       PROPERTY SourceCode     AS STRING AUTO
       PROPERTY ShortName      AS STRING  GET IIF(!SELF:IsGeneric, SELF:Name, SELF:Name:Substring(0, SELF:Name:IndexOf("<")-1))
+      PROPERTY GenericName    AS STRING AUTO
 
       CONSTRUCTOR(name AS STRING, kind AS Kind, attributes AS Modifiers, span AS TextRange, position AS TextInterval, oFile AS XFile)
          SUPER(name, kind, attributes, span, position)
@@ -71,15 +72,16 @@ BEGIN NAMESPACE XSharpModel
       METHOD AddMember(oMember AS XSourceMemberSymbol) AS VOID
          BEGIN LOCK SELF:_members
             SELF:_members:Add(oMember)
-            oMember:Parent := SELF
-
+            oMember:Parent        := SELF
+            oMember:DeclaringType := SELF:FullName
          END LOCK
 
       METHOD AddMembers(members AS IEnumerable<XSourceMemberSymbol>) AS VOID
          BEGIN LOCK SELF:_members
             FOREACH VAR oMember IN members
                SELF:_members:Add(oMember)
-               oMember:Parent := SELF
+               oMember:Parent        := SELF
+               oMember:DeclaringType := SELF:FullName
             NEXT
          END LOCK
 
@@ -100,12 +102,12 @@ BEGIN NAMESPACE XSharpModel
       PROPERTY InterfaceList AS STRING                   GET SELF:_signature:InterfaceList
       PROPERTY IsGlobal    AS LOGIC                      GET SELF:Name == XLiterals.GlobalName
       PROPERTY TypeParameters as IList<STRING>           GET SELF:_signature:TypeParameters:ToArray()
-      PROPERTY TypeParametersList AS STRING              GET SELF:_signature:TypeParametersList
+      PROPERTY TypeParameterList AS STRING               GET SELF:_signature:TypeParameterList
       PROPERTY TypeParameterConstraints as IList<STRING> GET SELF:_signature:TypeParameterContraints:ToArray()
       PROPERTY TypeParameterConstraintsList  AS STRING   GET SELF:_signature:TypeParameterConstraintsList
       PROPERTY Location                      AS STRING   GET SELF:File:FullPath
       PROPERTY OriginalTypeName              AS STRING   GET SELF:TypeName
-
+      PROPERTY IsFunctionsClass              AS LOGIC    GET SELF:Name == XLiterals.GlobalName
       METHOD ClearMembers() AS VOID
          SELF:_members:Clear()
 
@@ -176,12 +178,19 @@ BEGIN NAMESPACE XSharpModel
             SELF:_baseType := SELF:File:Project:FindType(SELF:BaseTypeName, SELF:File:Usings)
             if self:_baseType != NULL
                 self:_basemembers:Clear()
-                self:_basemembers:AddRange(self:_baseType:AllMembers:Where( { m => m.Kind != Kind.Constructor .AND. m.Visibility != Modifiers.Private }))
+                self:_basemembers:AddRange(self:_baseType:AllMembers:Where( { m => m:IsMethodVisibleInSubclass() }) )
             endif
         ENDIF
         RETURN
 
-      PROPERTY FullName  AS STRING   GET SELF:GetFullName()
+      PROPERTY FullName  AS STRING
+            GET
+                IF SELF:IsGeneric .and. String.IsNullOrEmpty(SELF:GenericName)
+                    SELF:GenericName :=  SELF:_GetGenericName()
+                ENDIF
+                RETURN SELF:GetFullName()
+            END GET
+      END PROPERTY
       PROPERTY IsGeneric as LOGIC    GET SELF:TypeParameters:Count > 0
 
       /// <summary>
@@ -254,7 +263,7 @@ BEGIN NAMESPACE XSharpModel
             BEGIN LOCK SELF:_children
                 var children := List<IXTypeSymbol>{}
                 children:AddRange(SELF:_children)
-                return children                
+                return children
             END LOCK
          END GET
       END PROPERTY

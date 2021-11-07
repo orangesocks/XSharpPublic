@@ -54,7 +54,7 @@ BEGIN NAMESPACE XSharpModel
                SELF:_projects:Enqueue(xProject)
             ENDIF
          END LOCK
-         IF (! SELF:IsWalkerRunning .AND. ! xProject:IsVsBuilding)
+         IF (! SELF:IsRunning .AND. ! XSolution.IsVsBuilding)
             SELF:Walk()
          ENDIF
 
@@ -83,7 +83,7 @@ BEGIN NAMESPACE XSharpModel
                NEXT
             ENDIF
          END LOCK
-         IF (! SELF:IsWalkerRunning .AND. ! xProject:IsVsBuilding)
+         IF (! SELF:IsRunning .AND. ! XSolution.IsVsBuilding)
             SELF:Walk()
          ENDIF
          //WriteOutputMessage("<<-- RemoveProject()")
@@ -137,6 +137,11 @@ BEGIN NAMESPACE XSharpModel
       STATIC METHOD Resume() AS VOID
          ModelWalker.suspendLevel--
 
+      STATIC METHOD Stop AS VOID
+        ModelWalker.suspendLevel  := 1
+        GetWalker():StopThread()
+
+
       INTERNAL METHOD StopThread() AS VOID
          TRY
             IF SELF:_WalkerThread == NULL
@@ -158,7 +163,7 @@ BEGIN NAMESPACE XSharpModel
          IF (ModelWalker._walker != NULL .AND. ModelWalker._walker:_projects:Count > 0)
             LOCAL project := NULL AS XProject
             IF ModelWalker._walker:_projects:TryPeek(REF project)
-               project:ProjectNode:SetStatusBarText("")
+               XSolution.SetStatusBarText("")
             ENDIF
          ENDIF
 
@@ -186,7 +191,7 @@ BEGIN NAMESPACE XSharpModel
          LOCAL project AS XProject
          LOCAL parallelOptions AS System.Threading.Tasks.ParallelOptions
          project := NULL
-         IF SELF:_projects:Count != 0 .AND. ! SELF:_projects:First():IsVsBuilding
+         IF SELF:_projects:Count != 0 .AND. ! XSolution.IsVsBuilding
             DO WHILE TRUE
                IF ModelWalker.suspendLevel > 0
                   IF project != NULL
@@ -248,7 +253,7 @@ BEGIN NAMESPACE XSharpModel
 
 
          ENDIF
-         IF SELF:_projectsForTypeResolution:Count != 0 .AND. ! SELF:_projectsForTypeResolution:First():IsVsBuilding
+         IF SELF:_projectsForTypeResolution:Count != 0 .AND. ! XSolution:IsVsBuilding
             DO WHILE TRUE
                IF ModelWalker.suspendLevel > 0
                   IF project != NULL
@@ -273,7 +278,7 @@ BEGIN NAMESPACE XSharpModel
          VAR project := _currentProject
          IF project:Loaded .AND. XSolution:IsOpen
             iProcessed++
-            DO WHILE (project:ProjectNode:IsVsBuilding)
+            DO WHILE (XSolution:IsVsBuilding)
                System.Threading.Thread.Sleep(1000)
             ENDDO
             IF iProcessed % 10 == 0 .OR. iProcessed == aFiles:Length
@@ -291,7 +296,7 @@ BEGIN NAMESPACE XSharpModel
       PROPERTY HasWork AS LOGIC GET SELF:_projects:Count > 0
       STATIC PROPERTY IsSuspended AS LOGIC GET ModelWalker.suspendLevel > 0
 
-      PROPERTY IsWalkerRunning AS LOGIC
+      PROPERTY IsRunning AS LOGIC
          GET
             TRY
                IF SELF:_WalkerThread != NULL

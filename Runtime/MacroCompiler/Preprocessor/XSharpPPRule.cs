@@ -20,7 +20,7 @@ namespace XSharp.MacroCompiler.Preprocessor
         HasRepeats = 1 << 0,
         HasOptionalResult = 1 << 1,
         HasOptionalMatch = 1 << 2,
-        CaseInsensitive = 1 << 3
+        VOPreprocessorBehaviour = 1 << 3
     }
     [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
     internal class PPRule
@@ -32,12 +32,12 @@ namespace XSharp.MacroCompiler.Preprocessor
         private PPResultToken[] _resulttokens;
         private readonly PPErrorMessages _errorMessages;
         internal PPRuleFlags _flags;
-        internal bool CaseInsensitive => _flags.HasFlag(PPRuleFlags.CaseInsensitive);
+        internal bool VOPreprocessorBehaviour => _flags.HasFlag(PPRuleFlags.VOPreprocessorBehaviour);
         internal bool hasRepeats => _flags.HasFlag(PPRuleFlags.HasRepeats);
         internal bool hasOptionalResult => _flags.HasFlag(PPRuleFlags.HasOptionalResult);
         internal bool hasOptionalMatch  => _flags.HasFlag(PPRuleFlags.HasOptionalMatch);
         internal int firstOptionalMatchToken = -1;
-        private MacroOptions _options;
+        private readonly MacroOptions _options;
         internal PPUDCType Type { get { return _type; } }
         internal PPRule(XSharpToken udc, IList<XSharpToken> tokens, out PPErrorMessages errorMessages, MacroOptions options)
         {
@@ -131,8 +131,8 @@ namespace XSharp.MacroCompiler.Preprocessor
             // This is done inline since it is much simpler then for a UDC
             var matchTokens = new List<PPMatchToken>();
             var resultTokens = new List<PPResultToken>();
-            // inside a #define the tokens are case sensitive
-            var markers = new Dictionary<string, PPMatchToken>(_options.CaseSensitivePreprocessor ? StringComparer.Ordinal : StringComparer.OrdinalIgnoreCase);
+            // inside a #define the tokens are case sensitive, depending in the /vo8 option
+            var markers = new Dictionary<string, PPMatchToken>(_options.VOPreprocessorBehaviour ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
             bool hasSeenLParen = false;
             bool hasErrors = false;
             for (int i = 0; i < left.Length && !hasErrors; i++)
@@ -213,6 +213,7 @@ namespace XSharp.MacroCompiler.Preprocessor
         bool parseRuleTokens(XSharpToken udc, XSharpToken[] tokens)
         {
             int iSeperatorPos = -1;
+            // Inside #command, #translate etc the markers are always case insensitive
             var markers = new Dictionary<string, PPMatchToken>(StringComparer.OrdinalIgnoreCase);
 
             if (tokens?.Length == 0)
@@ -244,7 +245,6 @@ namespace XSharp.MacroCompiler.Preprocessor
             {
                 // Check to see if all result tokens have been matched
                 // Unmatched Match tokens is fine (they may be deleted from the output)
-
                 foreach (var r in _resulttokens)
                 {
                     if (r.IsMarker && r.MatchMarker == null)
@@ -723,12 +723,14 @@ namespace XSharp.MacroCompiler.Preprocessor
                 return false;
             foreach (var element in stoptokens)
             {
+                // do not add tokens that are already in the list.
                 if (tokenEquals(element, token))
                 {
                     return false;
                 }
             }
-            return true;
+            // At this moment we do not allow constants or NULL to be a stop token
+            return token.IsIdentifier() || token.IsOperator() || token.IsKeyword();
         }
         List<XSharpToken> getNestedTokens(int start, int max, XSharpToken[] tokens)
         {
@@ -789,7 +791,7 @@ namespace XSharp.MacroCompiler.Preprocessor
 /*nvk                if (token.Source == lastTokenSource && token.Index > lastTokenIndex + 1)
                 {
                     // whitespace tokens have been skipped
-                    var ppWs = new Token(token, TokenType.WS, " ");
+                    var ppWs = new XSharpToken(token, TokenType.WS, " ");
                     ppWs.Channel = Channel.Hidden;
                     result.Add(new PPResultToken(ppWs, PPTokenType.Token));
                 }*/
@@ -980,7 +982,8 @@ namespace XSharp.MacroCompiler.Preprocessor
                     result += this.Type.ToString() + " ";
                     foreach (var token in _matchtokens)
                     {
-                        result += token.SyntaxText + " ";
+                        if (token.RuleTokenType != PPTokenType.MatchWholeUDC)
+                            result += token.SyntaxText + " ";
                     }
                     return result.Trim();
                 }
@@ -1018,25 +1021,27 @@ namespace XSharp.MacroCompiler.Preprocessor
         }
         bool stringEquals(string lhs, string rhs)
         {
+            // #command, #translate, #xcommand and #xtranslate are always case insensitive
+            // for #define this depends on the setting of /vo8
             var mode = StringComparison.OrdinalIgnoreCase;
-            if (this.Type == PPUDCType.Define && !CaseInsensitive)
+            if (this.Type == PPUDCType.Define && this.VOPreprocessorBehaviour)
             {
                 mode = StringComparison.Ordinal;    // case sensitive
             }
             if (lhs?.Length <= 4)
             {
-                return String.Equals(lhs, rhs, mode);
+                return string.Equals(lhs, rhs, mode);
             }
             switch (this.Type)
             {
                 case PPUDCType.Command:
                 case PPUDCType.Translate:
                     // dBase/Clipper syntax 4 characters is enough
-                    return String.Compare(lhs, 0, rhs, 0, Math.Max(rhs.Length,4) , mode) == 0;
+                    return string.Compare(lhs, 0, rhs, 0, Math.Max(rhs.Length, 4), mode) == 0;
                 case PPUDCType.XCommand:
                 case PPUDCType.XTranslate:
                 case PPUDCType.Define:
-                    return String.Equals(lhs, rhs, mode);
+                    return string.Equals(lhs, rhs, mode);
             }
             return false;
         }
@@ -1153,7 +1158,7 @@ namespace XSharp.MacroCompiler.Preprocessor
         bool matchExtendedToken(PPMatchToken mToken, IList<XSharpToken> tokens, ref int iSource, PPMatchRange[] matchInfo, IList<XSharpToken> matchedWithToken)
         {
             int iStart = iSource;
-            var lastType = TokenType.LAST;
+            var lastType = XSharpLexer.LAST;
             var level = 0;
             var done = false;
             var consumed = 0;
@@ -1246,11 +1251,7 @@ namespace XSharp.MacroCompiler.Preprocessor
             {
                 var child = mToken.Tokens[iChild];
                 lastToken = child;
-                if (child.Type == XSharpLexer.COMMA)
-                {
-                    iMatch = 0;
-                }
-                else if (tokenEquals(child, tokens[iCurrent]))
+                if (tokenEquals(child, tokens[iCurrent]))
                 {
                     iMatch += 1;
                     if (iChild == iLast) // No token following this one
@@ -1577,15 +1578,29 @@ namespace XSharp.MacroCompiler.Preprocessor
 
             // Now mark the tokens that were matched with tokens in the UDC with the keyword color
             // Since our token may be a clone, we change the Type of the source token
-            foreach (var token in matchedWithToken)
+#if VSPARSER
+            for (int match = 0; match < _matchtokens.Length; match++)
             {
-                if (token.Type == XSharpLexer.ID)
+                var mt = _matchtokens[match];
+                switch (mt.RuleTokenType)
                 {
-                    // this makes sure that the matched ID keys a Keyword color in the editor
-// nvk                    token.Original.type = TokenType.UDC_KEYWORD;
+                    case PPTokenType.Token:
+                    case PPTokenType.MatchRestricted:
+                        var info = matchInfo[match];
+                        if (!info.Empty)
+                        {
+                            for (var iPos = info.Start; iPos <= info.End; iPos++)
+                            {
+                                var token = tokens[iPos];
+                                token = token.Original;
+                                if (token.Type == XSharpLexer.ID)
+                                    token.Type = XSharpLexer.UDC_KEYWORD;
+                            }
+                        }
+                        break;
                 }
             }
-
+#endif
             return true;
 
         }
@@ -1679,7 +1694,7 @@ namespace XSharp.MacroCompiler.Preprocessor
                             case XSharpLexer.ID:
                                 token.Type = XSharpLexer.ID;
                                 // This makes sure that the token in the editor has the ID color
-// nvk                                token.Original.type = TokenType.ID; 
+// nvk                                token.Original.type = XSharpLexer.ID; 
                                 break;
                         }
                     }
@@ -1698,9 +1713,9 @@ namespace XSharp.MacroCompiler.Preprocessor
                             default:
                                 if (lasttoken.IsKeyword())
                                 {
-                                    lasttoken.Type = TokenType.ID;
+                                    lasttoken.Type = XSharpLexer.ID;
                                     // This makes sure that the token in the editor has the ID color
-// nvk                                    lasttoken.Original.type = TokenType.ID;
+// nvk                                    lasttoken.Original.type = XSharpLexer.ID;
                                 }
                                 break;
                         }

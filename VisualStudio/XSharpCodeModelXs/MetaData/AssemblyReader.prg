@@ -56,9 +56,9 @@ INTERNAL CLASS AssemblyReader
                if att:ConstructorArguments:Count >= 2
                   var arg1 := att:ConstructorArguments[0]:Value:ToString()
                   var arg2 := att:ConstructorArguments[1]:Value:ToString()
-					   assembly:GlobalClassName := arg1
-					   IF ! String.IsNullOrEmpty(arg2)
-						   assembly:ImplicitNamespaces:Add(arg2)
+			      assembly:GlobalClassName := arg1
+				  IF ! String.IsNullOrEmpty(arg2)
+					  assembly:ImplicitNamespaces:Add(arg2)
                   ENDIF
                   assembly:IsXSharp := TRUE
                ENDIF
@@ -74,8 +74,22 @@ INTERNAL CLASS AssemblyReader
          foreach var md in _extensionMethods
             assembly:ExtensionMethods:Add( XPEMethodSymbol{md, assembly })
          next
-         assembly:Loaded                 := TRUE
          assembly:Namespaces             := _nameSpaces
+         if ! String.IsNullOrEmpty(assembly:GlobalClassName)
+             var globaltype := assembly:Types[assembly:GlobalClassName]
+             var members := globaltype:XMembers:Where ({ m => m:IsPublic })
+             foreach var mem in members
+                 if mem:Kind == Kind.Field
+                    if mem:Modifiers:HasFlag(Modifiers.Const) .or. mem:Modifiers:HasFlag(Modifiers.InitOnly)
+                        mem:Kind := Kind.VODefine
+                    else
+                        mem:Kind := Kind.VOGlobal
+                    endif
+                 endif
+                 assembly:GlobalMembers:Add(mem:Prototype, mem)
+             next
+         endif
+         assembly:Loaded                 := TRUE
          RETURN
       ENDIF
       RETURN

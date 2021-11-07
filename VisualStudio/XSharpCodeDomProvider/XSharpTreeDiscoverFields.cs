@@ -23,28 +23,13 @@ namespace XSharp.CodeDom
     internal class XSharpFieldsDiscover : XSharpBaseDiscover
     {
 
-        internal Stack<ParserRuleContext> classes;
-        internal ParserRuleContext currentClass;
         
 
         internal XSharpFieldsDiscover(IProjectTypeHelper projectNode, CodeTypeDeclaration typeInOtherFile) : base(projectNode, typeInOtherFile)
         {
-            classes = new Stack<ParserRuleContext>();
-            currentClass = null;
         }
 
-        public override void EnterClass_(XSharpParser.Class_Context context)
-        {
-            // pop previous class
-            classes.Push(currentClass);
-            currentClass = context;
-            FieldList.Add(context, new List<XCodeMemberField>());
-        }
-        public override void ExitClass_(XSharpParser.Class_Context context)
-        {
-            // restore previous class 
-            currentClass = classes.Pop();
-        }
+ 
         //classvarModifiers   : (Tokens+=(INSTANCE| STATIC | CONST | INITONLY | PRIVATE | HIDDEN | PROTECTED | PUBLIC
         //                      | EXPORT | INTERNAL | VOLATILE | UNSAFE | FIXED) )+
 
@@ -100,7 +85,7 @@ namespace XSharp.CodeDom
             var classVarModifiers = decodeClassVarModifiers(context.Modifiers);
             if (context._Vars.Count > 1)
             {
-                XSharpParser.DatatypeContext dtc = null; ;
+                XSharpParser.DatatypeContext dtc = null; 
                 foreach (var classvar in context._Vars.Reverse())
                 {
                     if (classvar.DataType != null)
@@ -120,11 +105,15 @@ namespace XSharp.CodeDom
                 if (varContext.Initializer != null)
                 {
                     field.InitExpression = BuildExpression(varContext.Initializer, false);
+                    SaveSourceCode(field.InitExpression, varContext.Initializer);
                 }
                 FillCodeDomDesignerData(field, varContext.Start.Line, varContext.Start.Column);
+                // write original source for the attributes
+                AddMemberAttributes(field, classVarModifiers, context.Modifiers);
                 writeTrivia(field, context);
+                SaveSourceCode(field, varContext);
                 //
-                FieldList[currentClass].Add(field);
+                FieldList[currentContext].Add(field);
             }
             //
         }

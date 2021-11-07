@@ -13,7 +13,7 @@
     <GenerateFullPaths>true</GenerateFullPaths>
     <Dialect>VO</Dialect>
     <OutputName>ConsoleApplication2</OutputName>
-    <XSharpProjectversion>2.8.4.1</XSharpProjectversion>
+    <XSharpProjectversion>2.9.1.0</XSharpProjectversion>
     <StartupObject />
     <ApplicationIcon />
     <VulcanCompatibleResources>False</VulcanCompatibleResources>
@@ -25,35 +25,35 @@
     <VO4>false</VO4>
     <VO5>false</VO5>
     <VO6>false</VO6>
-    <VO7>false</VO7>
+    <VO7>False</VO7>
     <VO8>false</VO8>
-    <VO9>True</VO9>
+    <VO9>False</VO9>
     <VO10>false</VO10>
     <VO11>false</VO11>
     <VO12>false</VO12>
     <VO13>false</VO13>
-    <VO14>true</VO14>
-    <VO15>true</VO15>
+    <VO14>False</VO14>
+    <VO15>False</VO15>
     <VO16>false</VO16>
     <XPP1>false</XPP1>
     <FOX1>false</FOX1>
     <AZ>false</AZ>
     <CS>false</CS>
-    <LB>True</LB>
+    <LB>False</LB>
     <NamedArgs>false</NamedArgs>
     <OVF>false</OVF>
-    <Unsafe>false</Unsafe>
+    <Unsafe>True</Unsafe>
     <INS>True</INS>
     <NS>false</NS>
     <NoStandardDefs>false</NoStandardDefs>
     <IncludePaths />
     <StandardDefs />
-    <MemVar>False</MemVar>
+    <MemVar>True</MemVar>
     <Undeclared>false</Undeclared>
     <InitLocals>false</InitLocals>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'" Label="Configuration">
-    <PlatformTarget>x64</PlatformTarget>
+    <PlatformTarget>x86</PlatformTarget>
     <EmitDebugInformation>true</EmitDebugInformation>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
@@ -106,16 +106,6 @@
     <ProjectReference Include="..\..\Runtime\MacroCompiler\MacroCompiler.csproj">
       <Name>MacroCompiler (Macrocompiler\MacroCompiler)</Name>
       <Project>{eb3f3142-07f7-48ca-b38d-f611c45a9511}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Runtime\VOSDK\Source\VOSDK\RDD_Classes_SDK\VORDDClasses.xsproj">
-      <Name>VORDDClasses</Name>
-      <Project>{d7079298-1712-4b03-ad76-4ec53bfe8356}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Runtime\VOSDK\Source\VOSDK\System_Classes_SDK\VOSystemClasses.xsproj">
-      <Name>VOSystemClasses</Name>
-      <Project>{ac2aebff-69ff-405d-b7d9-6e5cb1db914c}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\..\Runtime\XSharp.Core\XSharp.Core.xsproj">

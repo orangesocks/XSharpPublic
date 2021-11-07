@@ -95,8 +95,8 @@ CLASS XSharp.ADS.ADSIndex INHERIT BaseIndex
         ENDIF
         LOCAL hIndex AS IntPtr
         SELF:BagName := info:BagName
-        IF info:Order IS STRING
-            cTag := (STRING) info:Order
+        IF info:Order IS STRING VAR strOrder .AND. ! String.IsNullOrWhiteSpace(strOrder)
+            cTag := strOrder
             IF String.IsNullOrEmpty(SELF:BagName)
                 SELF:BagName := cTag
             ENDIF
@@ -114,7 +114,7 @@ CLASS XSharp.ADS.ADSIndex INHERIT BaseIndex
         SELF:Index := hIndex
         SELF:_ReadNames(hIndex)
         IF mustEval
-            ACE.AdsClearProgressCallback()
+            ACE.AdsClearCallbackFunction()
             SELF:_CallbackFn := NULL
         ENDIF
         SELF:_CheckError(result,EG_CREATE)

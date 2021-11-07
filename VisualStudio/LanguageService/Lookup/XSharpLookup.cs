@@ -42,14 +42,26 @@ namespace XSharp.LanguageService
                     currentType = location.Member.ParentType;
                 }
                 // we search in the order:
-                // 1) Parameters (for entities with parameters)
-                // 2) Locals (for entities with locals)
-                // 3) Properties or Fields
-                // 4) Globals and Defines
+                // 1) Type parameters
+                // 2) Parameters (for entities with parameters)
+                // 3) Locals (for entities with locals)
+                // 4) Properties or Fields
+                // 5) Globals and Defines
                 if (XSettings.EnableTypelookupLog)
                     WriteOutputMessage($"--> FindIdentifier in {currentType.FullName}, '{name}' ");
                 var member = location.Member;
-                if (member.Kind.HasParameters())
+                if (currentType.TypeParameters.Count > 0 && currentType is XSourceTypeSymbol source)
+                {
+                    foreach (var param in currentType.TypeParameters)
+                    {
+                        if (StringEquals(param, name) )
+                        {
+                            var sym = new XSourceTypeParameterSymbol(source, name, source.Range, source.Interval);
+                            result.Add(sym);
+                        }
+                    }
+                }
+                if (result.Count == 0 && member.Kind.HasParameters())
                 {
                     result.AddRange(member.Parameters.Where(x => StringEquals(x.Name, name)));
                 }
@@ -74,7 +86,7 @@ namespace XSharp.LanguageService
                 if (result.Count == 0)
                 {
                     // We can have a Property/Field of the current CompletionType
-                    if (currentType != null)
+                    if (currentType != null && !currentType.IsGlobalType())
                     {
                         result.AddRange(SearchPropertyOrField(location, currentType, name, visibility));
                     }
@@ -406,6 +418,8 @@ namespace XSharp.LanguageService
         }
 
 
+        
+
         /// <summary>
         /// Retrieve the CompletionType based on :
         ///  The Token list returned by GetTokenList()
@@ -415,24 +429,24 @@ namespace XSharp.LanguageService
         /// <param name="tokenList"></param>
         /// <param name="state"></param>
         /// <param name="foundElement"></param>
-        /// <param name="stopAtOpenToken"></param>
+        /// <param name="forQuickinfo"></param>
         /// <returns></returns>
-        public static IList<IXSymbol> RetrieveElement(XSharpSearchLocation location, IList<XSharpToken> tokenList,
-            CompletionState state, out string notProcessed, bool stopAtOpenToken = false )
+        public static IList<IXSymbol> RetrieveElement(XSharpSearchLocation location, IList<XSharpToken> xtokenList,
+            CompletionState state, out string notProcessed, bool forQuickinfo = false )
         {
             //
             notProcessed = "";
             var result = new List<IXSymbol>();
-            if (tokenList == null || tokenList.Count == 0)
+            if (xtokenList == null || xtokenList.Count == 0)
                 return result;
+            var list = new XSharpTokenList(xtokenList);
             var symbols = new Stack<IXSymbol>();
             IXTypeSymbol currentType = null;
-            int currentPos = 0;
             var startOfExpression = true;
             var findConstructor = false;
             XSharpToken currentToken = null;
             IXTypeSymbol startType = null;
-            //
+
             if (location.Member == null)
             {
                 // This is a lookup outside code.
@@ -442,7 +456,7 @@ namespace XSharp.LanguageService
                 if (!state.HasFlag(CompletionState.Namespaces) && !state.HasFlag(CompletionState.Types))
                     return result;
                 StringBuilder sb = new StringBuilder();
-                foreach (var token in tokenList)
+                foreach (var token in xtokenList)
                 {
                     sb.Append(token.Text);
                 }
@@ -466,30 +480,18 @@ namespace XSharp.LanguageService
 
             }
             Modifiers visibility = Modifiers.Private;
-            int lastopentoken = tokenList.Count - 1;
-            if (stopAtOpenToken)
-            {
-                for (int i = 0; i < tokenList.Count; i++)
-                {
-                    var token = tokenList[i];
-                    switch (token.Type)
-                    {
-                        case XSharpLexer.LPAREN:
-                        case XSharpLexer.LCURLY:
-                        case XSharpLexer.LBRKT:
-                            lastopentoken = i;
-                            break;
-                    }
-                }
-            }
             string namespacePrefix = "";
-            int stopAt = 0;
             var hasBracket = false;
             int count = -1;
             startType = currentType;
             bool resetState = false;
-            while (currentPos <= lastopentoken)
+           while (! list.Eoi())
             {
+                // after LPAREN, LCURLY and LBRKT we skip until we see the closing token
+                currentToken = list.ConsumeAndGet();
+                if (currentToken.Type == XSharpLexer.DOT ||
+                    currentToken.Type == XSharpLexer.COLON)
+                    startOfExpression = false;
                 result.Clear();
                 notProcessed = "";
                 if (symbols.Count > 0 && symbols.Count != count)
@@ -504,57 +506,38 @@ namespace XSharp.LanguageService
                     }
                 }
                 if (resetState)
-                    state = CompletionState.General;
-                if (startOfExpression)
-                    currentType = startType;
-                currentToken = tokenList[currentPos];
-                if (stopAt != 0 && currentToken.Type != stopAt)
                 {
-                    currentPos += 1;
-                    continue;
+                    state = CompletionState.General;
                 }
-                stopAt = 0;
+                if (startOfExpression)
+                {
+                    currentType = startType;
+                    namespacePrefix = "";
+                }
+
+
                 var currentName = currentToken.CleanText();
                 var lastToken = currentToken;
-                var nextType = 0;
-                if (currentPos < lastopentoken)
-                {
-                    nextType = tokenList[currentPos + 1].Type;
-                }
                 switch (currentToken.Type)
                 {
                     case XSharpLexer.LPAREN:
-                        currentPos += 1;
-                        if (hasToken(tokenList, currentPos + 1, XSharpLexer.RPAREN))
-                        {
-                            stopAt = XSharpLexer.RPAREN;
-                        }
                         startOfExpression = true;
                         continue;
                     case XSharpLexer.LCURLY:
-                        currentPos += 1;
-                        if (hasToken(tokenList, currentPos + 1, XSharpLexer.RCURLY))
-                        {
-                            stopAt = XSharpLexer.RCURLY;
-                        }
                         startOfExpression = true;
                         continue;
                     case XSharpLexer.LBRKT:
-                        currentPos += 1;
-                        if (hasToken(tokenList, currentPos + 1, XSharpLexer.RBRKT))
-                        {
-                            stopAt = XSharpLexer.RBRKT;
-                        }
                         hasBracket = true;
                         startOfExpression = true;
                         continue;
                     case XSharpLexer.RPAREN:
                     case XSharpLexer.RCURLY:
                     case XSharpLexer.RBRKT:
-                        currentPos += 1;
                         hasBracket = (currentToken.Type == XSharpLexer.RBRKT);
                         if (symbols.Count > 0 && hasBracket )
                         {
+                            var nextType = list.La1;
+
                             if (nextType == XSharpLexer.LCURLY)
                             {
                                 // [] is followed by a ctor as in 
@@ -577,24 +560,46 @@ namespace XSharp.LanguageService
                         }
                         continue;
                     case XSharpLexer.DOT:
+                        state = CompletionState.StaticMembers | CompletionState.Namespaces | CompletionState.Types;
+                        if (location.Project.ParseOptions.AllowDotForInstanceMembers)
+                            state |= CompletionState.InstanceMembers;
+                        resetState = false;
+                        startOfExpression = false;
+                        continue;
+
                     case XSharpLexer.COLON:
+                        state = CompletionState.InstanceMembers;
+                        resetState = false;
+                        startOfExpression = false;
+                        continue;
+
+                    case XSharpLexer.COLONCOLON:
+                        startOfExpression = false;
+                        state = CompletionState.Namespaces;
+                        continue;
+                    case XSharpLexer.COMMA:
+                        startOfExpression = true;
+                        state = CompletionState.General;
+                        break;
                     default:
                         hasBracket = false;
                         break;
                 }
+                bool isType = XSharpLexer.IsType(currentToken.Type);
                 var isId = currentToken.Type == XSharpLexer.ID ||
                                   currentToken.Type == XSharpLexer.KWID ||
+                                  currentToken.Type == XSharpLexer.SELF ||
+                                  currentToken.Type == XSharpLexer.SUPER ||
                                   currentToken.Type == XSharpLexer.COLONCOLON ||
-                                  XSharpLexer.IsKeyword(currentToken.Type);
-                if (isId && currentPos < lastopentoken && tokenList[currentPos + 1].Type == XSharpLexer.LT)
+                                  isType;
+                if (isId && !list.Eoi() && list.La1 == XSharpLexer.LT)
                 {
-                    currentPos += 1;
-                    while (currentPos <= lastopentoken)
+                    list.Consume();
+                    while (! list.Eoi())
                     {
-                        var nextToken = tokenList[currentPos];
-                        currentName += nextToken.Text;
-                        currentPos += 1;
-                        if (nextToken.Type == XSharpLexer.GT)
+                        var tokenNext = list.ConsumeAndGet();
+                        currentName += tokenNext.Text;
+                        if (tokenNext.Type == XSharpLexer.GT)
                             break;
                     }
                 }
@@ -604,21 +609,22 @@ namespace XSharp.LanguageService
                 var literal = XSharpLexer.IsConstant(currentToken.Type);
                 if (isId)
                 {
-                    qualifiedName = nextType == XSharpLexer.DOT;
-                    findMethod = nextType == XSharpLexer.LPAREN;
-                    findConstructor = nextType == XSharpLexer.LCURLY;
+                    qualifiedName = list.La1 == XSharpLexer.DOT;
+                    findMethod = list.La1 == XSharpLexer.LPAREN;
+                    findConstructor = list.La1 == XSharpLexer.LCURLY;
+                    if (state.HasFlag(CompletionState.StaticMembers) && !findMethod && result.Count == 0)
+                    {
+                        var props = SearchPropertyOrField(location, currentType, namespacePrefix + currentName, visibility).Where(m => m.IsStatic);
+                        if (props != null)
+                            result.AddRange(props);
+                    }
+                    if (state.HasFlag(CompletionState.InstanceMembers) && !findMethod && result.Count == 0)
+                    {
+                        var props = SearchPropertyOrField(location, currentType, namespacePrefix + currentName, visibility).Where(m => !m.IsStatic);
+                        if (props != null)
+                            result.AddRange(props);
+                    }
                 }
-                if (state.HasFlag(CompletionState.StaticMembers) && ! findMethod && result.Count == 0)
-                {
-                    var props = SearchPropertyOrField(location, currentType, namespacePrefix+currentName, visibility).Where(m => m.IsStatic);
-                    result.AddRange(props);
-                }
-                if (state.HasFlag(CompletionState.InstanceMembers) && !findMethod && result.Count == 0)
-                {
-                    var props = SearchPropertyOrField(location, currentType, namespacePrefix + currentName, visibility).Where(m => !m.IsStatic);
-                    result.AddRange(props);
-                }
-
                 if (literal)
                 {
                     currentType = GetConstantType(currentToken, location.File);
@@ -629,19 +635,25 @@ namespace XSharp.LanguageService
                     // Do we already know in which Type we are ?
                     if (currentToken.Type == XSharpLexer.SELF)  // SELF(..)
                     {
-                        result.AddRange(SearchConstructor(currentType, visibility, location));
+                        var ctors = SearchConstructors(currentType, Modifiers.Private);
+                        if (ctors != null)
+                            result.AddRange(ctors);
                     }
                     else if (currentToken.Type == XSharpLexer.SUPER) // SUPER(..)
                     {
                         if (currentType is XSourceTypeSymbol source)
                         {
                             var p = source.File.FindType(source.BaseTypeName, source.Namespace);
-                            result.AddRange(SearchConstructor(p, visibility, location));
+                            var ctors = SearchConstructors(p, Modifiers.Protected);
+                            if (ctors != null)
+                                result.AddRange(ctors);
                         }
                         else
                         {
                             var p = location.FindType(currentType.BaseTypeName);
-                            result.AddRange(SearchConstructor(p, visibility, location));
+                            var ctors = SearchConstructors(p, Modifiers.Protected);
+                            if (ctors != null)
+                                result.AddRange(ctors);
                         }
                     }
                     else if (startOfExpression)
@@ -651,30 +663,32 @@ namespace XSharp.LanguageService
                         result.AddRange(SearchFunction(location, currentName));
                         if (currentType != null)
                         {
-                            result.AddRange(SearchMethod(location, currentType, currentName, visibility, false));
+                            var meths = SearchMethod(location, currentType, currentName, visibility, false);
+                            if (meths != null)
+                                result.AddRange(meths);
                         }
                         result.AddRange(SearchMethodStatic(location, currentName));
                         if (result.Count == 0)
                         {
                             // Foo() could be a delegate call where Foo is a local or Field
-                            result.AddRange(SearchDelegateCall(location, currentName, currentType, visibility));
+                            var delgs = SearchDelegateCall(location, currentName, currentType, visibility);
+                            if (delgs != null)
+                                result.AddRange(delgs);
                         }
                         if (result.Count == 0)
                         {
                             // Foo() can be a method call inside the current class
                             var type = location?.Member?.ParentType ?? currentType;
-                            result.AddRange(SearchMethod(location, type, currentName, visibility, false));
+                            var meths = SearchMethod(location, type, currentName, visibility, false);
+                            if (meths != null)
+                                result.AddRange(meths);
+
                         }
 
-                        if (currentPos == lastopentoken || currentPos == lastopentoken - 1)
+                        if (list.Eoi())
                         {
                             return result;
                         }
-                        if (result.Count > 0)
-                        {
-                            symbols.Push(result[0]);
-                        }
-
                     }
                     else if (currentType != null)
                     {
@@ -682,25 +696,29 @@ namespace XSharp.LanguageService
                         // Respect the StaticMembers and InstanceMembers states
                         if (state.HasFlag(CompletionState.StaticMembers))
                         {
-                            result.AddRange(SearchMethod(location, currentType, currentName, visibility, true));
+                            var meths = SearchMethod(location, currentType, currentName, visibility, true);
+                            if (meths != null)
+                                result.AddRange(meths);
                         }
                         if (state.HasFlag(CompletionState.InstanceMembers))
                         {
-                            result.AddRange(SearchMethod(location, currentType, currentName, visibility, false));
+                            var meths = SearchMethod(location, currentType, currentName, visibility, false);
+                            if (meths != null)
+                                result.AddRange(meths);
                         }
                     }
-                    if (result.Count > 0)
-                    {
-                        symbols.Push(result[0]);
-                    }
+                    
                     if (result.Count == 0)
                     {
                         // Could it be Static Method with "Using Static"
-                        result.AddRange(SearchMethodStatic(location, currentName));
-                        if (result.Count > 0)
-                        {
-                            symbols.Push(result[0]);
-                        }
+                        var mstatic = SearchMethodStatic(location, currentName);
+                        if (mstatic != null)
+                            result.AddRange(mstatic);
+                    }
+                    // method found ?
+                    if (result.Count > 0)
+                    {
+                        symbols.Push(result[0]);
                     }
                 }
                 else if (isId)
@@ -720,94 +738,62 @@ namespace XSharp.LanguageService
                             currentName = "SELF";
                         }
                         // 1) Locals and Parameters
-                        result.AddRange(FindIdentifier(location, currentName, currentType, Modifiers.Private));
+                        var locals = FindIdentifier(location, currentName, currentType, Modifiers.Private);
+                        if (locals != null)
+                            result.AddRange(locals);
                         if (result.Count == 0)
                         {
                             // 2) Properties and Fields
-                            result.AddRange(SearchPropertyOrField(location, currentType, currentName, visibility));
+                            var fldsprops = SearchPropertyOrField(location, currentType, currentName, visibility);
+                            if (fldsprops != null)
+                                result.AddRange(fldsprops);
                         }
                     }
                     if (result.Count == 0 && (startOfExpression || findType || findConstructor || qualifiedName))
                     {
                         // 3) Types
-                        result.AddRange(SearchType(location, namespacePrefix + currentName));
+                        var types = SearchType(location, namespacePrefix + currentName);
+                        if (types != null)
+                        {
+                            result.AddRange(types);
+                        }
                         if (result.Count == 0)
                         {
                             // 4) Namespaces
-                            result.AddRange(SearchNamespaces(location, namespacePrefix + currentName));
+                            var namespaces = SearchNamespaces(location, namespacePrefix + currentName);
+                            if (namespaces != null)
+                                result.AddRange(namespaces);
                         }
+                        if (result.Count > 0)
+                            namespacePrefix = "";
                     }
+                    if (result.Count == 0 && currentToken.Type == XSharpLexer.ID)
+                    {
+                        notProcessed = namespacePrefix + currentName;
+                        var sym = new XSourceUndeclaredVariableSymbol(location.Member, notProcessed, location.Member.Range, location.Member.Interval);
+                        result.Add(sym);
+                    }
+                    // id found ?
                     if (result.Count > 0)
                     {
                         symbols.Push(result[0]);
                     }
-                    else
-                    {
-                        notProcessed = namespacePrefix + currentName;
-                    }
+                }
+                else if (XSharpLexer.IsOperator(currentToken.Type))
+                {
+                    state = CompletionState.General;
+                    startOfExpression = true;
+                    
+                }
+                else
+                {
+                    //Do nothing
                 }
                 // We have it
                 if (hasBracket && symbols.Count > 0)
                 {
                     var type = currentType;
                     var symbol = symbols.Peek();
-
-                }
-                currentPos += 1;
-                if (currentPos >= tokenList.Count)
-                {
-                    break;
-                }
-                currentToken = tokenList[currentPos];
-                resetState = true;
-                switch (currentToken.Type)
-                {
-                    case XSharpLexer.DOT:
-                       currentPos += 1;
-                        state = CompletionState.StaticMembers| CompletionState.Namespaces | CompletionState.Types;
-                        if (location.Project.ParseOptions.AllowDotForInstanceMembers)
-                            state |= CompletionState.InstanceMembers;
-                        resetState = false;
-                        break;
-
-                    case XSharpLexer.COLON:
-                        state = CompletionState.InstanceMembers;
-                        resetState = false;
-                        currentPos += 1;
-                        break;
-
-                    case XSharpLexer.COLONCOLON:
-                        currentPos += 1;
-                        break;
-                }
-                switch (lastToken.Type)
-                {
-                    case XSharpLexer.LPAREN:
-                    case XSharpLexer.LCURLY:
-                    case XSharpLexer.LBRKT:
-                    case XSharpLexer.COMMA:
-                    case XSharpLexer.PLUS:
-                    case XSharpLexer.MINUS:
-                    case XSharpLexer.MULT:
-                    case XSharpLexer.DIV:
-                    case XSharpLexer.EQ:
-                    case XSharpLexer.LT:
-                    case XSharpLexer.GT:
-                        startOfExpression = true;
-                        break;
-                    case XSharpLexer.COLON:
-                    case XSharpLexer.DOT:
-                        startOfExpression = false;
-                        break;
-                    default:
-                        if (XSharpLexer.IsOperator(lastToken.Type))
-                        { 
-                            startOfExpression = true;
-                            symbols.Clear();
-                        }
-                        else
-                            startOfExpression = false;
-                        break;
                 }
             }
             result.Clear();
@@ -823,7 +809,19 @@ namespace XSharp.LanguageService
             if (result.Count > 0 && result[0] is IXTypeSymbol xtype && state == CompletionState.Constructors)
             {
                 result.Clear();
-                result.AddRange(xtype.GetMembers(".ctor"));
+                var ctors = SearchConstructors(xtype, Modifiers.Public);
+                if (ctors.Count == 0 && xtype is XSourceTypeSymbol)
+                {
+                    var ctor = new XSourceMemberSymbol(XLiterals.ConstructorName, Kind.Constructor, Modifiers.Public, location.Member.Range, location.Member.Interval, "",false);
+                    ctor.Parent = xtype;
+                    ctor.DeclaringType = xtype.FullName;
+
+                    result.Add(ctor);
+                }
+                else
+                {
+                    result.AddRange(ctors);
+                }
             }
             if (result.Count == 0)
             {
@@ -833,10 +831,31 @@ namespace XSharp.LanguageService
                     var ns = namespaces.First();
                     result.Add(new XSymbol(ns, Kind.Namespace, Modifiers.Public));
                 }
-                
-
             }
-            if (result.Count > 0)
+            if (!string.IsNullOrEmpty(notProcessed))
+            {
+                result.Clear();
+                //result.AddRange(SearchFunction(location, notProcessed));
+                if (result.Count == 0)
+                {
+                    result.AddRange(SearchGlobalField(location, notProcessed));
+                }
+                if (result.Count == 0)
+                {
+                    if (currentToken.Type == XSharpLexer.ID)
+                    {
+                        var sym = new XSourceUndeclaredVariableSymbol(location.Member, notProcessed, location.Member.Range, location.Member.Interval);
+                        result.Add(sym);
+                    }
+                }
+            }
+            else if (result.Count == 0 && XSharpLexer.IsKeyword(currentToken.Type))
+            {
+                currentToken.Text = XSettings.FormatKeyword(currentToken.Text);
+                var sym = new XSymbol(currentToken.Text, Kind.Keyword, Modifiers.Public);
+                result.Add(sym);
+            }
+            else if (result.Count > 0)
             {
                 var res = result[0];
                 if (res.Kind.IsClassMember(location.Project.Dialect))
@@ -850,7 +869,7 @@ namespace XSharp.LanguageService
                         foreach (var item in symbols)
                         {
                             if (item.ResolvedType == type)
-                            { 
+                            {
                                 symbol = item;
                                 break;
                             }
@@ -867,19 +886,19 @@ namespace XSharp.LanguageService
                             // check to see if parameters or return value is one of the type parameters
                             // if so, then check the symbols to see where the type is used and with which
                             // concrete parameters
-                            int pos;
+                            int pos1;
                             foreach (var param in member.Parameters)
                             {
-                                pos = typeParams.IndexOf(param.TypeName);
-                                if (pos >= 0)
+                                pos1 = typeParams.IndexOf(param.TypeName);
+                                if (pos1 >= 0)
                                 {
-                                    param.TypeName = elements[pos];
+                                    param.TypeName = elements[pos1];
                                 }
                             }
-                            pos = typeParams.IndexOf(member.TypeName);
-                            if (pos >= 0)
+                            pos1 = typeParams.IndexOf(member.TypeName);
+                            if (pos1 >= 0)
                             {
-                                member.TypeName = elements[pos ];
+                                member.TypeName = elements[pos1];
                             }
                             result[0] = member;
                         }
@@ -925,15 +944,7 @@ namespace XSharp.LanguageService
             }
             return null;
         }
-        private static bool hasToken(IList<XSharpToken> tokens, int start, int lookfor)
-        {
-            for (int i = start; i < tokens.Count; i++)
-            {
-                if (tokens[i].Type == lookfor)
-                    return true;
-            }
-            return false;
-        }
+        
         private static IXMemberSymbol AdjustGenericMember(IXMemberSymbol xmember, IXSymbol memberdefinition)
         {
             /*
@@ -1031,7 +1042,7 @@ namespace XSharp.LanguageService
         /// <param name="cType"></param>
         /// <param name="minVisibility"></param>
         /// <param name="foundElement"></param>
-        private static IList<IXMemberSymbol> SearchConstructor(IXTypeSymbol type, Modifiers minVisibility, XSharpSearchLocation location)
+        private static IList<IXMemberSymbol> SearchConstructors(IXTypeSymbol type, Modifiers minVisibility)
         {
             if (XSettings.EnableTypelookupLog)
                 WriteOutputMessage($"--> SearchConstructorIn {type?.FullName}");
@@ -1039,18 +1050,8 @@ namespace XSharp.LanguageService
             if (type != null)
             {
                 //
-                var xMethod = type.Members.Where(x => x.Kind == Kind.Constructor).FirstOrDefault();
-                if (xMethod != null )
-                {
-                    if (!xMethod.IsVisible(minVisibility))
-                    {
-                        xMethod = null;
-                    }
-                }
-                if (xMethod != null)
-                {
-                    result.Add(xMethod);
-                }
+                var ctors = type.Members.Where(x => x.Kind == Kind.Constructor && x.IsVisible(minVisibility));
+                result.AddRange(ctors);
             }
             return result;
         }
@@ -1308,7 +1309,16 @@ namespace XSharp.LanguageService
 
                 if (XSettings.EnableTypelookupLog)
                     WriteOutputMessage($" SearchMethodTypeIn {type.FullName} , '{name}'");
-                var tmp = type.GetMembers(name, true).Where(x => x.Kind.IsClassMethod(location.Dialect));
+                IEnumerable<IXMemberSymbol> tmp;
+                if (type.IsFunctionsClass)
+                {
+                    tmp = type.GetMembers(name, true).Where(x => x.Kind == Kind.Function);
+                    staticOnly = false;
+                }
+                else
+                {
+                    tmp = type.GetMembers(name, true).Where(x => x.Kind.IsClassMethod(location.Dialect));
+                }
                 foreach (var m in tmp)
                 {
                     var add = true;

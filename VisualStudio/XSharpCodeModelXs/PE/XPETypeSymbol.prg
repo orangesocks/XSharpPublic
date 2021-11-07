@@ -16,20 +16,21 @@ BEGIN NAMESPACE XSharpModel
     [DebuggerDisplay("{ToString(),nq}")];
     CLASS XPETypeSymbol INHERIT XPESymbol IMPLEMENTS IXTypeSymbol
         PRIVATE _baseType       AS XPETypeSymbol
-        PRIVATE _members        AS List<XPEMemberSymbol>
-        PRIVATE _allmembers     AS List<XPEMemberSymbol>
-        PRIVATE _children       AS List<XPETypeSymbol>
+        PRIVATE _members        AS IList<XPEMemberSymbol>
+        PRIVATE _allmembers     AS IList<XPEMemberSymbol>
+        PRIVATE _children       AS IList<XPETypeSymbol>
         PRIVATE _signature      AS XTypeSignature
         PRIVATE _typeDef        AS TypeDefinition
         PRIVATE _initialized   := FALSE  AS LOGIC
         PROPERTY ShortName      AS STRING       AUTO GET INTERNAL SET
         PROPERTY TypeDef        AS TypeDefinition GET _typeDef
+        PROPERTY GenericName    AS STRING AUTO
 
         CONSTRUCTOR(typedef as TypeDefinition, asm as XAssembly)
             SUPER(typedef:Name, GetKind(typedef), ConvertAttributes(typedef:Attributes), asm)
             SELF:_typeDef        := typedef
-            SELF:_members        := List<XPEMemberSymbol>{}
-            SELF:_allmembers     := List<XPEMemberSymbol>{}
+            SELF:_members        := XPEMemberSymbol[]{0}
+            SELF:_allmembers     := XPEMemberSymbol[]{0}
             SELF:_children       := List<XPETypeSymbol>{}
             SELF:_signature      := XTypeSignature{"System.Object"}
             SELF:Namespace       := typedef:Namespace
@@ -138,7 +139,7 @@ BEGIN NAMESPACE XSharpModel
                             LOOP
                         ELSEIF name:StartsWith("op_")
                             kind := Kind.Operator
-                        ELSEIF name:StartsWith(".ctor")
+                        ELSEIF name:StartsWith(XLiterals.ConstructorName)
                             kind := Kind.Constructor
                         ENDIF
                     ENDIF
@@ -183,27 +184,31 @@ BEGIN NAMESPACE XSharpModel
         ENDIF
 
         INTERNAL METHOD Resolve() AS VOID
+            IF !SELF:Assembly:Loaded
+                RETURN
+            ENDIF
             IF ! SELF:_initialized .AND. SELF:_typeDef != NULL
                 VAR aMembers := List<XPEMemberSymbol>{}
+                LOCAL hasbasemembers as LOGIC
                 AddMembers(aMembers, SELF:_typeDef, SELF)
                 BEGIN LOCK SELF
                     // now add to
-                    SELF:_members:Clear()
-                    SELF:_members:AddRange(aMembers)
+                    SELF:_members := aMembers:ToArray()
                 END LOCK
                 // Get methods from parent class(es), recursively
                 if SELF:Assembly != NULL .and. ! String.IsNullOrEmpty(SELF:BaseTypeName)
                     _baseType := SystemTypeController.FindType(SELF:BaseTypeName, SELF:Assembly:FullName)
                     if _baseType != NULL
-                        _baseType:Resolve()
-                        VAR basemembers := _baseType:XMembers:Where( { m => m.Visibility != Modifiers.Private })
+                        // do not inherit private members from the base class
+                        // and also no constructors
+                        VAR basemembers := _baseType:XMembers:Where( { m => m:IsMethodVisibleInSubclass()})
+                        hasbasemembers := basemembers:Count() > 0
                         aMembers:AddRange( basemembers )
                     ENDIF
                 ENDIF
                 BEGIN LOCK SELF
                     // now add to
-                    SELF:_allmembers:Clear()
-                    SELF:_allmembers:AddRange(aMembers)
+                    SELF:_allmembers := aMembers:ToArray()
                 END LOCK
 
                 // nested children ?
@@ -241,8 +246,9 @@ BEGIN NAMESPACE XSharpModel
 
                     NEXT
                 ENDIF
-
-                SELF:_initialized := TRUE
+                if hasbasemembers  .or. String.IsNullOrEmpty(SELF:BaseTypeName)
+                    SELF:_initialized := TRUE
+                endif
             ENDIF
         RETURN
 
@@ -255,9 +261,9 @@ BEGIN NAMESPACE XSharpModel
             ENDIF
             SELF:Resolve()
             IF ! String.IsNullOrEmpty(elementName)
-                tempMembers:AddRange(SELF:_members:Where ( {m => m.Name.StartsWith(elementName, StringComparison.OrdinalIgnoreCase) }))
+                tempMembers:AddRange(SELF:_allmembers:Where ( {m => m.Name.StartsWith(elementName, StringComparison.OrdinalIgnoreCase) }))
             ELSE
-                tempMembers:AddRange(SELF:_members)
+                tempMembers:AddRange(SELF:_allmembers)
             ENDIF
             RETURN tempMembers
 
@@ -268,7 +274,7 @@ BEGIN NAMESPACE XSharpModel
             IF lExact
                 SELF:Resolve()
                 var result := List<IXMemberSymbol>{}
-                result:AddRange(SELF:_members:Where ( {m => m.Name.Equals(elementName, StringComparison.OrdinalIgnoreCase) }))
+                result:AddRange(SELF:_allmembers:Where ( {m => m.Name.Equals(elementName, StringComparison.OrdinalIgnoreCase) }))
                 RETURN result
             ELSE
                 RETURN SELF:GetMembers(elementName)
@@ -299,10 +305,16 @@ BEGIN NAMESPACE XSharpModel
             END GET
         END PROPERTY
 
-        PROPERTY FullName AS STRING   GET SELF:GetFullName()
-
+        PROPERTY FullName  AS STRING
+            GET
+                IF SELF:IsGeneric .and. String.IsNullOrEmpty(SELF:GenericName)
+                    SELF:GenericName :=  SELF:_GetGenericName()
+                ENDIF
+                RETURN SELF:GetFullName()
+            END GET
+        END PROPERTY
         PROPERTY Description AS STRING GET SELF:GetDescription()
-
+        PROPERTY IsFunctionsClass as LOGIC GET SELF:Assembly != NULL .and. SELF:FullName == SELF:Assembly:GlobalClassName
         PROPERTY IsNested  AS LOGIC GET SELF:Parent IS XPETypeSymbol
         PROPERTY IsGeneric as LOGIC GET _typeDef:HasGenericParameters
         PROPERTY IsStatic  AS LOGIC GET _typeDef:Attributes:HasFlag(TypeAttributes.Abstract |TypeAttributes.Sealed)
@@ -343,6 +355,7 @@ BEGIN NAMESPACE XSharpModel
             SELF:_signature:AddConstraints(name)
 
         PROPERTY TypeParameters as IList<STRING> GET SELF:_signature:TypeParameters:ToArray()
+        PROPERTY TypeParameterList as STRING GET SELF:_signature:TypeParameterList
         PROPERTY TypeParameterConstraints as IList<STRING> GET SELF:_signature:TypeParameterContraints:ToArray()
 
         PROPERTY XMLSignature   AS STRING GET SELF:GetXmlSignature()

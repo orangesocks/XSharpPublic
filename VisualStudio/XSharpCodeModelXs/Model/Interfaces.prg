@@ -8,6 +8,8 @@ BEGIN NAMESPACE XSharpModel
       PROPERTY KindKeyword AS STRING GET
       PROPERTY TypeName    AS STRING GET SET
       PROPERTY Parent      AS IXSymbol GET SET
+      PROPERTY IsPublic    AS LOGIC GET
+      PROPERTY IsExternalVisible AS LOGIC GET
    END INTERFACE
 
    /// <summary>Properties shared by all entities (types and members, internal and external) in the codemodel</summary>
@@ -39,17 +41,20 @@ BEGIN NAMESPACE XSharpModel
       PROPERTY AllMembers  AS IList<IXMemberSymbol> GET
       PROPERTY IsTyped     AS LOGIC  GET
       PROPERTY BaseType    AS IXTypeSymbol GET
-      PROPERTY BaseTypeName  AS STRING GET
+      PROPERTY BaseTypeName AS STRING GET
+      PROPERTY GenericName AS STRING GET SET
       PROPERTY Interfaces  AS IList<STRING> GET
       PROPERTY IsGeneric   AS LOGIC GET
       PROPERTY OriginalTypeName  AS STRING GET
       PROPERTY Location    AS STRING GET
+      PROPERTY IsFunctionsClass as LOGIC GET
 
       METHOD   AddTypeParameter(name AS STRING) AS VOID
       METHOD   AddConstraints(name AS STRING) AS VOID
       METHOD   GetMembers(elementName AS STRING) AS IList<IXMemberSymbol>
       METHOD   GetMembers(elementName AS STRING, lExact as LOGIC) AS IList<IXMemberSymbol>
       PROPERTY TypeParameters  as IList<STRING> GET
+      PROPERTY TypeParameterList AS STRING GET
       PROPERTY TypeParameterConstraints as IList<STRING> GET
       PROPERTY XMLSignature   AS STRING GET
 
@@ -86,7 +91,7 @@ BEGIN NAMESPACE XSharpModel
       END INTERFACE
 
     INTERFACE IXParameterSymbol   INHERIT IXVariableSymbol
-      PROPERTY ParamType      AS ParamType  GET
+      PROPERTY ParamType      AS ParamType  GET SET
       PROPERTY ParamTypeDesc  AS STRING GET
     END INTERFACE
 

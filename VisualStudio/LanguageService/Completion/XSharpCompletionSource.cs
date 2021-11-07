@@ -26,9 +26,6 @@ namespace XSharp.LanguageService
         private ITextBuffer _buffer;
         private bool _disposed = false;
         private XSharpCompletionSourceProvider _provider;
-        // Keep a trace of the Context of the TokenList build
-        // This will be AS, IS, REF, USING, STATIC (USING STATIC), INHERIT, IMPLEMENTS etc.
-        private IToken _stopToken;
 
         private XFile _file;
         private bool _showTabs;
@@ -51,7 +48,6 @@ namespace XSharp.LanguageService
             var prj = _file.Project.ProjectNode;
             _dialect = _file.Project.Dialect;
             helpers = new CompletionHelpers(_dialect, provider.GlyphService, file, !prj.ParseOptions.CaseSensitive);
-            _stopToken = null;
             
             this.aggregator = aggregator;
         }
@@ -81,17 +77,23 @@ namespace XSharp.LanguageService
                 var triggerPoint = (SnapshotPoint)session.GetTriggerPoint(snapshot);
                 if (triggerPoint == null)
                     return;
+                // What is the character were it starts ?
+                var line = triggerPoint.GetContainingLine();
+                //var triggerposinline = triggerPoint.Position - 2 - line.Start;
+                //var afterChar = line.GetText()[triggerposinline];
+                //if (afterChar == ' ' || afterChar == '\t')
+                //    return;
+
                 // The "parameters" coming from CommandFilter
-                uint cmd;
-                char typedChar;
+                uint cmd = 0;
+                char typedChar = '\0';
+                bool autoType = false;                
                 session.Properties.TryGetProperty(XsCompletionProperties.Command, out cmd);
                 VSConstants.VSStd2KCmdID nCmdId = (VSConstants.VSStd2KCmdID)cmd;
                 session.Properties.TryGetProperty(XsCompletionProperties.Char, out typedChar);
+                session.Properties.TryGetProperty(XsCompletionProperties.AutoType, out autoType);
                 bool showInstanceMembers = (typedChar == ':') || ((typedChar == '.') && _file.Project.ParseOptions.AllowDotForInstanceMembers);
-                // Reset the StopToken
-                this._stopToken = null;
-                // What is the character were it starts ?
-                var line = triggerPoint.GetContainingLine();
+
                 ////////////////////////////////////////////
                 //
                 SnapshotSpan lineSpan = new SnapshotSpan(line.Start, line.Length);
@@ -153,7 +155,7 @@ namespace XSharp.LanguageService
                 // We might be here due to a COMPLETEWORD command, so we have no typedChar
                 // but we "may" have a incomplete word like System.String.To
                 // Try to Guess what TypedChar could be
-                if (typedChar == '\0')
+                if (typedChar == '\0' && autoType)
                 {
                     if (tokenList.Count > 0)
                     {
@@ -179,14 +181,6 @@ namespace XSharp.LanguageService
                                 // So, we get the last Token as a Filter
                                 filterText = tokenList[tokenList.Count - 1].Text;
                             }
-                            // but what could be the typedChar?
-                            if (tokenList.Count > 1)
-                            {
-                                extract = tokenList[tokenList.Count - 2].Text;
-                                typedChar = extract[extract.Length - 1];
-                                tokenList.RemoveAt(tokenList.Count - 1);
-                                //tokenLine = TokenListAsString(tokenList, 0);
-                            }
                             // Include the filter as the text to replace
                             start -= filterText.Length;
                             applicableTo = snapshot.CreateTrackingSpan(new SnapshotSpan(start, triggerPoint), SpanTrackingMode.EdgeInclusive);
@@ -197,10 +191,6 @@ namespace XSharp.LanguageService
 
                 // TODO: Based on the Project.Settings, we should add the Vulcan.VO namespace
                 int tokenType = XSharpLexer.UNRECOGNIZED;
-                if (this._stopToken != null)
-                {
-                    tokenType = this._stopToken.Type;
-                }
 
                 var symbol = XSharpLookup.RetrieveElement(location, tokenList, CompletionState.General, out var notProcessed).FirstOrDefault();
                 var memberName = "";
@@ -227,10 +217,24 @@ namespace XSharp.LanguageService
                     else if (symbol is IXVariableSymbol xvar)
                     {
                         var typeName = "";
-                        if (xvar is XSourceVariableSymbol sourcevar)
+                        if (xvar is XSourceUndeclaredVariableSymbol)
+                        {
+                            type = null;
+                            state = CompletionState.General;
+                            filterText = xvar.Name;
+                        }
+                        else if (xvar is XSourceVariableSymbol sourcevar)
                         {
                             typeName = sourcevar.TypeName;
-                            type = sourcevar.File.FindType(typeName);
+                            if (sourcevar.ResolvedType != null)
+                            {
+                                type = sourcevar.ResolvedType;
+                                typeName = type.FullName;
+                            }
+                            else
+                            {
+                                type = sourcevar.File.FindType(typeName);
+                            }
 
                         }
                         else if (xvar is XPEParameterSymbol par)
@@ -240,26 +244,48 @@ namespace XSharp.LanguageService
                         }
                         memberName = xvar.Name;
                     }
+                    else if (symbol.Kind == Kind.Keyword)
+                    {
+                        filterText = symbol.Name;
+                    }
+                    else if (symbol.Kind == Kind.Namespace)
+                    {
+                        filterText = symbol.Name+".";
+                    }
+                    if (type != null)
+                    {
+                        switch (type.FullName)
+                        {
+                            case XSharpTypeNames.XSharpUsual:
+                            case XSharpTypeNames.VulcanUsual:
+                                type = null;
+                                break;
+                        }
+                    }
                     session.Properties[XsCompletionProperties.Type] = type;
                 }
-                if (dotSelector || state != CompletionState.None)
+                if (type == null)
                 {
-                    if (string.IsNullOrEmpty(filterText))
+                    showInstanceMembers = false;
+                }
+                if ((dotSelector || state != CompletionState.None) )
+                {
+                    if (string.IsNullOrEmpty(filterText) && type ==null)
                     {
-                        filterText = helpers.TokenListAsString(tokenList, _stopToken);
+                        filterText = helpers.TokenListAsString(tokenList);
                         if (filterText.Length > 0 && !filterText.EndsWith(".") && state != CompletionState.General)
                             filterText += ".";
                     }
-                    if (state.HasFlag(CompletionState.Namespaces))
+                    if (type == null && state.HasFlag(CompletionState.Namespaces))
                     {
                         helpers.AddNamespaces(compList, location, filterText);
                     }
-                    if (state.HasFlag(CompletionState.Interfaces))
+                    if (type == null && state.HasFlag(CompletionState.Interfaces))
                     {
                         helpers.AddTypeNames(compList, location, filterText,  afterDot:true, onlyInterfaces: true);
                         helpers.AddXSharpKeywordTypeNames(kwdList, filterText);
                     }
-                    if (state.HasFlag(CompletionState.Types) )
+                    if (type == null && state.HasFlag(CompletionState.Types) )
                     {
                         helpers.AddTypeNames(compList, location, filterText, afterDot: true, onlyInterfaces: false);
                         helpers.AddXSharpKeywordTypeNames(kwdList, filterText);
@@ -343,15 +369,16 @@ namespace XSharp.LanguageService
                             helpers.AddTypeNames(compList, location, filterText,onlyInterfaces: true, afterDot: false);
                             break;
                         default:
-                            if (state.HasFlag(CompletionState.General))
-                            {
-                                helpers.AddGenericCompletion(compList, location, filterText);
-                            }
+                            //if (state.HasFlag(CompletionState.General))
+                            //{
+                            //    filterText = notProcessed;
+                            //    helpers.AddGenericCompletion(compList, location, filterText);
+                            //}
                             break;
                     }
                 }
 
-                if ((kwdList.Count > 0) && _keywordsInAll && XSettings.CompleteKeywords)
+                if ((kwdList.Count > 0) && _keywordsInAll /*&& XSettings.CompleteKeywords*/)
                 {
                     foreach (var item in kwdList.Values)
                         compList.Add(item);
