@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <!-- The configuration and platform will be used to determine which assemblies to include from solution and
 				 project documentation sources -->
@@ -21,49 +21,48 @@
     <Language>en-US</Language>
     <DocumentationSources>
       <DocumentationSource sourceFile="Docs\XsRuntimeClasses.xml" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.Rdd.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.Core.XML" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.Core.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.RDD.XML" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.RT.XML" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.RT.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.VFP.XML" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.VFP.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.VO.XML" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.VO.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.XPP.XML" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.XPP.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.Data.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.Data.xml" />
-      <DocumentationSource sourceFile="Binaries\Documentation\VOConsoleClasses.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\VOGUIClasses.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\VOGUIClasses.xml" />
-      <DocumentationSource sourceFile="Binaries\Documentation\VOInternetClasses.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\VOInternetClasses.xml" />
-      <DocumentationSource sourceFile="Binaries\Documentation\VORDDClasses.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\VORDDClasses.xml" />
-      <DocumentationSource sourceFile="Binaries\Documentation\VOReportClasses.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\VOReportClasses.xml" />
-      <DocumentationSource sourceFile="Binaries\Documentation\VOSQLClasses.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\VOSQLClasses.xml" />
-      <DocumentationSource sourceFile="Binaries\Documentation\VOSystemClasses.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\VOSystemClasses.xml" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.RT.Debugger.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.RT.Debugger.Xml" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.VOSystemClasses.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.VOSQLClasses.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.VORDDClasses.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.VOConsoleClasses.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\VOConsoleClasses.Xml" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.VOConsoleClasses.xml" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.VORDDClasses.Xml" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.VOSQLClasses.Xml" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.VOSystemClasses.Xml" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.VOGUIClasses.dll" />
-      <DocumentationSource sourceFile="Binaries\Documentation\XSharp.VO.GUIClasses.Xml" />
-    </DocumentationSources>
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.Rdd.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.Core.XML" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.Core.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.RDD.XML" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.RT.XML" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.RT.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.VFP.XML" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.VFP.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.VO.XML" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.VO.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.XPP.XML" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.XPP.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.Data.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.Data.xml" />
+<DocumentationSource sourceFile="Binaries\Documentation\VOConsoleClasses.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\VOGUIClasses.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\VOGUIClasses.xml" />
+<DocumentationSource sourceFile="Binaries\Documentation\VOInternetClasses.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\VOInternetClasses.xml" />
+<DocumentationSource sourceFile="Binaries\Documentation\VORDDClasses.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\VORDDClasses.xml" />
+<DocumentationSource sourceFile="Binaries\Documentation\VOReportClasses.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\VOReportClasses.xml" />
+<DocumentationSource sourceFile="Binaries\Documentation\VOSQLClasses.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\VOSQLClasses.xml" />
+<DocumentationSource sourceFile="Binaries\Documentation\VOSystemClasses.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\VOSystemClasses.xml" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.RT.Debugger.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.RT.Debugger.Xml" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.VOSystemClasses.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.VOSQLClasses.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.VORDDClasses.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.VOConsoleClasses.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\VOConsoleClasses.Xml" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.VOConsoleClasses.xml" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.VORDDClasses.Xml" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.VOSQLClasses.Xml" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.VOSystemClasses.Xml" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.VOGUIClasses.dll" />
+<DocumentationSource sourceFile="Binaries\Documentation\XSharp.VOGUIClasses.Xml" /></DocumentationSources>
     <HelpTitle>X# Runtime and VO SDK Reference</HelpTitle>
-    <HelpFileVersion>2.9.1.0</HelpFileVersion>
+    <HelpFileVersion>2.10.0.0</HelpFileVersion>
     <NamingMethod>MemberName</NamingMethod>
     <ContentPlacement>BelowNamespaces</ContentPlacement>
     <RootNamespaceContainer>True</RootNamespaceContainer>
@@ -198,7 +197,18 @@
       <PlugInConfig id="XSharp Function Output" enabled="True">
         <configuration />
       </PlugInConfig>
-<PlugInConfig id="XPath Reflection File Filter" enabled="True"><configuration><expressions><expression>//api[starts-with(apidata/@name,"$")]</expression><expression>//api[contains(@id,"XSharp.ADS.ACE")]</expression><expression>//api[starts-with(apidata/@name,"__") and not(starts-with(@id,"T:"))]</expression><expression>//api['Functions' = substring(apidata/@name, string-length(apidata/@name)- 9) ][apidata/@group="type"][count(elements/element) = 0]</expression><expression>//api[contains(@id,"N:") and string-length(@id)=2]</expression></expressions></configuration></PlugInConfig></PlugInConfigurations>
+      <PlugInConfig id="XPath Reflection File Filter" enabled="True">
+        <configuration>
+          <expressions>
+            <expression>//api[starts-with(apidata/@name,"$")]</expression>
+            <expression>//api[contains(@id,"XSharp.ADS.ACE")]</expression>
+            <expression>//api[starts-with(apidata/@name,"__") and not(starts-with(@id,"T:"))]</expression>
+            <expression>//api['Functions' = substring(apidata/@name, string-length(apidata/@name)- 9) ][apidata/@group="type"][count(elements/element) = 0]</expression>
+            <expression>//api[contains(@id,"N:") and string-length(@id)=2]</expression>
+          </expressions>
+        </configuration>
+      </PlugInConfig>
+    </PlugInConfigurations>
     <RootNamespaceTitle>X# Runtime and VO SDK Reference</RootNamespaceTitle>
     <CopyrightHref>https://www.xsharp.eu/licensing/xsharp-open-software-license</CopyrightHref>
     <CopyrightText>Copyright &amp;#169%3b 2015-2021 XSharp BV, All rights reserved. The VO SDK classes are Copyright &amp;#169%3b 1993-2020 Computer Associates.</CopyrightText>
@@ -212,7 +222,8 @@
     <TopicVersion>100</TopicVersion>
     <MSHelpViewerSdkLinkType>Msdn</MSHelpViewerSdkLinkType>
     <CatalogName>VisualStudio15</CatalogName>
-    <ProjectSummary>            This is the generated documentation for the XSharp Runtime and VO SDK.&amp;lt%3bbr/&amp;gt%3b
+    <ProjectSummary>
+            This is the generated documentation for the XSharp Runtime and VO SDK.&amp;lt%3bbr/&amp;gt%3b
             Please note that DotNet does not know the concept of a function. Therefore the compiler converts functions to static methods of a compiler generated functions class. &amp;lt%3bbr/&amp;gt%3b
             The same is true for DEFINES. These are added as constants fields in the functions class.&amp;lt%3bbr/&amp;gt%3b
             The XSharp runtime has a couple of these classes:&amp;lt%3bbr/&amp;gt%3b
@@ -238,7 +249,7 @@
             There is no need to do anything special when writing code. The compiler will automatically resolve function calls, such as:
             &amp;lt%3bc&amp;gt%3bLeft%28cString,10%29 &amp;lt%3b/c&amp;gt%3b and will generate the following output  &amp;lt%3bc&amp;gt%3bXSharp.Core.Functions.Left%28cString,10%29&amp;lt%3b/c&amp;gt%3b.
             The compiler will also translate a define such as  &amp;lt%3bc&amp;gt%3bFA_NORMAL &amp;lt%3b/c&amp;gt%3b  to   &amp;lt%3bc&amp;gt%3bXSharp.Core.Functions.FA_NORMAL&amp;lt%3b/c&amp;gt%3b.&amp;lt%3bbr/&amp;gt%3b
-            In fact the compiler will include the value of this DEFINE in the generated code.  
+            In fact the compiler will include the value of this DEFINE in the generated code.
             You will not be able to see in the generated code that the value  &amp;lt%3bc&amp;gt%3b0x00000080 &amp;lt%3b/c&amp;gt%3bwas read from the &amp;lt%3bc&amp;gt%3bFA_NORMAL&amp;lt%3b/c&amp;gt%3b define.&amp;lt%3bbr/&amp;gt%3b
             The source code for the XSharp Runtime is available &amp;lt%3ba href=&amp;quot%3bhttps://github.com/X-Sharp/XSharpPublic/tree/feature/Runtime/&amp;quot%3b _target=&amp;quot%3b_blank&amp;quot%3b &amp;gt%3bon GitHub. &amp;lt%3b/a&amp;gt%3b &amp;lt%3bbr/&amp;gt%3b
             If you find bugs with this code, please report them  by sending an email to  bugreports%40xsharp.eu.&amp;lt%3bbr/&amp;gt%3b

@@ -71,11 +71,11 @@ BEGIN NAMESPACE XSharpModel
                      result += ","
                   ENDIF
                   result += assembly:Id:ToString()
-               NEXT
-               if ! _AssemblyDict.ContainsKey(core:Id)
-                   _AssemblyDict:Add(core:Id, core)
-                   _AssemblyReferences:Add(core)
-               ENDIF
+                NEXT
+                if core != NULL .and. ! _AssemblyDict.ContainsKey(core:Id)
+                    _AssemblyDict:Add(core:Id, core)
+                    _AssemblyReferences:Add(core)
+                endif
                _dependentAssemblyList := result
             ENDIF
             RETURN _dependentAssemblyList
@@ -181,6 +181,10 @@ BEGIN NAMESPACE XSharpModel
          SELF:Loaded := TRUE
          SELF:FileWalkCompleted := FALSE
          XSolution.Add(SELF)
+         var cFile := XSolution.BuiltInFunctions
+         IF ! String.IsNullOrEmpty(cFile) .and. System.IO.File.Exists(cFile)
+             SELF:AddFile(cFile)
+         ENDIF
 
       PUBLIC METHOD Close() AS VOID
          ModelWalker.RemoveProject(SELF)
@@ -196,6 +200,30 @@ BEGIN NAMESPACE XSharpModel
          SELF:_AssemblyTypeCache := NULL
          RETURN
          #region AssemblyReferences
+
+        METHOD RefreshReferences(asmList as IList<string>) AS VOID
+            var oldAsm := Dictionary<string, string>{StringComparer.OrdinalIgnoreCase}
+            var newAsm := List<string>{}
+            foreach var name in SELF:AssemblyReferenceNames
+                IF ! oldAsm:ContainsKey(name)
+                    oldAsm:Add(name, name)
+                endif
+            next
+
+            FOREACH var asmFile in asmList
+                if oldAsm:ContainsKey(asmFile)
+                    oldAsm:Remove(asmFile)
+                else
+                    newAsm:Add(asmFile)
+                endif
+            next
+            FOREACH var item in oldAsm
+                SELF:RemoveAssemblyReference(item:Value)
+            NEXT
+            FOREACH var item in newAsm
+                SELF:AddAssemblyReference(item)
+            NEXT
+            RETURN
 
          METHOD AddAssemblyReference(path AS STRING) AS VOID
             IF ! String.IsNullOrEmpty(path)
@@ -1075,7 +1103,10 @@ BEGIN NAMESPACE XSharpModel
          NEXT
          IF sTypeIds:Length == 0
             RETURN NULL
-        ENDIF
+         ENDIF
+         interfaces := interfaces:Replace(";","")
+         interfaces := interfaces:Replace("\r","")
+         interfaces := interfaces:Replace("\n","")
          VAR aIF := interfaces.Split(<CHAR>{c','}, StringSplitOptions.RemoveEmptyEntries)
          //todo Collect interfaces from IMPLEMENTS clauses
          VAR members  := XDatabase.GetMembers(sTypeIds):ToArray()
