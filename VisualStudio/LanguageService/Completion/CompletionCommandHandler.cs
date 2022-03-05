@@ -111,28 +111,34 @@ namespace XSharp.LanguageService
                         char ch = GetTypeChar(pvaIn);
                         if (_completionSession != null)
                         {
-                            if (char.IsLetterOrDigit(ch) || ch == '_')
+                            switch (ch)
                             {
-                                ; // do nothing now. Let the provider filter the list for us.
-                            }
-                            else
-                            {
-                                if (ch == '=' && _completionSession.Properties.TryGetProperty(XsCompletionProperties.Char, out char triggerChar) && triggerChar == ':')
-                                {
+                                case '_':
+                                    // do nothing now. Let the provider filter the list for us.
+                                    break;
+
+                                case '=':
                                     CancelCompletionSession();
-                                }
-                                else if (ch == '.' || ch == ':')
-                                {
+                                    break;
+                                case '.':
+                                case ':':
                                     handled = CompleteCompletionSession(ch);
-                                }
-                                else if (XSettings.EditorCommitChars.Contains(ch))
-                                {
-                                    handled = CompleteCompletionSession(ch);
-                                }
-                                else
-                                {
-                                    CancelCompletionSession();
-                                }
+                                    break;
+                                default:
+                                    if (char.IsLetterOrDigit(ch))
+                                    {
+                                        ; // do nothing
+                                    }
+                                    else if (XSettings.EditorCommitChars.Contains(ch))
+                                    {
+                                        handled = CompleteCompletionSession(ch);
+                                    }
+                                    else
+                                    {
+                                        CancelCompletionSession();
+                                    }
+
+                                    break;
                             }
                             //
                         }
@@ -283,8 +289,11 @@ namespace XSharp.LanguageService
                     {
                         // force buffer to be classified to see if we are on a line before a comment
                         var classifier = _textView.TextBuffer.GetClassifier();
-                        classifier.ClassifyWhenNeeded();
-                        var lines = _textView.TextBuffer.GetLineState();
+                        _ = classifier.ClassifyWhenNeededAsync();
+                        var doc = _textView.TextBuffer.GetDocument();
+                        if (doc == null)
+                            return;
+                        var lines = doc.LineState;
                         // Make sure that the entity list matches the contents of the buffer
                         // Parse the entities
                         classifier.Parse();
@@ -498,7 +507,7 @@ namespace XSharp.LanguageService
                         {
                             completion.InsertionText += "{";
                         }
-                        if (kind.HasParameters() && !completion.InsertionText.EndsWith("("))
+                        else if (kind.HasParameters() && !completion.InsertionText.EndsWith("("))
                         {
                             completion.InsertionText += "(";
                         }
@@ -613,8 +622,7 @@ namespace XSharp.LanguageService
             }
             catch (Exception e)
             {
-                WriteOutputMessage("Start Completion failed");
-                XSettings.DisplayException(e);
+                XSettings.LogException(e, "Start Completion failed");
             }
             return true;
         }
@@ -686,7 +694,7 @@ namespace XSharp.LanguageService
         {
             if (XSettings.EnableCodeCompletionLog && XSettings.EnableLogging)
             {
-                XSettings.DisplayOutputMessage("XSharp.Completion:" + strMessage);
+                XSettings.LogMessage("XSharp.Completion:" + strMessage);
             }
         }
         private char GetTypeChar(IntPtr pvaIn)
@@ -733,9 +741,9 @@ namespace XSharp.LanguageService
         }
 
         #region Token Helpers for XMLDoc generation
-        private bool getBufferedTokens(out XSharpTokens xTokens, ITextBuffer textBuffer)
+        private bool getBufferedTokens(out XDocument xTokens, ITextBuffer textBuffer)
         {
-            if (textBuffer.Properties != null && textBuffer.Properties.TryGetProperty(typeof(XSharpTokens), out xTokens))
+            if (textBuffer.Properties != null && textBuffer.Properties.TryGetProperty(typeof(XDocument), out xTokens))
             {
                 return xTokens != null && xTokens.Complete;
             }
@@ -802,7 +810,7 @@ namespace XSharp.LanguageService
             }
             catch (Exception e)
             {
-                XSettings.DisplayException(e);
+                XSettings.LogException(e,"getTokens");
                 tokens = new List<IToken>();
             }
             return tokens;

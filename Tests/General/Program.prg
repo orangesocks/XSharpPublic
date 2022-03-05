@@ -1,35 +1,68 @@
-﻿using System.IO
-FUNCTION Throwme(e AS Exception) AS VOID
-    THROW e
-FUNCTION Start() AS VOID STRICT
-    local aStruct as array
-    aStruct := {{"ID", "N",10,0},{"MEMO","M",10,0}}
-    DbCreate("test",aStruct, "DBFCDX")
-    DbUseArea(TRUE, "DBFCDX", "test","test1", TRUE)
-    DbUseArea(TRUE, "DBFCDX", "test","test2", TRUE)
-    DbSelectArea("test1")
-    DbAppend()
-    FieldPut(1, 1)
-    FieldPut(2, "Memo 1")
-    BlobRootLock()
-    DbSelectArea("test2")
-    BlobRootLock()
-    DbSelectArea("test1")
-    BlobRootPut("test")
-    BlobRootUnLock()
-    DbCommit()
-    DbSelectArea("test2")
-    DbAppend()
-    FieldPut(1, 2)
-    FieldPut(2, "Memo 2")
-    DbCommit()
-    BlobRootLock()
-    ? BlobRootGet()
-    BlobRootUnLock()
-    DbGoTop()
-    DO WHILE ! Eof()
-        ? FieldGet(2)
-        DbSkip(1)
-    ENDDO
-    DbCloseAll()
-    WAIT
+﻿FUNCTION Start as VOID
+? PROGRAM()
+? 0, PROGRAM(0)
+? 1, PROGRAM(1)
+? 2, PROGRAM(2)
+DO myproc
+wait
+
+PROCEDURE myproc
+? PROGRAM()
+? 0, PROGRAM(0)
+? 1, PROGRAM(1)
+? 2, PROGRAM(2)
+
+return
+
+
+
+FUNCTION xStart(args as string[]) AS VOID
+LOCAL cBinFolder,cBinDbf AS STRING
+LOCAL cTestFolder,cTestdbf AS STRING
+LOCAL cFilename AS STRING
+
+cBinFolder := WorkDir()
+cTestFolder := "C:\Test\"
+cFilename := "testpath.dbf"
+? ProcName(0, FALSE)
+? ProcName(0, TRUE)
+? Program(-1)
+? Program(0)
+? Program(0,TRUE)
+cBinDbf := cBinFolder + cFilename
+cTestdbf := cTestFolder + cFilename
+
+? "Bin path:", cBinDbf
+? "Test path:", cTestdbf
+?
+
+DbCreate(cBinDbf , {{"FLD","C",10,0}})
+DbUseArea(TRUE,,cBinDbf)
+DbAppend()
+FieldPut(1, "BIN")
+DbCloseArea()
+
+DbCreate(cTestdbf , {{"FLD","C",10,0}})
+DbUseArea(TRUE,,cTestdbf)
+DbAppend()
+FieldPut(1, "Test")
+DbCloseArea()
+
+
+? DbUseArea(TRUE,,cFilename)
+? FieldGet(1) // "BIN", file is opened from exe fodler, correct
+DbCloseArea()
+
+SetDefault(cTestFolder)
+
+? DbUseArea(TRUE,,cFilename)
+? FieldGet(1) // "BIN" again, wrong, this should be opened from the test folder, like VO does
+DbCloseArea()
+
+FErase(cBinDbf)
+
+? DbUseArea(TRUE,,cFilename)
+? FieldGet(1) // "Test", now it is indeed being opened from the test folder
+DbCloseArea()
+wait
+RETURN

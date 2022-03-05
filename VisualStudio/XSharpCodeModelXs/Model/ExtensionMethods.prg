@@ -15,6 +15,11 @@ BEGIN NAMESPACE XSharpModel
 
     STATIC CLASS ExtensionMethods
 
+        STATIC METHOD AddRange<T>(SELF items as SynchronizedCollection<T> ,  newItems as IList<T> ) AS VOID
+            FOREACH VAR item in newItems
+                items:Add(item)
+            NEXT
+
         STATIC METHOD CleanText(SELF token as IToken) AS STRING
             var result := token:Text
             if result:StartsWith("@@")
@@ -62,6 +67,8 @@ BEGIN NAMESPACE XSharpModel
                     RETURN "#translate"
                 CASE Kind.XTranslate
                     RETURN "#xtranslate"
+                CASE Kind.Include
+                    RETURN "#include"
                 CASE Kind.Undeclared
                     var cName := "UNDECLARED VARIABLE"
                     IF ModelWalker.IsRunning .or. ModelWalker.HasWork
@@ -92,7 +99,7 @@ BEGIN NAMESPACE XSharpModel
                 CASE Kind.Method
                 CASE Kind.Assign
                 CASE Kind.Access
-                CASE Kind.Property
+                //CASE Kind.Property
                 CASE Kind.Function
                 CASE Kind.Procedure
                 CASE Kind.Event
@@ -148,6 +155,7 @@ BEGIN NAMESPACE XSharpModel
                 CASE Kind.Translate
                 CASE Kind.XTranslate
                 CASE Kind.Attribute
+                CASE Kind.Include
                     RETURN TRUE
             END SWITCH
         RETURN FALSE
@@ -161,6 +169,7 @@ BEGIN NAMESPACE XSharpModel
             CASE Kind.XCommand
             CASE Kind.Translate
             CASE Kind.XTranslate
+            CASE Kind.Include
                 RETURN TRUE
             END SWITCH
         RETURN FALSE
@@ -216,6 +225,7 @@ BEGIN NAMESPACE XSharpModel
                 CASE Kind.Translate
                 CASE Kind.XTranslate
                 CASE Kind.Attribute
+                CASE Kind.Include
                     RETURN TRUE
             END SWITCH
         RETURN FALSE
@@ -388,8 +398,12 @@ BEGIN NAMESPACE XSharpModel
                 CASE Kind.Translate
                 CASE Kind.XTranslate
                     imgK := ImageListKind.Macro
+                CASE Kind.Include
+                    imgK := ImageListKind.Library
                 CASE Kind.Keyword
                     imgK := ImageListKind.Keyword
+                CASE Kind.Attribute
+                    imgK := ImageListKind.XmlAttribute
             END SWITCH
             SWITCH visibility
                 CASE Modifiers.Public

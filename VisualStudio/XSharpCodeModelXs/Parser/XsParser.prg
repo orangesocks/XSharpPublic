@@ -85,7 +85,7 @@ BEGIN NAMESPACE XSharpModel
          _file          := oFile
          _dialect       := dialect
          _locals        := List<XSourceVariableSymbol>{}
-         _file:InitTypeList()
+         _file:Clear()
          _globalType    := _file:GlobalType
          _globalType:ClearMembers()
          _EntityStack:Push(_globalType)
@@ -105,7 +105,7 @@ BEGIN NAMESPACE XSharpModel
       METHOD Parse(lBlocks AS LOGIC, lLocals AS LOGIC) AS VOID
          VAR cSource  := System.IO.File.ReadAllText(_file:SourcePath)
          VAR options  := XSharpParseOptions.Default
-         XSharp.Parser.VsParser.Lex(cSource, SELF:_file:SourcePath, options, SELF, OUT VAR stream)
+         XSharp.Parser.VsParser.Lex(cSource, SELF:_file:SourcePath, options, SELF, OUT VAR stream, OUT VAR includeFiles)
          SELF:Parse(stream, lBlocks, lLocals)
          RETURN
 
@@ -131,7 +131,7 @@ BEGIN NAMESPACE XSharpModel
          _collectBlocks := lBlocks
          _stream        := (BufferedTokenStream) tokenStream
          _tokens        := _stream:GetTokens()
-         VAR _input         := List<XSharpToken>{}
+         VAR _input     := List<XSharpToken>{}
          FOREACH token AS XSharpToken IN _tokens
             SWITCH token:Channel
             CASE TokenConstants.HiddenChannel
@@ -271,12 +271,12 @@ BEGIN NAMESPACE XSharpModel
                         // CurrentEntity should be a type: Class, Structure, Interface, Enum, VoStruct, Union
                         IF entity IS XSourceMemberSymbol VAR xMember .AND. xMember:Parent == NULL
                             xEnt:AddMember( xMember )
-                        ENDIF
-                     ELSEIF canAddChildren .and. entity IS XSourceTypeSymbol VAR xChild .AND. ! XSourceTypeSymbol.IsGlobalType(xEnt) ;
-                            .and. xEnt:Kind:HasChildren()
-                        // Namespace, class, structure, interface can have children (nested types)
-                        xEnt:AddChild( xChild )
-                        xChild:Namespace := xEnt:FullName
+                         ELSEIF canAddChildren .and. xEnt != NULL .and. entity IS XSourceTypeSymbol VAR xChild .AND.  ;
+                            ! XSourceTypeSymbol.IsGlobalType(xEnt) .and. xEnt:Kind:HasChildren()
+                            // Namespace, class, structure, interface can have children (nested types)
+                            xEnt:AddChild( xChild )
+                            xChild:Namespace := xEnt:FullName
+                         ENDIF
                      ENDIF
                      IF ! entity:SingleLine
                         _EntityStack:Push(entity)
@@ -317,7 +317,7 @@ BEGIN NAMESPACE XSharpModel
             ENDIF
          ENDDO
          VAR types := SELF:_EntityList:Where( {x => x IS XSourceTypeSymbol})
-         VAR typelist := Dictionary<STRING, XSourceTypeSymbol>{System.StringComparer.InvariantCultureIgnoreCase}
+         VAR typelist := XDictionary<STRING, XSourceTypeSymbol>{System.StringComparer.InvariantCultureIgnoreCase}
          typelist:Add(_globalType:Name, _globalType)
          LOCAL last  := NULL AS XSourceTypeSymbol
          FOREACH type AS XSourceTypeSymbol IN types
@@ -357,7 +357,7 @@ BEGIN NAMESPACE XSharpModel
               typelist:Add(type:FullName, type)
             ENDIF
             last := type
-            NEXT
+         NEXT
          VAR lasttoken := _tokens[_tokens.Count -1]
          IF last != NULL .AND. last:Range:StartLine == last:Range:EndLine .and. ! last:SingleLine
             // adjust the end of the type with the start of the current line
@@ -368,10 +368,18 @@ BEGIN NAMESPACE XSharpModel
          ENDIF
          Log(i"Completed, found {_EntityList.Count} entities and {typelist.Count} types")
          IF SELF:_EntityList:Count > 0
-            VAR lastEntity          := SELF:_EntityList:Last()
-            if ! lastEntity:Kind:IsClassMember(_dialect) .and. ! lastEntity:Kind:HasEndKeyword()
+            LOCAL lastEntity          := SELF:_EntityList:Last() as XSourceEntity
+            if lastEntity:Kind:IsClassMember(_dialect)
+                // if type has no end clause then also set the end
+                if lastEntity:Range:StartLine == lastEntity:Range:EndLine
+                    lastEntity:Range        := lastEntity:Range:WithEnd(lasttoken)
+                    lastEntity:Interval     := lastEntity:Interval:WithEnd(lasttoken)
+                endif
+
+            elseif ! lastEntity:Kind:HasEndKeyword()
                 lastEntity:Range        := lastEntity:Range:WithEnd(lasttoken)
                 lastEntity:Interval     := lastEntity:Interval:WithEnd(lasttoken)
+
             ENDIF
          ELSE
              // Add at least one entity that represents the global namespace
@@ -384,9 +392,11 @@ BEGIN NAMESPACE XSharpModel
              SELF:_EntityList:Add(xmember)
              SELF:_globalType:AddMember(xmember)
          ENDIF
-         _file:SetTypes(typelist, _usings, _staticusings, SELF:_EntityList)
-         IF ! lLocals .AND. SELF:SaveToDisk
-            _file:SaveToDatabase()
+         IF ! lLocals
+	         _file:SetTypes(typelist, _usings, _staticusings, SELF:_EntityList)
+             IF SELF:SaveToDisk
+                _file:SaveToDatabase()
+             ENDIF
          ENDIF
       PRIVATE METHOD AddNameSpaceToUsing(name as STRING) AS VOID
          var pos  := name:LastIndexOf(".")
@@ -408,8 +418,12 @@ BEGIN NAMESPACE XSharpModel
          RETURN
 
       PRIVATE METHOD ParsePPLine() AS LOGIC
+         LOCAL entity as XSourceMemberSymbol
+         LOCAL kind AS Kind
          VAR token := SELF:La1
-         SWITCH SELF:La1
+         VAR start := SELF:Lt1
+
+         SWITCH token
          CASE XSharpLexer.PP_REGION
          CASE XSharpLexer.PP_IFDEF
          CASE XSharpLexer.PP_IFNDEF
@@ -428,13 +442,28 @@ BEGIN NAMESPACE XSharpModel
             IF _PPBlockStack:Count > 0
                _PPBlockStack:Peek():Children:Add( XSourceBlock{SELF:Lt1,SELF:Lt2})
             ENDIF
+         CASE XSharpLexer.PP_INCLUDE
+             var sb := StringBuilder{}
+             kind   := Kind.Include
+             SELF:Consume()
+             VAR eol   := SELF:Lt1
+             DO WHILE SELF:La1 != XSharpLexer.EOS
+                eol   := SELF:Lt1
+                sb:Append(eol:Text)
+                SELF:Consume()
+             ENDDO
+             SELF:GetSourceInfo(start, eol, OUT VAR range, OUT VAR interval, OUT VAR source)
+             VAR name := sb:ToString():Trim()
+             if name:StartsWith("""") .and. name.EndsWith("""")
+                name := name:Substring(1, name:Length-2)
+             endif
+             entity := XSourceMemberSymbol{name, kind, Modifiers.None, range,interval,"",FALSE}
+             entity:SourceCode := source
          CASE XSharpLexer.PP_DEFINE
          CASE XSharpLexer.PP_UNDEF
          CASE XSharpLexer.PP_COMMAND
          CASE XSharpLexer.PP_TRANSLATE
 
-             VAR type := SELF:La1
-             VAR start := SELF:Lt1
              VAR name  := SELF:Lt2:Text
              VAR eol   := SELF:Lt2
              var hasId := IsId(SELF:La2)
@@ -454,8 +483,7 @@ BEGIN NAMESPACE XSharpModel
                 SELF:Consume()
              ENDDO
              SELF:GetSourceInfo(start, eol, OUT VAR range, OUT VAR interval, OUT VAR source)
-             LOCAL kind AS Kind
-             SWITCH type
+             SWITCH token
              CASE XSharpLexer.PP_DEFINE
                  kind := Kind.Define
              CASE XSharpLexer.PP_UNDEF
@@ -473,16 +501,19 @@ BEGIN NAMESPACE XSharpModel
                     kind := Kind.XTranslate
                  ENDIF
              END SWITCH
-             VAR entity := XSourceMemberSymbol{name, kind, Modifiers.None, range,interval,"",FALSE}
+             entity := XSourceMemberSymbol{name, kind, Modifiers.None, range,interval,"",FALSE}
              entity:SourceCode := source
-             entity:File := _file
-             entity:SingleLine := TRUE
-             _EntityList.Add(entity)
-             _globalType:AddMember(entity)
          OTHERWISE
             RETURN FALSE
          END SWITCH
          SELF:ReadLine()
+         if entity != NULL
+             entity:ReturnType := ""
+             entity:File := _file
+             entity:SingleLine := TRUE
+             _EntityList.Add(entity)
+             _globalType:AddMember(entity)
+         ENDIF
          RETURN TRUE
 
         PRIVATE METHOD ParseUsing() AS LOGIC
@@ -790,21 +821,16 @@ attributeParam      : Name=identifierName Op=assignoperator Expr=expression     
                entityKind := Kind.Field // Not really a field but handled later
             ENDIF
          // XPP code between CLASS .. ENDCLASS
-         // we do no check for InXPPClass because this will
          // fail when partially parseing for locals lookup
-         CASE XSharpLexer.VAR
-            IF _dialect == XSharpDialect.XPP
-               entityKind := Kind.Field // Not really a field but handled later
-            ENDIF
+         CASE XSharpLexer.VAR WHEN  SELF:InXppClass
+            entityKind := Kind.Field // Not really a field but handled later
 
-         CASE XSharpLexer.COLON
-            IF _dialect == XSharpDialect.XPP .AND. _AND(mods, Modifiers.VisibilityMask) != Modifiers.None
+         CASE XSharpLexer.COLON WHEN SELF:InXppClass
+            IF _AND(mods, Modifiers.VisibilityMask) != Modifiers.None
                entityKind := Kind.Field // Not really a field but handled later
             ENDIF
-         CASE XSharpLexer.INLINE
-            IF _dialect == XSharpDialect.XPP
-               entityKind := Kind.Method // Not really a field but handled later
-            ENDIF
+         CASE XSharpLexer.INLINE WHEN SELF:InXppClass
+            entityKind := Kind.Method // Not really a field but handled later
          CASE XSharpLexer.LOCAL
             IF SELF:La2 == XSharpLexer.FUNCTION
                entityKind := Kind.LocalFunc
@@ -1133,7 +1159,7 @@ attributeParam      : Name=identifierName Op=assignoperator Expr=expression     
       PRIVATE PROPERTY Lt1 AS XSharpToken => _list:Lt1
       PRIVATE PROPERTY Lt2 AS XSharpToken => _list:Lt2
       PRIVATE PROPERTY Lt3 AS XSharpToken => _list:Lt3
-      PRIVATE PROPERTY LastToken AS XSharpToken => _list:LastToken
+      PRIVATE PROPERTY LastToken AS XSharpToken => _list:LastReadToken
       PRIVATE METHOD La(nToken AS LONG) AS LONG => _list:La(nToken)
       PRIVATE METHOD Lt(nToken AS LONG) AS XSharpToken => _list:Lt(nToken)
       PRIVATE METHOD Eoi() AS LOGIC => _list:Eoi()
@@ -2603,6 +2629,8 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
                      CASE XSharpLexer.BEGIN
                      CASE XSharpLexer.USING
                         kind := ImpliedKind.Using
+                     CASE XSharpLexer.IF
+                        kind := ImpliedKind.TypeCheck
                      END SWITCH
                      Consume()
                      // get the text after IN or the expression after the assignment operator
@@ -2614,7 +2642,6 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
                   xVar:ImpliedKind := kind
                   xVar:TypeName    := TokensAsString(expr):Trim()
                   SELF:_locals:Add(xVar)
-                  SELF:ReadLine()
                ENDIF
             ELSEIF SELF:IsId(SELF:La1) .AND. SELF:La2 == XSharpLexer.AS
                VAR start := SELF:Lt1
@@ -2646,9 +2673,21 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
                ENDIF
                xVar:Expression := expression
                SELF:_locals:Add(xVar)
-
+           ELSEIF SELF:La1 == XSharpLexer.IS
+               Consume()
+               VAR start := SELF:Lt1
+               LOCAL type := "" AS STRING
+               type  := SELF:ParseTypeName()
+               IF SELF:La1 == XSharpLexer.VAR
+                    Consume()
+                    VAR id    := SELF:ParseIdentifier()
+                    SELF:GetSourceInfo(start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR _)
+                    VAR xVar := XSourceVariableSymbol{SELF:CurrentEntity, id, range, interval, type }
+                    SELF:_locals:Add(xVar)
+                ENDIF
+            ELSE
+                Consume()
             ENDIF
-            Consume()
          ENDDO
          RETURN TRUE
 
@@ -2680,11 +2719,11 @@ callingconvention	: Convention=(CLIPPER | STRICT | PASCAL | ASPEN | WINCALL | CA
                   SELF:GetSourceInfo(start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR _)
                   VAR xVar     := XSourceVariableSymbol{SELF:CurrentEntity, id, range, interval, iif(type == "", _missingType, type)}
                   SELF:_locals:Add(xVar)
-               ELSEIF SELF:La2 == XSharpLexer.VAR
+               ELSEIF SELF:La1 == XSharpLexer.VAR
                   // OUT VAR Id, when Id = '_' then discard and do not create a local
                   Consume()   // Var
                   VAR id         := SELF:ParseIdentifier()
-                  IF id          == "_"
+                  IF id          != "_"
                      SELF:GetSourceInfo(start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR _)
                      VAR xVar           := XSourceImpliedVariableSymbol{SELF:CurrentEntity, id, range, interval}
                      xVar:ImpliedKind := ImpliedKind.OutParam
@@ -3941,7 +3980,7 @@ xppclassMember      : Member=xppmethodvis                           #xppclsvisib
 
 
       PRIVATE STATIC METHOD Log(cMessage AS STRING) AS VOID
-         IF XSettings.EnableParseLog .AND. XSettings.EnableLogging
+         IF XSettings.EnableParseLog
             XSolution.WriteOutputMessage("XParser: "+cMessage)
          ENDIF
          RETURN

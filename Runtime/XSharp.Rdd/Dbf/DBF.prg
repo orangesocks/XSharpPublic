@@ -100,6 +100,8 @@ INTERNAL METHOD _CheckEofBof() AS VOID
     IF SELF:RecCount == 0
         SELF:_SetEOF(TRUE)
         SELF:_SetBOF(TRUE)
+    ELSEIF SELF:RecNo > SELF:RecCount
+        SELF:_SetEOF(TRUE)
     ENDIF
 
 
@@ -130,6 +132,9 @@ PRIVATE METHOD _AllocateBuffers() AS VOID
 		ENDIF
 	NEXT
 #ifdef INPUTBUFFER
+    if (_inBuffer != null)
+        _inBuffer:Close()
+    endif
 	_inBuffer := InputBuffer{SELF:_oStream, SELF:_HeaderLength, SELF:_RecordLength, SELF:Shared}
 #endif
 
@@ -259,8 +264,9 @@ OVERRIDE METHOD Skip(nToSkip AS INT) AS LOGIC
                 IF ( nToSkip < 0 ) .AND. SELF:_BoF
 				    SELF:GoTop()
 				    SELF:BoF := TRUE
-			    ENDIF
-			    IF nToSkip < 0
+                ENDIF
+                // when we land at EOF then do not reset the EOF flag
+			    IF nToSkip < 0 .and. SELF:RecNo < SELF:RecCount
 				    SELF:_SetEOF(FALSE)
 			    ELSEIF nToSkip > 0
 				    SELF:BoF := FALSE
@@ -881,7 +887,10 @@ OVERRIDE METHOD Close() 			AS LOGIC
 			isOK := FALSE
 			SELF:_dbfError(ex, Subcodes.ERDD_CLOSE_FILE,Gencode.EG_CLOSE,  "DBF.Close")
 
-		END TRY
+        END TRY
+        #ifdef INPUTBUFFER
+            SELF:_inBuffer:Close()
+        #endif
 		SELF:_hFile := F_ERROR
         SELF:_oStream := NULL
 	ENDIF
@@ -983,7 +992,9 @@ OVERRIDE METHOD Create(info AS DbOpenInfo) AS LOGIC
 					isOK := SELF:CreateMemFile( info )
 				ENDIF
 				SELF:_AllocateBuffers()
-			ENDIF
+                // Read fields again so the right column objects are allocated
+                SELF:_readFieldsHeader()
+            ENDIF
 		ENDIF
 		IF !isOK
 			IF SELF:_HasMemo
@@ -1131,12 +1142,12 @@ PRIVATE METHOD _readHeader() AS LOGIC
         SELF:_Encoding := System.Text.Encoding.GetEncoding( CodePageExtensions.ToCodePage( SELF:_Header:CodePage )  )
 
         // Move to top, after header
-        isOK := _oStream:SafeSetPos(DbfHeader.SIZE) .AND. SELF:_readFieldsHeader()
+        isOK := SELF:_readFieldsHeader()
 	ENDIF
 RETURN isOK
 
     // Read the Fields Header, filling the _Fields List with RddFieldInfo
-PRIVATE METHOD _readFieldsHeader() AS LOGIC
+PROTECTED METHOD _readFieldsHeader() AS LOGIC
 	LOCAL isOK AS LOGIC
 	LOCAL fieldCount   := SELF:_Header:FieldCount AS INT
 	LOCAL fieldDefSize := fieldCount * DbfField.SIZE AS INT
@@ -1146,7 +1157,7 @@ PRIVATE METHOD _readFieldsHeader() AS LOGIC
 	SELF:_NullCount := 0
     // Read full Fields Header
 	VAR fieldsBuffer := BYTE[]{ fieldDefSize }
-	isOK   := _oStream:SafeRead(fieldsBuffer)
+    isOK   := _oStream:SafeReadAt(DbfHeader.SIZE, fieldsBuffer,fieldDefSize)
 	IF isOK
 		SELF:_HasMemo := FALSE
 		VAR currentField := DbfField{SELF:_Encoding}
@@ -1206,6 +1217,7 @@ PROTECTED METHOD _writeHeader() AS LOGIC
 		SELF:_Header:RecCount := SELF:_RecCount
 		TRY
             ret := SELF:_Header:Write()
+
 		CATCH ex AS Exception
 			SELF:_dbfError( ex, ERDD.WRITE, XSharp.Gencode.EG_WRITE )
 			ret := FALSE
@@ -1335,7 +1347,7 @@ RETURN oResult
 VIRTUAL PROTECTED METHOD _readRecord() AS LOGIC
 	LOCAL isOK AS LOGIC
     // Buffer is supposed to be correct
-	IF SELF:_BufferValid == TRUE .OR. SELF:EoF
+	IF SELF:_BufferValid == TRUE .OR. SELF:EoF .OR. SELF:RecNo > SELF:RecCount
 		RETURN TRUE
 	ENDIF
     // File Ok ?
@@ -1512,7 +1524,7 @@ OVERRIDE METHOD _getMemoBlockNumber( nFldPos AS LONG ) AS LONG
 	IF oColumn != NULL .AND. oColumn:IsMemo
 		IF SELF:_readRecord()
             VAR blockNo := oColumn:GetValue(SELF:_RecordBuffer)
-            IF blockNo != NULL
+            IF blockNo != NULL .and. blockNo != DBNull.Value
 			    blockNbr := (LONG) blockNo
             ENDIF
 		ENDIF
@@ -1922,7 +1934,7 @@ OVERRIDE METHOD Info(nOrdinal AS INT, oNewValue AS OBJECT) AS OBJECT
 	CASE DbInfo.DBI_ISDBF
 		oResult := TRUE
 	CASE DbInfo.DBI_CANPUTREC
-		oResult := TRUE // IIF(SELF:HasMemo, FALSE , TRUE)
+		oResult := IIF(SELF:HasMemo, FALSE , TRUE)
 	CASE DbInfo.DBI_GETRECSIZE
 		oResult := SELF:_RecordLength
 	CASE DbInfo.DBI_LASTUPDATE

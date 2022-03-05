@@ -45,7 +45,7 @@ namespace XSharp.LanguageService
         {
             if (XSettings.EnableQuickInfoLog && XSettings.EnableLogging)
             {
-                XSettings.DisplayOutputMessage("XSharp.QuickInfoSource :" + message);
+                XSettings.LogMessage("XSharp.QuickInfoSource :" + message);
             }
         }
 
@@ -71,7 +71,7 @@ namespace XSharp.LanguageService
                 // Map the trigger point down to our buffer.
                 ITextSnapshot currentSnapshot = ssp.Snapshot;
                 bool abort = false;
-                var tokens = _textBuffer.GetTokens();
+                var tokens = _textBuffer.GetDocument();
                 if (tokens == null)
                     return null;
                 if (cancellationToken.IsCancellationRequested)
@@ -157,8 +157,7 @@ namespace XSharp.LanguageService
             }
             catch (Exception ex)
             {
-                XSettings.DisplayOutputMessage("XSharpQuickInfo.AugmentQuickInfoSession failed : ");
-                XSettings.DisplayException(ex);
+                XSettings.LogException(ex, "XSharpQuickInfo.AugmentQuickInfoSession failed : ");
             }
             finally
             {
@@ -283,7 +282,7 @@ namespace XSharp.LanguageService
                         list.addPair(xsvs.LocalTypeDesc + " ", var.TypeName.GetXSharpTypeName());
                     }
                 }
-                if (var.IsArray)
+                if (var.IsArray && ! var.TypeName.EndsWith("]"))
                 {
                     list.addText("[] ");
                 }

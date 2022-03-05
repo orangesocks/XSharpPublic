@@ -65,17 +65,33 @@ namespace XSharp.LanguageService
             {
                 _classifier  = _buffer.GetClassifier();
                 if (_classifier != null)
+                {
                     _classifier.ClassificationChanged += Classifier_ClassificationChanged;
+                }
 
             }
+        }
 
+        private void OnClosed(object sender, EventArgs e)
+        {
 
+            _textView.Closed -= OnClosed;
+            if (_buffer != null)
+            {
+                _buffer.ChangedLowPriority -= Textbuffer_Changed;
+                _buffer.Changing -= Textbuffer_Changing;
+            }
+            if (_classifier != null)
+            {
+                _classifier.ClassificationChanged -= Classifier_ClassificationChanged;
+            }
 
         }
         internal XSharpFormattingCommandHandler(IVsTextView textViewAdapter, ITextView textView,
             IBufferTagAggregatorFactoryService aggregator)
         {
             this._textView = textView;
+            this._textView.Closed += OnClosed;
             this._aggregator = aggregator;
             //add this to the filter chain
             _linesToSync = new List<int>();
@@ -101,6 +117,7 @@ namespace XSharp.LanguageService
             registerClassifier();
 
         }
+
 #if !ASYNCCOMPLETION
         XSharpCompletionCommandHandler _completionCommandHandler = null;
 #endif
@@ -228,7 +245,7 @@ namespace XSharp.LanguageService
         {
             if (XSettings.EnableParameterLog && XSettings.EnableLogging)
             {
-                XSettings.DisplayOutputMessage("XSharp.Formatting:" + strMessage);
+                XSettings.LogMessage("XSharp.Formatting:" + strMessage);
             }
         }
         private int getCurrentLine()
@@ -627,7 +644,7 @@ namespace XSharp.LanguageService
                 */
                 if (_buffer.Properties.TryGetProperty(typeof(XSharpClassifier), out XSharpClassifier classify))
                 {
-                    classify.ClassifyWhenNeeded();
+                    _ = classify.ClassifyWhenNeededAsync();
                 }
                 WriteOutputMessage("<-- CommandFilter.formatCaseForBuffer()");
             }

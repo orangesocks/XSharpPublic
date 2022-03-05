@@ -27,6 +27,7 @@ BEGIN NAMESPACE XSharpModel
     STATIC PROPERTY FileName AS STRING GET _fileName
     STATIC PROPERTY BuiltInFunctions AS STRING AUTO
     STATIC PROPERTY CommentTokens AS IList<XCommentToken> GET _commentTokens
+    STATIC PROPERTY Projects AS IList<XProject> get _projects:Values:ToArray()
 
         // Methods
     STATIC CONSTRUCTOR
@@ -40,10 +41,10 @@ BEGIN NAMESPACE XSharpModel
 
     STATIC METHOD WriteOutputMessage(message AS STRING) AS VOID
         IF XSettings.EnableLogging
-            XSettings.DisplayOutputMessage(message)
+            XSettings.LogMessage(message)
         ENDIF
-    STATIC METHOD WriteException(ex AS Exception) AS VOID
-        XSettings.DisplayException(ex)
+    STATIC METHOD WriteException(ex AS Exception, msg as STRING) AS VOID
+        XSettings.LogException(ex, msg)
         RETURN
 
     STATIC METHOD CreateBuiltInFunctions(folder as STRING) AS VOID
@@ -56,11 +57,12 @@ BEGIN NAMESPACE XSharpModel
             System.IO.File.WriteAllText(BuiltInFunctions, XSharpBuiltInFunctions(BuiltInFunctions))
             System.IO.File.SetAttributes(BuiltInFunctions, FileAttributes.ReadOnly)
         CATCH e as Exception
-            XSettings.DisplayException(e)
+            XSettings.LogException(e,__FUNCTION__)
             BuiltInFunctions := ""
         END TRY
 
     STATIC METHOD Open(cFile as STRING) AS VOID
+        WriteOutputMessage("XModel.Solution.OpenSolution() "+cFile)
         _fileName := cFile
         var folder := Path.GetDirectoryName(_fileName)
         folder     := Path.Combine(folder, ".vs")
@@ -104,12 +106,7 @@ BEGIN NAMESPACE XSharpModel
         RETURN @@Add(project:Name, project)
 
     INTERNAL STATIC METHOD Add(projectName AS STRING, project AS XProject) AS LOGIC
-        WriteOutputMessage("XModel.Solution.Add() "+projectName)
-        IF project:ProjectNode IS OrphanedFilesProject
-            // Ok
-        ELSEif _projects:Count == 0
-            CreateOrphanedFilesProject()
-        ENDIF
+        WriteOutputMessage("XModel.Solution.Add() "+projectName+" "+project.FileName)
         IF _projects:ContainsKey(projectName)
             RETURN FALSE
         ENDIF
@@ -122,7 +119,7 @@ BEGIN NAMESPACE XSharpModel
 
     STATIC METHOD Close() AS VOID
         IF IsOpen
-            WriteOutputMessage("XModel.Solution.CloseSolution()")
+            WriteOutputMessage("XModel.Solution.CloseSolution()" + _fileName)
             ModelWalker.Stop()
             XDatabase.CloseDatabase(_sqldb)
 
@@ -183,6 +180,7 @@ BEGIN NAMESPACE XSharpModel
         RETURN FALSE
 
     INTERNAL STATIC METHOD RenameProject(oldName AS STRING, newName AS STRING) AS VOID
+         WriteOutputMessage("XModel.Solution.RenameProject() "+oldName+" "+newName)
         IF _projects:ContainsKey(oldName)
             _projects:TryRemove(oldName, OUT VAR project)
             IF project != NULL
@@ -220,8 +218,8 @@ BEGIN NAMESPACE XSharpModel
 
     STATIC METHOD SetStatusBarAnimation(onOff AS LOGIC, id AS SHORT) AS VOID
         XSettings.SetStatusBarAnimation(onOff, id)
-        // Properties
-    STATIC PROPERTY OrphanedFilesProject AS XProject
+
+   STATIC PROPERTY OrphanedFilesProject AS XProject
         GET
             IF _orphanedFilesProject == NULL
                 CreateOrphanedFilesProject()

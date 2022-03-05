@@ -43,6 +43,8 @@ namespace XSharp.LanguageService
         public static XFile GetFile(this ITextBuffer buffer)
         {
             XFile file;
+            if (buffer == null)
+                return null;
             if (buffer.Properties.TryGetProperty(typeof(XFile), out file))
             {
                 return file;
@@ -56,10 +58,10 @@ namespace XSharp.LanguageService
             return file;
         }
 
-        public static XSharpTokens GetTokens(this ITextBuffer buffer)
+        public static XDocument GetDocument(this ITextBuffer buffer)
         {
-            XSharpTokens tokens;
-            if (buffer.Properties.TryGetProperty(typeof(XSharpTokens), out tokens))
+            XDocument tokens;
+            if (buffer.Properties.TryGetProperty(typeof(XDocument), out tokens))
             {
                 return tokens;
             }
@@ -230,11 +232,5 @@ namespace XSharp.LanguageService
             }
             return null;
         }
-        internal static XSharpLineState GetLineState(this ITextBuffer buffer)
-        {
-            buffer.Properties.TryGetProperty<XSharpLineState>(typeof(XSharpLineState), out var lineState);
-            return lineState;
-        }
-
     }
 }
