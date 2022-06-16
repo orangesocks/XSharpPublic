@@ -15,6 +15,7 @@ using System.Reflection;
 using System.Runtime;
 using System.Collections;
 using System.Threading;
+using System.Linq;
 using XSharp.MacroCompiler.Syntax;
 
 namespace XSharp.MacroCompiler.Preprocessor
@@ -211,10 +212,11 @@ namespace XSharp.MacroCompiler.Preprocessor
 
         readonly Stack<bool> _defStates = new();
         readonly Stack<XSharpToken> _regions = new();
+        TextProperties _textProps;
         readonly string _fileName = null;
         InputState inputs;
         readonly Stack<InputState> _files = new Stack<InputState>();
-        IToken lastToken = null;
+        IToken lastToken;
 
         readonly PPRuleDictionary _cmdRules = new();
         readonly PPRuleDictionary _transRules = new();
@@ -233,7 +235,7 @@ namespace XSharp.MacroCompiler.Preprocessor
         //public int MaxSymbolDepth { get; set; } = 16;
 
         public int MaxUDCDepth { get; set; } = 256;
-
+        bool ProcessingIncludeFile => _files.Count > 0;
         public string StdDefs { get; set; } = string.Empty;
         private void initStdDefines(string fileName)
         {
@@ -297,6 +299,9 @@ namespace XSharp.MacroCompiler.Preprocessor
                 default:
                     break;
             }
+            _macroDefines.Add("__MEMVAR__", (token) => new XSharpToken(XSharpLexer.TRUE_CONST ) { SourceSymbol = token });
+            _macroDefines.Add("__UNDECLARED__", (token) => new XSharpToken(XSharpLexer.TRUE_CONST ) { SourceSymbol = token });
+            _macroDefines.Add("__UNSAFE__", (token) => new XSharpToken(XSharpLexer.TRUE_CONST ) { SourceSymbol = token });
             _macroDefines.Add("__ENTITY__", (token) => new XSharpToken(XSharpLexer.STRING_CONST, "\"__ENTITY__\"") { SourceSymbol = token });  // Handled later in Transformation phase
             _macroDefines.Add("__FILE__", (token) => new XSharpToken(XSharpLexer.STRING_CONST, '"' + (inputs.SourceFileName ?? fileName) + '"') { SourceSymbol = token });
             _macroDefines.Add("__FUNCTION__", (token) => new XSharpToken(XSharpLexer.STRING_CONST, "\"__FUNCTION__\"") { SourceSymbol = token }); // Handled later in Transformation phase
@@ -336,9 +341,10 @@ namespace XSharp.MacroCompiler.Preprocessor
             _macroDefines.Add("__VO14__", (token) => new XSharpToken(_options.vo14 ? XSharpLexer.TRUE_CONST : XSharpLexer.FALSE_CONST) { SourceSymbol = token });
             _macroDefines.Add("__VO15__", (token) => new XSharpToken(_options.vo15 ? XSharpLexer.TRUE_CONST : XSharpLexer.FALSE_CONST) { SourceSymbol = token });
             _macroDefines.Add("__VO16__", (token) => new XSharpToken(_options.vo16 ? XSharpLexer.TRUE_CONST : XSharpLexer.FALSE_CONST) { SourceSymbol = token });
+            _macroDefines.Add("__VO17__", (token) => new XSharpToken(_options.vo17 ? XSharpLexer.TRUE_CONST : XSharpLexer.FALSE_CONST) { SourceSymbol = token });
 
             _macroDefines.Add("__XPP1__", (token) => new XSharpToken(_options.xpp1 ? XSharpLexer.TRUE_CONST : XSharpLexer.FALSE_CONST) { SourceSymbol = token });
-            _macroDefines.Add("__XPP2__", (token) => new XSharpToken(XSharpLexer.FALSE_CONST) { SourceSymbol = token });
+            //_macroDefines.Add("__XPP2__", (token) => new XSharpToken(XSharpLexer.FALSE_CONST) { SourceSymbol = token });
             _macroDefines.Add("__FOX1__", (token) => new XSharpToken(_options.fox1 ? XSharpLexer.TRUE_CONST : XSharpLexer.FALSE_CONST) { SourceSymbol = token });
             _macroDefines.Add("__FOX2__", (token) => new XSharpToken(_options.fox2 ? XSharpLexer.TRUE_CONST : XSharpLexer.FALSE_CONST) { SourceSymbol = token });
 
@@ -390,7 +396,23 @@ namespace XSharp.MacroCompiler.Preprocessor
         private void _writeToPPO(string text, bool addCRLF)
         {
             // do not call t.Text when not needed.
-            if (_preprocessorOutput)
+            var write = _preprocessorOutput;
+            if (write)
+            {
+                // when we are in a header file then do not output
+                // comment lines and blank lines
+                if (ProcessingIncludeFile)
+                {
+                    var temp = text.Trim();
+                    if (temp.Length == 0)
+                        write = false;
+                    else if (temp.StartsWith("//"))
+                    {
+                        write = false;
+                    }
+                }
+            }
+            if (write)
             {
                 _ppoWriter.Write(text);
                 if (addCRLF)
@@ -432,6 +454,9 @@ namespace XSharp.MacroCompiler.Preprocessor
                 bool first = !prefix;
                 foreach (var t in tokens)
                 {
+                    // Exclude comments from header files
+                    if (ProcessingIncludeFile && t.IsComment())
+                        continue;
                     // Copy the trivia from the original first symbol on the line so the UDC has the proper indent level
                     if (first && t.SourceSymbol != null && t.SourceSymbol.HasTrivia && t.SourceSymbol.Type == XSharpLexer.UDC_KEYWORD)
                     {
@@ -694,8 +719,42 @@ namespace XSharp.MacroCompiler.Preprocessor
                     doUnexpectedUDCSeparator(line);
                     line = null;
                     break;
+                case XSharpLexer.PP_TEXT:
+                    line = doTextDirective(line, write2ppo);
+                    break;
+                case XSharpLexer.PP_ENDTEXT:
+                    line = doEndTextDirective(line, write2ppo);
+                    break;
+                case XSharpLexer.PP_PRAGMA:
+                    doPragmaDirective(line, write2ppo);
+                    line = null;
+                    break;
                 default:
-                    line = doNormalLine(line, write2ppo);
+                    if (_textProps != null && line.Count > 0)
+                    {
+                        var sb = new StringBuilder();
+                        foreach (var token in line)
+                        {
+                            if (token.Type != XSharpLexer.WS)
+                            {
+                                sb.Append(token.Text);
+                            }
+                        }
+                        var sLine = sb.ToString().Trim();
+                        if (sLine.ToUpper().StartsWith("ENDTEXT"))
+                        {
+                            var temp = stripWs(line);
+                            line = doNormalLine(temp, write2ppo);
+                        }
+                        else
+                        {
+                            line = doTextLine(line, write2ppo);
+                        }
+                    }
+                    else
+                    {
+                        line = doNormalLine(line, write2ppo);
+                    }
                     break;
             }
             return line;
@@ -740,6 +799,7 @@ namespace XSharp.MacroCompiler.Preprocessor
                 return _fileName;
             }
         }
+
 
         XSharpToken FixToken(XSharpToken token)
         {
@@ -1555,7 +1615,252 @@ namespace XSharp.MacroCompiler.Preprocessor
                 writeToPPO("");
             }
         }
+        class TextProperties
+        {
+            internal readonly XSharpToken Start;
+            internal readonly XSharpToken List = null;
+            internal XSharpToken Operator = null;
+            internal readonly XSharpToken LParen ;
+            internal readonly XSharpToken RParen ;
+            internal readonly XSharpToken Ws;
+            internal readonly XSharpToken Dot;
+            internal IList<XSharpToken> textVarName = null;
+            internal IList<XSharpToken> textDelim = null;
+            internal IList<XSharpToken> textLineFunc = null;
+            internal IList<XSharpToken> textLineEnd = null;
+            internal IList<XSharpToken> textEndFunc = null;
+            internal TextProperties (XSharpToken token)
+            {
+                Start = token;
+                LParen = new XSharpToken(TokenType.LPAREN, "(");
+                RParen = new XSharpToken(TokenType.RPAREN, ")");
+                Ws = new XSharpToken(TokenType.WS, " ");
+                Ws.Channel = Channel.Hidden;
+                Dot = new XSharpToken(TokenType.DOT, ".");
+                var name = XSharpSpecialNames.LocalPrefix + Start.Start.ToString();
+                List = new XSharpToken(TokenType.ID, name);
+            }
+        }
 
+        IList<XSharpToken> doTextLine(IList<XSharpToken> original, bool write2PPO)
+        {
+            var result = new List<XSharpToken>();
+            if (original.Count > 0 && _textProps != null)
+            {
+                if (_textProps.textLineFunc?.Count > 0)
+                {
+                    // UniqueName:Add( "    " )
+                    // or
+                    // UniqueName:Add( LTrim( 
+                    result.AddRange(_textProps.textLineFunc);
+                }
+                var sb = new StringBuilder();
+                sb.Append("`"); // the backtick is not really a string delimiter but the backend does not care.
+                                // This helps to write the ppo file.
+                foreach (var token in original)
+                {
+                    sb.Append(token.Text);
+#if VSPARSER
+                    //mark tokens with new type to give them a different color in the editor
+                    token.Type = XSharpLexer.TEXT_STRING_CONST;
+#endif
+                }
+                sb.Append("`");
+                result.Add(new XSharpToken(TokenType.STRING_CONST, sb.ToString()));
+                if (_textProps.textDelim?.Count > 0)
+                {
+                    result.Add(new XSharpToken(TokenType.PLUS, "+"));
+                    result.AddRange(_textProps.textDelim);
+                }
+                if (_textProps.textLineEnd != null)
+                {
+                    // add one ) or ))
+                    result.AddRange(_textProps.textLineEnd);
+                }
+                result.Add(new XSharpToken(TokenType.EOS, "\n"));
+
+            }
+            if (write2PPO)
+            {
+                if (result.Count > 0)
+                    writeToPPO(result, false);
+                else
+                    writeToPPO("");
+            }
+            return result;
+        }
+        IList<XSharpToken> doTextDirective(IList<XSharpToken> original, bool write2PPO)
+        {
+            // #text := <cVarName> [, LineDelimiter [, LineFunc, [, EndFunc]] ]
+            var result = new List<XSharpToken>();
+            if (_textProps != null)
+            {
+                var sym = original[0].SourceSymbol;
+                if (sym == null)
+                    sym = original[0];
+                Error(sym, ErrorCode.Unexpected, sym.Text);
+                return result;
+            }
+            var temp = new List<XSharpToken>();
+            original = stripWs(original);
+            _textProps = new TextProperties(original[0]);
+            Debug.Assert(original.Count > 0 && original[0].Type == XSharpLexer.PP_TEXT);
+            int current;
+            int lastUsed;
+            XSharpToken first = null;
+            if (original.Count > 1)
+            {
+                first = original[1];
+            }
+            if (first != null && (first.Type == XSharpLexer.ASSIGN_OP || first.Type == XSharpLexer.ASSIGN_ADD))
+            {
+                _textProps.Operator = first;
+                current = 2;
+                PPRule.matchExpression(PPUDCType.Command, current, original, null, _options.VOPreprocessorBehaviour, out lastUsed);
+                _textProps.textVarName = original.GetRange(current, lastUsed);
+                current = lastUsed + 1;
+                if (current < original.Count - 1 && original[current].Type == XSharpLexer.COMMA)
+                {
+                    current += 1;
+                    PPRule.matchExpression(PPUDCType.Command, current, original, null, _options.VOPreprocessorBehaviour, out lastUsed );
+                    _textProps.textDelim = original.GetRange(current, lastUsed);
+                    current = lastUsed + 1;
+                    if (current < original.Count - 1 && original[current].Type == XSharpLexer.COMMA)
+                    {
+                        current += 1;
+                        PPRule.matchExpression(PPUDCType.Command, current, original, null, _options.VOPreprocessorBehaviour, out lastUsed);
+                        _textProps.textLineFunc = original.GetRange(current, lastUsed);
+                        current = lastUsed + 1;
+                        if (current < original.Count - 1 && original[current].Type == XSharpLexer.COMMA)
+                        {
+                            current += 1;
+                            PPRule.matchExpression(PPUDCType.Command, current, original, null, _options.VOPreprocessorBehaviour, out lastUsed);
+                            _textProps.textEndFunc = original.GetRange(current, lastUsed);
+                        }
+                    }
+                }
+                if (_textProps.textVarName?.Count == 0)
+                {
+                    Error(original[0], ErrorCode.IdentifierNotFound);
+                }
+                else
+                {
+                    // var UniqueName := System.Collections.Generic.StringList{}
+                    result.Add(new XSharpToken(TokenType.VAR, "var"));
+                    result.Add(_textProps.List);
+                    result.Add(new XSharpToken(TokenType.ASSIGN_OP, ":="));
+                    result.Add(new XSharpToken(TokenType.ID, "System"));
+                    result.Add(_textProps.Dot);
+                    result.Add(new XSharpToken(TokenType.ID, "Text"));
+                    result.Add(_textProps.Dot);
+                    result.Add(new XSharpToken(TokenType.ID, "StringBuilder"));
+                    result.Add(new XSharpToken(TokenType.LCURLY, "{"));
+                    result.Add(new XSharpToken(TokenType.RCURLY, "}"));
+
+                    // UniqueName:Add( .....( 
+                    temp.Add(_textProps.List);
+                    temp.Add(new XSharpToken(TokenType.COLON, ":"));
+                    temp.Add(new XSharpToken(TokenType.ID, "Append"));
+                    temp.Add(_textProps.LParen);
+                    if (_textProps.textLineFunc?.Count > 0)
+                    {
+                        temp.AddRange(_textProps.textLineFunc);
+                        temp.Add(_textProps.LParen);
+                        _textProps.textLineFunc = temp.ToArray();
+                        temp.Clear();
+                        temp.Add(_textProps.RParen);
+                    }
+                    else
+                    {
+                        _textProps.textLineFunc = temp.ToArray();
+                        temp.Clear();
+                    }
+                    temp.Add(_textProps.RParen);
+                    _textProps.textLineEnd = temp.ToArray();
+                }
+            }
+            else
+            {
+                // #text LineFunc, [, EndFunc]
+                current = 1;
+                PPRule.matchExpression(PPUDCType.Command, current, original, null, _options.VOPreprocessorBehaviour, out lastUsed);
+                temp.AddRange(original.GetRange(current, lastUsed));
+                temp.Add(_textProps.LParen);
+                _textProps.textLineFunc = temp.ToArray();
+                temp.Clear();
+                temp.Add(_textProps.RParen);
+                _textProps.textLineEnd = temp.ToArray();
+                current = lastUsed + 1;
+                if (current < original.Count - 1 && original[current].Type == XSharpLexer.COMMA)
+                {
+                    current += 1;
+                    temp.Clear();
+                    PPRule.matchExpression(PPUDCType.Command, current, original, null, _options.VOPreprocessorBehaviour, out lastUsed);
+                    temp.AddRange(original.GetRange(current, lastUsed));
+                    _textProps.textEndFunc = temp.ToArray();
+                }
+            }
+            if (write2PPO)
+            {
+                if (result.Count > 0)
+                    writeToPPO(result, false);
+                else
+                    writeToPPO("");
+            }
+            return result;
+
+        }
+        IList<XSharpToken> doEndTextDirective(IList<XSharpToken> original, bool write2PPO)
+        {
+            Debug.Assert(original.Count > 0 && original[0].Type == XSharpLexer.PP_ENDTEXT);
+            var anchor = original[0];
+            var result = new List<XSharpToken>();
+            if (_textProps == null)
+            {
+                var sym = original[0].SourceSymbol;
+                if (sym == null)
+                    sym = original[0];
+                Error(sym, ErrorCode.Unexpected, sym.Text);
+            }
+            else
+            {
+                if (_textProps.textVarName != null)
+                {
+                    result.AddRange(_textProps.textVarName);
+                    result.Add(_textProps.Operator);
+                }
+                if (_textProps.textEndFunc?.Count > 0)
+                {
+                    result.AddRange(_textProps.textEndFunc);
+                    result.Add(_textProps.LParen);
+                }
+                if (_textProps.textVarName != null)
+                {
+                    result.Add(_textProps.List);
+                    result.Add(new XSharpToken(TokenType.COLON, ":"));
+                    result.Add(new XSharpToken(TokenType.ID, "ToString"));
+                    result.Add(_textProps.LParen);
+                }
+                if (_textProps.textVarName != null)
+                {
+                    result.Add(_textProps.RParen);
+                }
+                if (_textProps.textEndFunc?.Count > 0)
+                {
+                    result.Add(_textProps.RParen);
+                }
+                result.Add(new XSharpToken(TokenType.EOS, "\n"));
+                if (write2PPO)
+                {
+                    if (result.Count > 0)
+                        writeToPPO(result, false);
+                    else
+                        writeToPPO("");
+                }
+            }
+            _textProps = null;
+            return result;
+        }
         private void doIfDirective(IList<XSharpToken> original)
         {
             List<IToken> expandedTokens = new();
@@ -1755,6 +2060,10 @@ namespace XSharp.MacroCompiler.Preprocessor
             checkForUnexpectedPPInput(line, 1);
         }
 
+        private void doPragmaDirective(IList<XSharpToken> originalTokens, bool isIfDef)
+        {
+            Error(originalTokens[0], ErrorCode.ERR_PragmaNotSupported);
+        }
         private void doIncludeDirective(IList<XSharpToken> original)
         {
             var line = stripWs(original);
@@ -2127,14 +2436,16 @@ namespace XSharp.MacroCompiler.Preprocessor
                                 cmds[i].Clear();
                             else
                                 cmds[i] = res;
-
-                            foreach (var token in cmds[i])
+                            if (cmds[i].Count > 0)
                             {
-                                result.Add(token);
-                            }
-                            if (i < cmds.Count - 1)
-                            {
-                                result.Add(separators[i]);
+                                foreach (var token in cmds[i])
+                                {
+                                    result.Add(token);
+                                }
+                                if (i < cmds.Count - 1)
+                                {
+                                    result.Add(separators[i]);
+                                }
                             }
                         }
                     }
@@ -2168,6 +2479,14 @@ namespace XSharp.MacroCompiler.Preprocessor
             {
                 var token = _regions.Pop();
                 Error(token, ErrorCode.ERR_EndRegionDirectiveExpected);
+            }
+            if (_textProps != null)
+            {
+                var token = _textProps.Start.SourceSymbol;
+                if (token == null)
+                    token = _textProps.Start;
+                Error(token, ErrorCode.ERR_MissingEndText);
+                _textProps = null;
             }
         }
 

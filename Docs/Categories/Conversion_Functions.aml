@@ -204,7 +204,9 @@
         </para></entry></row>
 <row><entry><para>XSharp.RT</para></entry>
 <entry><para><codeEntityReference qualifyHint="false" autoUpgrade="true">M:XSharp.RT.Functions.DToR(XSharp.__Usual)</codeEntityReference></para></entry>
-<entry><para></para></entry></row>
+<entry><para>
+            Converts degrees to radians.
+        </para></entry></row>
 <row><entry><para>XSharp.RT</para></entry>
 <entry><para><codeEntityReference qualifyHint="false" autoUpgrade="true">M:XSharp.RT.Functions.DToS(XSharp.__Date)</codeEntityReference></para></entry>
 <entry><para>
@@ -213,8 +215,8 @@
 <row><entry><para>XSharp.VFP</para></entry>
 <entry><para><codeEntityReference qualifyHint="false" autoUpgrade="true">M:XSharp.VFP.Functions.DToT(XSharp.__Date)</codeEntityReference></para></entry>
 <entry><para>
-      Returns a DateTime value from a Date expression.
-    </para></entry></row>
+            Returns a DateTime value from a Date expression.
+        </para></entry></row>
 <row><entry><para>XSharp.Core</para></entry>
 <entry><para><codeEntityReference qualifyHint="false" autoUpgrade="true">M:XSharp.Core.Functions.DtToC(System.DateTime)</codeEntityReference></para></entry>
 <entry><para>
@@ -269,8 +271,8 @@
 <row><entry><para>XSharp.VFP</para></entry>
 <entry><para><codeEntityReference qualifyHint="false" autoUpgrade="true">M:XSharp.VFP.Functions.MDY(System.DateTime)</codeEntityReference></para></entry>
 <entry><para>
-      Returns a character expression in day-month-year format (for example, 31 May 1998) from a Date or DateTime expression. The month name isn't abbreviated.
-    </para></entry></row>
+            Returns a character expression in day-month-year format (for example, 31 May 1998) from a Date or DateTime expression. The month name isn't abbreviated.
+        </para></entry></row>
 <row><entry><para>XSharp.RT</para></entry>
 <entry><para><codeEntityReference qualifyHint="false" autoUpgrade="true">M:XSharp.RT.Functions.Mem2String(System.IntPtr,System.UInt32)</codeEntityReference></para></entry>
 <entry><para>
@@ -289,8 +291,8 @@
 <row><entry><para>XSharp.VFP</para></entry>
 <entry><para><codeEntityReference qualifyHint="false" autoUpgrade="true">M:XSharp.VFP.Functions.NToM(XSharp.__Float)</codeEntityReference></para></entry>
 <entry><para>
-      Returns a Currency value from a Numeric expression.
-    </para></entry></row>
+            Returns a Currency value from a Numeric expression.
+        </para></entry></row>
 <row><entry><para>XSharp.RT</para></entry>
 <entry><para><codeEntityReference qualifyHint="false" autoUpgrade="true">M:XSharp.RT.Functions.NTrim(XSharp.__Usual)</codeEntityReference></para></entry>
 <entry><para>
@@ -340,6 +342,12 @@
 <entry><para><codeEntityReference qualifyHint="false" autoUpgrade="true">M:XSharp.Core.Functions.Real82Bin(System.Double)</codeEntityReference></para></entry>
 <entry><para>
             Convert a Real8 value to a string containing an 8-byte floating point number.
+        </para></entry></row>
+<row><entry><para>XSharp.RT</para></entry>
+<entry><para><codeEntityReference qualifyHint="false" autoUpgrade="true">M:XSharp.RT.Functions.RToD(XSharp.__Usual)</codeEntityReference></para></entry>
+<entry><para>
+            Converts radians to its equivalent in degrees.
+            You can use RTOD( ) when working with the X# trigonometric functions COS( ), SIN( ), and TAN( ).
         </para></entry></row>
 <row><entry><para>XSharp.RT</para></entry>
 <entry><para><codeEntityReference qualifyHint="false" autoUpgrade="true">M:XSharp.RT.Functions.Str(XSharp.__Usual,XSharp.__Usual,XSharp.__Usual)</codeEntityReference></para></entry>

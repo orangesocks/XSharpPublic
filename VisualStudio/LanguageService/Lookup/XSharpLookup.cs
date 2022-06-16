@@ -475,7 +475,6 @@ namespace XSharp.LanguageService
         }
 
 
-        
 
         /// <summary>
         /// Retrieve the CompletionType based on :
@@ -486,10 +485,9 @@ namespace XSharp.LanguageService
         /// <param name="tokenList"></param>
         /// <param name="state"></param>
         /// <param name="foundElement"></param>
-        /// <param name="forQuickinfo"></param>
         /// <returns></returns>
         public static IList<IXSymbol> RetrieveElement(XSharpSearchLocation location, IList<XSharpToken> xtokenList,
-            CompletionState state, out string notProcessed, bool forQuickinfo = false )
+            CompletionState state, out string notProcessed,  bool forQuickinfo = false )
         {
             //
             notProcessed = "";
@@ -547,7 +545,7 @@ namespace XSharp.LanguageService
             int count = -1;
             startType = currentType;
             bool resetState = false;
-           while (! list.Eoi())
+            while (! list.Eoi())
             {
                 // after LPAREN, LCURLY and LBRKT we skip until we see the closing token
                 currentToken = list.ConsumeAndGet();
@@ -563,7 +561,7 @@ namespace XSharp.LanguageService
                     if (top != null)
                         top.ResolvedType = currentType;
                     count = symbols.Count;
-                    if (top.Kind == Kind.Namespace)
+                    if (top != null && top.Kind == Kind.Namespace)
                     {
                         namespacePrefix = top.Name+".";
                     }
@@ -657,6 +655,10 @@ namespace XSharp.LanguageService
                         state = CompletionState.Namespaces;
                         continue;
                     case XSharpLexer.COMMA:
+                        startOfExpression = true;
+                        state = CompletionState.General;
+                        break;
+                    case XSharpLexer.VAR:
                         startOfExpression = true;
                         state = CompletionState.General;
                         break;
@@ -1381,10 +1383,13 @@ namespace XSharp.LanguageService
             var namespaces = location.Project.AllNamespaces;
             foreach (var ns in namespaces)
             {
-                if (ns.StartsWith(name, StringComparison.OrdinalIgnoreCase))
+                if (ns.StartsWith(name + ".", StringComparison.OrdinalIgnoreCase))
                 {
                     result.Add(new XSymbol(name, Kind.Namespace, Modifiers.Public));
-                    break;
+                }
+                else if (string.Compare(ns, name, true) == 0)
+                {
+                    result.Add(new XSymbol(name, Kind.Namespace, Modifiers.Public));
                 }
             }
             DumpResults(result, $"SearchNamespaces in file {location.File.SourcePath} '{name}' ");

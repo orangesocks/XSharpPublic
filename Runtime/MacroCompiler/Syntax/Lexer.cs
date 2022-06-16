@@ -20,14 +20,12 @@ namespace XSharp.MacroCompiler
             internal bool InDottedIdentifier;
             internal bool HasEos;
             internal bool InPp;
-            internal bool InTextBlock;
             internal static LexerState Initial => new LexerState() {
                 LastToken = TokenType.NL,
                 Index = 0,
                 InDottedIdentifier = false,
                 HasEos = true,
                 InPp = false,
-                InTextBlock = false,
             };
         }
 
@@ -433,7 +431,21 @@ namespace XSharp.MacroCompiler
         {
             if (_tokenSource == null)
             {
-                var source = new TokenSource(_Source);
+                var src = _Source;
+                if (_options.Dialect == XSharpDialect.FoxPro)
+                {
+
+                    var pos = src.IndexOf(".null.", StringComparison.OrdinalIgnoreCase);
+                    while (pos >= 0)
+                    {
+                        var left = src.Substring(0, pos);
+                        var right = src.Substring(pos + ".null.".Length);
+                        src = left + "DbNull.Value" + right;
+                        pos = src.IndexOf(".null.", StringComparison.OrdinalIgnoreCase);
+                    }
+                    _Source = src;
+                }
+                var source = new TokenSource(src);
                 Token t;
                 while ((t = NextToken()) != null)
                 {
@@ -665,10 +677,10 @@ namespace XSharp.MacroCompiler
                                     else if (ExpectLower("not")) { Consume(); t = TokenType.LOGIC_NOT; }
                                     else if (ExpectLower("xor")) { Consume(); t = TokenType.LOGIC_XOR; }
                                 }
-                                else if (La(5) == '.' && _options.Dialect == XSharpDialect.FoxPro)
-                                {
-                                    if (ExpectLower("null")) { Consume(); t = TokenType.NULL; }
-                                }
+                                //else if (La(5) == '.' && _options.Dialect == XSharpDialect.FoxPro)
+                                //{
+                                //    if (ExpectLower("null")) { Consume(); t = TokenType.NULL_FOX; }
+                                //}
                             }
                             break;
                         case TokenType.NL:
@@ -726,17 +738,13 @@ namespace XSharp.MacroCompiler
                                                         break;
                                                     case TokenType.PP_DEFINE:
                                                     case TokenType.PP_UNDEF:
+                                                    case TokenType.PP_PRAGMA:
                                                         HasPPDefines = true;
                                                         break;
                                                     case TokenType.PP_LINE:
                                                     default:
                                                         break;
                                                 }
-                                            }
-                                            else if (tt == TokenType.PRAGMA)
-                                            {
-                                                ch = Channel.PreProcessor;
-                                                while (!ReachEol()) ;
                                             }
                                         }
                                     }
@@ -910,35 +918,6 @@ namespace XSharp.MacroCompiler
                     bool endOfLine = t == TokenType.NL || t == TokenType.SEMI;
                     bool startOfLine = _s.HasEos;
 
-                    /* Handle parsing of TEXT...ENDTEXT region (FoxPro) */
-                    if (_options.Dialect == XSharpDialect.FoxPro)
-                    {
-                        if (startOfLine && t == TokenType.TEXT)
-                        {
-                            _s.InTextBlock = true;
-                        }
-                        else if (startOfLine && _s.InTextBlock)
-                        {
-                            if (t != TokenType.ENDTEXT)
-                            {
-                                Rewind(start);
-                                while (!Eoi())
-                                {
-                                    while (ExpectAny(' ', '\t')) ;
-                                    if (AssertText("ENDTEXT")) break;
-                                    while (!ReachEol()) ;
-                                    while (ExpectAny('\r', '\n')) ;
-                                }
-                                ch = Channel.Default;
-                                t = TokenType.TEXT_STRING_CONST;
-                                st = TokenType.UNRECOGNIZED;
-                                value = _Source.Substring(start, _s.Index - start);
-                                if (Eoi())
-                                    t = TokenType.INCOMPLETE_STRING_CONST;
-                            }
-                            _s.InTextBlock = false;
-                        }
-                    }
 
                     /* Update InDottedIdentifier state (handling of positional keyword in ID.ID constructs) */
                     if (!_s.InDottedIdentifier)

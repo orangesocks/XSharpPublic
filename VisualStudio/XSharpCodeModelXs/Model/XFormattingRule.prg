@@ -7,9 +7,10 @@
 
 USING System
 USING System.Collections.Generic
+USING System.Collections
 USING System.Text
 using System.Diagnostics
-
+USING LanguageService.CodeAnalysis.XSharp.SyntaxParser
 BEGIN NAMESPACE XSharpModel
 
     /// <summary>
@@ -164,9 +165,6 @@ BEGIN NAMESPACE XSharpModel
         static initonly @@Finally := XKeyword{XTokenType.Finally} as XKeyword
         static initonly @@End_Try := XKeyword{XTokenType.End, XTokenType.Try} as XKeyword
 
-        static initonly @@Text := XKeyword{XTokenType.Text} as XKeyword
-        static initonly @@Endtext := XKeyword{XTokenType.Endtext} as XKeyword
-        static initonly @@End_Text := XKeyword{XTokenType.End, XTokenType.Text} as XKeyword
         static initonly @@Begin_Sequence := XKeyword{XTokenType.Begin, XTokenType.Sequence} as XKeyword
         static initonly @@Recover := XKeyword{XTokenType.Recover} as XKeyword
         static initonly @@End_Sequence := XKeyword{XTokenType.End, XTokenType.Sequence} as XKeyword
@@ -209,12 +207,13 @@ BEGIN NAMESPACE XSharpModel
         static initonly _middleKeywords as IDictionary<XKeyword, List<XKeyword>>
         static initonly _rulesByStart   as IDictionary<XKeyword, XFormattingRule>
         static initonly _endKeywords    as IDictionary<XKeyword, XFormattingRule>
+        static initonly _singleKeywords as BitArray
 
         #endregion
 
-        public PROPERTY Start as XKeyword GET PRIVATE SET
-        public PROPERTY Stop  as XKeyword GET PRIVATE SET
-        public property Flags as XFormattingFlags GET PRIVATE SET
+        public PROPERTY Start as XKeyword AUTO GET PRIVATE SET
+        public PROPERTY Stop  as XKeyword AUTO GET PRIVATE SET
+        public property Flags as XFormattingFlags AUTO GET PRIVATE SET
 
 
 
@@ -226,7 +225,8 @@ BEGIN NAMESPACE XSharpModel
 
         #region Static Constructor that builds the tables
             STATIC CONSTRUCTOR()
-            var rules := List<XFormattingRule>{}
+                var rules := List<XFormattingRule>{}
+                _singleKeywords := BitArray{XSharpLexer.LAST}
                 rules:Add(XFormattingRule{@@Begin_Namespace,  @@End_Namespace, XFormattingFlags.Namespace })
                 // Types
                 rules:Add(XFormattingRule{@@Class, @@End_Class, XFormattingFlags.Type  })
@@ -246,7 +246,6 @@ BEGIN NAMESPACE XSharpModel
                 rules:Add(XFormattingRule{@@Try,              @@End_Try,      XFormattingFlags.Statement | XFormattingFlags.End | XFormattingFlags.HasMiddle})
                 rules:Add(XFormattingRule{@@Begin_Sequence,   @@End_Sequence, XFormattingFlags.Statement | XFormattingFlags.End | XFormattingFlags.HasMiddle})
                 rules:Add(XFormattingRule{@@With,             @@End_With,     XFormattingFlags.Statement | XFormattingFlags.End })
-                rules:Add(XFormattingRule{@@Text,             @@Endtext,      XFormattingFlags.Statement | XFormattingFlags.End})
                 // begin end
                 rules:Add(XFormattingRule{@@Begin_Checked,    @@End_Checked, XFormattingFlags.Statement | XFormattingFlags.End })
                 rules:Add(XFormattingRule{@@Begin_Fixed,      @@End_Fixed, XFormattingFlags.Statement | XFormattingFlags.End })
@@ -281,7 +280,7 @@ BEGIN NAMESPACE XSharpModel
                 // Preprocessor
                 rules:Add(XFormattingRule{@@PP_Region, @@PP_Endregion, XFormattingFlags.Preprocessor })
                 rules:Add(XFormattingRule{@@PP_Ifdef, @@PP_Endif, XFormattingFlags.Preprocessor | XFormattingFlags.HasMiddle  })
-                rules:Add(XFormattingRule{@@PP_Text, @@PP_EndText, XFormattingFlags.Preprocessor  })
+                rules:Add(XFormattingRule{@@PP_Text, @@PP_EndText, XFormattingFlags.Preprocessor| XFormattingFlags.Statement  })
 
 
                 // tokens that are remapped to other tokens For example END IF is mapped to ENDIF and FOREACH is mapped to FOR
@@ -299,7 +298,6 @@ BEGIN NAMESPACE XSharpModel
                     {@@End_Case, @@Endcase },;
                     {@@PP_Ifndef, @@PP_Ifdef},;
                     {@@PP_If, @@PP_Ifdef},;
-                    {@@End_Text, @@Endtext },;
                     {@@End_Define, @@Enddefine},;
                     {@@Local_Function, @@Function },;
                     {@@Local_Procedure, @@Procedure};
@@ -331,6 +329,30 @@ BEGIN NAMESPACE XSharpModel
                     _endKeywords:Add(item:Key, _endKeywords[item:Value])
                 endif
             next
+            foreach var rule in rules
+                AddSingleKeyword(rule:Start)
+                AddSingleKeyword(rule:Stop)
+            next
+            foreach var alias in _aliases
+                AddSingleKeyword(alias:Key)
+                AddSingleKeyword(alias:Value)
+            next
+            foreach var kw in _middleKeywords
+                AddSingleKeyword(kw:Key)
+                foreach var val in kw:Value
+                    AddSingleKeyword(val)
+                next
+            next
+
+
+
+
+        private static method AddSingleKeyword(kw as XKeyword) as void
+            if kw:Kw2 == XTokenType.None
+                _singleKeywords:Set( (int) kw:Kw1, TRUE)
+            Else
+                _singleKeywords:Set( (int) kw:Kw1, FALSE)
+            endif
 
         #endregion
 
@@ -386,6 +408,10 @@ BEGIN NAMESPACE XSharpModel
         #region public methods
 
 
+        PUBLIC STATIC METHOD IsSingleKeyword(token as long) AS LOGIC
+            return _singleKeywords:Get( token)
+
+
         OVERRIDE METHOD ToString() AS STRING
             RETURN SELF:Start:ToString() + " "+SELF:Stop:ToString()
 
@@ -409,6 +435,7 @@ BEGIN NAMESPACE XSharpModel
                 token := _aliases[token]
             endif
             return _rulesByStart.ContainsKey(token)
+
         PUBLIC STATIC METHOD IsStartKeyword(token as XKeyword, withFlags as XFormattingFlags) AS LOGIC
             if _aliases:ContainsKey(token)
                 token := _aliases[token]
@@ -429,6 +456,16 @@ BEGIN NAMESPACE XSharpModel
             endif
             return false
 
+        PUBLIC STATIC METHOD IsStatementKeyword(token as XKeyword) AS LOGIC
+            if _aliases:ContainsKey(token)
+                token := _aliases[token]
+            endif
+            if _rulesByStart.ContainsKey(token)
+                var rule := _rulesByStart[token]
+                return rule:Flags:HasFlag(XFormattingFlags.Statement)
+            endif
+            return false
+
 
 
         PUBLIC STATIC METHOD IsMiddleKeyword(token as XKeyword) AS LOGIC
@@ -442,7 +479,7 @@ BEGIN NAMESPACE XSharpModel
         /// Return all the middle tokens that can map a single start token
         /// </summary>
         /// <returns>List of tokens</returns>
-        PUBLIC STATIC METHOD MiddleKeywords() as IReadOnlyDictionary<XKeyword, XKeyword>
+        PUBLIC STATIC METHOD SingleMiddleKeywords() as IReadOnlyDictionary<XKeyword, XKeyword>
 
             var tokens := Dictionary<XKeyword, XKeyword>{}
             foreach var item in _middleKeywords
@@ -517,7 +554,7 @@ BEGIN NAMESPACE XSharpModel
         /// Return all the middle tokens that can map more than one start token
         /// </summary>
         /// <returns>List of tokens</returns>
-        public static method SpecialMiddleKeywords() as IReadOnlyDictionary<XKeyword, IList<XKeyword>>
+        public static method MultiMiddleKeywords() as IReadOnlyDictionary<XKeyword, IList<XKeyword>>
             var tokens := Dictionary<XKeyword, IList<XKeyword>>{}
             foreach var item in _middleKeywords
                 if (item:Value:Count >= 1)

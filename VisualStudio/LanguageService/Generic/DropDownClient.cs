@@ -13,6 +13,7 @@ using System.Windows.Forms;
 using XSharpModel;
 using MVP = Microsoft.VisualStudio.Package;
 using File = System.IO.File;
+using Task = System.Threading.Tasks.Task;
 namespace XSharp.LanguageService
 {
     internal class DropdownSettings
@@ -60,7 +61,6 @@ namespace XSharp.LanguageService
         readonly XFile _file = null;
         uint _lastHashCode = 0;
         private int _lastLine;
-        private int _startUpLine = -1;          // remember line number so we can set the combo after loading our members
         private int _selectedMemberIndex = -1;
         private int _selectedTypeIndex = -1;
         private DropdownSettings _settings;
@@ -98,7 +98,7 @@ namespace XSharp.LanguageService
             });
         }
 
-        internal void addTextView(ITextView textView)
+        internal void addTextView(ITextView textView, IVsTextView textViewAdapter)
         {
             if (! _textViews.ContainsKey(textView))
             {
@@ -106,10 +106,24 @@ namespace XSharp.LanguageService
                 textView.GotAggregateFocus += TextView_GotAggregateFocus;
                 textView.LostAggregateFocus += TextView_LostAggregateFocus;
                 textView.Closed += TextView_Closed;
-                textView.Caret.PositionChanged += Caret_PositionChanged;
+                InitializeAsync(textViewAdapter).FireAndForget();
+                
 
             }
         }
+        // This moves the caret to trigger initial drop down load
+        private Task InitializeAsync(IVsTextView textView)
+        {
+            return ThreadHelper.JoinableTaskFactory.StartOnIdleShim(() =>
+            {
+                
+                textView.SendExplicitFocus();
+                _activeView.Caret.MoveToNextCaretPosition();
+                _activeView.Caret.PositionChanged += Caret_PositionChanged;
+                _activeView.Caret.MoveToPreviousCaretPosition();
+            }).Task;
+        }
+
 
         private void TextView_Closed(object sender, EventArgs e)
         {
@@ -141,7 +155,7 @@ namespace XSharp.LanguageService
             if (sender is ITextView textView && _textViews.ContainsKey(textView))
             {
                 _activeView = textView;
-                Caret_PositionChanged(textView, new CaretPositionChangedEventArgs(textView, textView.Caret.Position, textView.Caret.Position));
+                LineChanged();
             }
         }
 
@@ -150,7 +164,14 @@ namespace XSharp.LanguageService
             ThreadHelper.JoinableTaskFactory.Run(async delegate
             {
                 await RefreshDropDownAsync(needsUI: true);
+                LineChanged();
             });
+        }
+
+        private void LineChanged()
+        {
+            if (_activeView != null)
+                Caret_PositionChanged(_activeView, new CaretPositionChangedEventArgs(_activeView, _activeView.Caret.Position, _activeView.Caret.Position));
         }
 
         private void Caret_PositionChanged(object sender, CaretPositionChangedEventArgs e)
@@ -160,10 +181,6 @@ namespace XSharp.LanguageService
             {
                 SelectContainingMember(newLine);
                 _lastLine = newLine;
-            }
-            else if (_members.Count == 0)
-            {
-                _startUpLine = newLine;
             }
 #if DEBUG
             XSettings.LogMessage($"Caret_PositionChanged {newLine} Types: {_types.Count} Members: {_members.Count}");
@@ -550,14 +567,8 @@ namespace XSharp.LanguageService
                     var nSelect = _members.Count;
                     _members.Add(elt);
                     _addToDict(member);
-                    if (_startUpLine != -1 && member.IncludesLine(_startUpLine))
-                    {
-                        _selectedMemberIndex = _members.Count - 1;
-                    }
                 }
             }
-            // after loading forget startup line
-            _startUpLine = -1;
         }
         private void refreshCombos()
         {
@@ -626,7 +637,7 @@ namespace XSharp.LanguageService
                     }
                     if (_activeView != null)
                     {
-                        int caretPosition = _activeView.Caret.Position.BufferPosition.Position;
+                        int caretPosition = _activeView.Caret.Position.BufferPosition.GetContainingLine().LineNumber;
                         if (!needsUI)
                         {
                             SelectContainingMember(caretPosition);
