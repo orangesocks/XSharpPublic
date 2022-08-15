@@ -1,4 +1,11 @@
-﻿using System;
+﻿//
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
+// See License.txt in the project root for license information.
+//
+//------------------------------------------------------------------------------
+
+using System;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.OLE.Interop;
@@ -82,7 +89,7 @@ namespace XSharp.LanguageService
             int result = VSConstants.S_OK;
             bool handled = false;
             Guid cmdGroup = pguidCmdGroup;
-            // 1. Pre-process
+            // 1. Pre-process before anybody else has a chance
             if (XSettings.DisableCodeCompletion)
             {
                 ;
@@ -121,8 +128,17 @@ namespace XSharp.LanguageService
                                     CancelCompletionSession();
                                     break;
                                 case '.':
-                                case ':':
                                     handled = CompleteCompletionSession(ch);
+                                    break;
+                                case ':':
+                                    if (nextChar() == '=')
+                                    {
+                                        CancelCompletionSession();
+                                    }
+                                    else
+                                    {
+                                        handled = CompleteCompletionSession(ch);
+                                    }
                                     break;
                                 default:
                                     if (char.IsLetterOrDigit(ch))
@@ -173,12 +189,12 @@ namespace XSharp.LanguageService
                     }
                 }
                 result = m_nextCommandHandler.Exec(ref cmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
-            }           // 3. Post process
+            }
+            // 3. Post process
             if (ErrorHandler.Succeeded(result) && !XSettings.DisableCodeCompletion)
             {
                 if (pguidCmdGroup == VSConstants.VSStd2K)
                 {
-
                     switch (nCmdID)
                     {
                         case (int)VSConstants.VSStd2KCmdID.BACKSPACE:
@@ -204,7 +220,7 @@ namespace XSharp.LanguageService
                                         InsertXMLDoc();
                                         break;
                                     default:
-                                        completeCurrentToken(nCmdID, ch);
+                                        //completeCurrentToken(nCmdID, ch);
                                         break;
                                 }
                             }
@@ -233,7 +249,7 @@ namespace XSharp.LanguageService
                 // Retrieve Position
                 SnapshotPoint caret = _textView.Caret.Position.BufferPosition;
                 var line = caret.GetContainingLine();
-                if ((line.LineNumber >= _textView.TextSnapshot.LineCount - 1) || (line.LineNumber ==0))
+                if ((line.LineNumber >= _textView.TextSnapshot.LineCount - 1) || (line.LineNumber == 0))
                     return;
                 // Do not classify here. Not really needed yet
                 ITextSnapshotLine lineUp = _textView.TextSnapshot.GetLineFromLineNumber(line.LineNumber - 1);
@@ -252,7 +268,7 @@ namespace XSharp.LanguageService
                     if (prevLine.Length >= count + 4)
                         prefix = prevLine.Substring(0, count + 4); // copy starting whitespace + /// + separator
                     else
-                        prefix = prevLine+" ";
+                        prefix = prevLine + " ";
                     _textView.TextBuffer.Insert(caret.Position, prefix);
                     // Move the Caret 
                     _textView.Caret.MoveTo(new SnapshotPoint(_textView.TextSnapshot, caret.Position + prefix.Length));
@@ -286,7 +302,7 @@ namespace XSharp.LanguageService
                     // when we're not next to a comment
                     var lineDown = _textView.TextSnapshot.GetLineFromLineNumber(line.LineNumber + 1);
                     var nextToAComment = lineDown.GetText().Trim().StartsWith("///");
-                    if (! nextToAComment && line.LineNumber > 0)
+                    if (!nextToAComment && line.LineNumber > 0)
                     {
                         var lineUp = _textView.TextSnapshot.GetLineFromLineNumber(line.LineNumber - 1);
                         nextToAComment = lineUp.GetText().Trim().StartsWith("///");
@@ -300,7 +316,6 @@ namespace XSharp.LanguageService
                         var doc = _textView.TextBuffer.GetDocument();
                         if (doc == null)
                             return;
-                        var lines = doc.LineState;
                         // Make sure that the entity list matches the contents of the buffer
                         // Parse the entities
                         classifier.Parse();
@@ -373,8 +388,7 @@ namespace XSharp.LanguageService
 
         private void completeCurrentToken(uint nCmdID, char ch)
         {
-            /*
-            if (CompletionNotAllowed())
+            if (!CompletionAllowed(ch))
             {
                 return;
             }
@@ -403,7 +417,6 @@ namespace XSharp.LanguageService
                     StartCompletionSession(nCmdID, '\0', true, true);
                 }
             }
-            */
         }
 
         private void FilterCompletionSession(char ch)
@@ -601,7 +614,7 @@ namespace XSharp.LanguageService
                 if (!_completionSession.IsDismissed)
                     return false;
             }
-            if (CompletionNotAllowed())
+            if (!CompletionAllowed(typedChar))
                 return false;
             SnapshotPoint caret = _textView.Caret.Position.BufferPosition;
             ITextSnapshot snapshot = caret.Snapshot;
@@ -628,6 +641,8 @@ namespace XSharp.LanguageService
             try
             {
                 _completionSession.Start();
+                if (!CompletionAllowed(typedChar))
+                    _completionSession.Dismiss();
             }
             catch (Exception e)
             {
@@ -710,45 +725,93 @@ namespace XSharp.LanguageService
         {
             return (char)(ushort)Marshal.GetObjectForNativeVariant(pvaIn);
         }
-        private bool CompletionNotAllowed()
+        private char curChar()
         {
+            // the caret is AFTER the last character !
+            var caret = _textView.Caret.Position.BufferPosition;
+            var pos = caret.Position;
+            if (pos == 0)
+                return '\0';
+            return _textView.TextSnapshot.GetText(pos - 1, 1)[0];
+        }
+
+        private char prevChar()
+        {
+            // the caret is AFTER the last character !
+            // assume the text is   ABC:|DEF where the caret is represented by the |
+            // so pos = the next char 'D'
+            // pos -1 is the current char ':'
+            // and pos - 2 is the previous char 'C'
+            var caret = _textView.Caret.Position.BufferPosition;
+            var pos = caret.Position;
+            if (pos < 2)
+                return '\0';
+            return _textView.TextSnapshot.GetText(pos - 2, 1)[0];
+        }
+        private char nextChar()
+        {
+            // the caret is AFTER the last character !
+            var caret = _textView.Caret.Position.BufferPosition;
+            var pos = caret.Position;
+            if (pos == _textView.TextSnapshot.Length)
+                return '\0';
+            return _textView.TextSnapshot.GetText(pos, 1)[0];
+        }
+        private bool IsWs(char c)
+        {
+            switch (c)
+            {
+                case ' ':
+                case '\t':
+                case '\0':
+                case '\r':
+                case '\n':
+                    return true;
+            }
+            return char.IsWhiteSpace(c);
+        }
+        private bool CompletionAllowed(char c)
+        {
+            // := should never produce a list
+            if (c == ':' && nextChar() == '=')
+                return false;
+            // single character should not trigger completion
+            var p = prevChar();
+            var n = nextChar();
+            if (c == '\0')
+                c = curChar();
+            if (IsWs(p) && IsWs(n))
+            {
+                // no completion for single character
+                return false;
+            }
+            if (!IsWs(n))
+            {
+                if (c != ':' && c != '.')
+                {
+                    // only allow completion before a non whitespace
+                    // after a ':' or .'.'
+                    if (p != ':' || p != '.')
+                    {
+                        return false;
+                    }
+                }
+            }
             var caret = _textView.Caret.Position.BufferPosition;
             var line = caret.GetContainingLine();
-            SnapshotSpan lineSpan = new SnapshotSpan(line.Start, caret.Position - line.Start);
+            var pos = caret.Position - line.Start;
+            SnapshotSpan lineSpan = new SnapshotSpan(line.Start, pos);
             var tags = _tagAggregator.GetTags(lineSpan);
             var tag = tags.LastOrDefault();
             var classification = tag?.Tag?.ClassificationType?.Classification;
-            return classification.IsClassificationCommentOrString();
+            return !classification.IsClassificationCommentOrString();
         }
-       
+
         void formatKeyword(Completion completion)
         {
             completion.InsertionText = XSettings.FormatKeyword(completion.InsertionText);
         }
 
-
-        #region Token Helpers for XMLDoc generation
-
-        private IList<IToken> getTokens(string text)
-        {
-            IList<IToken> tokens;
-            try
-            {
-                string fileName;
-                fileName = "MissingFile.prg";
-                var reporter = new ErrorIgnorer();
-                bool ok = XSharp.Parser.VsParser.Lex(text, fileName, XSharpParseOptions.Default, reporter, out ITokenStream tokenStream);
-                var stream = tokenStream as BufferedTokenStream;
-                tokens = stream.GetTokens();
-            }
-            catch (Exception e)
-            {
-                XSettings.LogException(e,"getTokens");
-                tokens = new List<IToken>();
-            }
-            return tokens;
-        }
-        #endregion
     }
 }
 #endif

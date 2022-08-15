@@ -3005,7 +3005,9 @@ namespace Mono.Cecil {
 
 			object value;
 			if (type.etype == ElementType.String) {
-				if (signature.CanReadMore () && signature.buffer [signature.position] != 0xff) {
+				if (!signature.CanReadMore ())
+					value = "";
+				else if (signature.buffer [signature.position] != 0xff) {
 					var bytes = signature.ReadBytes ((int) (signature.sig_length - (signature.position - signature.start)));
 					value = Encoding.Unicode.GetString (bytes, 0, bytes.Length);
 				} else
@@ -3596,6 +3598,12 @@ namespace Mono.Cecil {
 		object ReadCustomAttributeElementValue (TypeReference type)
 		{
 			var etype = type.etype;
+			if (etype == ElementType.GenericInst) {
+				// The only way to get a generic here is that it's an enum on a generic type
+				// so for enum we don't need to know the generic arguments (they have no effect)
+				type = type.GetElementType ();
+				etype = type.etype;
+			}
 
 			switch (etype) {
 			case ElementType.String:

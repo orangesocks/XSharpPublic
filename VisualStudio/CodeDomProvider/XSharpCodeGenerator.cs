@@ -23,6 +23,7 @@ namespace XSharp.CodeDom
 {
     internal class XSharpIndentedTextWriter : IndentedTextWriter
     {
+        internal bool SuppressNewLine = false;
         internal XSharpIndentedTextWriter(TextWriter writer, string tabString) : base(writer, tabString)
         {
 
@@ -41,7 +42,10 @@ namespace XSharp.CodeDom
         }
         public override void WriteLine()
         {
-            base.WriteLine();
+            if (!SuppressNewLine)
+                base.WriteLine();
+            else
+                SuppressNewLine = false;
         }
 
     }
@@ -106,6 +110,7 @@ namespace XSharp.CodeDom
         private bool useTabs;
         private int tabSize;
         private int indentSize;
+        private List<CodeObject> globalmembers;
 
         private string keywordBEGIN;
         private string keywordEND;
@@ -167,6 +172,7 @@ namespace XSharp.CodeDom
         private bool hasSource;
         private bool Nested => types.Count > 1;
         private bool SuppressCodeGen => Nested || hasSource;
+        private XSharpIndentedTextWriter textWriter = null;
         public XSharpCodeGenerator() : base()
         {
             this.selector = ":";
@@ -183,10 +189,10 @@ namespace XSharp.CodeDom
             if (! (oldWriter is XSharpIndentedTextWriter))
             {
                 var writer = oldWriter.InnerWriter;
-                var newWriter = new XSharpIndentedTextWriter(writer, tabString);
+                textWriter = new XSharpIndentedTextWriter(writer, tabString);
                 try
                 {
-                    field.SetValue(this, newWriter);
+                    field.SetValue(this, textWriter);
                 }
                 catch
                 {
@@ -515,6 +521,7 @@ namespace XSharp.CodeDom
                 return;
             if (e.HasSourceCode() && writeOriginalCode(e))
             {
+                textWriter.SuppressNewLine = true;
                 return;
             }
             if (base.IsCurrentClass || base.IsCurrentStruct)
@@ -611,6 +618,7 @@ namespace XSharp.CodeDom
                 return;
             if (e.HasSourceCode() && writeOriginalCode(e))
             {
+                textWriter.SuppressNewLine = true;
                 return;
             }
             if (!this.IsCurrentDelegate && !this.IsCurrentEnum)
@@ -834,20 +842,27 @@ namespace XSharp.CodeDom
         }
         protected bool writeOriginalCode(CodeObject e, bool trim = false)
         {
+            var saveindent = this.Indent;
+            bool result = false;
+            this.Indent = 0;
             if (e.HasSourceCode())
             {
-                var saveindent = this.Indent;
-                this.Indent = 0;
+                
                 if (e.HasLeadingTrivia())
                     writeTrivia(e, false);
                 string sourceCode = e.GetSourceCode();
                 if (trim)
                     sourceCode = sourceCode.Trim();
                 this.Output.Write(sourceCode);
-                this.Indent = saveindent;
-                return true;
+                result = true;
             }
-            return false;
+            else if (e is CodeSnippetTypeMember snippet)
+            {
+                this.Output.Write(snippet.Text);
+                result = true;
+            }
+            this.Indent = saveindent;
+            return result;
         }
         protected override void GenerateLabeledStatement(CodeLabeledStatement e)
         {
@@ -870,12 +885,13 @@ namespace XSharp.CodeDom
                 return;
             if (e.HasSourceCode() && writeOriginalCode(e))
             {
+                textWriter.SuppressNewLine = true;
                 return;
             }
             if ((this.IsCurrentClass || this.IsCurrentStruct) || this.IsCurrentInterface)
             {
                 writeTrivia(e);
-
+                textWriter.SuppressNewLine = false;
                 // Do we have some Source Code pushed here by our Parser ??
                 // this code contains the method declaration line as well
                 // and also the body of the method
@@ -991,8 +1007,14 @@ namespace XSharp.CodeDom
         {
             bool generateComment = true;
             entryPoint = null;
+            lastTrivia = null;
             entryPointType = null;
             types = new Stack<CodeTypeDeclaration>();
+            var globals = e.GetGlobals();
+            if (globals != null)
+            {
+                globalmembers = globals as List<CodeObject>;
+            }
             readSettings();
             this.overrideTextWriter();
             // VerbatimOrder writes the members in the order in which they appear in the collection
@@ -1047,6 +1069,13 @@ namespace XSharp.CodeDom
             entryPoint = null;
             entryPointType = null;
             base.GenerateCompileUnitEnd(e);
+            if (globalmembers != null)
+            {
+                foreach (var member in globalmembers)
+                {
+                    writeOriginalCode(member);
+                }
+            }
             writeTrivia(e, true);
 
         }
@@ -1114,12 +1143,12 @@ namespace XSharp.CodeDom
                     if (! lTemp.StartsWith("//") && ! lTemp.StartsWith("#"))
                         l2.Add(l);
                 }
-                lastTrivia = String.Join("\r\n", l2);
+                //lastTrivia = String.Join("\r\n", l2);
                 return true;
             }
             else if (lastTrivia != null)
             {
-                _writeTrivia(lastTrivia);
+                //_writeTrivia(lastTrivia);
             }
             return false;
         }
@@ -1157,6 +1186,7 @@ namespace XSharp.CodeDom
             {
                 if (this.Indent >= 0)
                     this.Indent--;
+                textWriter.SuppressNewLine = false;
                 base.Output.WriteLine(keywordEND+ keywordNAMESPACE.TrimEnd());
             }
         }
@@ -1204,6 +1234,7 @@ namespace XSharp.CodeDom
                 return;
             if (e.HasSourceCode() && writeOriginalCode(e))
             {
+                textWriter.SuppressNewLine = true;
                 return;
             }
             if ((this.IsCurrentClass || this.IsCurrentStruct) || this.IsCurrentInterface)
@@ -1406,6 +1437,7 @@ namespace XSharp.CodeDom
         {
             if (!SuppressCodeGen)
             {
+                textWriter.SuppressNewLine = false;
                 if (!this.IsCurrentDelegate)
                 {
                     this.Indent--;
@@ -1462,13 +1494,14 @@ namespace XSharp.CodeDom
             // The form editor reorders them
             var sortedmembers = Helpers.SortMembers(e.Members);
             e.Members.Clear();
-            e.Members.AddRange(sortedmembers);
 
             hasSource = e.HasSourceCode();
             if (e.HasSourceCode()  && writeOriginalCode(e))
             {
+                textWriter.SuppressNewLine = true;
                 return;
             }
+            e.Members.AddRange(sortedmembers);
             writeTrivia(e);
             writeCodeBefore(e);
             if (e.CustomAttributes.Count > 0)

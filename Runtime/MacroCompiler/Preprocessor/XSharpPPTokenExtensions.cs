@@ -283,7 +283,7 @@ namespace XSharp.MacroCompiler.Preprocessor
             return false;
         }
 
-        internal static bool NeedsLeft(this XSharpToken token)
+        internal static bool IsAssign(this XSharpToken token)
         {
             if (token == null)
                 return false;
@@ -303,17 +303,37 @@ namespace XSharp.MacroCompiler.Preprocessor
                 case XSharpLexer.ASSIGN_XOR:
                 case XSharpLexer.ASSIGN_QQMARK: //Todo: Complete
                     return true;
+            }
+            return false;
+        }
+        internal static bool IsMemberSeparator(this XSharpToken token)
+        {
+            if (token == null)
+                return false;
+            switch (token.Type)
+            {
                 case XSharpLexer.COLON:
                 case XSharpLexer.DOT:
+                case XSharpLexer.COLONCOLON:
                     return true;
             }
+            return false;
+        }
+        internal static bool NeedsLeft(this XSharpToken token)
+        {
+            if (token == null)
+                return false;
+            if (token.IsAssign())
+                return true;
+            //if (token.IsMemberSeparator()) we allow DOT, COLON and COLONCOLON without left. With statement !
+            //    return true;
             if (token.IsPrefix())
                 return false;
             return token.IsBinary();
         }
         internal static bool NeedsRight(this XSharpToken token)
         {
-            return token.IsBinary() || token.IsPrefix();
+            return token.IsBinary() || token.IsPrefix() || token.IsAssign() || token.IsMemberSeparator();
         }
         internal static bool IsBinary(this XSharpToken token)
         {
@@ -454,15 +474,20 @@ namespace XSharp.MacroCompiler.Preprocessor
 
         internal static bool CanJoin(this XSharpToken token, XSharpToken nextToken)
         {
-            if (token == null )
+            if (token == null)
             {
-                return nextToken.IsName() || nextToken.IsLiteral() || nextToken.IsPrefix() ;
+                // we also allow DOT, COLON and COLONCOLON because these can
+                // be part of a WITH block
+                return nextToken.IsName() || nextToken.IsLiteral()
+                    || nextToken.IsPrefix() || nextToken.IsMemberSeparator();
             }
-            if (token.IsPrefix() || token.IsBinary())          // we allow .and. .not. and even .not. .not.
-                return (nextToken.IsPrimaryOrPrefix());
+            // we allow .and. .not. and even .not. .not.
+            if (token.IsPrefix() || token.IsBinary())          
+                return nextToken.IsPrimaryOrPrefix();
             if (nextToken.IsBinary() || nextToken.NeedsLeft() || nextToken.IsPostFix())
-                return (token.IsPrimary() ||token.IsClose());
-
+                return token.IsPrimary() || token.IsClose();
+            if (token.NeedsRight())
+                return true;
             return false;
         }
         internal static bool IsNeutral(this XSharpToken token)
