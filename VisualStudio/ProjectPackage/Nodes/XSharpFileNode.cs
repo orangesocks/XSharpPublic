@@ -23,6 +23,9 @@ using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.Shell;
 using XSharpModel;
 using System.Collections.Generic;
+using Microsoft.VisualStudio.Imaging.Interop;
+using Microsoft.VisualStudio.Imaging;
+
 namespace XSharp.Project
 {
     /// <summary>
@@ -36,6 +39,20 @@ namespace XSharp.Project
 
         #endregion
         #region Constructors
+
+        static XSharpFileNode ()
+        {
+            AddExtension(".vnfrm", KnownMonikers.FormInstance);
+            AddExtension(".xsfrm", KnownMonikers.FormInstance);
+            AddExtension(".vndbs", KnownMonikers.Database);
+            AddExtension(".vnmnu", KnownMonikers.MainMenuControl);
+            AddExtension(".xsmnu", KnownMonikers.MainMenuControl);
+            AddExtension(".xsdbs", KnownMonikers.Database);
+            AddExtension(".vnfs", KnownMonikers.ValidationRule);
+            AddExtension(".xsfs", KnownMonikers.ValidationRule);
+            AddExtension(".xaml", KnownMonikers.WPFFile);
+        }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="XSharpFileNode"/> class.
         /// </summary>
@@ -66,43 +83,58 @@ namespace XSharp.Project
         /// Gets an index into the default <b>ImageList</b> of the icon to show for this file.
         /// </summary>
         /// <value>An index into the default  <b>ImageList</b> of the icon to show for this file.</value>
+
+        protected override bool SupportsIconMonikers
+        {
+            get
+            {
+                if (IsForm || IsUserControl || IsNonMemberItem )
+                    return true;
+#if VS17
+                if (!File.Exists(this.Url))
+                    return true;
+#else
+                return base.SupportsIconMonikers;
+#endif
+            }
+        }
+        protected override ImageMoniker GetIconMoniker(bool open)
+        {
+            if (IsForm)
+                return KnownMonikers.WindowsForm;
+            if (IsUserControl)
+                return KnownMonikers.UserControl;
+            if (IsNonMemberItem)
+                return KnownMonikers.HiddenFile;
+#if VS17
+            if (!File.Exists(this.Url))
+                return KnownMonikers.MissingFile;
+#endif
+            return base.GetIconMoniker(open);
+
+        }
+
         public override int ImageIndex
         {
             get
             {
                 int ret = -1;
-                if (this.IsNonMemberItem)
+                if (SupportsIconMonikers)
+                    return ret;
+                if (! File.Exists(Url))
                 {
-                    ret = (int)ProjectNode.ImageName.ExcludedFile;
+                    return XSharpImageListIndex.MissingFile + XProjectNode.imageOffset;
                 }
-                else if (!File.Exists(this.Url))
+                ret = XSharpFileType.ImageIndex(this.Url);
+                if (ret == -1)
                 {
-                    ret = (int)ProjectNode.ImageName.MissingFile;
-                }
-                else
-                {
-                    if (IsForm)
-                    {
-                        ret = (int)ProjectNode.ImageName.WindowsForm;
-                    }
-                    else if (IsUserControl)
-                    {
-                        ret = (int)ProjectNode.ImageName.WindowsForm;
-                    }
-                    else
-                    {
-                        ret = XSharpFileType.ImageIndex(this.Url);
-                    }
-                    if (ret == -1)
-                    {
-                        ret = base.ImageIndex;
-                    }
+                    ret = base.ImageIndex;
                 }
                 return ret;
             }
         }
 
-        #endregion
+#endregion
         protected override void DeleteFromStorage(string path)
         {
             if (File.Exists(path))
@@ -207,7 +239,7 @@ namespace XSharp.Project
                                     SubType = typeNameToSubtype(btName);
                                     if (!String.IsNullOrEmpty(SubType))
                                         break;
-                                    type = mgr.ResolveExternalType(btName, usings); 
+                                    type = mgr.ResolveExternalType(btName, usings);
                                 }
                             }
                             else
@@ -251,7 +283,7 @@ namespace XSharp.Project
             HasDesigner = XSharpFileType.HasDesigner(this.Url, SubType);
         }
 
-        #region Dependent Items
+#region Dependent Items
         internal String GetParentName()
         {
             // There needs to be a better way to handle this
@@ -402,25 +434,45 @@ namespace XSharp.Project
         #region ItemTypes
 
 
-
+        internal void SetSpecialPropertiesEx()
+        {
+            SetSpecialProperties();
+        }
         protected override void SetSpecialProperties()
         {
             var type = this.FileType;
-            switch (type)
+            var msBuildItem = this.ItemNode?.Item;
+            if (msBuildItem != null)
             {
-                case XFileType.ManagedResource:
-                    this.SubType = ProjectFileAttributeValue.Designer;
-                    this.Generator = "ResXFileCodeGenerator";
-                    break;
-                case XFileType.Settings:
-                    this.Generator = "SettingsSingleFileGenerator";
-                    break;
-                case XFileType.TextTemplate:
-                    this.Generator = "TextTemplatingFileGenerator";
-                    break;
-                default:
-                    DetermineSubType();
-                    break;
+                switch (type)
+                {
+                    case XFileType.ManagedResource:
+                        if (!msBuildItem.HasMetadata(ProjectFileConstants.Generator))
+                        {
+                            this.SubType = ProjectFileAttributeValue.Designer;
+                            this.Generator = "ResXFileCodeGenerator";
+                        }
+                        break;
+                    case XFileType.Settings:
+                        if (!msBuildItem.HasMetadata(ProjectFileConstants.Generator))
+                        {
+                            this.Generator = "SettingsSingleFileGenerator";
+                        }
+                        break;
+                    case XFileType.TextTemplate:
+                        if (!msBuildItem.HasMetadata(ProjectFileConstants.Generator))
+                        {
+                            this.Generator = "TextTemplatingFileGenerator";
+                        }
+                        break;
+                    default:
+                        var xproj = ProjectMgr as XSharpProjectNode;
+                        if (!xproj.IsLoading)
+                        {
+                            DetermineSubType();
+                        }
+                        break;
+                }
             }
 
         }
@@ -556,9 +608,9 @@ namespace XSharp.Project
         }
 
 
-        #endregion
+#endregion
 
-        #region Code Generation and Code Parsing
+#region Code Generation and Code Parsing
         /// <summary>
         /// factory method for creating single file generators.
         /// </summary>
@@ -601,9 +653,9 @@ namespace XSharp.Project
         }
 
 
-        #endregion
+#endregion
 
-        #region Overriden implementation
+#region Overriden implementation
 
         /// <summary>
         /// Creates an object derived from <see cref="NodeProperties"/> that will be used to expose
@@ -698,6 +750,15 @@ namespace XSharp.Project
             manager.Open(false, false, viewGuid, out frame, WindowFrameShowAction.Show);
         }
 
+        public override void OnItemAdded(HierarchyNode parent, HierarchyNode child)
+        {
+            base.OnItemAdded(parent, child);
+            if (child is XSharpFileNode xfile)
+            {
+                xfile.SetSpecialPropertiesEx();
+            }
+        }
+
         /// <summary>
         /// Handles command status on a node. Should be overridden by descendant nodes. If a command cannot be handled then the base should be called.
         /// </summary>
@@ -773,9 +834,9 @@ namespace XSharp.Project
             return result;
         }
 
-        #endregion
+#endregion
 
-        #region Private implementation
+#region Private implementation
         internal OleServiceProvider.ServiceCreatorCallback ServiceCreator
         {
             get { return new OleServiceProvider.ServiceCreatorCallback(this.CreateServices); }
@@ -795,9 +856,9 @@ namespace XSharp.Project
             return service;
         }
 
-        #endregion
+#endregion
 
-        #region Operate on Open Files
+#region Operate on Open Files
         private IVsTextLines TextLines
         {
             get
@@ -866,6 +927,6 @@ namespace XSharp.Project
             return Result;
         }
 
-        #endregion
+#endregion
     }
 }

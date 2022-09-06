@@ -48,6 +48,16 @@ namespace XSharp.LanguageService
                 if (result.Count > 0)
                 {
                     var element = result[0];
+                    if (state == CompletionState.Constructors && element is IXTypeSymbol xtype)
+                    {
+                        // when the cursor is before a "{" then goto the constructor and not the type
+                        var ctors = xtype.GetConstructors();
+                        if (ctors.Length > 0)
+                        {
+                            element = ctors[0];
+                        }
+                    }
+
                     if (element is XSourceEntity source)
                     {
                         source.OpenEditor();
@@ -109,7 +119,7 @@ namespace XSharp.LanguageService
 
             DirectoryInfo[] subDirectories = directory.GetDirectories();
 
-            // Scan the directories in the current directory and call this method 
+            // Scan the directories in the current directory and call this method
             // again to go one level into the directory tree
             foreach (DirectoryInfo subDirectory in subDirectories)
             {
@@ -147,7 +157,8 @@ namespace XSharp.LanguageService
                     orphProject.AddAssemblyReference(asm.FileName);
                 }
             }
-            XSettings.OpenDocument(xFile.FullPath, entity.Range.StartLine, 1, true);
+            // Note that the line numbers in the list are 0 based. OpenDocument also wants a 0 based line number
+            XSettings.OpenDocument(xFile.FullPath, entity.Range.StartLine, 0, true);
 
         }
 
@@ -161,7 +172,7 @@ namespace XSharp.LanguageService
             {
                 foreach (var entity in entities)
                 {
-                    if (entity.Prototype == element.Prototype)
+                    if (entity.Name == element.Name)
                     {
                         result = entity;
                         break;

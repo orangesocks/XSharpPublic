@@ -47,9 +47,10 @@ namespace XSharp.Project
     /// This class extends the ProjectNode in order to represent our project
     /// within the hierarchy.
     /// </summary>
+    [DebuggerDisplay("{Caption}")]
     [Guid("F1A46976-964A-4A1E-955D-E05F5DB8651F")]
     public class XSharpProjectNode : XProjectNode, IVsSingleFileGeneratorFactory, IXSharpProject,
-        IVsDesignTimeAssemblyResolution, IVsProject5, IProjectTypeHelper, IXsProjectDesigner
+        /*IVsDesignTimeAssemblyResolution, */IVsProject5, IProjectTypeHelper, IXsProjectDesigner
     //, IVsReferenceManagerUser
     {
         static List<XSharpProjectNode> nodes = new List<XSharpProjectNode>();
@@ -261,7 +262,11 @@ namespace XSharp.Project
         /// <value>The project GUID.</value>
         public override Guid ProjectGuid
         {
-            get { return typeof(XSharpProjectFactory).GUID; }
+            get { return GuidStrings.guidXSharpProjectFactory; }
+        }
+        public override string ProjectGuidString
+        {
+            get { return GuidStrings.guidXSharpProjectFactoryStringCurly; }
         }
 
         /// <summary>
@@ -303,7 +308,7 @@ namespace XSharp.Project
         {
             var xoptions = new XSharpProjectOptions(this);
             base.options = xoptions;
-            if (projectModel != null)   
+            if (projectModel != null)
                 projectModel.ResetParseOptions(null);
             return options;
         }
@@ -320,7 +325,14 @@ namespace XSharp.Project
             base.SetProjectFileDirty(value);
             InvalidateOptions();
         }
-
+        public override void OnItemAdded(HierarchyNode parent, HierarchyNode child)
+        {
+            base.OnItemAdded(parent, child);
+            if (child is XSharpFileNode xfile)
+            {
+                xfile.SetSpecialPropertiesEx();
+            }
+        }
         public override ProjectOptions GetProjectOptions(ConfigCanonicalName configCanonicalName)
         {
             return ThreadHelper.JoinableTaskFactory.Run(async delegate
@@ -666,6 +678,10 @@ namespace XSharp.Project
                     {
                         AddChild(fileNode);
                     }
+                    if (fileId == (int)__PSFFILEID2.PSFFILEID_AssemblyResource)
+                    {
+                        fileNode.ItemNode.SetMetadata("CustomTool", "ResXFileCodeGenerator");
+                    }
                 }
 
                 itemid = fileNode != null ? fileNode.ID : uint.MaxValue;
@@ -1010,7 +1026,7 @@ namespace XSharp.Project
                 this.isLoading = false;
                 foreach (var url in this.URLNodes.Keys)
                 {
-                    if (!IsProjectFile(url) && this.BuildProject != null)
+                    if (!IsXSharpProjectFile(url) && this.BuildProject != null)
                     {
                         var xnode = this.URLNodes[url] as XSharpFileNode;
                         if (xnode != null && !xnode.IsNonMemberItem)
@@ -1063,6 +1079,17 @@ namespace XSharp.Project
 
 
         #endregion
+
+        XSharpIncludeContainerNode includeNode = null;
+        protected void CreateIncludeFileFolder()
+        {
+            if (includeNode == null)
+            {
+                includeNode = new XSharpIncludeContainerNode(this);
+                this.AddChild(includeNode);
+            }
+        }
+
 
         #region PackageReferences
 
@@ -1228,7 +1255,7 @@ namespace XSharp.Project
 
                 }
             }
-            Logger.Debug("InvokeMsBuild: " + target);
+            Logger.Debug("InvokeMsBuild ("+this.Url+") : " + target);
             return base.InvokeMsBuild(target);
         }
 
@@ -1283,7 +1310,47 @@ namespace XSharp.Project
                 }
                 _taskListManager.Refresh();
             }
+            RefreshIncludeFiles();
+
         }
+
+        private void RefreshIncludeFiles()
+        {
+            var currentChildren = new Dictionary<string, HierarchyNode>(StringComparer.OrdinalIgnoreCase);
+            var child = includeNode.FirstChild;
+            while (child != null)
+            {
+                currentChildren.Add(child.Url, child);
+                child = child.NextSibling;
+            }
+            var newIncludes = projectModel.IncludeFiles;
+            if (newIncludes.Count > 0)
+            {
+                foreach (var fileName in newIncludes)
+                {
+                    if (currentChildren.ContainsKey(fileName))
+                    {
+                        currentChildren.Remove(fileName);
+                    }
+                    else
+                    {
+                        var newChild = new XSharpIncludeFileNode(this, fileName);
+                        includeNode.AddChild(newChild);
+                    }
+                }
+            }
+            // delete includes that are no longer needed
+            if (currentChildren.Count > 0)
+            {
+                foreach (var file in currentChildren)
+                {
+                    var node = file.Value;
+                    node.OnItemDeleted();
+                    includeNode.RemoveChild(node);
+                }
+            }
+        }
+
 
         private void OnFileWalkComplete(XFile xfile)
         {
@@ -1299,6 +1366,7 @@ namespace XSharp.Project
                 _taskListManager.AddItem(task,this.ProjectIDGuid);
             }
             _taskListManager.Refresh();
+            RefreshIncludeFiles();
         }
 
         public void UpdateAssemblyReferencesModel()
@@ -1330,15 +1398,15 @@ namespace XSharp.Project
             // XSharpFolderNode
             // XSharpProjectReference
             // So, we will add files only (currently) => Don't forget RemoveURL
-            if (IsProjectFile(url))
+            if (IsXSharpProjectFile(url))
             {
                 this.ProjectModel.AddProjectReference(url);
             }
-            else if (IsStrangerProjectFile(url))
+            else if (IsOtherProjectFile(url))
             {
                 this.ProjectModel.AddStrangerProjectReference(url);
             }
-            else 
+            else
             {
                 var xnode = node as XSharpFileNode;
                 if (xnode != null && !xnode.IsNonMemberItem)
@@ -1378,7 +1446,7 @@ namespace XSharp.Project
                     }
 
                     // If this is another solution folder, do a recursive call, otherwise add
-                    
+
                     if (subProject.Kind.ToUpper() == EnvDTE80.ProjectKinds.vsProjectKindSolutionFolder.ToUpper())
                     {
                         list.AddRange(GetSolutionFolderProjects(subProject));
@@ -1453,11 +1521,11 @@ namespace XSharp.Project
             {
                 //
                 // We should remove the external projects entries
-                if (IsProjectFile(url))
+                if (IsXSharpProjectFile(url))
                 {
                     this.ProjectModel.RemoveProjectReference(url);
                 }
-                else if (IsStrangerProjectFile(url))
+                else if (IsOtherProjectFile(url))
                 {
                     this.ProjectModel.RemoveStrangerProjectReference(url);
                 }
@@ -1494,11 +1562,10 @@ namespace XSharp.Project
         /// </summary>
         /// <param name="fullPath"></param>
         /// <returns></returns>
-        private bool IsProjectFile(string fullPath)
+        private bool IsXSharpProjectFile(string fullPath)
         {
-            string cExt = Path.GetExtension(fullPath);
-            return string.Equals(cExt, ".xsprj", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(cExt, ".xsproj", StringComparison.OrdinalIgnoreCase);
+            return fullPath.EndsWith(".xsproj", StringComparison.OrdinalIgnoreCase)
+                || fullPath.EndsWith(".xsprj", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -1506,15 +1573,21 @@ namespace XSharp.Project
         /// </summary>
         /// <param name="fullPath"></param>
         /// <returns></returns>
-        private bool IsStrangerProjectFile(string fullPath)
+        private bool IsOtherProjectFile(string fullPath)
         {
-            string ext = Path.GetExtension(fullPath);
-            return (ext.EndsWith("proj", StringComparison.OrdinalIgnoreCase));
+            if (fullPath.EndsWith("proj", StringComparison.OrdinalIgnoreCase))
+            {
+                if (File.Exists(fullPath))
+                {
+                    var source = File.ReadAllText(fullPath);
+                    return source.IndexOf("<Project",StringComparison.OrdinalIgnoreCase) != -1;
+                }
+            }
+            return false;
         }
-
         internal void BuildStarted()
         {
-            
+
         }
         internal void BuildEnded(bool didCompile)
         {
@@ -1639,10 +1712,12 @@ namespace XSharp.Project
             Logger.Information("Reload");
             base.Reload();
             CreateListManagers();
+            this.CreateIncludeFileFolder();
             if (ResetDependencies())
             {
                 this.BuildProject.Save();
             }
+            RefreshIncludeFiles();
         }
 
         private void RefreshReferencesFromResponseFile()
@@ -1689,7 +1764,7 @@ namespace XSharp.Project
                 ProjectModel.RefreshReferences(references);
             }
         }
-        
+
 
         public override int Save(string fileToBeSaved, int remember, uint formatIndex)
         {
@@ -1850,7 +1925,7 @@ namespace XSharp.Project
 
 #region IVsDesignTimeAssemblyResolution
 
-        private DesignTimeAssemblyResolution designTimeAssemblyResolution;
+        //private DesignTimeAssemblyResolution designTimeAssemblyResolution;
         private ConfigCanonicalName _config = new ConfigCanonicalName("Debug", "AnyCPU");
 
         public override void SetConfiguration(ConfigCanonicalName config)
@@ -1867,11 +1942,11 @@ namespace XSharp.Project
             {
                 InvalidateOptions();
             }
-            if (this.designTimeAssemblyResolution == null)
-            {
-                this.designTimeAssemblyResolution = new DesignTimeAssemblyResolution();
-            }
-            this.designTimeAssemblyResolution.Initialize(this);
+            //if (this.designTimeAssemblyResolution == null)
+            //{
+            //    this.designTimeAssemblyResolution = new DesignTimeAssemblyResolution();
+            //}
+            //this.designTimeAssemblyResolution.Initialize(this);
 
         }
         public int GetTargetFramework(out string ppTargetFramework)
@@ -1880,28 +1955,28 @@ namespace XSharp.Project
             return VSConstants.S_OK;
         }
 
-        public int ResolveAssemblyPathInTargetFx(string[] prgAssemblySpecs, uint cAssembliesToResolve, VsResolvedAssemblyPath[] prgResolvedAssemblyPaths, out uint pcResolvedAssemblyPaths)
-        {
-            if (prgAssemblySpecs == null || cAssembliesToResolve == 0 || prgResolvedAssemblyPaths == null)
-            {
-                throw new ArgumentException("One or more of the arguments are invalid.");
-            }
+        //public int ResolveAssemblyPathInTargetFx(string[] prgAssemblySpecs, uint cAssembliesToResolve, VsResolvedAssemblyPath[] prgResolvedAssemblyPaths, out uint pcResolvedAssemblyPaths)
+        //{
+        //    if (prgAssemblySpecs == null || cAssembliesToResolve == 0 || prgResolvedAssemblyPaths == null)
+        //    {
+        //        throw new ArgumentException("One or more of the arguments are invalid.");
+        //    }
 
-            pcResolvedAssemblyPaths = 0;
+        //    pcResolvedAssemblyPaths = 0;
 
-            try
-            {
-                var results = designTimeAssemblyResolution.Resolve(prgAssemblySpecs.Take((int)cAssembliesToResolve));
-                results.CopyTo(prgResolvedAssemblyPaths, 0);
-                pcResolvedAssemblyPaths = (uint)results.Length;
-            }
-            catch (Exception ex)
-            {
-                return Marshal.GetHRForException(ex);
-            }
+        //    try
+        //    {
+        //        var results = designTimeAssemblyResolution.Resolve(prgAssemblySpecs.Take((int)cAssembliesToResolve));
+        //        results.CopyTo(prgResolvedAssemblyPaths, 0);
+        //        pcResolvedAssemblyPaths = (uint)results.Length;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return Marshal.GetHRForException(ex);
+        //    }
 
-            return VSConstants.S_OK;
-        }
+        //    return VSConstants.S_OK;
+        //}
 
         #endregion
         #region TableManager
@@ -1909,11 +1984,7 @@ namespace XSharp.Project
         ErrorListManager _errorListManager = null;
         TaskListManager _taskListManager = null;
 
-        protected override void SetOutputLogger(IVsOutputWindowPane output)
-        {
-            base.SetOutputLogger(output);
 
-        }
         XSharpIDEBuildLogger logger = null;
 
         protected override IDEBuildLogger CreateBuildLogger(IVsOutputWindowPane output, TaskProvider taskProvider, IVsHierarchy hierarchy)
@@ -2045,16 +2116,23 @@ namespace XSharp.Project
                 return ThreadHelper.JoinableTaskFactory.Run(async delegate
                 {
                     await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                    var config = this.CurrentConfig;
-                    if (config != null)
+                    try
                     {
-                        var xoptions = GetProjectOptions(config.ConfigCanonicalName) as XSharpProjectOptions;
-                        if (xoptions != null)
+                        var config = this.CurrentConfig;
+                        if (config != null)
                         {
-                            if (xoptions.ParseOptions == null)
-                                xoptions.BuildCommandLine();
-                            return xoptions.ParseOptions;
+                            var xoptions = GetProjectOptions(config.ConfigCanonicalName) as XSharpProjectOptions;
+                            if (xoptions != null)
+                            {
+                                if (xoptions.ParseOptions == null)
+                                    xoptions.BuildCommandLine();
+                                return xoptions.ParseOptions;
+                            }
                         }
+                    }
+                    catch (Exception e)
+                    {
+                        XSettings.LogException(e, "Retrieving Parse Options");
                     }
                     return XSharpParseOptions.Default;
                 });

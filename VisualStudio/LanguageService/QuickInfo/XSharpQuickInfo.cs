@@ -100,12 +100,22 @@ namespace XSharp.LanguageService
                 lookupresult.AddRange(XSharpLookup.RetrieveElement(location, tokenList, state, out var notProcessed, true));
                 var lastToken = tokenList.LastOrDefault();
                 //
-                if (lookupresult.Count > 0)
+               if (lookupresult.Count > 0)
                 {
                     var element = lookupresult[0];
+                    if (state == CompletionState.Constructors && element is IXTypeSymbol ixtype)
+                    {
+                        // when the cursor is before a "{" then show the constructor and not the type
+                        var ctors = ixtype.GetConstructors();
+                        if (ctors.Length > 0)
+                        {
+                            element = ctors[0];
+                        }
+                    }
                     var qiContent = new List<object>();
 
-                    if (element.Kind == Kind.Constructor && lastToken?.Type != XSharpLexer.CONSTRUCTOR && lastToken?.Type != XSharpLexer.LPAREN)
+                    if (element.Kind == Kind.Constructor && lastToken?.Type != XSharpLexer.LCURLY &&
+                        lastToken?.Type != XSharpLexer.CONSTRUCTOR && lastToken?.Type != XSharpLexer.LPAREN)
                     {
                         if (element.Parent != null)
                         {
@@ -204,7 +214,7 @@ namespace XSharp.LanguageService
         }
         internal class QuickInfoBase
         {
-            IXSymbol _symbol;
+            readonly IXSymbol _symbol;
             internal QuickInfoBase(IXSymbol symbol)
             {
                 _symbol = symbol;
@@ -246,7 +256,7 @@ namespace XSharp.LanguageService
                         case Kind.MemVar:
                             return KnownMonikers.LocalVariable;
                     }
-                    return KnownMonikers.None;
+                    return default;
                 }
             }
 
@@ -292,7 +302,7 @@ namespace XSharp.LanguageService
 
         internal class QuickInfoTypeMember : QuickInfoBase
         {
-            IXMemberSymbol typeMember;
+            readonly IXMemberSymbol typeMember;
 
             internal QuickInfoTypeMember(IXMemberSymbol tm) : base(tm)
             {
@@ -402,7 +412,7 @@ namespace XSharp.LanguageService
         }
         internal class QuickInfoVariable : QuickInfoBase
         {
-            IXVariableSymbol xVar;
+            readonly IXVariableSymbol xVar;
 
             internal QuickInfoVariable(IXVariableSymbol var) : base(var)
             {
