@@ -118,7 +118,7 @@ BEGIN NAMESPACE XSharpModel
 
     #region Static Constructor that builds the tables
     STATIC CONSTRUCTOR()
-    _singleKeywords := BitArray{XSharpLexer.LAST}
+    _singleKeywords := BitArray{XSharpLexer.LAST, TRUE}
     var source := XSharpModel.Formatting.XFormattingRules.Rules
     var reader := RulesReader{source}
     var rules := reader:ReadRules()
@@ -285,6 +285,9 @@ BEGIN NAMESPACE XSharpModel
 
     PUBLIC STATIC METHOD IsMember(token as XKeyword) AS LOGIC
     RETURN GetFlags(token):HasFlag(XFormattingFlags.Member)
+
+    PUBLIC STATIC METHOD IsSingleLineEntity(token as XKeyword) AS LOGIC
+    RETURN GetFlags(token):HasFlag(XFormattingFlags.SingleLine)
 
     PUBLIC STATIC METHOD IsStatement(token as XKeyword) AS LOGIC
     RETURN GetFlags(token):HasFlag(XFormattingFlags.Statement)
