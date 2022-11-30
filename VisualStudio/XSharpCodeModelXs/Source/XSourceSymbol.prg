@@ -24,9 +24,25 @@ CLASS XSourceSymbol INHERIT XSymbol IMPLEMENTS IXSourceSymbol
     /// Location in the source where the item is in start / end position
     /// </summary>
     /// <value></value>
-    PROPERTY Interval AS TextInterval     AUTO
-    PROPERTY FileUsings AS IList<STRING>  GET  IIF(SELF:File != NULL, SELF:File:Usings, (IList<STRING>) STRING[]{0})
-
+    PROPERTY Prototype      as STRING GET SELF:KindKeyword+" "+SELF:Name
+    PROPERTY Interval       AS TextInterval     AUTO
+    PROPERTY FileUsings     AS IList<STRING>  GET  IIF(SELF:File != NULL, SELF:File:Usings, (IList<STRING>) STRING[]{0})
+    /// <summary>
+    /// 1 Based Line Number
+    /// </summary>
+    PROPERTY LineNumber     AS INT GET SELF:Range:StartLine+1
+    /// <summary>
+    /// 1 Based Column Number
+    /// </summary>
+    PROPERTY ColumnNumber   AS INT GET SELF:Range:StartColumn+1
+    PROPERTY Location       AS STRING
+        GET
+            IF SELF:File == NULL
+                RETURN ""
+            ENDIF
+            RETURN SELF:File:SourcePath + " (" + SELF:LineNumber:ToString()+" , "+SELF:ColumnNumber:ToString()+")"
+        END GET
+    END PROPERTY
     CONSTRUCTOR(name AS STRING, kind AS Kind, attributes AS Modifiers)
         SUPER(name, kind, attributes)
 
@@ -53,7 +69,10 @@ CLASS XSourceSymbol INHERIT XSymbol IMPLEMENTS IXSourceSymbol
             SELF:File := XSolution.FindFullPath(dbresult:FileName)
         ELSEIF !String.IsNullOrEmpty(dbresult:FileName)
             IF String.Compare(SELF:File:FullPath, dbresult:FileName, TRUE) != 0
-                SELF:File := XSolution.FindFullPath(dbresult:FileName)
+                var newFile := XSolution.FindFullPath(dbresult:FileName)
+                if newFile != null
+                    SELF:File := newFile
+                endif
             ENDIF
         ENDIF
 

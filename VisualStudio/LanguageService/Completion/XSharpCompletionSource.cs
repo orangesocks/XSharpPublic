@@ -66,13 +66,13 @@ namespace XSharp.LanguageService
             WriteOutputMessage("-->> AugmentCompletionSessions");
             try
             {
-                if (XSettings.DisableCodeCompletion)
+                if (XEditorSettings.DisableCodeCompletion)
                     return;
                 XSharpModel.ModelWalker.Suspend();
                 if (_disposed)
                     throw new ObjectDisposedException("XSharpCompletionSource");
-                _showTabs = XSettings.EditorCompletionListTabs;
-                _keywordsInAll = XSettings.EditorKeywordsInAll;
+                _showTabs = XEditorSettings.CompletionListTabs;
+                _keywordsInAll = XEditorSettings.KeywordsInAll;
 
                 // Where does the StartSession has been triggered ?
                 ITextSnapshot snapshot = _buffer.CurrentSnapshot;
@@ -197,14 +197,29 @@ namespace XSharp.LanguageService
                 int tokenType = XSharpLexer.UNRECOGNIZED;
 
                 var symbol = XSharpLookup.RetrieveElement(location, tokenList, CompletionState.General, out var notProcessed).FirstOrDefault();
+                var isInstance = true;
+                if (symbol is IXTypeSymbol)
+                {
+                    isInstance = false;
+                }
+                else
+                {
+                    isInstance = true;
+                }
                 if (symbol != null)
                 {
 
                     switch (lastToken.Type)
                     {
                         case XSharpLexer.DOT:
-                            if (symbol.Kind == Kind.Namespace)
+                            if (symbol.Kind == Kind.Namespace )
+                            {
                                 filterText = symbol.FullName + ".";
+                            }
+                            else if (symbol is IXTypeSymbol)
+                            {
+                                filterText = symbol.FullName + ".";
+                            }
                             break;
                         case XSharpLexer.COLON:
                             break;
@@ -342,7 +357,7 @@ namespace XSharp.LanguageService
                             filterText = "";
                     }
                 }
-                if (showInstanceMembers )
+                if (showInstanceMembers && isInstance)
                 {
                     // Member call
                     if (type != null)

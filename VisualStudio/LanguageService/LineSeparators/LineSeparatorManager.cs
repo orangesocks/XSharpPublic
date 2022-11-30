@@ -53,10 +53,19 @@ namespace XSharp.LanguageService
         private void OnClosed(object sender, EventArgs e)
         {
             closed = true;
-            _textView.Closed -= OnClosed;
-            _textView.LayoutChanged -= OnLayoutChanged;
-            _classifier.LineStateChanged -= LineStateChanged;
-            _editorFormatMap.FormatMappingChanged -= FormatMappingChanged;
+            if (_textView != null)
+            {
+                _textView.Closed -= OnClosed;
+                _textView.LayoutChanged -= OnLayoutChanged;
+            }
+            if (_classifier != null)
+            {
+                _classifier.LineStateChanged -= LineStateChanged;
+            }
+            if (_editorFormatMap != null)
+            {
+                _editorFormatMap.FormatMappingChanged -= FormatMappingChanged;
+            }
 
         }
 
@@ -95,7 +104,7 @@ namespace XSharp.LanguageService
         private void _repaint()
         {
             // if they have switched of the dividers then abort
-            if (!XSettings.EditorShowDividers)
+            if (!XEditorSettings.ShowDividers)
                 return;
             var snapshot = _textView.TextSnapshot;
             var doc = snapshot.TextBuffer.GetDocument();
@@ -106,7 +115,7 @@ namespace XSharp.LanguageService
                 return;
             var viewLines = _textView.TextViewLines;
 
-            var singleLineDividers = XSettings.EditorShowSingleLineDividers;
+            var singleLineDividers = XEditorSettings.ShowSingleLineDividers;
             // create new tags
             // first collect the info about the lines to paint and then do the actual painting
 

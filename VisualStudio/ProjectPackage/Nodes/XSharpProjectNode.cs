@@ -3,7 +3,7 @@
 // Licensed under the Apache License, Version 2.0.
 // See License.txt in the project root for license information.
 //
-
+#undef USEPROJECTVERSION
 using Community.VisualStudio.Toolkit;
 using EnvDTE;
 using LanguageService.CodeAnalysis;
@@ -37,6 +37,7 @@ using MSBuild = Microsoft.Build.Evaluation;
 using VsParser = global::LanguageService.CodeAnalysis.XSharp;
 
 
+
 namespace XSharp.Project
 {
     /// <summary>
@@ -45,9 +46,9 @@ namespace XSharp.Project
     /// </summary>
     [DebuggerDisplay("{Caption}")]
     [Guid("F1A46976-964A-4A1E-955D-E05F5DB8651F")]
-    public class XSharpProjectNode : XProjectNode, IVsSingleFileGeneratorFactory, IXSharpProject,
+    public partial class XSharpProjectNode : XProjectNode, IVsSingleFileGeneratorFactory, IXSharpProject,
         /*IVsDesignTimeAssemblyResolution, */IVsProject5, IProjectTypeHelper, IXsProjectDesigner
-    //, IVsReferenceManagerUser
+    , IVsReferenceManagerUser
     {
         static List<XSharpProjectNode> nodes = new List<XSharpProjectNode>();
 
@@ -82,6 +83,7 @@ namespace XSharp.Project
         private VSLangProj.VSProject vsProject;
         bool isLoading = false;
         XSharpModel.XProject projectModel;
+        Dictionary<string, string> _cachedProjectProperties;
 
 
         //private Microsoft.VisualStudio.Designer.Interfaces.IVSMDCodeDomProvider codeDomProvider;
@@ -96,7 +98,7 @@ namespace XSharp.Project
         public XSharpProjectNode(XSharpProjectPackage package)
         {
             this.package = package;
-            _dialectIsCached = false;
+            _cachedProjectProperties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             this.OnProjectPropertyChanged += XSharpProjectNode_OnProjectPropertyChanged;
             InitializeImageList();
             InitializeCATIDs();
@@ -116,6 +118,30 @@ namespace XSharp.Project
             }
         }
 
+        internal void ClearCache()
+        {
+            _cachedProjectProperties.Clear();
+        }
+
+        public override string GetProjectProperty(string propertyName)
+        {
+            if (_cachedProjectProperties.ContainsKey(propertyName))
+                return _cachedProjectProperties[propertyName];
+            var result = base.GetProjectProperty(propertyName);
+            if (result != null)
+                _cachedProjectProperties[propertyName] = result;
+            return result;
+        }
+
+        public override void SetProjectProperty(string propertyName, string propertyValue)
+        {
+            base.SetProjectProperty(propertyName, propertyValue);
+            if (propertyValue == null && _cachedProjectProperties.ContainsKey(propertyName))
+                _cachedProjectProperties.Remove(propertyName);
+            else if (propertyValue != null)
+                _cachedProjectProperties[propertyName] = propertyValue;
+        }
+
         private void XSharpProjectNode_OnProjectPropertyChanged(object sender, ProjectPropertyChangedArgs e)
         {
             if (string.Compare(e.PropertyName, "dialect", true) == 0)
@@ -127,6 +153,7 @@ namespace XSharp.Project
                 }
                 _dialectIsCached = true;
             }
+            _cachedProjectProperties[e.PropertyName] = e.NewValue;
             this.options = null;
         }
 
@@ -322,7 +349,7 @@ namespace XSharp.Project
         internal void InvalidateOptions()
         {
             this.options = null;
-            this.OutputFile = null;
+            //this.OutputFile = null;
             this._outputPath = null;
 
         }
@@ -374,10 +401,10 @@ namespace XSharp.Project
             // speeds up loading a bit
             base.PrepareBuild(config, cleanBuild);
         }
-        void IXsProjectDesigner.RemoveProjectProperty(string name)
+        public void RemoveProjectProperty(string name)
         {
             var prop = this.BuildProject.GetProperty(name);
-            if (prop != null)
+            if (prop != null && ! prop.IsImported)
             {
                 this.BuildProject.RemoveProperty(prop);
             }
@@ -1335,7 +1362,7 @@ namespace XSharp.Project
 
         private void RefreshIncludeFiles()
         {
-            if (XEditorSettings.HideIncludes)
+            if (XSettings.HideIncludes)
             {
                 DeleteIncludeFileFolder();
                 return;
@@ -1394,7 +1421,7 @@ namespace XSharp.Project
                 this.EventTriggeringFlag = oldEvents;
                 ThreadUtilities.runSafe(() =>
                 {
-                    if (hasChanged )
+                    if (hasChanged)
                     {
                         this.OnItemsAppended(includeNode);
                     }
@@ -1402,8 +1429,6 @@ namespace XSharp.Project
                 });
             }
         }
-
-
         private void OnFileWalkComplete(XFile xfile)
         {
             var tasks = this.ProjectModel.GetCommentTasks();
@@ -1420,26 +1445,6 @@ namespace XSharp.Project
             _taskListManager.Refresh();
             RefreshIncludeFiles();
         }
-
-        public void UpdateAssemblyReferencesModel()
-        {
-            // Add all references to the Type Controller
-            ProjectModel.ClearAssemblyReferences();
-            foreach (VSLangProj.Reference reference in this.VSProject.References)
-            {
-                // Our project references should not be added as AssemblyReference
-                if (reference is OAProjectReference)
-                {
-                    // no need to add, AddUrl already adds these projects
-                }
-                else
-                {
-                    // OAAssemblyReference or OACOMReference
-                    ProjectModel.AddAssemblyReference(reference.Path);
-                }
-            }
-        }
-
 
         public override void AddURL(String url, HierarchyNode node)
         {
@@ -1672,7 +1677,7 @@ namespace XSharp.Project
 
         public string SynchronizeKeywordCase(string code, string fileName)
         {
-            if (XSettings.KeywordCase == KeywordCase.None)
+            if (XEditorSettings.KeywordCase == KeywordCase.None)
                 return code;
             // we also normalize the line endings
             code = code.Replace("\n", "");
@@ -2131,23 +2136,21 @@ namespace XSharp.Project
         }
         private bool _dialectIsCached = false;
         private VsParser.XSharpDialect _dialect;
+
         public VsParser.XSharpDialect Dialect
         {
             get
             {
                 if (_dialectIsCached)
                     return _dialect;
-                return ThreadHelper.JoinableTaskFactory.Run(async delegate
+
+                var prop = GetProjectProperty("Dialect");
+                if (!Enum.TryParse(prop, true, out _dialect))
                 {
-                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                    var prop = GetProjectProperty("Dialect");
-                    if (!Enum.TryParse(prop, true, out _dialect))
-                    {
-                        _dialect = VsParser.XSharpDialect.Core;
-                    }
-                    _dialectIsCached = true;
-                    return _dialect;
-                });
+                    _dialect = VsParser.XSharpDialect.Core;
+                }
+                _dialectIsCached = true;
+                return _dialect;
             }
 
         }
@@ -2255,14 +2258,14 @@ namespace XSharp.Project
         const string importPropsShort = @"XSharp.props";
         const string importTargetsShort = @"XSharp.targets";
         const string importTargetsFull = XSharpMsBuildDir + @"\XSharp.targets";
-        const string postBuildEvent = "PostBuildEvent";
-        const string preBuildEvent = "PreBuildEvent";
-        const string runPostBuildEvent = "RunPostBuildEvent";
-        const string ProjectVersion = "XSharpProjectversion";
-        const string IncludePaths = "Includepaths";
-        const string Nostandarddefs = "Nostandarddefs";
-        const string DocumentationFile = "Documentationfile";
-        const string XSharpProjectExtensionsPath = "XSharpProjectExtensionsPath";
+        const string PostBuildEvent = nameof(PostBuildEvent);
+        const string PreBuildEvent = nameof(PreBuildEvent);
+        const string RunPostBuildEvent = nameof(RunPostBuildEvent);
+        const string XSharpProjectVersion = nameof(XSharpProjectVersion);
+        const string IncludePaths = nameof(IncludePaths);
+        const string Nostandarddefs = nameof(Nostandarddefs);
+        const string DocumentationFile = nameof(DocumentationFile);
+        const string XSharpProjectExtensionsPath = nameof(XSharpProjectExtensionsPath);
         public override int UpgradeProject(uint grfUpgradeFlags)
         {
             bool silent;
@@ -2289,7 +2292,8 @@ namespace XSharp.Project
                 File.WriteAllText(Url, changedSource);
                 ok = false;
             }
-            // we have added a projectversion property to makes checks easier in the future
+#if USEPROJECTVERSION
+            //we have added a projectversion property to makes checks easier in the future
             if (ok)
             {
                 var vers = this.BuildProject.Properties.Where(p => string.Compare(p.Name, ProjectVersion, StringComparison.OrdinalIgnoreCase) == 0).FirstOrDefault();
@@ -2314,6 +2318,9 @@ namespace XSharp.Project
                     }
                 }
             }
+#else
+
+#endif
             StringWriter backup = new StringWriter();
             BuildProject.Save(backup);
             var str = backup.ToString();
@@ -2373,9 +2380,9 @@ namespace XSharp.Project
                 else
                 {
                     // prebuild and postbuild must be after Targets
-                    int iPrebuild = str.IndexOf(preBuildEvent, StringComparison.OrdinalIgnoreCase);
-                    int iPostbuild = str.IndexOf(postBuildEvent, StringComparison.OrdinalIgnoreCase);
-                    int iRunPostBuild = str.IndexOf(runPostBuildEvent, StringComparison.OrdinalIgnoreCase);
+                    int iPrebuild = str.IndexOf(PreBuildEvent, StringComparison.OrdinalIgnoreCase);
+                    int iPostbuild = str.IndexOf(PostBuildEvent, StringComparison.OrdinalIgnoreCase);
+                    int iRunPostBuild = str.IndexOf(RunPostBuildEvent, StringComparison.OrdinalIgnoreCase);
                     if (iPrebuild > -1 && iPrebuild < iTargets)
                         ok = false;
                     else if (iPostbuild > -1 && iPrebuild < iTargets)
@@ -2446,6 +2453,7 @@ namespace XSharp.Project
 
         private void UpdateProjectVersion()
         {
+#if USEPROJECTVERSION
             var xml = BuildProject.Xml;
             var groups = xml.PropertyGroups.ToList();
             var grp = groups.Where(g => g.Condition.Trim().Length == 0).FirstOrDefault();
@@ -2453,6 +2461,10 @@ namespace XSharp.Project
             {
                 addProperty(grp, ProjectVersion, Constants.FileVersion);
             }
+#else
+            this.RemoveProjectProperty(XSharpProjectVersion);
+            this.RemoveProjectProperty(ProjectFileConstants.TargetPath);
+#endif
         }
 
         private void FixProjectFile(string filename, bool dialectVO)
@@ -2599,7 +2611,7 @@ namespace XSharp.Project
             {
                 if (this.QueryEditProjectFile(true))
                 {
-                    UpdateProjectVersion();
+                    this.UpdateProjectVersion();
                     Utilities.DeleteFileSafe(filename);
                     BuildProject.Xml.Save(filename);
                     BuildProject.ReevaluateIfNecessary();
@@ -2739,17 +2751,17 @@ namespace XSharp.Project
                     var p = c as MBC.ProjectPropertyElement;
                     if (p != null)
                     {
-                        if (string.Equals(p.Name, preBuildEvent, StringComparison.OrdinalIgnoreCase))
+                        if (string.Equals(p.Name, PreBuildEvent, StringComparison.OrdinalIgnoreCase))
                         {
                             prebuild = p;
                             found = true;
                         }
-                        if (string.Equals(p.Name, postBuildEvent, StringComparison.OrdinalIgnoreCase))
+                        if (string.Equals(p.Name, PostBuildEvent, StringComparison.OrdinalIgnoreCase))
                         {
                             prebuild = p;
                             found = true;
                         }
-                        if (string.Equals(p.Name, runPostBuildEvent, StringComparison.OrdinalIgnoreCase))
+                        if (string.Equals(p.Name, RunPostBuildEvent, StringComparison.OrdinalIgnoreCase))
                         {
                             runpostbuild = p;
                             found = true;
@@ -2801,15 +2813,15 @@ namespace XSharp.Project
                 var group = BuildProject.Xml.CreatePropertyGroupElement();
                 BuildProject.Xml.InsertAfterChild(group, BuildProject.Xml.LastChild);
                 group.Condition = conditionDebug;
-                group.AddProperty(preBuildEvent, prebuildValue);
-                group.AddProperty(postBuildEvent, postbuildValue);
-                group.AddProperty(runPostBuildEvent, runpostbuildValue);
+                group.AddProperty(PreBuildEvent, prebuildValue);
+                group.AddProperty(PostBuildEvent, postbuildValue);
+                group.AddProperty(RunPostBuildEvent, runpostbuildValue);
                 group = BuildProject.Xml.CreatePropertyGroupElement();
                 BuildProject.Xml.InsertAfterChild(group, BuildProject.Xml.LastChild);
                 group.Condition = conditionRelease;
-                group.AddProperty(preBuildEvent, prebuildValue);
-                group.AddProperty(postBuildEvent, postbuildValue);
-                group.AddProperty(runPostBuildEvent, runpostbuildValue);
+                group.AddProperty(PreBuildEvent, prebuildValue);
+                group.AddProperty(PostBuildEvent, postbuildValue);
+                group.AddProperty(RunPostBuildEvent, runpostbuildValue);
                 changed = true;
             }
             return changed;
@@ -2889,322 +2901,7 @@ namespace XSharp.Project
         }
 
         #endregion
-        /*
-          public override int AddProjectReference()
-          {
-               var referenceManager = this.GetService(typeof(SVsReferenceManager)) as IVsReferenceManager;
-               if (referenceManager != null)
-               {
-                    var contextGuids = new[] {
-                          VSConstants.AssemblyReferenceProvider_Guid,
-                          VSConstants.ComReferenceProvider_Guid,
-                          VSConstants.ProjectReferenceProvider_Guid,
-                          VSConstants.FileReferenceProvider_Guid,
-                    };
-                    referenceManager.ShowReferenceManager(
-                          this,
-                          SR.GetString(SR.AddReferenceDialogTitle),
-                          "VS.ReferenceManager",
-                          contextGuids.First(),
-                          false
-                          );
-                    return VSConstants.S_OK;
-               }
-               else
-               {
-                    return VSConstants.E_NOINTERFACE;
-               }
-          }
-#region IVsReferenceManagerUser Members
 
-          void IVsReferenceManagerUser.ChangeReferences(uint operation, IVsReferenceProviderContext changedContext)
-          {
-               var op = (__VSREFERENCECHANGEOPERATION)operation;
-               __VSREFERENCECHANGEOPERATIONRESULT result;
-
-               try
-               {
-                    if (op == __VSREFERENCECHANGEOPERATION.VSREFERENCECHANGEOPERATION_ADD)
-                    {
-                          result = this.AddReferences(changedContext);
-                    }
-                    else
-                    {
-                          result = this.RemoveReferences(changedContext);
-                    }
-               }
-               catch (InvalidOperationException e)
-               {
-                    Debug.Fail(e.ToString());
-                    result = __VSREFERENCECHANGEOPERATIONRESULT.VSREFERENCECHANGEOPERATIONRESULT_DENY;
-               }
-
-               if (result == __VSREFERENCECHANGEOPERATIONRESULT.VSREFERENCECHANGEOPERATIONRESULT_DENY)
-               {
-                    throw new InvalidOperationException();
-               }
-          }
-
-          Array IVsReferenceManagerUser.GetProviderContexts()
-          {
-               return this.GetProviderContexts();
-          }
-
-#endregion
-
-#region IvsReferenceManagerUser implementation
-          protected virtual Array GetProviderContexts()
-          {
-               var referenceManager = this.GetService(typeof(SVsReferenceManager)) as IVsReferenceManager;
-
-               var contextProviders = new[] {
-                    CreateAssemblyReferenceProviderContext(referenceManager),
-                    CreateCOMReferenceProviderContext(referenceManager),
-                    CreateProjectReferenceProviderContext(referenceManager),
-                    CreateFileReferenceProviderContext(referenceManager),
-               };
-
-               return contextProviders;
-          }
-          private IVsReferenceProviderContext CreateAssemblyReferenceProviderContext(IVsReferenceManager mgr)
-          {
-               var context = mgr.CreateProviderContext(VSConstants.AssemblyReferenceProvider_Guid) as IVsAssemblyReferenceProviderContext;
-               context.TargetFrameworkMoniker = this.TargetFrameworkMoniker.ToString();
-               context.
-               var referenceContainer = this.GetReferenceContainer();
-               var references = referenceContainer
-                    .EnumReferences()
-                    .OfType<AssemblyReferenceNode>();
-               foreach (var reference in references)
-               {
-                    var newReference = context.CreateReference() as IVsAssemblyReference;
-                    newReference.Name = reference.AssemblyName.Name;
-                    newReference.FullPath = reference.Url;
-                    context.AddReference(newReference);
-               }
-
-               return context as IVsReferenceProviderContext;
-          }
-
-          private IVsReferenceProviderContext CreateCOMReferenceProviderContext(IVsReferenceManager mgr)
-          {
-               var context = mgr.CreateProviderContext(VSConstants.ComReferenceProvider_Guid) as IVsComReferenceProviderContext;
-
-               var referenceContainer = this.GetReferenceContainer();
-               var references = referenceContainer
-                    .EnumReferences()
-                    .OfType<ComReferenceNode>();
-               foreach (var reference in references)
-               {
-                    var newReference = context.CreateReference() as IVsComReference;
-                    newReference.MajorVersion = (ushort) reference.MajorVersionNumber;
-                    newReference.MinorVersion = (ushort) reference.MinorVersionNumber;
-                    newReference.Guid = reference.TypeGuid;
-                    newReference.FullPath = reference.Url;
-                    context.AddReference(newReference);
-               }
-
-               return context as IVsReferenceProviderContext;
-          }
-
-
-          private IVsReferenceProviderContext CreateProjectReferenceProviderContext(IVsReferenceManager mgr)
-          {
-               var context = mgr.CreateProviderContext(VSConstants.ProjectReferenceProvider_Guid) as IVsProjectReferenceProviderContext;
-               context.CurrentProject = this;
-
-               var referenceContainer = this.GetReferenceContainer();
-               var references = referenceContainer
-                    .EnumReferences()
-                    .OfType<ProjectReferenceNode>();
-               foreach (var reference in references)
-               {
-                    var newReference = context.CreateReference() as IVsProjectReference;
-                    newReference.Identity = reference.ReferencedProjectGuid.ToString("B");
-                    newReference.AlreadyReferenced = true;
-                    context.AddReference(newReference);
-               }
-
-               return context as IVsReferenceProviderContext;
-          }
-
-          private IVsReferenceProviderContext CreateFileReferenceProviderContext(IVsReferenceManager mgr)
-          {
-               var context = mgr.CreateProviderContext(VSConstants.FileReferenceProvider_Guid) as IVsFileReferenceProviderContext;
-
-               context.BrowseFilter = AddReferenceExtensions.Replace('|', '\0') + "\0";
-               return context as IVsReferenceProviderContext;
-          }
-
-          private __VSREFERENCECHANGEOPERATIONRESULT AddReferences(IVsReferenceProviderContext context)
-          {
-               var addedReferences = this.GetAddedReferences(context);
-
-               var referenceContainer = this.GetReferenceContainer();
-               foreach (var selectorData in addedReferences)
-               {
-                    referenceContainer.AddReferenceFromSelectorData(selectorData);
-               }
-
-               return __VSREFERENCECHANGEOPERATIONRESULT.VSREFERENCECHANGEOPERATIONRESULT_ALLOW;
-          }
-
-          protected virtual IEnumerable<VSCOMPONENTSELECTORDATA> GetAddedReferences(IVsReferenceProviderContext context)
-          {
-               var addedReferences = Enumerable.Empty<VSCOMPONENTSELECTORDATA>();
-
-               if (context.ProviderGuid == VSConstants.ProjectReferenceProvider_Guid)
-               {
-                    addedReferences = GetAddedReferences(context as IVsProjectReferenceProviderContext);
-               }
-               else if (context.ProviderGuid == VSConstants.FileReferenceProvider_Guid)
-               {
-                    addedReferences = GetAddedReferences(context as IVsFileReferenceProviderContext);
-               }
-               else if (context.ProviderGuid == VSConstants.AssemblyReferenceProvider_Guid)
-               {
-                    addedReferences = GetAddedReferences(context as IVsAssemblyReferenceProviderContext);
-               }
-               else if (context.ProviderGuid == VSConstants.ComReferenceProvider_Guid)
-               {
-                    addedReferences = GetAddedReferences(context as IVsComReferenceProviderContext);
-               }
-
-               return addedReferences;
-          }
-
-          private __VSREFERENCECHANGEOPERATIONRESULT RemoveReferences(IVsReferenceProviderContext context)
-          {
-               var removedReferences = this.GetRemovedReferences(context);
-
-               foreach (var refNode in removedReferences)
-               {
-                    refNode.Remove(true ); // delete from storage
-               }
-
-               return __VSREFERENCECHANGEOPERATIONRESULT.VSREFERENCECHANGEOPERATIONRESULT_ALLOW;
-          }
-
-          protected virtual IEnumerable<ReferenceNode> GetRemovedReferences(IVsReferenceProviderContext context)
-          {
-               var removedReferences = Enumerable.Empty<ReferenceNode>();
-
-               if (context.ProviderGuid == VSConstants.ProjectReferenceProvider_Guid)
-               {
-                    removedReferences = GetRemovedReferences(context as IVsProjectReferenceProviderContext);
-               }
-               else if (context.ProviderGuid == VSConstants.FileReferenceProvider_Guid)
-               {
-                    removedReferences = GetRemovedReferences(context as IVsFileReferenceProviderContext);
-               }
-
-               return removedReferences;
-          }
-
-          private IEnumerable<VSCOMPONENTSELECTORDATA> GetAddedReferences(IVsProjectReferenceProviderContext context)
-          {
-               var selectedReferences = context
-                    .References
-                    .OfType<IVsProjectReference>()
-                    .Select(reference => new VSCOMPONENTSELECTORDATA()
-                    {
-                          type = VSCOMPONENTTYPE.VSCOMPONENTTYPE_Project,
-                          bstrTitle = reference.Name,
-                          bstrFile = new FileInfo(reference.FullPath).Directory.FullName,
-                          bstrProjRef = reference.ReferenceSpecification,
-                    });
-
-               return selectedReferences;
-          }
-
-          private IEnumerable<VSCOMPONENTSELECTORDATA> GetAddedReferences(IVsAssemblyReferenceProviderContext context)
-          {
-               var selectedReferences = context
-                    .References
-                    .OfType<IVsAssemblyReference>()
-                    .Select(reference => new VSCOMPONENTSELECTORDATA()
-                    {
-                          type = VSCOMPONENTTYPE.VSCOMPONENTTYPE_ComPlus,
-                          bstrTitle = reference.Name,
-                          bstrFile = reference.FullPath,
-                    });
-
-               return selectedReferences;
-          }
-          private IEnumerable<VSCOMPONENTSELECTORDATA> GetAddedReferences(IVsComReferenceProviderContext context)
-          {
-               var selectedReferences = context
-                    .References
-                    .OfType<IVsComReference>()
-                    .Select(reference => new VSCOMPONENTSELECTORDATA()
-                    {
-                          type = VSCOMPONENTTYPE.VSCOMPONENTTYPE_Com2,
-                          bstrTitle = reference.Name,
-                          bstrFile = reference.FullPath,
-                          wFileMajorVersion = reference.MajorVersion,
-                          wFileMinorVersion = reference.MinorVersion,
-                          guidTypeLibrary = reference.Guid
-                    });
-
-               return selectedReferences;
-          }
-
-
-          private IEnumerable<ReferenceNode> GetRemovedReferences(IVsProjectReferenceProviderContext context)
-          {
-               var selectedReferences = context
-                    .References
-                    .OfType<IVsProjectReference>()
-                    .Select(asmRef => new Guid(asmRef.Identity));
-
-               var referenceContainer = this.GetReferenceContainer();
-               var references = referenceContainer
-                    .EnumReferences()
-                    .OfType<ProjectReferenceNode>()
-                    .Where(refNode => selectedReferences.Contains(refNode.ReferencedProjectGuid));
-
-               return references;
-          }
-
-          private IEnumerable<VSCOMPONENTSELECTORDATA> GetAddedReferences(IVsFileReferenceProviderContext context)
-          {
-               var selectedReferences = context
-                    .References
-                    .OfType<IVsFileReference>()
-                    .Select(reference => new VSCOMPONENTSELECTORDATA()
-                    {
-                          type = VSCOMPONENTTYPE.VSCOMPONENTTYPE_File,
-                          bstrFile = reference.FullPath,
-                    });
-
-               return selectedReferences;
-          }
-
-          private IEnumerable<ReferenceNode> GetRemovedReferences(IVsFileReferenceProviderContext context)
-          {
-               var selectedReferences = context
-                    .References
-                    .OfType<IVsFileReference>()
-                    .Select(fileRef => fileRef.FullPath);
-
-               var referenceContainer = this.GetReferenceContainer();
-               var references = referenceContainer
-                    .EnumReferences()
-                    .OfType<ReferenceNode>()
-                    .Where(refNode => selectedReferences.Contains(refNode.Url));
-
-               return references;
-          }
-
-          protected virtual string AddReferenceExtensions
-          {
-               get
-               {
-                    return "Assembly files|*.dll";
-               }
-          }
-#endregion
-    */
     }
 
 

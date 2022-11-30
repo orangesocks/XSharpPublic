@@ -103,7 +103,10 @@ namespace Microsoft.VisualStudio.Project
             {
                 throw new ArgumentNullException("fileNode");
             }
-
+            if (fileNode.Parent != null && fileNode.Parent.HasDesigner)
+            {
+                return;
+            }
             SingleFileGeneratorNodeProperties nodeproperties = fileNode.NodeProperties as SingleFileGeneratorNodeProperties;
             if (nodeproperties == null)
             {
@@ -137,13 +140,14 @@ namespace Microsoft.VisualStudio.Project
                     SingleFileGeneratorFactory factory = new SingleFileGeneratorFactory(this.projectMgr.ProjectGuid, this.projectMgr.Site);
                     ErrorHandler.ThrowOnFailure(factory.CreateGeneratorInstance(customToolProgID, out generateDesignTimeSource, out generateSharedDesignTimeSource, out generateTempPE, out generator));
 
+                    if (generator == null)
+                        return;
                     //Check to see if the generator supports siting
                     IObjectWithSite objWithSite = generator as IObjectWithSite;
                     if (objWithSite != null)
                     {
                         objWithSite.SetSite(fileNode.OleServiceProvider);
                     }
-
                     //Determine the namespace
                     if (String.IsNullOrEmpty(customToolNamespace))
                     {

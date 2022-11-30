@@ -3,26 +3,22 @@
 // Licensed under the Apache License, Version 2.0.
 // See License.txt in the project root for license information.
 //
-using System;
-using System.Linq;
-using System.Collections.Generic;
-using System.ComponentModel.Composition;
+using LanguageService.CodeAnalysis.XSharp.SyntaxParser;
 using Microsoft.VisualStudio.Core.Imaging;
+using Microsoft.VisualStudio.Imaging;
+using Microsoft.VisualStudio.Imaging.Interop;
 using Microsoft.VisualStudio.Language.Intellisense;
+using Microsoft.VisualStudio.Language.StandardClassification;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Adornments;
 using Microsoft.VisualStudio.Utilities;
-using Microsoft.VisualStudio.Imaging;
-using System.Windows.Documents;
-using System.Windows.Media;
-using XSharpModel;
-using System.Windows.Controls;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.Composition;
+using System.Linq;
 using System.Threading;
-using Microsoft.VisualStudio.Language.StandardClassification;
 using System.Threading.Tasks;
-using LanguageService.CodeAnalysis.XSharp;
-using Microsoft.VisualStudio.Imaging.Interop;
-using LanguageService.CodeAnalysis.XSharp.SyntaxParser;
+using XSharpModel;
 
 namespace XSharp.LanguageService
 {
@@ -53,7 +49,7 @@ namespace XSharp.LanguageService
 
         public async Task<QuickInfoItem> GetQuickInfoItemAsync(IAsyncQuickInfoSession session, CancellationToken cancellationToken)
         {
-            if (XSettings.DebuggerIsRunning || XSettings.DisableQuickInfo)
+            if (XSettings.DebuggerIsRunning || XEditorSettings.DisableQuickInfo)
             {
                 await session.DismissAsync();
                 return null;
@@ -71,8 +67,8 @@ namespace XSharp.LanguageService
                 // Map the trigger point down to our buffer.
                 ITextSnapshot currentSnapshot = ssp.Snapshot;
                 bool abort = false;
-                var tokens = _textBuffer.GetDocument();
-                if (tokens == null)
+                var document = _textBuffer.GetDocument();
+                if (document == null)
                     return null;
                 if (cancellationToken.IsCancellationRequested)
                     return null;
@@ -81,7 +77,7 @@ namespace XSharp.LanguageService
                     WriteOutputMessage($"Triggerpoint: {triggerPoint.Value.Position}");
                     // We don't want to lex the buffer. So get the tokens from the last lex run
                     // and when these are too old, then simply bail out
-                    abort = tokens == null || tokens.SnapShot.Version != currentSnapshot.Version;
+                    abort = document == null || document.SnapShot.Version != currentSnapshot.Version;
                 }
                 if (abort)
                 {
@@ -97,12 +93,23 @@ namespace XSharp.LanguageService
                 if (cancellationToken.IsCancellationRequested)
                     return null;
                 var lookupresult = new List<IXSymbol>();
-                lookupresult.AddRange(XSharpLookup.RetrieveElement(location, tokenList, state, out var notProcessed, true));
+                lookupresult.AddRange(XSharpLookup.RetrieveElement(location, tokenList, state));
                 var lastToken = tokenList.LastOrDefault();
                 //
-               if (lookupresult.Count > 0)
+                if (lookupresult.Count > 0)
                 {
                     var element = lookupresult[0];
+                    var lineTokens = document.GetTokensInLine(lastToken.Line - 1);
+                    if (element is XSourceUndeclaredVariableSymbol ||
+                        lineTokens.First()?.Type == XSharpLexer.UDC_KEYWORD)
+                    {
+                        // check to see if the line where the element comes from starts with a UDC keyword
+                        var firstToken = lineTokens[0];
+                        if (firstToken.Type == XSharpLexer.UDC_KEYWORD)
+                        {
+                            element = new XSourceEntity(firstToken.Text, Kind.Command);
+                        }
+                    }
                     if (state == CompletionState.Constructors && element is IXTypeSymbol ixtype)
                     {
                         // when the cursor is before a "{" then show the constructor and not the type
@@ -177,11 +184,16 @@ namespace XSharp.LanguageService
             return null;
         }
 
+        private ImageElement GetImage(ImageMoniker image)
+        {
+            return new ImageElement(image.ToImageId());
+        }
+
         private void AddImage(List<object> qiContent, ImageMoniker image)
         {
             if (image.Id != KnownMonikers.None.Id)
             {
-                qiContent.Add(new ImageElement(image.ToImageId()));
+                qiContent.Add(GetImage(image));
             }
         }
 
@@ -292,7 +304,7 @@ namespace XSharp.LanguageService
                         list.addPair(xsvs.LocalTypeDesc + " ", var.TypeName.GetXSharpTypeName());
                     }
                 }
-                if (var.IsArray && ! var.TypeName.EndsWith("]"))
+                if (var.IsArray && !var.TypeName.EndsWith("]"))
                 {
                     list.addText("[] ");
                 }
@@ -340,17 +352,6 @@ namespace XSharp.LanguageService
 
             }
 
-            private void checkLen(List<ClassifiedTextRun> elements, ref int len)
-            {
-                //if (len > 80)
-                //{
-                //    // New line starts with indent
-                //    elements.addText("\r\t");
-                //    len = 0;
-                //}
-            }
-
-
             public ClassifiedTextRun[] WPFPrototype()
             {
                 var content = new List<ClassifiedTextRun>();
@@ -358,6 +359,10 @@ namespace XSharp.LanguageService
                 if (!this.typeMember.Kind.IsGlobalTypeMember())
                 {
                     name = this.typeMember.Parent.Name;
+                    if (typeMember.IsExtension && typeMember is XPEMemberSymbol pesym)
+                    {
+                        name = pesym.DeclaringTypeSym.Name;
+                    }
                     var pos = name.IndexOfAny(new char[] { '`', '<' });
                     {
                         if (pos > 0)
@@ -372,8 +377,9 @@ namespace XSharp.LanguageService
                 }
                 name += this.typeMember.Name;
                 content.addText(name);
-                if (this.typeMember.Kind.HasParameters())
+                if (this.typeMember.Kind.HasParameters() && !this.typeMember.Kind.IsProperty())
                 {
+                    var isExt = typeMember.IsExtension;
                     content.addKeyword(this.typeMember.Kind == XSharpModel.Kind.Constructor ? "{" : "(");
                     bool first = true;
                     foreach (var var in this.typeMember.Parameters)
@@ -381,6 +387,11 @@ namespace XSharp.LanguageService
                         if (!first)
                         {
                             content.addText(", ");
+                        }
+                        if (isExt)
+                        {
+                            content.addKeyword("SELF ");
+                            isExt = false;
                         }
                         first = false;
                         addVarInfo(content, var);
@@ -455,6 +466,7 @@ namespace XSharp.LanguageService
                         kind = "Field";
                     content.addKeyword(XSettings.FormatKeyword(kind + " "));
                     addVarInfo(content, xVar);
+                    content.addLocation(xVar.Location);
                     return content.ToArray();
                 }
 

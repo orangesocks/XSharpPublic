@@ -11,12 +11,13 @@
     <AssemblyName>XSharp.CodeGenerator</AssemblyName>
     <Dialect>Core</Dialect>
     <OutputName>CodeGenerator</OutputName>
-    <XSharpProjectversion>2.13.0.6</XSharpProjectversion>
     <NamedArgs>true</NamedArgs>
+    <StartupObject />
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'" Label="Configuration">
     <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
     <DisabledWarnings>165</DisabledWarnings>
     <DelaySign>false</DelaySign>
   </PropertyGroup>
@@ -27,9 +28,6 @@
     <DelaySign>false</DelaySign>
   </PropertyGroup>
   <Import Project="$(XSharpMsBuildDir)\XSharp.targets" />
-  <ItemGroup>
-    <Reference Include="mscorlib" />
-  </ItemGroup>
   <ItemGroup>
     <Folder Include="Properties\" />
   </ItemGroup>
@@ -53,6 +51,11 @@
     <None Include="..\..\Common\BuildNumber.h">
       <Link>BuildNumber.h</Link>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Runtime">
+      <Version>4.3.1</Version>
+    </PackageReference>
   </ItemGroup>
   <!-- This next bit is required unless the macro used to Import your targets is defined in an MSBuild toolset. -->
   <ProjectExtensions>

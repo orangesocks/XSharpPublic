@@ -62,16 +62,19 @@ namespace XSharp.LanguageService
 
         private static XSharpSearchLocation AdjustStartLineNumber(XSharpSearchLocation location)
         {
-            ClassifyBuffer(location);
-            var line = location.LineNumber;
-            var doc = location.GetDocument();
-            var lineFlags = doc.LineState;
-            while (line >= 0 && lineFlags.Get(line, out var flags) && flags.HasFlag(LineFlags.Continued))
-            {
-                line--;
-            }
-            return location.With(line, location.Position);
-
+            //if (ThreadHelper.JoinableTaskFactory.Context.IsOnMainThread)
+            //{
+            //    ClassifyBuffer(location);
+            //    var line = location.LineNumber;
+            //    var doc = location.GetDocument();
+            //    var lineFlags = doc.LineState;
+            //    while (line >= 0 && lineFlags.Get(line, out var flags) && flags.HasFlag(LineFlags.Continued))
+            //    {
+            //        line--;
+            //    }
+            //    return location.With(line, location.Position);
+            //}
+            return location;
         }
 
 
@@ -314,7 +317,6 @@ namespace XSharp.LanguageService
             location = AdjustStartLineNumber(location);
             var xdocument = location.GetDocument();
             var tokens =  xdocument.GetTokensInLine(location.LineNumber);
-
             //
             state = CompletionState.General;
             if (tokens.Count == 0)
@@ -523,7 +525,7 @@ namespace XSharp.LanguageService
                             result.Add(token);
                         }
                         if (isNotLast) // there has to be a space after the token
-                            state = CompletionState.Namespaces | CompletionState.Types;
+                            state = CompletionState.Namespaces | CompletionState.Types | CompletionState.Inherit;
                         else
                             state = CompletionState.None;
                         break;
@@ -596,7 +598,11 @@ namespace XSharp.LanguageService
                     default:
                         if (state == CompletionState.None)
                             state = CompletionState.General;
-                        if (XSharpLexer.IsOperator(token.Type))
+                        if (XSharpLexer.IsPseudoFunction(token.Type))
+                        {
+                            result.Add(token);
+                        }
+                        else if (XSharpLexer.IsOperator(token.Type))
                         {
                             result.Add(token);
                         }
@@ -696,7 +702,7 @@ namespace XSharp.LanguageService
                 {
                     name = name.Substring(0, pos);
                 }
-                XSourceTypeSymbol nSpace = new XSourceTypeSymbol(name, Kind.Namespace, Modifiers.Public, found.Range, found.Interval, file);
+                var nSpace = new XSourceNamespaceSymbol(name, found.Range, found.Interval, file);
                 return nSpace;
             }
 #if TRACE

@@ -375,6 +375,8 @@ namespace XSharp.LanguageService
                     if (stopAtDelimiter)
                         return false; 
                     break;
+                case '_':
+                    return true;
                 default:
                     if (!System.Char.IsLetterOrDigit(c))
                         return false;
@@ -386,16 +388,19 @@ namespace XSharp.LanguageService
         {
             if (flags.HasFlag(WORDEXTFLAGS.WORDEXT_FINDTOKEN) && XSettings.DebuggerIsRunning)
             {
+                var callStack = Environment.StackTrace.ToString();
+                var quickinfo = callStack.IndexOf("quickinfo", StringComparison.OrdinalIgnoreCase) > 0;
+
                 string text;
                 pts[0].iStartLine = pts[0].iEndLine = ta.line;
 
                 pTextLayer.GetLineText(ta.line, 0, ta.line + 1, 0, out text);
                 var index = ta.index;
                 // find start token
-                while (index > 0)
+                while (index >= 0)
                 {
                     char c = text[index];
-                    if (!IsWordChar(c, false))
+                    if (!IsWordChar(c, !quickinfo))
                         break;
                     index -= 1;
                 }

@@ -35,6 +35,8 @@ namespace Microsoft.VisualStudio.Project
 
         private static readonly string[] macroNames =
               {
+                "BaseIntermediateOutputPath",
+                "BaseOutputPath",
                 "ConfigurationName",
                 "OutDir",
                 "PlatformName",
@@ -79,7 +81,7 @@ namespace Microsoft.VisualStudio.Project
                     this.list.Add(globalMacroName, property);
                 }
             }
-            // we need to call GetTargetPath first so that TargetDir and TargetPath are resolved correctly
+            // we need to call the Build Target GetTargetPath first so that TargetDir and TargetPath are resolved correctly
             ConfigCanonicalName configCanonicalName;
             if (!Utilities.TryGetActiveConfigurationAndPlatform(project.Site, project, out configCanonicalName))
             {

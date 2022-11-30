@@ -1,28 +1,61 @@
 ﻿using Community.VisualStudio.Toolkit;
 using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Text.Editor;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using XSharpModel;
+using static System.Windows.Forms.AxHost;
 using File = System.IO.File;
 
 namespace XSharp.LanguageService
 {
     class XSharpGotoDefinition
     {
+
+        internal static void Goto(IXSymbol element, ITextView TextView, CompletionState state)
+        {
+            if (state == CompletionState.Constructors && element is IXTypeSymbol xtype)
+            {
+                // when the cursor is before a "{" then goto the constructor and not the type
+                var ctors = xtype.GetConstructors();
+                if (ctors.Length > 0)
+                {
+                    element = ctors[0];
+                }
+            }
+
+            if (element is XSourceEntity source)
+            {
+                source.OpenEditor();
+            }
+            else if (element is XPETypeSymbol petype)
+            {
+                GotoSystemType(TextView, petype, petype);
+
+            }
+            else if (element is XPEMemberSymbol pemember)
+            {
+                var petype2 = pemember.Parent as XPETypeSymbol;
+                GotoSystemType(TextView, petype2, pemember);
+            }
+            else
+            {
+                VS.MessageBox.Show("Cannot navigate to the symbol under the cursor", "",
+                    icon: OLEMSGICON.OLEMSGICON_INFO,
+                    buttons: OLEMSGBUTTON.OLEMSGBUTTON_OK);
+            }
+        }
         internal static void GotoDefn(ITextView TextView)
         {
             try
             {
-                if (XSettings.DisableGotoDefinition)
-                    return;
                 var file = TextView.TextBuffer.GetFile();
                 if (file == null || file.XFileType != XFileType.SourceCode)
                     return;
                 WriteOutputMessage("CommandFilter.GotoDefn()");
                 ModelWalker.Suspend();
-
 
                 var snapshot = TextView.TextBuffer.CurrentSnapshot;
 
@@ -36,42 +69,17 @@ namespace XSharp.LanguageService
                 }
                 string currentNS = TextView.FindNamespace();
                 var location = TextView.FindLocation();
-                var state = CompletionState.General | CompletionState.Types | CompletionState.Namespaces;
-                var tokenList = XSharpTokenTools.GetTokensUnderCursor(location,  out state);
+                var tokenList = XSharpTokenTools.GetTokensUnderCursor(location,  out var state);
 
                 // LookUp for the BaseType, reading the TokenList (From left to right)
                 var result = new List<IXSymbol>();
 
-                result.AddRange(XSharpLookup.RetrieveElement(location, tokenList, state, out var notProcessed));
+                result.AddRange(XSharpLookup.RetrieveElement(location, tokenList, state));
                 //
-                Microsoft.VisualStudio.Shell.ThreadHelper.ThrowIfNotOnUIThread();
+                ThreadHelper.ThrowIfNotOnUIThread();
                 if (result.Count > 0)
                 {
-                    var element = result[0];
-                    if (state == CompletionState.Constructors && element is IXTypeSymbol xtype)
-                    {
-                        // when the cursor is before a "{" then goto the constructor and not the type
-                        var ctors = xtype.GetConstructors();
-                        if (ctors.Length > 0)
-                        {
-                            element = ctors[0];
-                        }
-                    }
-
-                    if (element is XSourceEntity source)
-                    {
-                        source.OpenEditor();
-                    }
-                    else if (element is XPETypeSymbol petype)
-                    {
-                        GotoSystemType(TextView, petype, petype);
-
-                    }
-                    else if (element is XPEMemberSymbol pemember)
-                    {
-                        var petype2 = pemember.Parent as XPETypeSymbol;
-                        GotoSystemType(TextView, petype2, pemember);
-                    }
+                    Goto(result[0], TextView, state);
                     return;
                 }
                 //
@@ -82,19 +90,11 @@ namespace XSharp.LanguageService
                     tokenList.Clear();
                     tokenList.Add(token);
                     location = location.With(currentNS);
-                    result.AddRange(XSharpLookup.RetrieveElement(location, tokenList, state, out notProcessed));
+                    result.AddRange(XSharpLookup.RetrieveElement(location, tokenList, state));
                 }
                 if (result.Count > 0)
                 {
-                    var element = result[0];
-                    if (element is XSourceEntity source)
-                        source.OpenEditor();
-                    //else
-                    //{
-                    //    openInObjectBrowser(element.FullName);
-                    //}
-                    //return;
-
+                    Goto(result[0], TextView, state);
                 }
 
             }
@@ -140,11 +140,22 @@ namespace XSharp.LanguageService
             return XSharpXMLDocMember.GetDoc(asmName, key);
         }
 
+        internal static XSourceEntity FindSystemElement(XPETypeSymbol petype, XPESymbol element)
+        {
+            if (element is XPEMemberSymbol mem && mem.IsExtension)
+            {
+                petype = mem.DeclaringTypeSym;
+            }
+            var xFile = CreateFileForSystemType(petype, element);
+            return FindElementInFile(xFile, petype, element);
+        }
 
         private static void GotoSystemType(ITextView TextView, XPETypeSymbol petype, XPESymbol element)
         {
-            var xFile = CreateFileForSystemType(petype, element);
-            var entity = FindElementInFile(xFile, petype, element);
+            var entity = FindSystemElement(petype, element);
+            if (entity == null || entity.File == null)
+                return;
+            var xFile = entity.File;
             var file = TextView.TextBuffer.GetFile();
             // Copy references to the Orphan file project so type lookup works as expected
             var orphProject = XSolution.OrphanedFilesProject;
@@ -162,20 +173,18 @@ namespace XSharp.LanguageService
 
         }
 
-        public static XSourceEntity FindElementInFile(XFile file, XPETypeSymbol petype, XSymbol element)
+        private static XSourceEntity FindElementInFile(XFile file, XPETypeSymbol petype, XSymbol element)
         {
             var walker = new SourceWalker(file, false);
             walker.Parse(false);
             var entities = walker.EntityList;
-            XSourceEntity result = null;
             if (petype.IsFunctionsClass)
             {
                 foreach (var entity in entities)
                 {
                     if (entity.Name == element.Name)
                     {
-                        result = entity;
-                        break;
+                        return entity;
                     }
                 }
             }
@@ -183,16 +192,22 @@ namespace XSharp.LanguageService
             {
                 foreach (var entity in entities)
                 {
-                    if (entity.FullName == element.FullName)
+                    if (entity.Name == element.Name)
                     {
-                        result = entity;
+                        if (entity is IXMemberSymbol m1 && m1.IsExtension && element is IXMemberSymbol m2)
+                        {
+                            if (m1.ParameterList == m2.ParameterList)
+                                return entity;
+                        }
+                        if (entity.FullName == element.FullName)
+                            return entity;
                         break;
                     }
                 }
             }
-            return result;
+            return null;
         }
-        internal static XFile CreateFileForSystemType(XPETypeSymbol petype, XPESymbol element)
+        private static XFile CreateFileForSystemType(XPETypeSymbol petype, XPESymbol element)
         {
             asmName = petype.Assembly;
             bool mustCreate = false;
@@ -228,6 +243,7 @@ namespace XSharp.LanguageService
                     Semaphore = File.Create(semFile);
             }
             var ns = petype.Namespace + "." + petype.Assembly.Version;
+            ns = petype.Assembly.DisplayName+"\\"+ns;
             var name = petype.Name;
             var nspath = Path.Combine(WorkFolder, ns);
             if (!Directory.Exists(nspath))
@@ -235,7 +251,8 @@ namespace XSharp.LanguageService
                 Directory.CreateDirectory(nspath);
             }
             var temp = Path.Combine(nspath, petype.Name) + ".prg";
-            mustCreate = !File.Exists(temp);
+            var fi = new FileInfo(temp);
+            mustCreate = !fi.Exists || fi.Length < 10;
             if (mustCreate)
             {
                 VS.StatusBar.ShowMessageAsync("Generating reference source for " + petype.FullName).FireAndForget();
