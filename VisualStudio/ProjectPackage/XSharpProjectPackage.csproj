@@ -161,7 +161,7 @@
     <Compile Include="PackageReferences\PackageReferencesNode.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Nodes\XSharpProjectNodeProperties.cs" />
-    <Content Include="C:\XSharp\DevPublic\Binaries\2019\Debug\\x86\SQLite.Interop.dll">
+    <Content Include="$(Outdir)\x86\SQLite.Interop.dll">
       <Link>x86\SQLite.Interop.dll</Link>
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
@@ -704,6 +704,7 @@
   <ItemGroup>
     <PackageReference Include="Community.VisualStudio.Toolkit.15">
       <Version>15.0.480</Version>
+      <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Community.VisualStudio.VSCT">
       <Version>16.0.29.6</Version>

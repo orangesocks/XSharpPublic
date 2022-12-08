@@ -120,16 +120,17 @@ namespace XSharp.LanguageService
             return GetTokensInLine(line);
         }
 
-        internal IList<IToken> GetTokensInLine(ITextSnapshotLine line)
+        internal IList<IToken> GetTokensInLine(ITextSnapshotLine line, bool allowCached = true)
         {
             List<IToken> tokens = new List<IToken>(); ;
             if (line.Length == 0)
                 return tokens;
-            if (line.Snapshot.Version == this.SnapShot.Version)
+            if (line.Snapshot.Version == this.SnapShot.Version && allowCached)
             {
                 // When the snapshot matches, return a clone of the line we already have. 
                 // no need to lex again
-                tokens.AddRange(this._tokensPerLine[line.LineNumber]);
+                if (this._tokensPerLine.ContainsKey(line.LineNumber))
+                    tokens.AddRange(this._tokensPerLine[line.LineNumber]);
                 return tokens;
             }
             var text = line.GetText();

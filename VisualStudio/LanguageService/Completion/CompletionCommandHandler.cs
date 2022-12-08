@@ -12,55 +12,15 @@ using Microsoft.VisualStudio.OLE.Interop;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text.Editor;
-using Microsoft.VisualStudio.Utilities;
-using System.ComponentModel.Composition;
 using Microsoft.VisualStudio.Language.Intellisense;
 using Microsoft.VisualStudio.TextManager.Interop;
 using Microsoft.VisualStudio.Text;
 using XSharpModel;
-using Microsoft.VisualStudio.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
-using System.Collections.Generic;
-using LanguageService.SyntaxTree;
-using LanguageService.CodeAnalysis.XSharp;
-using static XSharp.LanguageService.XSharpFormattingCommandHandler;
-using LanguageService.CodeAnalysis.XSharp.SyntaxParser;
-using System.Text;
 #pragma warning disable CS0649 // Field is never assigned to, for the imported fields
 #if !ASYNCCOMPLETION
 namespace XSharp.LanguageService
 {
-    [Export(typeof(IVsTextViewCreationListener))]
-    [Name("XSharp Completion Provider")]
-    [TextViewRole(PredefinedTextViewRoles.Editable)]
-    [ContentType(XSharpConstants.LanguageName)]
-    internal class XSharpCompletionProvider : IVsTextViewCreationListener
-    {
-
-        [Import]
-        internal IVsEditorAdaptersFactoryService AdapterService;
-
-        [Import]
-        internal ICompletionBroker CompletionBroker { get; set; }
-
-        [Import]
-        internal IBufferTagAggregatorFactoryService BufferTagAggregatorFactoryService { get; set; }
-        public void VsTextViewCreated(IVsTextView textViewAdapter)
-        {
-            if (XEditorSettings.DisableCodeCompletion)
-                return;
-            ITextView textView = AdapterService.GetWpfTextView(textViewAdapter);
-            if (textView == null)
-                return;
-            textView.Properties.GetOrCreateSingletonProperty(
-                 () => new XSharpCompletionCommandHandler(textViewAdapter,
-                    textView,
-                    CompletionBroker,
-                    BufferTagAggregatorFactoryService
-                    ));
-        }
-    }
-
     internal class XSharpCompletionCommandHandler : IOleCommandTarget
     {
         readonly ITextView _textView;
@@ -81,7 +41,6 @@ namespace XSharp.LanguageService
             //add this to the filter chain
             textViewAdapter.AddCommandFilter(this, out m_nextCommandHandler);
         }
-
 
         public int Exec(ref Guid pguidCmdGroup, uint nCmdID, uint nCmdexecopt, IntPtr pvaIn, IntPtr pvaOut)
         {
@@ -192,7 +151,7 @@ namespace XSharp.LanguageService
                 result = m_nextCommandHandler.Exec(ref cmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
             }
             // 3. Post process
-            if (ErrorHandler.Succeeded(result) && !XEditorSettings.DisableCodeCompletion)
+            if (! handled && ErrorHandler.Succeeded(result) && !XEditorSettings.DisableCodeCompletion)
             {
                 if (pguidCmdGroup == VSConstants.VSStd2K)
                 {
@@ -240,153 +199,28 @@ namespace XSharp.LanguageService
             return result;
         }
 
-        /// <summary>
-        /// Push XMLDoc /// after a return char if we are just after an existing line with XMLDoc
-        /// </summary>
         private void InjectXMLDoc()
         {
             try
             {
-                // Retrieve Position
-                SnapshotPoint caret = _textView.Caret.Position.BufferPosition;
-                var line = caret.GetContainingLine();
-                if ((line.LineNumber >= _textView.TextSnapshot.LineCount - 1) || (line.LineNumber == 0))
-                    return;
-                // Do not classify here. Not really needed yet
-                ITextSnapshotLine lineUp = _textView.TextSnapshot.GetLineFromLineNumber(line.LineNumber - 1);
-                ITextSnapshotLine lineDown = _textView.TextSnapshot.GetLineFromLineNumber(line.LineNumber + 1);
-                string prevLine = lineUp.GetText();
-                string nextLine = lineDown.GetText().Trim();
-                var afterADocComment = prevLine.Trim().StartsWith("///");
-                var beforeDocComment = nextLine.StartsWith("///") || String.IsNullOrEmpty(nextLine);
-                // Ok, check the content
-                if (afterADocComment && beforeDocComment)
-                {
-                    // Get the line
-                    // To retrieve the text and align to it
-                    int count = prevLine.TakeWhile(Char.IsWhiteSpace).Count();
-                    string prefix;
-                    if (prevLine.Length >= count + 4)
-                        prefix = prevLine.Substring(0, count + 4); // copy starting whitespace + /// + separator
-                    else
-                        prefix = prevLine + " ";
-                    _textView.TextBuffer.Insert(caret.Position, prefix);
-                    // Move the Caret
-                    _textView.Caret.MoveTo(new SnapshotPoint(_textView.TextSnapshot, caret.Position + prefix.Length));
-                }
+                XSharpXMLCompletion.InjectXMLDoc(_textView);
             }
             catch (Exception e)
             {
                 WriteOutputMessage("InjectXMLDoc: error " + e.Message);
             }
         }
-
-        /// <summary>
-        /// Insert XMLDoc Comments
-        /// </summary>
         private void InsertXMLDoc()
         {
             try
             {
-                // Retrieve Position
-                SnapshotPoint caret = _textView.Caret.Position.BufferPosition;
-                var line = caret.GetContainingLine();
-                if (line.LineNumber >= _textView.TextSnapshot.LineCount - 1)
-                    return;
-                string lineText = line.GetText();
-                // Remove all type of spaces
-                lineText = lineText.Trim(' ', '\t');
-                // XMLDoc ?
-                if (lineText == "///")
-                {
-                    // Check next && previous Line . No need to classify here. We'll do that later
-                    // when we're not next to a comment
-                    var lineDown = _textView.TextSnapshot.GetLineFromLineNumber(line.LineNumber + 1);
-                    var nextToAComment = lineDown.GetText().Trim().StartsWith("///");
-                    if (!nextToAComment && line.LineNumber > 0)
-                    {
-                        var lineUp = _textView.TextSnapshot.GetLineFromLineNumber(line.LineNumber - 1);
-                        nextToAComment = lineUp.GetText().Trim().StartsWith("///");
-
-                    }
-                    if (!nextToAComment)
-                    {
-                        // force buffer to be classified to see if we are on a line before a comment
-                        var classifier = _textView.TextBuffer.GetClassifier();
-                        _ = classifier.ClassifyWhenNeededAsync();
-                        var doc = _textView.TextBuffer.GetDocument();
-                        if (doc == null)
-                            return;
-                        // Make sure that the entity list matches the contents of the buffer
-                        // Parse the entities
-                        classifier.Parse();
-                        var entity = _textView.FindEntity(lineDown.Start);
-                        if (entity != null && entity.Range.StartLine > line.LineNumber)
-                        {
-                            // Default information
-                            // Retrieve the original line, and keep the prefix
-                            lineText = line.GetText().TrimEnd();
-                            string prefix = lineText.Remove(lineText.Length - 3, 3);
-                            // Insert XMLDoc template
-                            var sb = new StringBuilder();
-                            sb.AppendLine($" <summary>\r\n{prefix}/// \r\n{prefix}/// </summary>");
-                            var member = entity as XSourceMemberSymbol;
-                            var type = entity as XSourceTypeSymbol;
-                            if (type != null && type.Kind == Kind.Delegate)
-                            {
-                                // delegate have a generated Invoke method with the parameters and return type
-                                member = type.Members.First() as XSourceMemberSymbol;
-                            }
-                            IList<string> typeParameters = null;
-                            if (member != null)
-                            {
-                                typeParameters = member.TypeParameters;
-                                // Now fill with retrieved information
-                                foreach (var param in member.Parameters)
-                                {
-                                    sb.AppendLine(prefix + $"/// <param name=\"{param.Name}\"></param>");
-                                }
-                                if (member.Kind.IsProperty())
-                                {
-                                    sb.AppendLine(prefix + "/// <value></value>");
-                                }
-                                else if (member.Kind.HasReturnType() && !member.Kind.IsField())
-                                {
-                                    if ((string.Compare(member.ReturnType, "void", true) != 0))
-                                    {
-                                        sb.AppendLine(prefix + "/// <returns></returns>");
-                                    }
-                                }
-                            }
-                            if (type != null)
-                            {
-                                typeParameters = type.TypeParameters;
-                            }
-                            if (typeParameters != null)
-                            {
-                                foreach (var typeparam in typeParameters)
-                                {
-                                    sb.AppendLine(prefix + $"/// <typeparam name=\"{typeparam}\"></typeparam>");
-                                }
-                            }
-                            // remove last CRLF from sb
-                            if (sb.Length > 2)
-                                sb.Length = sb.Length - 2;
-                            _textView.TextBuffer.Insert(_textView.Caret.Position.BufferPosition.Position, sb.ToString());
-                            // Move the Caret in the Summary area
-                            ITextSnapshotLine moveToline = _textView.TextSnapshot.GetLineFromLineNumber(line.LineNumber + 1);
-                            SnapshotPoint point = new SnapshotPoint(moveToline.Snapshot, moveToline.End.Position);
-                            _textView.Caret.MoveTo(point);
-                        }
-                    }
-                }
+                XSharpXMLCompletion.InsertXMLDoc(_textView);
             }
             catch (Exception e)
             {
                 WriteOutputMessage("InsertXMLDoc: error " + e.Message);
             }
         }
-
         private void completeCurrentToken(uint nCmdID, char ch)
         {
             if (!CompletionAllowed(ch))
@@ -419,7 +253,6 @@ namespace XSharp.LanguageService
                 }
             }
         }
-
         private void FilterCompletionSession(char ch)
         {
 
@@ -445,8 +278,6 @@ namespace XSharp.LanguageService
             }
 
         }
-
-
         bool CancelCompletionSession()
         {
             if (_completionSession == null)
@@ -456,7 +287,6 @@ namespace XSharp.LanguageService
             _completionSession.Dismiss();
             return true;
         }
-
         bool CompleteCompletionSession(char ch)
         {
            if (_completionSession == null)
@@ -659,9 +489,7 @@ namespace XSharp.LanguageService
             }
             return true;
         }
-
         internal bool HasActiveSession => _completionSession != null;
-
         private void SelectedCompletionSetChanged(object sender, ValueChangedEventArgs<CompletionSet> e)
         {
             if (e.NewValue.SelectionStatus.IsSelected == false)
@@ -669,7 +497,6 @@ namespace XSharp.LanguageService
                 ;
             }
         }
-
         private void TriggerSignatureHelp(IXTypeSymbol type, string method, char triggerChar)
         {
             // it MUST be the case....
@@ -705,7 +532,6 @@ namespace XSharp.LanguageService
             //
             //
         }
-
         private void OnCompletionSessionDismiss(object sender, EventArgs e)
         {
             if (_completionSession.SelectedCompletionSet != null)
@@ -717,7 +543,6 @@ namespace XSharp.LanguageService
             _completionSession.SelectedCompletionSetChanged -= SelectedCompletionSetChanged;
             _completionSession = null;
         }
-
         public int QueryStatus(ref Guid pguidCmdGroup, uint cCmds, OLECMD[] prgCmds, IntPtr pCmdText)
         {
             Microsoft.VisualStudio.Shell.ThreadHelper.ThrowIfNotOnUIThread();
@@ -743,7 +568,6 @@ namespace XSharp.LanguageService
                 return '\0';
             return _textView.TextSnapshot.GetText(pos - 1, 1)[0];
         }
-
         private char prevChar()
         {
             // the caret is AFTER the last character !
@@ -815,7 +639,6 @@ namespace XSharp.LanguageService
             var classification = tag?.Tag?.ClassificationType?.Classification;
             return !classification.IsClassificationCommentOrString();
         }
-
         void formatKeyword(Completion completion)
         {
             completion.InsertionText = XSettings.FormatKeyword(completion.InsertionText);

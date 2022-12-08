@@ -60,11 +60,12 @@ namespace XSharp.LanguageService
         private IList<ClassificationSpan> _parserRegions = null;
         private readonly bool _first = true;
 
-        private readonly List<String> xtraKeywords;
-        private XSharpLineState lineState;
-        private XSharpLineKeywords lineKeywords;
+        private readonly List<String> _xtraKeywords;
+        private XSharpLineState _lineState;
+        private XSharpLineKeywords _lineKeywords;
         private bool IsLexing = false;
         private bool IsStarted = false;
+
         #endregion
 
         #region Properties
@@ -103,9 +104,9 @@ namespace XSharp.LanguageService
             // we do not check for the existence of the XDocument here.
             // The classifier may be called before the XDocument was created
             //
-            lineState = new XSharpLineState();
-            lineKeywords = new XSharpLineKeywords();
-            xtraKeywords = new List<string>();
+            _lineState = new XSharpLineState();
+            _lineKeywords = new XSharpLineKeywords();
+            _xtraKeywords = new List<string>();
             // Initialize our background workers
             _buffer.Changed += Buffer_Changed;
 
@@ -135,6 +136,7 @@ namespace XSharp.LanguageService
             LexAsync().FireAndForget();
 
         }
+
         #region Lexer Methods
 
         private void Buffer_Changed(object sender, TextContentChangedEventArgs e)
@@ -145,9 +147,9 @@ namespace XSharp.LanguageService
                 {
                     IsStarted = true;
 #if DEV17
-                    _ = ThreadHelper.JoinableTaskFactory.StartOnIdle(LexAsync);
+                    _ = ThreadHelper.JoinableTaskFactory.StartOnIdle(LexAsync,VsTaskRunContext.UIThreadIdlePriority);
 #else
-                    _ = ThreadHelper.JoinableTaskFactory.StartOnIdleShim(StartLex);
+                    _ = ThreadHelper.JoinableTaskFactory.StartOnIdleShim(StartLex, VsTaskRunContext.UIThreadIdlePriority);
 #endif
                 }
             }
@@ -193,7 +195,7 @@ namespace XSharp.LanguageService
         private async Task LexAsync()
         {
             var success = false;
-            await TaskScheduler.Default;
+            //await TaskScheduler.Default;
             try
             {
                 IsLexing = true;
@@ -207,11 +209,11 @@ namespace XSharp.LanguageService
             finally
             {
                 IsLexing = false;
+                IsStarted = false;
                 if (success)
                 {
                     await ParseAsync();
                 }
-                IsStarted = false;
             }
         }
         public void Parse()
@@ -223,7 +225,6 @@ namespace XSharp.LanguageService
                 {
                     await ParseAsync();
                 });
-                
             }
         }
 
@@ -235,8 +236,8 @@ namespace XSharp.LanguageService
             XDocument xDocument = GetDocument();
             if (xDocument == null || xDocument.SnapShot.Version != snapshot.Version)
             {
-                lineState = new XSharpLineState();
-                lineKeywords = new XSharpLineKeywords();
+                _lineState = new XSharpLineState();
+                _lineKeywords = new XSharpLineKeywords();
                 Debug("Starting classify at {0}, version {1}", DateTime.Now, snapshot.Version.ToString());
                 var tokenstream = _sourceWalker.Lex(snapshot.GetText());
                 lock (gate)
@@ -251,10 +252,8 @@ namespace XSharp.LanguageService
                     {
                         xDocument.SetTokens(tokens, snapshot);
                     }
-                    xDocument.SetState(lineState, snapshot);
-                    xDocument.SetKeywords(lineKeywords);
-
-
+                    xDocument.SetState(_lineState, snapshot);
+                    xDocument.SetKeywords(_lineKeywords);
                 }
             }
             BuildColorClassifications();
@@ -290,7 +289,7 @@ namespace XSharp.LanguageService
                 return;
             if (IsLexing)
                 return;
-
+            await TaskScheduler.Current;
             var snapshot = _buffer.CurrentSnapshot;
             var xDocument = GetDocument();
             if (xDocument == null) // should not happen
@@ -300,18 +299,14 @@ namespace XSharp.LanguageService
                 XSettings.LogMessage($"XSharpClassifier.ParseAsync() aborted because snapshot is version {xDocument.SnapShot.Version} and buffer has version {snapshot.Version}");
                 return;
             }
-
-            await TaskScheduler.Default;
             XSettings.LogMessage("-->> XSharpClassifier.ParseAsync()");
             // Note this runs in the background
-            // parse for positional keywords that change the colors
-            // and get a reference to the tokenstream
-            // do we need to create a new tree
-            // this happens the first time in the buffer only
             if (xDocument.Tokens != null)
             {
                 Debug("Starting model build  at {0}, version {1}", DateTime.Now, snapshot.Version.ToString());
                 _sourceWalker.SaveToDisk = true;
+                // Parse the source using the tokens that we have already
+                // collected for the colorization
                 _sourceWalker.ParseTokens(xDocument.Tokens, true, false);
                 RegisterEntityBoundaries();
                 var regionTags = BuildRegionTags(_sourceWalker.EntityList, _sourceWalker.BlockList, snapshot, xsharpRegionStart, xsharpRegionStop);
@@ -329,26 +324,28 @@ namespace XSharp.LanguageService
         private void RegisterEntityBoundaries()
         {
             // Register the entity boundaries for the line separators
+            // The LineState array already has info about inactive lines
+            // and comment lines
             XDocument xDocument = GetDocument();
             if (xDocument == null)
                 return;
             xDocument.SetEntities(_sourceWalker.EntityList);
             foreach (var entity in _sourceWalker.EntityList)
             {
+                // Include the leading XML comments for the Dividers
                 var line = entity.Range.StartLine;
-                if (entity.StartOfXmlComments > 0 && !string.IsNullOrEmpty(entity.XmlComments))
-                    line = entity.StartOfXmlComments-1;
+                if (entity.StartOfXmlComments >= 0 && !string.IsNullOrEmpty(entity.XmlComments))
+                    line = entity.StartOfXmlComments;
                 if (entity.SingleLine)
                 {
-                    lineState.SetFlags(line, LineFlags.SingleLineEntity);
+                    _lineState.SetFlags(line, LineFlags.SingleLineEntity);
                 }
                 else
                 {
-                    lineState.SetFlags(line, LineFlags.EntityStart);
+                    _lineState.SetFlags(line, LineFlags.EntityStart);
                 }
             }
             LineStateChanged?.Invoke(this, new EventArgs());
-
         }
         private void DoRepaintRegions()
         {
@@ -484,7 +481,7 @@ namespace XSharp.LanguageService
             {
                 case XSharpLexer.PREPROCESSORCHANNEL:
                     // #define, #ifdef etc
-                    lineState.SetFlags(token.Line - 1, LineFlags.Preprocessor);
+                    _lineState.SetFlags(token.Line - 1, LineFlags.Preprocessor);
                     result = Token2ClassificationSpan(token, snapshot, xsharpPPType);
                     if (!XEditorSettings.DisableRegions)
                     {
@@ -503,14 +500,14 @@ namespace XSharp.LanguageService
                     break;
                 case XSharpLexer.DEFOUTCHANNEL:                // code in an inactive #ifdef
                     result = Token2ClassificationSpan(token, snapshot, xsharpInactiveType);
-                    lineState.SetFlags(token.Line - 1, LineFlags.Inactive);
+                    _lineState.SetFlags(token.Line - 1, LineFlags.Inactive);
                     break;
                 case XSharpLexer.XMLDOCCHANNEL:
                 case XSharpLexer.Hidden:
                     if (token.Type == XSharpLexer.LINE_CONT)
                     {
                         var line = token.Line;
-                        lineState.SetFlags(line, LineFlags.Continued);
+                        _lineState.SetFlags(line, LineFlags.Continued);
                     }
                     if (XSharpLexer.IsComment(token.Type))
                     {
@@ -523,7 +520,7 @@ namespace XSharp.LanguageService
                             var endLine = result.Span.End.GetContainingLine().LineNumber;
                             for (int i = startline; i <= endLine; i++)
                             {
-                                lineState.SetFlags(i, LineFlags.MultiLineComments);
+                                _lineState.SetFlags(i, LineFlags.MultiLineComments);
                             }
                         }
                         else
@@ -534,11 +531,11 @@ namespace XSharp.LanguageService
                                 var endLine = result.Span.End.GetContainingLine().LineNumber;
                                 for (int i = startline; i <= endLine; i++)
                                 {
-                                    lineState.SetFlags(i, LineFlags.DocComments);
+                                    _lineState.SetFlags(i, LineFlags.DocComments);
                                 }
                             }
                             else
-                                lineState.SetFlags(token.Line - 1, LineFlags.SingleLineComments);
+                                _lineState.SetFlags(token.Line - 1, LineFlags.SingleLineComments);
                         }
                     }
                     break;
@@ -546,7 +543,7 @@ namespace XSharp.LanguageService
                     IClassificationType type = null;
                     if (XSharpLexer.IsIdentifier(tokenType))
                     {
-                        if (xtraKeywords.Find(kw => string.Compare(kw, token.Text, true) == 0) != null)
+                        if (_xtraKeywords.Find(kw => string.Compare(kw, token.Text, true) == 0) != null)
                         {
                             type = xsharpKeywordType;
                         }
@@ -870,7 +867,7 @@ namespace XSharp.LanguageService
 
             if (isEnd || isMiddle || isStart)
             {
-                lineKeywords.Set(iLine, kw);
+                _lineKeywords.Set(iLine, kw);
                 if (kw.IsSingle && kw.IsEnd && CurrentRule != null)
                 {
                     if (CurrentRule.Flags.HasFlag(XFormattingFlags.End))
