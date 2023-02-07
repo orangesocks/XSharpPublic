@@ -7,9 +7,9 @@ using System.IO;
 using System.Drawing;
 using System.Diagnostics;
 using static XSharp.Parser.VsParser;
-using LanguageService.CodeAnalysis.Text;
 using LanguageService.SyntaxTree;
-
+using XSharp.Parser;
+using LanguageService.CodeAnalysis.Text;
 
 namespace XSharp.CodeDom
 {

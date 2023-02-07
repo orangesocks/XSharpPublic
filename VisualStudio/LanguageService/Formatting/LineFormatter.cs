@@ -300,7 +300,7 @@ namespace XSharp.LanguageService
             {
                 XKeyword kw = GetFirstKeywordInLine(lineNo);
 
-                if (kw.IsMember())
+                if (kw.IsEntity())
                 {
                     prevIndentation = CalculateIndentForLine(kw, lineNo);
                     break;
@@ -352,10 +352,12 @@ namespace XSharp.LanguageService
             }
             else if (prevLineKeyword.IsEntity())
             {
+                // inside a type we may want to indent members
                 if (prevLineKeyword.IsType() && settings.IndentTypeMembers)
                 {
                     indentValue += settings.IndentSize;
                 }
+                // inside a member we may want to indent statements
                 else if (prevLineKeyword.IsMember() && settings.IndentStatements)
                 {
                     indentValue += settings.IndentSize;
@@ -363,22 +365,33 @@ namespace XSharp.LanguageService
             }
             else if (prevLineKeyword.IsStart() || prevLineKeyword.IsMiddle())
             {
+                // after a start or middle keyword we increment the indentation
                 indentValue += settings.IndentSize;
-
+                // Namespace is an exception. This depends on a setting
                 if (prevLineKeyword.Kw2 == XTokenType.Namespace && !settings.IndentNamespace)
                 {
+                    
                     indentValue -= settings.IndentSize;
                 }
                 // Check to see if we need to adjust CASE / OTHERWISE
                 if (prevLineKeyword.Kw1 == XTokenType.Case ||
                     prevLineKeyword.Kw1 == XTokenType.Otherwise)
                 {
-
                     if (!settings.IndentCaseContent)
                     {
                         indentValue -= settings.IndentSize;
                     }
                 }
+            }
+            else if (prevLineKeyword.IsStop())
+            {
+                // After an end keyword we copy its indentation
+                return indentValue;
+            }
+            else if (line > 0)
+            {
+                // Read the previous line until we find something that we can use
+                return GetDesiredIndentationAfterLine(line - 1);
             }
             return indentValue;
         }
@@ -509,15 +522,13 @@ namespace XSharp.LanguageService
                         {
                             prevIndentation = GetLineIndent(tempLine);
                             done = true;
-                        }
-                        else if (kw.Kw2 == XTokenType.Namespace && kw.Kw1 == XTokenType.Begin)
-                        {
-                            prevIndentation = GetLineIndent(tempLine);
-                            if (settings.IndentNamespace)
+                            if (kw.Kw2 == XTokenType.Namespace && kw.Kw1 == XTokenType.Begin)
                             {
-                                prevIndentation += settings.IndentSize;
+                                if (settings.IndentNamespace)
+                                {
+                                    prevIndentation += settings.IndentSize;
+                                }
                             }
-                            done = true;
                         }
                         tempLine -= 1;
                     }

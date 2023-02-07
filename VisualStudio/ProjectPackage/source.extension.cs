@@ -12,7 +12,7 @@ namespace XSharp.Project
         public const string Description = @"X# Visual Studio Integration.
 Includes a Project System, Language Service , Debugger Support, Custom Editors etc.";
         public const string Language = "en-US";
-        public const string Version = "2.15.0.0";
+        public const string Version = "2.14.1.0";
         public const string Author = "XSharp BV";
         public const string Tags = "XSharp, XBase, FoxPro, Visual Objects, XBase++";
     }
