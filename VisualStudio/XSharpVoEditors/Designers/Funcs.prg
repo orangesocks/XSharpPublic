@@ -273,13 +273,13 @@ PUBLIC STATIC PARTIAL CLASS Funcs
 
     STATIC METHOD GetModuleNameFromBinary(cFileName AS STRING) AS STRING
         LOCAL cModuleName , cModuleFilename AS STRING
-        IF SplitBinaryFilename(cFileName , cModuleName , cModuleFilename)
+        IF SplitBinaryFilename(cFileName , REF cModuleName , REF cModuleFilename)
             RETURN cModuleName
         END IF
         RETURN NULL
     STATIC METHOD GetModuleFilenameFromBinary(cFileName AS STRING) AS STRING
         LOCAL cModuleName , cModuleFilename AS STRING
-        IF SplitBinaryFilename(cFileName , cModuleName , cModuleFilename)
+        IF SplitBinaryFilename(cFileName , REF cModuleName , REF cModuleFilename)
             RETURN cModuleFilename
         END IF
         RETURN NULL
@@ -345,6 +345,35 @@ PUBLIC STATIC PARTIAL CLASS Funcs
             aRet:Add(aLines[n])
         NEXT
         RETURN aRet
+
+    STATIC METHOD LocateTemplateInParentFolders(cFilename AS STRING, cFolder AS STRING) AS STRING
+    	TRY
+	   		LOCAL oDir AS DirectoryInfo
+	   		oDir := DirectoryInfo{cFolder}
+	   		DO WHILE .not. oDir == NULL
+	   			LOCAL cTest AS STRING
+	   			cTest := oDir:FullName + "\" + cFileName
+	   			IF Funcs.SafeFileExists(cTest)
+	   				RETURN cTest
+	   			END IF
+	   			cTest := oDir:FullName + "\Properties\" + cFileName
+	   			IF Funcs.SafeFileExists(cTest)
+	   				RETURN cTest
+	   			END IF
+	   			oDir := oDir:Parent
+	   		END DO
+    	CATCH
+    		NOP
+    	END TRY
+        RETURN cFolder + "\" + cFileName // default location
+
+    STATIC METHOD SafeFileExists(cFilename AS STRING) AS LOGIC
+        TRY
+            RETURN System.IO.File.Exists(cFilename)
+        CATCH
+            NOP
+        END TRY
+        RETURN FALSE
 
 END CLASS
 

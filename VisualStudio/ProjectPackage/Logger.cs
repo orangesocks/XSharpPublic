@@ -26,7 +26,7 @@ namespace XSharp.Project
         internal static void Start()
         {
             if (!active ||
-                log2debugger  != XSettings.EnableDebugLogging ||
+                log2debugger != XSettings.EnableDebugLogging ||
                 log2file != XSettings.EnableFileLogging)
             {
                 if (active)
@@ -54,7 +54,7 @@ namespace XSharp.Project
                     int threadid = AppDomain.GetCurrentThreadId();
 #pragma warning restore CS0618 // Type or member is obsolete
                     string strId = threadid.ToString("X");
-                    var log = Path.Combine(temp, "Project_"+strId+"_.log");
+                    var log = Path.Combine(temp, "Project_" + strId + "_.log");
                     config = config.WriteTo.File(log,
                         rollingInterval: RollingInterval.Day,
                         rollOnFileSizeLimit: true,
@@ -62,70 +62,107 @@ namespace XSharp.Project
                         retainedFileCountLimit: 5);
                     log2file = true;
                 }
-                
-                
+
+
                 Log.Logger = config.CreateLogger();
 
                 Log.Information(doubleline);
                 Log.Information("Started Logging");
-                string version="";
+                string version = "";
+                bool isOpening = false;     // This is TRUE when we are opening VS with a solution from the commandline
                 ThreadHelper.JoinableTaskFactory.Run(async delegate
                 {
                     var ver = await VS.Shell.GetVsVersionAsync();
+                    isOpening = await VS.Solutions.IsOpeningAsync();
                     version = ver.ToString();
                 });
                 Log.Information("Visual Studio Exe     : " + Process.GetCurrentProcess().MainModule.FileName);
                 Log.Information("Visual Studio version : " + version);
                 Log.Information("XSharp Project System : " + Constants.FileVersion);
-                
+                Log.Information("Commandline           : " + Environment.CommandLine.ToString());
+
 
                 Log.Information(doubleline);
                 var sol = VS.Solutions.GetCurrentSolution();
-                if (sol != null)
+                if (sol != null )
                 {
                     Log.Information(singleline);
                     Log.Information("Current solution: " + sol.FullPath);
-
-                    var children = EnumChildren(sol);
-                    foreach (var child in children)
+                    // we only want to enum projects when the solution explorer window is already visible
+                    bool enumProjects = ! isOpening;
+                    if ( enumProjects)
                     {
-                        if (child.Type == SolutionItemType.Project)
+                        ThreadHelper.JoinableTaskFactory.Run(async delegate
                         {
-                            Log.Information("Project " + child.FullPath);
+                            try
+                            {
+                                var solwin = await VS.Windows.GetSolutionExplorerWindowAsync();
+                                enumProjects = solwin != null;
+                            }
+                            catch (Exception)
+                            {
+                                // This happens when the solution explorer is not visible yet
+                                // do not enum the projects then
+                                enumProjects = false;
+                            }
+
+                        });
+                    }
+                    if (enumProjects)
+                    {
+                        var children = EnumChildren(sol, SolutionItemType.Project);
+                        try
+                        {
+                            if (children != null)
+                            {
+                                foreach (var child in children)
+                                {
+                                    if (child.Type == SolutionItemType.Project)
+                                    {
+                                        Log.Information("Project " + child.FullPath);
+                                    }
+                                }
+                            }
                         }
+                        catch (Exception e)
+                        {
+                            Log.Error(e.Message);
+                        }
+                    }
+                    else
+                    {
+                        Log.Information("No projects opened yet");
                     }
                     Log.Information(singleline);
 
+                    AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+                    //AppDomain.CurrentDomain.FirstChanceException += CurrentDomain_FirstChanceException;
+                    active = true;
                 }
-
-                AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
-                //AppDomain.CurrentDomain.FirstChanceException += CurrentDomain_FirstChanceException;
-                active = true;
             }
             // Force all Logging options to be enabled
-            XSettings.EnableBraceMatchLog = true;
-            XSettings.EnableCodeCompletionLog = true;
-            XSettings.EnableDatabaseLog = true;
-            XSettings.EnableParameterLog = true;
-            XSettings.EnableParseLog = true;
-            XSettings.EnableQuickInfoLog = true;
-            XSettings.EnableReferenceInfoLog = true;
-            XSettings.EnableTypelookupLog = true;
+            XSettings.EnableAll();
         }
 
-        static IList<SolutionItem> EnumChildren(SolutionItem item)
+        static IList<SolutionItem> EnumChildren(SolutionItem item, SolutionItemType type)
         {
             var items = new List<SolutionItem>();
             foreach (var child in item.Children)
             {
-                items.Add(child);
-                try
+                if (child != null && child.Type != SolutionItemType.Unknown)
                 {
-                    items.AddRange(EnumChildren(child));
-                }
-                catch (Exception e)
-                {
-                    Exception(e, "EnumChildren");
+                    if (child.Type == type)
+                    {
+                        items.Add(child);
+                    }
+                    try
+                    {
+                        items.AddRange(EnumChildren(child, type));
+                    }
+                    catch (Exception e)
+                    {
+                        Exception(e, "EnumChildren");
+                    }
                 }
             }
             return items;

@@ -41,6 +41,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
     PRIVATE  _dialect       AS XSharpDialect
     PRIVATE  _xppVisibility AS Modifiers
     PRIVATE  _commentTasks  AS IList<XCommentTask>
+    PRIVATE  _modifiers     AS IList<IToken>
 
     PRIVATE  _attributes   AS Modifiers      // for the current entity
     PRIVATE  _start        AS IToken
@@ -66,7 +67,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
     PRIVATE PROPERTY InFoxClass AS LOGIC GET CurrentType != NULL .AND. CurrentType:ClassType == XSharpDialect.FoxPro
     PRIVATE PROPERTY InXppClass AS LOGIC GET CurrentType != NULL .AND. CurrentType:ClassType == XSharpDialect.XPP
     PROPERTY EntityList AS IList<XSourceEntity>  GET _EntityList
-    PROPERTY BlockList  AS IList<XSourceBlock>    GET _BlockList
+    PROPERTY BlockList  AS IList<XSourceBlock>   GET _BlockList
     PROPERTY Locals     AS IList<XSourceVariableSymbol> GET _locals
     PROPERTY SaveToDisk AS LOGIC AUTO
     PROPERTY SupportsMemVars as LOGIC GET _file:Project:ParseOptions:SupportsMemvars
@@ -90,7 +91,8 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         _globalType:ClearMembers()
         _EntityStack:Push(_globalType)
         _missingType := XLiterals.ObjectType
-        IF SELF:_file:Project != NULL .and. SELF:_file:Project:ParseOptions:Dialect != XSharpDialect.Core
+        _modifiers     := List<IToken>{}
+        IF SELF:_file:Project != NULL .AND. SELF:_file:Project:ParseOptions:Dialect != XSharpDialect.Core
             _missingType := XLiterals.UsualType
         ENDIF
 
@@ -210,6 +212,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
                 SELF:_attributes  := mods
                 SELF:_start := first
                 VAR entities := SELF:ParseEntity(entityKind)
+                _modifiers:Clear()
                 IF entities != NULL
                     if first:HasTrivia
                         foreach t as XSharpToken in first:Trivia
@@ -285,7 +288,10 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
                         ENDIF
                         IF mustPop
                             _EntityStack:Pop()
+                            canAddMembers  := CurrentEntityKind:HasMembers()
+                            canAddChildren := CurrentEntityKind:HasChildren()
                         ENDIF
+
                         IF entity:Kind:IsGlobalTypeMember() .AND. entity IS XSourceMemberSymbol VAR xGlobalMember
                             // GLOBAL, DEFINE, FUNCTION, PROCEDURE
                             // also #define, #command etc
@@ -312,6 +318,8 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
                     NOP
                 ENDIF
             ELSEIF IsEndOfEntity( OUT VAR endKind)
+                VAR end1 := SELF:Lt1
+                VAR end2 := SELF:Lt2
                 VAR type := SELF:La2
                 // match la2 with current entity
                 DO WHILE _EntityStack:Count > 0
@@ -326,6 +334,8 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
                         top:Interval    := top:Interval:WithEnd(tokenBefore)
                         LOOP
                     ENDIF
+                    top:BlockTokens:Add(end1)
+                    top:BlockTokens:Add(end2)
                     top:Range       := top:Range:WithEnd(SELF:Lt2)
                     top:Interval    := top:Interval:WithEnd(SELF:Lt2)
                     EXIT
@@ -337,8 +347,10 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
                 // Add Attribute
                 VAR attribute := ParseAttribute(aAttribs)
                 _EntityList:Add(attribute)
-            ELSE
+            ELSEIF SELF:_collectBlocks
                 SELF:ParseBlock()
+                SELF:ParseStatement()
+            ELSE
                 SELF:ParseStatement()
             ENDIF
         ENDDO
@@ -416,7 +428,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
             SELF:GetSourceInfo(_tokens[0], _tokens[_tokens:Count-1], OUT VAR range, OUT VAR interval, OUT VAR source)
 
             VAR xmember := XSourceMemberSymbol{_globalType:Name,Kind.Namespace, ;
-                Modifiers.Export, range, interval, "", FALSE}
+                Modifiers.Export, range, interval, "", _modifiers, FALSE}
             xmember.File := _file
             xmember.SourceCode := source
             SELF:_EntityList:Add(xmember)
@@ -468,13 +480,13 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         CASE XSharpLexer.PP_ENDIF
             // end
             IF _PPBlockStack:Count > 0
-                _PPBlockStack:Peek():Children:Add( XSourceBlock{XKeyword{SELF:La1}, SELF:Lt1})
+                _PPBlockStack:Peek():Children:Add( XBlockChild{XKeyword{SELF:La1}, SELF:Lt1})
                 _PPBlockStack:Pop()
             ENDIF
         CASE XSharpLexer.PP_ELSE
             // middle
             IF _PPBlockStack:Count > 0
-                _PPBlockStack:Peek():Children:Add( XSourceBlock{XKeyword{SELF:La1}, SELF:Lt1})
+                _PPBlockStack:Peek():Children:Add( XBlockChild{XKeyword{SELF:La1}, SELF:Lt1})
             ENDIF
         CASE XSharpLexer.PP_INCLUDE
             var sb := StringBuilder{}
@@ -491,7 +503,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
             if name:StartsWith("""") .and. name.EndsWith("""")
                 name := name:Substring(1, name:Length-2)
             endif
-            entity := XSourceMemberSymbol{name, kind, Modifiers.None, range,interval,"",FALSE}
+            entity := XSourceMemberSymbol{name, kind, Modifiers.None, range,interval,"",_modifiers,FALSE}
             entity:SourceCode := source
         CASE XSharpLexer.PP_DEFINE
         CASE XSharpLexer.PP_UNDEF
@@ -535,7 +547,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
                     kind := Kind.XTranslate
                 ENDIF
             END SWITCH
-            entity := XSourceMemberSymbol{name, kind, Modifiers.None, range,interval,"",FALSE}
+            entity := XSourceMemberSymbol{name, kind, Modifiers.None, range,interval,"",_modifiers,FALSE}
             entity:SourceCode := source
         OTHERWISE
             RETURN FALSE
@@ -632,9 +644,9 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         ENDDO
         RETURN tokens
 
-
     PRIVATE METHOD ParseVisibilityAndModifiers() AS   Modifiers
         VAR result := Modifiers.None
+        _modifiers:Clear()
         DO WHILE ! SELF:Eos()
             VAR done := FALSE
             SWITCH SELF:La1
@@ -699,6 +711,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
                 done := TRUE
             END SWITCH
             IF ! done
+                _modifiers:Add(SELF:Lt1)
                 SELF:Consume()
             ELSE
                 EXIT
@@ -926,22 +939,40 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
                             _BlockStack:Pop()
                         endif
                     endif
-                endif
+                ENDIF
+                VAR block := XSourceBlock{ xt, SELF:Lt1}
+                IF ! xt:IsSingle
+                    block:Children:Add (XBlockChild{xt, SELF:Lt2})
+                ENDIF
+                _BlockList:Add(block)
+                _BlockStack:Push(block)
             ENDIF
         ELSEIF rule:Flags:HasFlag(XFormattingFlags.Statement)
             // This means that the keyword is a start keyword of type statement
             IF SELF:_collectBlocks
-                VAR block := XSourceBlock{ xt, SELF:Lt1}
+                LOCAL block AS XSourceBlock
+                block := XSourceBlock{ xt, SELF:Lt1}
+                IF ! xt:IsSingle
+                    block:Children:Add (XBlockChild{xt, SELF:Lt2})
+                ENDIF
                 // check for GET SET INIT blocks on a single line
                 // or ADD/REMOVE blocks on a single line
                 if XFormattingRule.IsMiddleKeyword(xt) .and. _BlockStack:Count > 0
-                    CurrentBlock:Children:Add( XSourceBlock{xt, SELF:Lt1})
+                    CurrentBlock:Children:Add( XBlockChild{xt, SELF:Lt1})
                 else
                     _BlockList:Add(block)
                     _BlockStack:Push(block)
                 endif
             ENDIF
         ENDIF
+        RETURN
+
+    PRIVATE METHOD ParseJumpStatement(xt AS XKeyword) AS VOID
+        SWITCH SELF:La1
+        CASE XSharpLexer.EXIT
+        CASE XSharpLexer.LOOP
+            SELF:Consume()
+        END SWITCH
         RETURN
 
     PRIVATE METHOD ParseBlockMiddle(xt as XKeyword) AS VOID
@@ -995,19 +1026,46 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         rule := XFormattingRule.GetFirstRuleByStart(xt)
         if rule != null
             ParseBlockStart(rule, xt)
-        elseif XFormattingRule.IsEndKeyword(xt)
+        ELSEIF XFormattingRule.IsEndKeyword(xt) .AND. KeywordMatchesBlock(xt, CurrentBlock)
             IF SELF:_collectBlocks .AND. _BlockStack:Count > 0
-                CurrentBlock:Children:Add( XSourceBlock{xt, SELF:Lt1})
+                CurrentBlock:Children:Add( XBlockChild{xt, SELF:Lt1})
+                IF !xt:IsSingle
+                     // END DO, END CASE etc
+                     CurrentBlock:Children:Add( XBlockChild{xt, SELF:Lt2})
+                ENDIF
                 _BlockStack:Pop()
             ENDIF
-        ELSEIF XFormattingRule.IsMiddleKeyword(xt)
+        ELSEIF XFormattingRule.IsMiddleKeyword(xt) .AND. KeywordMatchesBlock(xt, CurrentBlock)
             IF SELF:_collectBlocks .AND. _BlockStack:Count > 0
-                CurrentBlock:Children:Add( XSourceBlock{xt, SELF:Lt1})
+                CurrentBlock:Children:Add( XBlockChild{xt, SELF:Lt1})
             ENDIF
             ParseBlockMiddle(xt)
+        ELSEIF XFormattingRule.IsJumpKeyword(xt)
+            IF SELF:_collectBlocks .AND. _BlockStack:Count > 0
+                IF _BlockStack:Count > 0
+                    VAR temp := _BlockStack:ToArray()
+                    FOREACH VAR item IN temp
+                        IF item:CanJump
+                            item:Children:Add(XBlockChild{xt, SELF:Lt1})
+                            EXIT
+                        ENDIF
+                    NEXT
+                ENDIF
+            ENDIF
+            ParseJumpStatement(xt)
         ENDIF
         RETURN
-
+    PRIVATE METHOD KeywordMatchesBlock(kw AS XKeyword, block AS XSourceBlock) AS LOGIC
+        IF block == NULL
+            RETURN FALSE
+        ENDIF
+        VAR rules := XFormattingRule.GetStartRules(block:XKeyword)
+        FOREACH rule AS XFormattingRule IN rules
+            IF rule:Stop:Code == kw:Code
+                RETURN TRUE
+            ENDIF
+        NEXT
+        RETURN FALSE
 
     PRIVATE METHOD IsEndOfEntity(EntityKind OUT Kind) AS LOGIC
         SWITCH SELF:La1
@@ -1180,7 +1238,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         VAR name := SELF:TokensAsString(aAttribs, FALSE)
         SELF:GetSourceInfo(aAttribs[0], aAttribs[aAttribs:Count-1], OUT VAR range, OUT VAR interval, OUT VAR source)
         VAR entity := XSourceMemberSymbol{name, Kind.Attribute, Modifiers.None,;
-            range,interval,"",FALSE}
+            range,interval,"",_modifiers,FALSE}
         entity:SourceCode := source
         entity:File := _file
         entity:SingleLine := TRUE
@@ -1360,6 +1418,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
 
         */
         LOCAL kind AS Kind
+        _modifiers:Add(SELF:Lt1)
         IF ! ParseFuncProcType (OUT kind)
             RETURN NULL
         ENDIF
@@ -1373,7 +1432,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
         SELF:ReadLine()
 
-        VAR xMember := XSourceMemberSymbol{sig, kind, _attributes, range, interval, _attributes:HasFlag(Modifiers.Static)}
+        VAR xMember := XSourceMemberSymbol{sig, kind, _attributes, range, interval, _modifiers,_attributes:HasFlag(Modifiers.Static)}
         xMember:SourceCode := source
         xMember:File := SELF:_file
         RETURN <XSourceEntity>{xMember}
@@ -1388,12 +1447,14 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         IF SELF:La1 != XSharpLexer.BEGIN .AND. SELF:La2 != XSharpLexer.NAMESPACE
             RETURN NULL
         ENDIF
+        _modifiers:Add(SELF:Lt1)
         SELF:Consume()   // BEGIN
+        _modifiers:Add(SELF:Lt1)
         SELF:Consume()   // NAMESPACE
         VAR id := SELF:ParseQualifiedName()
         SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
         SELF:ReadLine()
-        VAR xType := XSourceNamespaceSymbol{id, range, interval,_file}
+        VAR xType := XSourceNamespaceSymbol{id, range, interval,_file,_modifiers}
         xType:SourceCode := source
         RETURN <XSourceEntity>{xType}
 
@@ -1444,6 +1505,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         OTHERWISE
             RETURN NULL
         END SWITCH
+        _modifiers:Add(SELF:Lt1)
         SELF:Consume()
 
         LOCAL constraints   AS List<STRING>
@@ -1475,9 +1537,8 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         if typePars != null && typePars:Count > 0
             id += "`"+typePars:Count:ToString()
         endif
-        VAR xType := XSourceTypeSymbol{id, kind, _attributes, range, interval, _file}
+        VAR xType := XSourceTypeSymbol{id, kind, _attributes, range, interval, _file, _modifiers}
         xType:SourceCode := source
-
         IF interfaces?:Count > 0
             FOREACH VAR sInterface IN interfaces
                 xType:AddInterface(sInterface)
@@ -1519,13 +1580,13 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
 
         VAR sig      := SELF:ParseSignature()
         SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
-        VAR xType    := XSourceTypeSymbol{sig:Id, Kind.Delegate,_attributes, range, interval,_file}{SingleLine := TRUE}
+        VAR xType    := XSourceTypeSymbol{sig:Id, Kind.Delegate,_attributes, range, interval,_file, _modifiers}{SingleLine := TRUE}
         xType:SourceCode := source
         xType:TypeName := sig:DataType
         xType:File     := _file
         SELF:AddAsChild(xType)
         VAR xMember  := XSourceMemberSymbol{sig, Kind.Delegate, _attributes, ;
-            range, interval,_attributes:HasFlag(Modifiers.Static)} {SingleLine := TRUE}
+            range, interval,_modifiers, _attributes:HasFlag(Modifiers.Static)} {SingleLine := TRUE}
         xMember:SourceCode := source
         xMember:Name := "Invoke"
         xType:AddMember(xMember)
@@ -1560,6 +1621,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         ELSE
             RETURN NULL
         ENDIF
+        _modifiers:Add(SELF:Lt1)
         SELF:Consume()
 
         VAR sig := SELF:ParseSignature()
@@ -1568,7 +1630,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
         SELF:ReadLine()
 
-        VAR xMember := XSourceMemberSymbol{sig, kind, _attributes, range, interval, _attributes:HasFlag(Modifiers.Static)}
+        VAR xMember := XSourceMemberSymbol{sig, kind, _attributes, range, interval, _modifiers, _attributes:HasFlag(Modifiers.Static)}
         IF SELF:CurrentType != NULL
             SELF:CurrentType:AddMember(xMember)
         ENDIF
@@ -1576,6 +1638,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         RETURN <XSourceEntity>{xMember}
 
     PRIVATE METHOD ParseProperty() AS IList<XSourceEntity>
+        _modifiers:Add(SELF:Lt1)
         IF ! Expect(XSharpLexer.PROPERTY)
             RETURN NULL
         ENDIF
@@ -1639,7 +1702,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         ENDDO
         SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
         SELF:ReadLine()
-        VAR xMember := XSourceMemberSymbol{id, Kind.Property, _attributes, range, interval,sType} {SingleLine := lSingleLine}
+        VAR xMember := XSourceMemberSymbol{id, Kind.Property, _attributes, range, interval,sType,_modifiers} {SingleLine := lSingleLine}
         xMember:SourceCode := source
         IF SELF:CurrentType != NULL
             CurrentType:AddMember(xMember)
@@ -1647,7 +1710,8 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         xMember:AddParameters(aParams)
         RETURN <XSourceEntity>{xMember}
 
-    PRIVATE METHOD ParseEvent() AS IList<XSourceEntity>
+     PRIVATE METHOD ParseEvent() AS IList<XSourceEntity>
+        _modifiers:Add(SELF:Lt1)
         IF ! Expect(XSharpLexer.EVENT)
             RETURN NULL
         ENDIF
@@ -1686,7 +1750,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         ENDDO
         SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
         SELF:ReadLine()
-        VAR xMember := XSourceMemberSymbol{id, Kind.Event, _attributes, range, interval,strType}  {SingleLine := lSingleLine}
+        VAR xMember := XSourceMemberSymbol{id, Kind.Event, _attributes, range, interval,strType, _modifiers}  {SingleLine := lSingleLine}
         xMember:SourceCode := source
         IF SELF:CurrentType != NULL
             CurrentType:AddMember(xMember)
@@ -1738,6 +1802,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
 
 
     PRIVATE METHOD ParseOperator() AS IList<XSourceEntity>
+        _modifiers:Add(SELF:Lt1)
         IF ! Expect(XSharpLexer.OPERATOR)
             RETURN NULL
         ENDIF
@@ -1774,7 +1839,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
             id := ""
         endif
         SELF:ReadLine()
-        VAR xMember := XSourceMemberSymbol{id, Kind.Operator, _attributes, range, interval,sType}
+        VAR xMember := XSourceMemberSymbol{id, Kind.Operator, _attributes, range, interval,sType, _modifiers}
         xMember:SourceCode := source
         IF SELF:CurrentType != NULL
             CurrentType:AddMember(xMember)
@@ -1796,6 +1861,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         (END c2=CONSTRUCTOR EOS)?
         ;
         */
+        _modifiers:Add(SELF:Lt1)
         IF ! Expect(XSharpLexer.CONSTRUCTOR)
             RETURN NULL
         ENDIF
@@ -1807,7 +1873,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         SELF:ParseExpressionBody()
         SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
         SELF:ReadLine()
-        VAR xMember := XSourceMemberSymbol{id, Kind.Constructor, _attributes, range, interval,""}
+        VAR xMember := XSourceMemberSymbol{id, Kind.Constructor, _attributes, range, interval,"", _modifiers}
         xMember:SourceCode := source
         xMember:AddParameters(aParams)
         IF SELF:CurrentType != NULL
@@ -1828,6 +1894,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         ;
 
         */
+        _modifiers:Add(SELF:Lt1)
         IF ! Expect(XSharpLexer.DESTRUCTOR)
             RETURN NULL
         ENDIF
@@ -1841,7 +1908,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         SELF:ParseExpressionBody()
         SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
         SELF:ReadLine()
-        VAR xMember := XSourceMemberSymbol{id, Kind.Destructor, _attributes, range, interval,"VOID"}
+        VAR xMember := XSourceMemberSymbol{id, Kind.Destructor, _attributes, range, interval,"VOID", _modifiers}
         xMember:SourceCode := source
         IF SELF:CurrentType != NULL
             SELF:CurrentType:AddMember(xMember)
@@ -1897,6 +1964,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         END ENUM? EOS
         ;
         */
+        _modifiers:Add(SELF:Lt1)
         IF ! Expect(XSharpLexer.ENUM)
             RETURN NULL
         ENDIF
@@ -1910,7 +1978,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         ENDIF
         SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
         SELF:ReadLine()
-        VAR xType := XSourceTypeSymbol{id, Kind.Enum, _attributes, range, interval, _file} {BaseTypeName := type}
+        VAR xType := XSourceTypeSymbol{id, Kind.Enum, _attributes, range, interval, _file, _modifiers} {BaseTypeName := type}
         xType:SourceCode := source
         SELF:AddAsChild(xType)
         RETURN <XSourceEntity>{xType}
@@ -1931,7 +1999,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
         SELF:ReadLine()
         VAR type := CurrentType?:Name
-        VAR xMember := XSourceMemberSymbol{id, Kind.EnumMember, _attributes, range, interval, type} {SingleLine := TRUE, @@Value := strValue}
+        VAR xMember := XSourceMemberSymbol{id, Kind.EnumMember, _attributes, range, interval, type, _modifiers} {SingleLine := TRUE, @@Value := strValue}
         xMember:File := SELF:_file
         xMember:SourceCode := source
         xMember:IsStatic := TRUE
@@ -1986,7 +2054,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         VAR type := SELF:ParseDataType(FALSE)
         SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
         SELF:ReadLine()
-        VAR xMember := XSourceMemberSymbol{id, Kind.VODefine, _attributes, range,interval, type} {SingleLine := TRUE, @@Value := strValue}
+        VAR xMember := XSourceMemberSymbol{id, Kind.VODefine, _attributes, range,interval, type, _modifiers} {SingleLine := TRUE, @@Value := strValue}
         xMember:SourceCode := source
         xMember:File := SELF:_file
         RETURN <XSourceEntity>{xMember}
@@ -2013,7 +2081,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         // read to EndOfLine
         SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
         SELF:ReadLine()
-        VAR xType := XSourceTypeSymbol{id, Kind.VOStruct, _attributes, range, interval,_file}
+        VAR xType := XSourceTypeSymbol{id, Kind.VOStruct, _attributes, range, interval,_file, _modifiers}
         xType:SourceCode := source
         IF String.IsNullOrEmpty(sAlign)
             xType:AddInterface(sAlign)
@@ -2036,7 +2104,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         VAR id := SELF:ParseQualifiedName()
         SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
         SELF:ReadLine()
-        VAR xType := XSourceTypeSymbol{id, Kind.Union, _attributes, range, interval,_file}
+        VAR xType := XSourceTypeSymbol{id, Kind.Union, _attributes, range, interval,_file, _modifiers}
         xType:SourceCode := source
         SELF:AddAsChild(xType)
         RETURN <XSourceEntity>{xType}
@@ -2073,7 +2141,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         ENDIF
         SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
         SELF:ReadLine()
-        VAR xMember := XSourceMemberSymbol{sig, Kind.VODLL, _attributes, range, interval, _attributes:HasFlag(Modifiers.Static)} {SubType := kind }
+        VAR xMember := XSourceMemberSymbol{sig, Kind.VODLL, _attributes, range, interval, _modifiers, _attributes:HasFlag(Modifiers.Static)} {SubType := kind }
         xMember:File := SELF:_file
         xMember:SourceCode := source
         RETURN <XSourceEntity>{xMember}
@@ -2102,7 +2170,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         IF isArray
             sType += "[]"
         ENDIF
-        VAR xMember := XSourceMemberSymbol{id, Kind.Field, _attributes, range, interval, sType} {SingleLine := TRUE, IsArray := isArray}
+        VAR xMember := XSourceMemberSymbol{id, Kind.Field, _attributes, range, interval, sType, _modifiers} {SingleLine := TRUE, IsArray := isArray}
         xMember:File := SELF:_file
         xMember:SourceCode := source
         RETURN <XSourceEntity>{xMember}
@@ -2134,7 +2202,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         VAR sType := SELF:ParseDataType(TRUE)
         endToken := SELF:LastToken
         SELF:GetSourceInfo(startToken, endToken, OUT VAR range, OUT VAR interval, OUT VAR source)
-        VAR xMember   := XSourceMemberSymbol{sId,eKind, SELF:_attributes, range,interval,sType} {SingleLine := TRUE}
+        VAR xMember   := XSourceMemberSymbol{sId,eKind, SELF:_attributes, range,interval,sType, _modifiers} {SingleLine := TRUE}
         xMember:ReturnType := sType
         xMember:SourceCode := source
         xMember:Value := sDefault
@@ -2399,6 +2467,8 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         IF SELF:La1 != XSharpLexer.LOCAL
             RETURN NULL
         ENDIF
+        _modifiers:Add(SELF:Lt1)
+        _modifiers:Add(SELF:Lt2)
         SELF:Consume()      // Local
         IF ! ParseFuncProcType (OUT kind)
             RETURN NULL
@@ -2414,7 +2484,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         SELF:ReadLine()
         _attributes |= Modifiers.Private
         _attributes &= (~Modifiers.Export)
-        VAR xMember := XSourceMemberSymbol{sig, kind, _attributes, range, interval, false}
+        VAR xMember := XSourceMemberSymbol{sig, kind, _attributes, range, interval, _modifiers, FALSE}
         xMember:SourceCode := source
         xMember:File := SELF:_file
         RETURN <XSourceEntity>{xMember}
@@ -3171,10 +3241,12 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         ;
 
         */
+        _modifiers:Add(SELF:Lt1)
         IF ! Expect(XSharpLexer.DEFINE)
             RETURN NULL
         ENDIF
         VAR mods := SELF:ParseVisibilityAndModifiers()
+        _modifiers:Add(SELF:Lt1)
         IF ! Expect(XSharpLexer.CLASS)
             RETURN NULL
         ENDIF
@@ -3197,7 +3269,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         ENDDO
         SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
         SELF:ReadLine()
-        VAR xType := XSourceTypeSymbol{id, Kind.Class, mods, range, interval, _file}
+        VAR xType := XSourceTypeSymbol{id, Kind.Class, mods, range, interval, _file, _modifiers}
         xType:SourceCode := source
         IF constraints?:Count > 0
             FOREACH VAR constraint IN constraints
@@ -3232,6 +3304,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         IF ! ParseFuncProcType (OUT VAR kind)
             RETURN NULL
         ENDIF
+        _modifiers:Add(SELF:Lt1)
         VAR sig := SELF:ParseSignature()
         IF Expect(XSharpLexer.HELPSTRING)
             hs  := SELF:ParseExpression()
@@ -3253,7 +3326,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
             kind := Kind.Assign
         ENDIF
 
-        VAR xMember := XSourceMemberSymbol{sig, kind, _attributes, range, interval, _attributes:HasFlag(Modifiers.Static)}
+        VAR xMember := XSourceMemberSymbol{sig, kind, _attributes, range, interval, _modifiers, _attributes:HasFlag(Modifiers.Static)}
         xMember:SourceCode := source
         xMember:File := SELF:_file
         RETURN <XSourceEntity>{xMember}
@@ -3315,7 +3388,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
             ENDIF
             SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
             SELF:ReadLine()
-            VAR xMember := XSourceMemberSymbol{id, Kind.Field, _attributes, range, interval,"ARRAY"} {SingleLine := TRUE}
+            VAR xMember := XSourceMemberSymbol{id, Kind.Field, _attributes, range, interval,"ARRAY", _modifiers} {SingleLine := TRUE}
             xMember:SourceCode := source
             xMember:File := SELF:_file
             RETURN <XSourceEntity>{xMember}
@@ -3339,7 +3412,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
                 VAR expr := SELF:ParseExpression()
                 SELF:GetSourceInfo(_start, LastToken, OUT VAR r1, OUT VAR i1, OUT source)
                 SELF:ReadLine()
-                VAR xMember := XSourceMemberSymbol{ids:First(), Kind.Field, _attributes, r1, i1, _missingType} {SingleLine := TRUE}
+                VAR xMember := XSourceMemberSymbol{ids:First(), Kind.Field, _attributes, r1, i1, _missingType, _modifiers} {SingleLine := TRUE}
                 xMember:SourceCode := source
                 xMember:Value      := expr
                 xMember:File := SELF:_file
@@ -3357,7 +3430,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
             SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT  source)
             SELF:ReadLine()
             FOREACH VAR id IN ids
-                VAR xMember := XSourceMemberSymbol{id, Kind.Field, _attributes, range, interval, type} {SingleLine := TRUE}
+                VAR xMember := XSourceMemberSymbol{id, Kind.Field, _attributes, range, interval, type, _modifiers} {SingleLine := TRUE}
                 IF ids:Count == 1
                     xMember:SourceCode := source
                 ELSEIF String.IsNullOrEmpty(type)
@@ -3391,7 +3464,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
             SELF:ReadUntilEos()
             SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
             SELF:ReadLine()
-            VAR xMember := XSourceMemberSymbol{id, Kind.Field, _attributes, range, interval, type} {SingleLine := TRUE}
+            VAR xMember := XSourceMemberSymbol{id, Kind.Field, _attributes, range, interval, type, _modifiers} {SingleLine := TRUE}
             xMember:SourceCode := source
             xMember:File := SELF:_file
             RETURN <XSourceEntity>{xMember}
@@ -3431,6 +3504,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         IF ! Expect(XSharpLexer.CLASS)
             RETURN NULL
         ENDIF
+        _modifiers:Add(SELF:Lt1)
         VAR id         := SELF:ParseQualifiedName()
         VAR baseType   := ""
         IF SELF:ExpectAny(XSharpLexer.FROM, XSharpLexer.SHARING)
@@ -3450,7 +3524,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         SELF:GetSourceInfo(_start, LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
         SELF:ReadLine()
 
-        VAR xType := XSourceTypeSymbol{id,Kind.Class, _attributes, range, interval, _file}
+        VAR xType := XSourceTypeSymbol{id,Kind.Class, _attributes, range, interval, _file, _modifiers}
         xType:SourceCode := source
 
         IF interfaces?:Count > 0
@@ -3517,7 +3591,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         SELF:ReadLine()
         VAR result := List<XSourceEntity>{}
         FOREACH VAR id IN ids
-            VAR classvar := XSourceMemberSymbol{id, Kind.Field, _xppVisibility, range, interval, type, FALSE} {SingleLine := TRUE}
+            VAR classvar := XSourceMemberSymbol{id, Kind.Field, _xppVisibility, range, interval, type, _modifiers, FALSE} {SingleLine := TRUE}
             classvar:SourceCode := ie"{classvar.ModVis}: \r\n{ IIF(isStatic, \"STATIC\",\"\")} VAR {classvar.Name}"
             IF SELF:CurrentType != NULL
                 SELF:CurrentType:AddMember(classvar)
@@ -3541,9 +3615,11 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         */
         VAR la1 := SELF:La1
         VAR la2 := SELF:La2
+        _modifiers.Add(SELF:Lt1)
         IF ! Matches(XSharpLexer.ACCESS, XSharpLexer.ASSIGN)
             RETURN NULL
         ENDIF
+        _modifiers.Add(SELF:Lt1)
         DO WHILE ExpectAny(XSharpLexer.ACCESS, XSharpLexer.ASSIGN)
             NOP
         ENDDO
@@ -3559,8 +3635,9 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         VAR type := SELF:ParseDataType(FALSE)
         SELF:GetSourceInfo(_start, SELF:LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
         SELF:ReadLine()
-        VAR xmember := XSourceMemberSymbol{id+XLiterals.XppDeclaration, Kind.Property, _OR(_xppVisibility, _attributes), range, interval, type, isStatic}
+        VAR xmember := XSourceMemberSymbol{id+XLiterals.XppDeclaration, Kind.Property, _OR(_xppVisibility, _attributes), range, interval, type, _modifiers, isStatic}
         xmember:SourceCode := source
+
         IF SELF:CurrentType != NULL
             SELF:CurrentType:AddMember(xmember)
         ENDIF
@@ -3585,6 +3662,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         */
         VAR la1      := SELF:La1
         VAR isStatic :=  Expect(XSharpLexer.CLASS)
+        _modifiers.Add(SELF:Lt1)
         IF ! SELF:Expect(XSharpLexer.METHOD)
             RETURN NULL
         ENDIF
@@ -3604,7 +3682,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         SELF:GetSourceInfo(_start, SELF:LastToken, OUT VAR range, OUT VAR interval, OUT VAR _)
         VAR result := List<XSourceEntity>{}
         FOREACH VAR id IN ids
-            VAR xmethod := XSourceMemberSymbol{id+XLiterals.XppDeclaration, Kind.Method, _xppVisibility, range, interval, "", FALSE}
+            VAR xmethod := XSourceMemberSymbol{id+XLiterals.XppDeclaration, Kind.Method, _xppVisibility, range, interval, "", _modifiers, FALSE}
             xmethod:SourceCode := ie"{xmethod.ModVis}: \r\n{ IIF(isStatic, \"STATIC\",\"\")} METHOD {xmethod.Name}"
             IF SELF:CurrentType != NULL
                 SELF:CurrentType:AddMember(xmethod)
@@ -3681,11 +3759,12 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         xppmemberModifiers  : ( Tokens+=( CLASS | STATIC) )+
         ; // make sure all tokens are also in the IsModifier method inside XSharpLexerCode.cs
         */
-
+        _modifiers.Add(SELF:Lt1)
         IF ! SELF:Expect(XSharpLexer.INLINE)
             RETURN NULL
         ENDIF
         VAR isStatic := SELF:ParseXPPMemberModifiers()
+        _modifiers.Add(SELF:Lt1)
         IF ! SELF:Expect(XSharpLexer.METHOD)
             RETURN NULL
         ENDIF
@@ -3697,7 +3776,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         ENDIF
         SELF:GetSourceInfo(_start, SELF:LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
         SELF:ReadLine()
-        VAR xmethod := XSourceMemberSymbol{id, Kind.Method, _xppVisibility, range, interval, type, isStatic}
+        VAR xmethod := XSourceMemberSymbol{id, Kind.Method, _xppVisibility, range, interval, type, _modifiers, isStatic}
         xmethod:SourceCode := source
         IF SELF:CurrentType != NULL
             SELF:CurrentType:AddMember(xmethod)
@@ -3732,6 +3811,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
 
         */
         VAR kind := Kind.Method
+        _modifiers.Add(SELF:Lt1)
         IF ExpectAny(XSharpLexer.ACCESS)
             kind := Kind.Access
         ELSEIF ExpectAny(XSharpLexer.ASSIGN)
@@ -3754,7 +3834,7 @@ CLASS XsParser IMPLEMENTS VsParser.IErrorListener
         ENDIF
         SELF:GetSourceInfo(_start, SELF:LastToken, OUT VAR range, OUT VAR interval, OUT VAR source)
         SELF:ReadLine()
-        VAR xmethod := XSourceMemberSymbol{id, kind, Modifiers.None, range, interval, type, isStatic}
+        VAR xmethod := XSourceMemberSymbol{id, kind, Modifiers.None, range, interval, type, _modifiers, isStatic}
         // we need to lookup the visibility in the types list
         xmethod:SourceCode := source
         // find the parent in the stack. Either the last one (when the classprefix is empty) or a specific one

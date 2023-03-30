@@ -6,17 +6,11 @@
 
 namespace XSharp.Project
 {
-    using Microsoft.VisualStudio.PlatformUI;
-    using System;
-    using System.Diagnostics;
-    using System.Drawing;
-    using System.Text;
-    using System.Collections.Generic;
-    using System.Windows.Forms;
-    using System.ComponentModel;
     using Microsoft.VisualStudio.Project;
-    using Microsoft.VisualStudio.Language.Intellisense;
     using Microsoft.VisualStudio.Shell;
+    using System;
+    using System.Drawing;
+    using System.Windows.Forms;
     using XSharpModel;
 
     /// <summary>
@@ -72,7 +66,7 @@ namespace XSharp.Project
             toolTip1.SetToolTip(chkAutoGenerateBindingRedirects, GeneralPropertyPagePanel.descBindingRedirects);
 
 
-            FillCombo(new DialectConverter() , comboDialect);
+            FillCombo(new DialectConverter(), comboDialect);
             toolTip1.SetToolTip(lblDialect, GeneralPropertyPagePanel.descDialect);
             toolTip1.SetToolTip(comboDialect, GeneralPropertyPagePanel.descDialect);
             FillCombo(new OutputTypeConverter(), comboOutputType);
@@ -145,6 +139,35 @@ namespace XSharp.Project
             }
         }
 
+        bool resetting = false;
+        protected override void HandleControlValidated(object sender, EventArgs e)
+        {
+            ThreadHelper.JoinableTaskFactory.Run(async delegate
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                if (!resetting)
+                {
+
+                    base.HandleControlValidated(sender, e);
+                }
+            });
+        }
+
+        internal void resetFramework(string value)
+        {
+            int index = 0;
+            resetting = true;
+            foreach (string item in comboTargetFramework.Items)
+            {
+                if (String.Compare(item, value, true) == 0)
+                {
+                    comboTargetFramework.SelectedIndex = index;
+                    break;
+                }
+                index++;
+            }
+            resetting = false;
+        }
         private void btnIcon_Click(object sender, EventArgs e)
         {
             ThreadHelper.ThrowIfNotOnUIThread();

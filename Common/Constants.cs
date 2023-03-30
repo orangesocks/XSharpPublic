@@ -16,9 +16,9 @@ namespace XSharp
 #if RUNTIME
         internal const string Version = "2.6.0.0";
 #else
-        internal const string Version = "2.15.0.1";
+        internal const string Version = "2.15.0.3";
 #endif
-        internal const string FileVersion = "2.15.0.1";
+        internal const string FileVersion = "2.15.0.3";
         internal const string ProductVersion = "2.15 GA";
         internal const string PublicKey = "ed555a0467764586";
         internal const string Copyright = "Copyright © XSharp BV 2015-2023";
@@ -35,6 +35,6 @@ namespace XSharp
         // and adds CRLF to the response file between the various commands to make it easier to read.
         internal const string EnvironmentXSharpDev = "XSHARPDEV";
         internal const string StandardHeaderFile = "XSharpDefs.xh";
-
+        internal const string SourceFileExtension = ".prg";
     }
 }

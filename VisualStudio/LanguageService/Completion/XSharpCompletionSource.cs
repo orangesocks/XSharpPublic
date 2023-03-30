@@ -68,28 +68,21 @@ namespace XSharp.LanguageService
             {
                 if (XEditorSettings.DisableCodeCompletion)
                     return;
-                XSharpModel.ModelWalker.Suspend();
+                if (_file == null)
+                    return;
                 if (_disposed)
                     throw new ObjectDisposedException("XSharpCompletionSource");
+                XSharpModel.ModelWalker.Suspend();
                 _showTabs = XEditorSettings.CompletionListTabs;
                 _keywordsInAll = XEditorSettings.KeywordsInAll;
-
-                // Where does the StartSession has been triggered ?
-                ITextSnapshot snapshot = _buffer.CurrentSnapshot;
-                var triggerPoint = (SnapshotPoint)session.GetTriggerPoint(snapshot);
-                if (triggerPoint == null)
-                    return;
-                // What is the character were it starts ?
+                var props = session.GetCompletionProperties();
+                var triggerPoint = props.Position;
                 var line = triggerPoint.GetContainingLine();
 
                 // The "parameters" coming from CommandFilter
-                uint cmd = 0;
-                char typedChar = '\0';
-                bool autoType = false;
-                session.Properties.TryGetProperty(XsCompletionProperties.Command, out cmd);
-                VSConstants.VSStd2KCmdID nCmdId = (VSConstants.VSStd2KCmdID)cmd;
-                session.Properties.TryGetProperty(XsCompletionProperties.Char, out typedChar);
-                session.Properties.TryGetProperty(XsCompletionProperties.AutoType, out autoType);
+                char typedChar = props.Char;
+
+                VSConstants.VSStd2KCmdID nCmdId = (VSConstants.VSStd2KCmdID)props.Command;
                 bool showInstanceMembers = (typedChar == ':') || ((typedChar == '.') && _file.Project.ParseOptions.AllowDotForInstanceMembers);
 
                 ////////////////////////////////////////////
@@ -100,7 +93,6 @@ namespace XSharp.LanguageService
                 IMappingTagSpan<IClassificationTag> lastTag = null;
                 foreach (var tag in tags)
                 {
-                    //tagList.Add(tag);
                     SnapshotPoint ptStart = tag.Span.Start.GetPoint(_buffer, PositionAffinity.Successor).Value;
                     SnapshotPoint ptEnd = tag.Span.End.GetPoint(_buffer, PositionAffinity.Successor).Value;
                     if ((ptStart != null) && (ptEnd != null))
@@ -120,27 +112,17 @@ namespace XSharp.LanguageService
                 }
                 ////////////////////////////////////////////
                 SnapshotPoint start = triggerPoint;
-                var applicableTo = snapshot.CreateTrackingSpan(new SnapshotSpan(start, triggerPoint), SpanTrackingMode.EdgeInclusive);
+                var applicableTo = triggerPoint.Snapshot.CreateTrackingSpan(new SnapshotSpan(start, triggerPoint), SpanTrackingMode.EdgeInclusive);
                 //
-                if (_file == null)
-                {
-                    // Uhh !??, Something went wrong
-                    return;
-                }
                 // The Completion list we are building
                 XCompletionList compList = new XCompletionList(_file);
                 XCompletionList kwdList = new XCompletionList(_file);
-                IXTypeSymbol type = null;
-                if (session.Properties.ContainsProperty(XsCompletionProperties.Type))
-                {
-                    type = (IXTypeSymbol)session.Properties[XsCompletionProperties.Type];
-                }
+                IXTypeSymbol type = props.Type;
                 // Start of Process
                 string filterText = "";
                 // Check if we can get the member where we are
                 // Standard TokenList Creation (based on colon Selector )
-                bool includeKeywords;
-                session.Properties.TryGetProperty(XsCompletionProperties.IncludeKeywords, out includeKeywords);
+                bool includeKeywords = props.IncludeKeywords;
                 CompletionState state;
                 var member = session.TextView.FindMember(triggerPoint);
                 var location = session.TextView.TextBuffer.FindLocation(triggerPoint);
@@ -148,55 +130,26 @@ namespace XSharp.LanguageService
                     return;
                 var tokenList = XSharpTokenTools.GetTokenList(location, out state, includeKeywords);
                 var lastToken = tokenList.LastOrDefault();
-                if (lastToken != null && (lastToken.Type == XSharpLexer.RPAREN || lastToken.Type == XSharpLexer.RCURLY))
+                if (lastToken != null) 
                 {
-                    tokenList.RemoveAt(tokenList.Count - 1);
-                    lastToken = tokenList.LastOrDefault();
-                }
-                var addKeywords = typedChar != '.' && typedChar != ':';
-
-
-                // We might be here due to a COMPLETEWORD command, so we have no typedChar
-                // but we "may" have a incomplete word like System.String.To
-                // Try to Guess what TypedChar could be
-                if (typedChar == '\0' && (autoType || nCmdId == VSConstants.VSStd2KCmdID.COMPLETEWORD))
-                {
-                    if (tokenList.Count > 0)
+                    if (lastToken.Type != XSharpLexer.DOT && lastToken.Type != XSharpLexer.COLON)
                     {
-                        string extract = tokenList[tokenList.Count - 1].Text;
-                        typedChar = extract[extract.Length - 1];
-                        if ((typedChar != '.') && (typedChar != ':'))
+                        if (lastToken.Type == XSharpLexer.ID || XSharpLexer.IsKeyword(lastToken.Type))
                         {
-                            if (tokenList.Count == 1)
-                            {
-                                //
-                                filterText = tokenList[0].Text;
-                                int dotPos = extract.LastIndexOf(".");
-                                if (dotPos > -1)
-                                {
-                                    string startToken = extract.Substring(0, dotPos);
-                                    filterText = extract.Substring(dotPos + 1);
-                                    typedChar = '.';
-                                    var token = (XSharpToken)tokenList[0];
-                                    token.Text = startToken + ".";
-                                }
-                            }
-                            else
-                            {
-                                // So, we get the last Token as a Filter
-                                filterText = tokenList[tokenList.Count - 1].Text;
-                            }
-                            // Include the filter as the text to replace
-                            start -= filterText.Length;
-                            applicableTo = snapshot.CreateTrackingSpan(new SnapshotSpan(start, triggerPoint), SpanTrackingMode.EdgeInclusive);
+                            filterText = lastToken.Text;
+                            props.NumCharsToDelete = filterText.Length;
                         }
+                        tokenList.RemoveAt(tokenList.Count - 1);
+                        lastToken = tokenList.LastOrDefault();
+                        
                     }
                 }
+                var addKeywords = typedChar != '.' && typedChar != ':';
                 bool dotSelector = (typedChar == '.');
 
                 int tokenType = XSharpLexer.UNRECOGNIZED;
 
-                var symbol = XSharpLookup.RetrieveElement(location, tokenList, CompletionState.General, out var notProcessed).FirstOrDefault();
+                var symbol = XSharpLookup.RetrieveElement(location, tokenList, CompletionState.General).FirstOrDefault();
                 var isInstance = true;
                 if (symbol is IXTypeSymbol)
                 {
@@ -224,8 +177,6 @@ namespace XSharp.LanguageService
                         case XSharpLexer.COLON:
                             break;
                         default:
-                            filterText = symbol.Name;
-                            symbol = null;
                             break;
                     }
 
@@ -290,10 +241,6 @@ namespace XSharp.LanguageService
                         }
                         memberName = xvar.Name;
                     }
-                    else if (symbol.Kind == Kind.Keyword)
-                    {
-                        filterText = symbol.Name;
-                    }
 
                     if (type != null)
                     {
@@ -305,7 +252,7 @@ namespace XSharp.LanguageService
                                 break;
                         }
                     }
-                    session.Properties[XsCompletionProperties.Type] = type;
+                    props.Type = type;
                 }
                 if (type == null)
                 {
@@ -418,17 +365,12 @@ namespace XSharp.LanguageService
                         default:
                             if (state.HasFlag(CompletionState.General))
                             {
-                                if (tokenList.Count == 1 && XSharpLexer.IsKeyword(tokenList[0].Type))
-                                {
-                                    notProcessed = tokenList[0].Text;
-                                }
-                                filterText = notProcessed;
                                 helpers.AddGenericCompletion(compList, location, filterText);
                             }
                             break;
                     }
                 }
-                session.Properties[XsCompletionProperties.Filter] = filterText;
+                props.Filter = filterText;
                 if ((kwdList.Count > 0) && _keywordsInAll /*&& XSettings.CompleteKeywords*/)
                 {
                     foreach (var item in kwdList.Values)

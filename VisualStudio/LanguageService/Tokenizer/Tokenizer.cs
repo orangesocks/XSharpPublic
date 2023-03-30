@@ -64,8 +64,7 @@ namespace XSharp.LanguageService
         {
             var line = location.LineNumber;
             var doc = location.GetDocument();
-            var lineFlags = doc.LineState;
-            while (line > 0 && lineFlags.Get(line-1, out var flags) && flags.HasFlag(LineFlags.Continued))
+            while (line > 0  && doc.HasLineState(line, LineFlags.IsContinued))
             {
                 line--;
             }
@@ -697,7 +696,7 @@ namespace XSharp.LanguageService
                 {
                     name = name.Substring(0, pos);
                 }
-                var nSpace = new XSourceNamespaceSymbol(name, found.Range, found.Interval, file);
+                var nSpace = new XSourceNamespaceSymbol(name, found.Range, found.Interval, file,null);
                 return nSpace;
             }
 #if TRACE

@@ -14,13 +14,16 @@ BEGIN NAMESPACE XSharpModel
     STATIC CLASS XSolution
     // Fields
     STATIC PRIVATE _orphanedFilesProject := NULL AS XProject
+    PUBLIC CONST BuiltInFunctions_prg := "BuiltInFunctions.prg" as STRING
+    PUBLIC CONST TempFolderName := "XSharp.Intellisense" as STRING
+    STATIC PRIVATE _workDir as STRING
+    STATIC PROPERTY TempFolder as string GET _workDir
     STATIC PROPERTY IsOpen as LOGIC GET !String.IsNullOrEmpty(_fileName)
 
     STATIC PRIVATE _projects AS ConcurrentDictionary<STRING, XProject>
     STATIC PRIVATE _fileName   AS STRING
     STATIC PRIVATE _sqldb      AS STRING
     STATIC PRIVATE _commentTokens AS List<XCommentToken>
-    STATIC PRIVATE _changedProjectFiles AS IDictionary<string, string>
     STATIC PROPERTY IsClosing  AS LOGIC AUTO
     STATIC PROPERTY IsShuttingDown  AS LOGIC AUTO
 
@@ -31,13 +34,11 @@ BEGIN NAMESPACE XSharpModel
     STATIC PROPERTY CommentTokens AS IList<XCommentToken> GET _commentTokens
     STATIC PROPERTY Projects AS IList<XProject> get _projects:Values:ToArray()
 
-    STATIC PROPERTY ChangedProjectFiles AS IDictionary<string, string> GET _changedProjectFiles
         // Methods
     STATIC CONSTRUCTOR
         _projects := ConcurrentDictionary<STRING, XProject>{StringComparer.OrdinalIgnoreCase}
         IsClosing   := FALSE
         _commentTokens := List < XCommentToken >{}
-        _changedProjectFiles := Dictionary<string, string>{StringComparer.OrdinalIgnoreCase}
 
     STATIC METHOD SetCommentTokens( aTokens AS IList<XCommentToken>) AS VOID
         _commentTokens:Clear()
@@ -51,13 +52,50 @@ BEGIN NAMESPACE XSharpModel
         XSettings.LogException(ex, msg)
         RETURN
 
+    STATIC PRIVATE METHOD _ClearFolder(directory as DirectoryInfo, lDeleteFiles as LOGIC) AS VOID
+        if lDeleteFiles
+            foreach file as FileInfo in directory:GetFiles()
+                _DeleteFile(file:FullName)
+            next
+        endif
+        var subDirectories := directory:GetDirectories()
+
+        // Scan the directories in the current directory and call this method
+        // again to go one level into the directory tree
+        foreach var subDirectory in subDirectories
+            _ClearFolder(subDirectory, true)
+            subDirectory:Attributes &= ~FileAttributes.ReadOnly
+            subDirectory:Delete()
+        next
+
+
+    STATIC PRIVATE METHOD _DeleteFile(cFileName AS STRING) AS LOGIC
+        TRY
+            IF System.IO.File.Exists(cFileName)
+                System.IO.File.SetAttributes(cFileName, FileAttributes.Normal)
+                System.IO.File.Delete(cFileName)
+            ENDIF
+            RETURN TRUE
+        CATCH
+            // the file may be in use or so
+        END TRY
+        RETURN FALSE
+
+
     STATIC METHOD CreateBuiltInFunctions(folder as STRING) AS VOID
         TRY
-            BuiltInFunctions := Path.Combine(folder, "BuiltInFunctions.prg")
-            IF System.IO.File.Exists(BuiltInFunctions)
-                System.IO.File.SetAttributes(BuiltInFunctions, FileAttributes.Normal)
-                System.IO.File.Delete(BuiltInFunctions)
+            BuiltInFunctions := Path.Combine(folder, BuiltInFunctions_prg)
+            _DeleteFile(BuiltInFunctions)
+
+            _workDir := Path.GetTempPath()
+            _workDir := Path.Combine(_workDir,TempFolderName )
+            IF !Directory.Exists(_workDir)
+                Directory.CreateDirectory(_workDir)
+            ELSE
+                _ClearFolder(DirectoryInfo{_workDir}, FALSE)
             ENDIF
+            BuiltInFunctions := Path.Combine(_workDir, BuiltInFunctions_prg)
+            _DeleteFile(BuiltInFunctions)
             System.IO.File.WriteAllText(BuiltInFunctions, XSharpBuiltInFunctions(BuiltInFunctions))
             System.IO.File.SetAttributes(BuiltInFunctions, FileAttributes.ReadOnly)
         CATCH e as Exception
@@ -67,6 +105,13 @@ BEGIN NAMESPACE XSharpModel
 
     STATIC METHOD Open(cFile as STRING) AS VOID
         WriteOutputMessage("XModel.Solution.OpenSolution() "+cFile)
+        IF IsOpen
+            IF String.Compare(_fileName, cFile, TRUE) == 0
+                WriteOutputMessage("XModel.Solution.OpenSolution() File was already open"+cFile)
+                RETURN
+            ENDIF
+            Close()
+        ENDIF
         _fileName := cFile
         var folder := Path.GetDirectoryName(_fileName)
         folder     := Path.Combine(folder, ".vs")

@@ -1409,7 +1409,7 @@ PARTIAL CLASS VODBServerEditor INHERIT DesignerBase
             aValues:Add(oProp:Name , cValue)
         NEXT
 
-        SplitFilename(SELF:oMainDesign:GetProperty("filename"):TextValue:Trim() , dbfpath , dbfname)
+        SplitFilename(SELF:oMainDesign:GetProperty("filename"):TextValue:Trim() , REF dbfpath , REF dbfname)
 
         aValues:Add("dbfpath" , dbfpath)
         aValues:Add("dbfname" , dbfname)
@@ -1523,10 +1523,10 @@ PARTIAL CLASS VODBServerEditor INHERIT DesignerBase
             DO CASE
             CASE eType == DBServerItemType.Index
                 aValues:Add("orderlist" , SELF:TranslateMacro(DBServerItemType.Order , oDesign))
-                SplitFilename(oDesign:GetProperty("filename"):TextValue:Trim() , dbfpath , dbfname)
+                SplitFilename(oDesign:GetProperty("filename"):TextValue:Trim() , REF dbfpath , REF dbfname)
                 IF dbfpath == ""
                     LOCAL temp AS STRING
-                    SplitFilename(SELF:oMainDesign:GetProperty("filename"):TextValue:Trim() , dbfpath , temp)
+                    SplitFilename(SELF:oMainDesign:GetProperty("filename"):TextValue:Trim() , REF dbfpath , REF temp)
                 END IF
                 aValues:Add("indexname" , dbfname)
                 aValues:Add("dbfpath" , dbfpath)
@@ -2844,6 +2844,9 @@ CLASS DBServerCode
             NOP
         END TRY
         IF !File.Exists(cCavoWed)
+            cCavoWed := Funcs.LocateTemplateInParentFolders("CAVODED.TPL" , cOrigDir)
+        ENDIF
+        IF !File.Exists(cCavoWed)
             MessageBox.Show("File Cavoded.tpl was not found, please locate it on disk." , "DBServer Editor")
         ENDIF
         DO WHILE !File.Exists(cCavoWed)
@@ -2907,15 +2910,15 @@ CLASS DBServerCode
                     DO CASE
                     CASE cLeft == "FIELDDESC"
                         SELF:cFieldDesc := cRight
-                        SELF:TranslateTokens(SELF:cFieldDesc)
+                        SELF:TranslateTokens(REF SELF:cFieldDesc)
                     CASE cLeft == "INDEX"
                         SELF:cIndexList := cRight
-                        SELF:TranslateTokens(SELF:cIndexList)
+                        SELF:TranslateTokens(REF SELF:cIndexList)
                     CASE cLeft == "ORDER"
                         cRight := cRight:Replace("[" , e"\"")
                         cRight := cRight:Replace("]" , e"\"")
                         SELF:cOrderList := cRight
-                        SELF:TranslateTokens(SELF:cOrderList)
+                        SELF:TranslateTokens(REF SELF:cOrderList)
                     END CASE
                 END IF
             OTHERWISE
@@ -2979,6 +2982,9 @@ CLASS DBServerCode
         CATCH
             NOP
         END TRY
+        IF !File.Exists(cCavoWed)
+            cCavoWed := Funcs.LocateTemplateInParentFolders("CAVOFED.TPL" , cOrigDir)
+        ENDIF
         IF !File.Exists(cCavoWed)
             MessageBox.Show("File Cavofed.tpl was not found, please locate it on disk." , "DBServer Editor")
         ENDIF
