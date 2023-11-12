@@ -1,0 +1,110 @@
+[$RootKey$]
+[$RootKey$\Generators]
+[$RootKey$\Generators\{AA6C8D78-22FF-423A-9C7C-5F2393824E04}]
+[$RootKey$\Generators\{AA6C8D78-22FF-423A-9C7C-5F2393824E04}\PublicResXFileCodeGenerator]
+"CLSID"="{69b6a86d-ef43-4d9e-a758-8a18b38a7384}"
+"GeneratesDesignTimeSource"=dword:00000001
+@="Microsoft ResX File Code Generator (public class)"
+[$RootKey$\Generators\{AA6C8D78-22FF-423A-9C7C-5F2393824E04}\PublicVbMyResourcesResXFileCodeGenerator]
+"CLSID"="{74d398e9-7cc3-4ff2-9a4d-acd177f40b58}"
+"GeneratesDesignTimeSource"=dword:00000001
+@="Microsoft Visual Basic Primary My.Resources ResX File Code Generator (public cass)"
+[$RootKey$\Generators\{AA6C8D78-22FF-423A-9C7C-5F2393824E04}\ResXFileCodeGenerator]
+"CLSID"="{c77981ec-ba19-3348-878f-6f88745a251e}"
+"GeneratesDesignTimeSource"=dword:00000001
+@="Microsoft ResX File Code Generator"
+[$RootKey$\Generators\{AA6C8D78-22FF-423A-9C7C-5F2393824E04}\VbMyResourcesResXFileCodeGenerator]
+"CLSID"="{aa6c8d78-22ff-423a-9c7c-5f2393824e04}"
+"GeneratesDesignTimeSource"=dword:00000001
+@="Microsoft Visual Basic Primary My.Resources ResX File Code Generator"
+[$RootKey$\Generators\{AA6C8D78-22FF-423A-9C7C-5F2393824E04}\SettingsSingleFileGenerator]
+"CLSID"="{3B4C204A-88A2-3AF8-BCFD-CFCB16399541}"
+"GeneratesDesignTimeSource"=dword:00000000
+"GeneratesSharedDesignTimeSource"=dword:00000001
+@="Generator for strongly typed settings class"
+[$RootKey$\Generators\{AA6C8D78-22FF-423A-9C7C-5F2393824E04}\PublicSettingsSingleFileGenerator]
+"CLSID"="{940f36b5-a42e-435e-8ef4-20b9d4801d22}"
+"GeneratesDesignTimeSource"=dword:00000000
+"GeneratesSharedDesignTimeSource"=dword:00000001
+@="Generator for strongly typed settings class (public class)"
+[$RootKey$\Generators\{AA6C8D78-22FF-423A-9C7C-5F2393824E04}\MSDataSetGenerator]
+"CLSID"="{E76D53CC-3D4F-40a2-BD4D-4F3419755476}"
+"GeneratesDesignTimeSource"=dword:00000001
+@="Microsoft DataSet Code Generator for X#"
+[$RootKey$\Generators\{AA6C8D78-22FF-423A-9C7C-5F2393824E04}\TextTemplatingFileGenerator]
+"GeneratesDesignTimeSource"=dword:00000001
+"CLSID"="{b9c665d2-0451-4ae2-a38c-443b85d634f2}"
+@="Generator that uses the Text Templating engine"
+
+
+; This key registers the language with the debugger.  The Language string is used in the debugger UI to refer to the language;
+; (Call Stack window, for example)
+; Vendor ID XSharp = {363398fa-76ad-44bb-a750-0abdc02bf4de}
+; Language ID XSharp = {f579403a-d3d3-47a0-bf03-9709575bee69}
+
+; We must enable this when the debugger extension is working
+
+[$RootKey$\AD7Metrics\ExpressionEvaluator\{f579403a-d3d3-47a0-bf03-9709575bee69}\{363398fa-76ad-44bb-a750-0abdc02bf4de}]
+@="XSharp vsdbg host"
+"Name"="X#"
+"Language"="X#"
+"AllowMultipleDebuggers"=dword:00000001
+"AlwaysLoadLocal"=dword:00000001
+"Attach"=dword:00000001
+"AuthenticatedSymbolServers"=dword:00000001
+"AutoSelectPriority"=dword:00000004
+"CallstackBP"=dword:00000000
+"ConditionalBP"=dword:00000001
+"ClrCustomVisualizerVSHost"="{E82F32A8-074E-465A-86E5-D68A87284F61}"
+"Disassembly"=dword:00000001
+"DumpWriting"=dword:00000001
+"EnableFuncEvalQuickAbort"=dword:00000001
+"EnableTracing"=dword:00000001
+"ENC"=dword:00000001
+"EngineCanWatchProcess"=dword:00000001
+"Exceptions"=dword:00000001
+"ExceptionConditions"=dword:00000001
+"FuncEvalAbortLoggingLevel"=dword:00000000
+"FuncEvalQuickAbortDlls"="System.Windows.Forms.dll"
+"FuncEvalQuickAbortExcludeList"="PresentationHost.exe;WebDev.WebServer.exe;WebDev.WebServer20.exe;WebDev.WebServer40.exe"
+"FunctionBP"=dword:00000001
+"HitCountBP"=dword:00000001
+"Interop"=dword:00000000
+"IsEditAndContinue"=dword:00000001
+"JITDebug"=dword:00000001
+"ProgramProvider"="{4FF9DEF4-8922-4D02-9379-3FFA64D1D639}"
+"RemoteDebugging"=dword:00000001
+"RemoteProcessListing"=dword:00000001
+"Runtime"="{6FEF44D0-39E7-4C77-BE8E-C9F8CF988630}"
+"SetNextStatement"=dword:00000001
+"SupportsEESearch"=dword:00000001
+"SupportsObjectFavorites"=dword:00000001
+"SuppressModulesRequestOnAttach"=dword:00000001
+"SupportsUISideExternalCodeStackFiltering"=dword:00000001
+"SuspendThread"=dword:00000001
+
+
+
+; Specifies the debug engines supported by the language.
+; Here we are specifying that X# can be used when Managed or Mixed Mode debugging.
+[$RootKey$\AD7Metrics\ExpressionEvaluator\{f579403a-d3d3-47a0-bf03-9709575bee69}\{363398fa-76ad-44bb-a750-0abdc02bf4de}\Engine]
+; Managed Only
+"0"="{449EC4CC-30D2-4032-9256-EE18EB41B62B}"
+; Managed and Native
+"1"="{92EF0900-2251-11D2-B72E-0000F87572EF}"
+
+; The following keys register the extensions for Diff and Peek
+[$RootKey$\Diff\SupportedContentTypes]
+".prg"=""
+".ppo"=""
+".ch"=""
+".xh"=""
+".xs"=""
+[$RootKey$\Peek\SupportedContentTypes]
+".prg"=""
+".ppo"=""
+".ch"=""
+".xh"=""
+".xs"=""
+
+

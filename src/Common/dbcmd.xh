@@ -1,0 +1,605 @@
+///////////////////////////////////////////////////////////////////////////
+// DbCmds.xh
+//
+// XSharp Database commands
+//
+// Copyright (c) XSharp BV.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.
+// See License.txt in the project root for license information.
+//
+// IMPORTANT:  Functions beginning with an underscore
+//             character are reserved, version-dependent functions.
+//             These functions should not be called directly.
+//
+// Caution: do not modify this file. It will be overwritten during product updates
+// Rules with more optional clauses should precede rules without these optional clauses, such as INDEX ON, REPLACE and DELETE
+//
+
+#ifndef DBCMD_XH
+
+#define DBCMD_XH
+
+// rule for Fields, used in several other rules
+
+#translate __DBFIELDS__ <f1> [,<fn> ]   => ;
+           __DBFIELDLIST__  {<(f1)>[, <(fn)> ]}
+
+
+****
+*  DB
+*
+
+#command SELECT <whatever>              => DbSelectArea( <(whatever)> )
+#command SELECT <f>([<list,...>])       => DbSelectArea( <f>(<list>) )
+#command SELECT &<whatever>             => DbSelectArea( <whatever> )
+
+#command USE                            => DbCloseArea()
+#command USE IN <(area)>                => (area)->(DbCloseArea())
+
+
+
+#command USE <(db)>                                                     ;
+             [VIA <rdd>]                                                ;
+             [ALIAS <a>]                                                ;
+             [<new: NEW>]                                               ;
+             [<ex: EXCLUSIVE>]                                          ;
+             [<sh: SHARED>]                                             ;
+             [<ro: READONLY,NOUPDATE>]                                  ;
+             [INDEX <(index1)> [, <(indexn)>]]                          ;
+                                                                        ;
+      => DbUseArea(                                                     ;
+                    <.new.>, <rdd>, <(db)>, <(a)>,                      ;
+                    if(<.sh.> .or. <.ex.>, !<.ex.>, NIL), <.ro.>        ;
+                  )                                                     ;
+                                                                        ;
+      [; DbSetIndex( <(index1)> )]                                      ;
+      [; DbSetIndex( <(indexn)> )]
+
+
+#command SET INDEX TO [ <(index1)> [, <(indexn)>]]                      ;
+                                                                        ;
+      => DbClearIndex()                                                 ;
+                                                                        ;
+      [; DbSetIndex( <(index1)> )]                                      ;
+      [; DbSetIndex( <(indexn)> )]
+
+#command INDEX ON <key>         										;
+     TAG <order>                										;
+     [<To:TO,OF> <file>]                								;
+     [FOR <fo>]                 										;
+     [<all:ALL>]                										;
+     [WHILE <wh>]               										;
+     [NEXT <nx>]                										;
+     [RECORD <rec>]             										;
+     [<rs:REST>]                										;
+     [EVAL <ev>]                										;
+     [EVERY <evr>]              										;
+     [<u:UNIQUE>]               										;
+     [<asd:ASCENDING>]          										;
+     [<dsd:DESCENDING>]         										;
+     [<lCur:USECURRENT>]        										;
+     [<lAdd:ADDITIVE>]          										;
+     [<lCus:CUSTOM>]            										;
+     [<lNop:NOOPTIMIZE>]        										;
+     [Binary <bin>]                  								    ;
+     [COLLATE <coll>]                								    ;
+     [<cmp:COMPACT>]          										    ;
+     [<cand:CANDIDATE>]          										;
+    => OrdCondSet( <"fo">, , [<.all.>], <{wh}>, <{ev}>, <evr>, 			;
+          RecNo(), <nx>, <rec>,[<.rs.>],[<.dsd.>],<.lAdd.>,				;
+          [<.lCur.>], [<.lCus.>], [<.lNop.>] ,      					;
+          [<.bin.>], [<"coll">], [<.cand.>], [<.cmp.>] ) ;;             ;
+       OrdCreate(<(file)>,<(order)>,<(key)>,,IIF(<.u.>,.T., NIL))
+
+#command INDEX ON <key>         										;
+     To <(file)>                										;
+     [Binary <bin>]                  								    ;
+     [COLLATE <coll>]                								    ;
+     [For <fo>]                 										;
+     [<u:UNIQUE>]               										;
+     [<cmp:COMPACT>]          										    ;
+     [<cand:CANDIDATE>]          										;
+     [<asd:ASCENDING>]          										;
+     [<dsd:DESCENDING>]         										;
+     [<lAdd:ADDITIVE>]          										;
+     [<lNop:NOOPTIMIZE>]        										;
+    => OrdCondSet(<"fo">, , , , , , ,                                   ;
+        , , ,,[<.dsd.>],[<.lAdd.>], , , [<.lNop.>],                     ;
+        [<.bin.>], [<"coll">], [<.cand.>], [<.cmp.>] ) ;;               ;
+       dbCreateIndex( <(file)>, <(key)>,, IIF( <.u.>, .T., NIL ))
+
+#command REINDEX                => DbReindex()
+#command SET ORDER TO <n>       => DbSetOrder( <n> )
+#command SET ORDER TO           => DbSetOrder(0)
+#command APPEND BLANK           => DbAppend()
+#command PACK                   => DbPack()
+#command ZAP                    => DbZap()
+#command COMMIT                 => DbCommitAll()
+#command UNLOCK [RECORD <rcd>]  => DbUnlock(<rcd>)
+
+// Commands with IN clause
+#command REINDEX          <x:IN,ALIAS> <(a)>          => (<(a)>) -> (DbReindex())
+#command SET ORDER TO <n> <x:IN,ALIAS> <(a)>          => (<(a)>) -> (DbSetOrder( <n> ))  // No overload with area param
+#command SET ORDER TO     <x:IN,ALIAS> <(a)>          => (<(a)>) -> (DbSetOrder(0))      // No overload with area param
+#command APPEND BLANK <x:IN,ALIAS> <(a)>              => (<(a)>) -> (DbAppend())
+#command PACK <x:IN,ALIAS> <(a)>                      => (<(a)>) -> (DbPack())
+#command ZAP  <x:IN,ALIAS> <(a)>                      => (<(a)>) -> (DbZap())
+#command COMMIT <x:IN,ALIAS> <(a)>                    => (<(a)>) -> (DbCommit())
+#command UNLOCK [RECORD <rcd>]  <x:IN,ALIAS> <(a)>    => (<(a)>) -> (DbUnLock(<rcd>))
+
+// UNLOCK ALL has no IN clause
+#command UNLOCK ALL             				=> DbUnlockAll()
+
+// Goto and Skip
+#command GOTO <n>               => DbGoto(<n>)
+#command GO [RECORD] <n>        => DbGoto(<n>)
+#command GOTO TOP               => DbGoTop()
+#command GO TOP                 => DbGoTop()
+#command GOTO BOTTOM            => DbGoBottom()
+#command GO BOTTOM              => DbGoBottom()
+#command SKIP                   => DbSkip(1)
+#command SKIP <n>               => DbSkip( <n> )
+
+// GOTO and SKIP with IN clause
+
+#command GOTO <n>  		   <x:IN,ALIAS> <(a)>     => (<a>)->(DbGoto(<n>))
+#command GO [RECORD] <n>   <x:IN,ALIAS> <(a)>     => (<a>)->(DbGoto(<n>))
+#command GOTO TOP  		   <x:IN,ALIAS> <(a)>     => (<a>)->(DbGoTop())
+#command GO TOP   		   <x:IN,ALIAS> <(a)>     => (<a>)->(DbGoTop())
+#command GOTO BOTTOM 	   <x:IN,ALIAS> <(a)>     => (<a>)->(DbGoBottom())
+#command GO BOTTOM  	      <x:IN,ALIAS> <(a)>     => (<a>)->(DbGoBottom())
+#command SKIP 			      <x:IN,ALIAS> <(a)>     => (<a>)->(DbSkip(1))
+#command SKIP <n> 		   <x:IN,ALIAS> <(a)>     => (<a>)->(DbSkip(<n>))
+
+#command SEEK <xpr>  [<soft:SOFTSEEK>] [<lst:LAST>]                     => DbSeek( <xpr> , <.soft.>, <.lst.>)
+#command SEEK <xpr>  [<soft:SOFTSEEK>] [<lst:LAST>] <x:IN,ALIAS> <(a)>  => (<(a)>) -> (DbSeek( <xpr> , <.soft.>, <.lst.>))
+
+#command SET FILTER TO          => dbClearFilter()
+#command SET FILTER TO <xpr>    => dbSetFilter( <{xpr}>, <"xpr"> )
+
+#command SET FILTER TO <x:&>                                            ;
+      => IF ( Empty(<(x)>) )                                            ;
+       ;    DbClearFilter()                                             ;
+       ; ELSE                                                           ;
+       ;    DbSetFilter( <{x}>, <(x)> )                                 ;
+       ; END
+
+// SET FILTER with IN clause
+#command SET FILTER TO  <x:IN,ALIAS> <(a)>        => (<(a)>) -> (DbClearFilter())
+#command SET FILTER TO <xpr> <x:IN,ALIAS> <(a)>   => (<(a)>) -> (DbSetFilter( <{xpr}>, <"xpr"> ))
+#command SET FILTER TO <x:&>  <y:IN,ALIAS> <a>   ;
+      => IF ( Empty(<(x)>) )                     ;
+       ;    (<(a)>) -> (DbClearFilter())           ;
+       ; ELSE                                    ;
+       ;    (<(a)>) -> (DbSetFilter( <{x}>, <(x)> )) ;
+       ; END
+
+
+
+#command REPLACE <(f1)> WITH <x1> [, <(fn)> WITH <xn>]                      ;
+         [FOR <lfor>]                                                   ;
+         [WHILE <lwhile>]                                               ;
+         [NEXT <nnext>]                                                 ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [<noopt: NOOPTIMIZE>]                                          ;
+         [ALL]                                                          ;
+                                                                        ;
+      => DbEval(                                                        ;
+                 {||DbAutoLock(), __FieldSet(<(f1)>,<x1>) [, __FieldSet(<(fn)>, <xn>)], DbAutoUnLock()},    ;
+                 <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <.noopt.>;
+               )
+
+// Replace with IN clause: Run DbEval in the area
+#command REPLACE <(f1)> WITH <x1> [, <(fn)> WITH <xn>]                  ;
+         [FOR <lfor>]                                                   ;
+         [WHILE <lwhile>]                                               ;
+         [NEXT <nnext>]                                                 ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [<noopt: NOOPTIMIZE>]                                          ;
+         [ALL]                                                          ;
+         <x:IN,ALIAS> <(a)>                                             ;
+                                                                        ;
+      => (<(a)>)->(DbEval(                                              ;
+                 {||DbAutoLock(), __FieldSet(<(f1)>,<x1>) [, __FieldSet(<(fn)>, <xn>)], DbAutoUnLock()},    ;
+                 <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <.noopt.>;
+               ))
+
+
+// Single record replace
+#command REPLACE <(f1)> WITH <v1> [, <(fN)> WITH <vN> ]                     ;
+      => DbAutoLock(); __FieldSet(<(f1)>,<v1>) [;__FieldSet(<(fN)>,<vN>)]; DbAutoUnLock()
+
+// Single record replace with IN clause
+#command REPLACE <(f1)> WITH <v1> [, <(fN)> WITH <vN> ]                 ;
+         <x:IN,ALIAS> <(a)>                                             ;
+         => DbAutoLockArea(<(a)>), __FieldSetWa(<(a)>, <(f1)>,<v1>) [,__FieldSetWa(<(a)>,<(fN)>,<vN>)], DbAutoUnLockArea(<(a)>)
+
+// Normal Delete
+#command DELETE                                                         ;
+         [FOR <lfor>]                                                   ;
+         [WHILE <lwhile>]                                               ;
+         [NEXT <nnext>]                                                 ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [<noopt: NOOPTIMIZE>]                                          ;
+         [ALL]                                                          ;
+                                                                        ;
+      => DbEval(                                                        ;
+                 {|| DbAutoLock(), DbDelete(), DbAutoUnLock()},                                       ;
+                 <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <.noopt.>;
+               )
+
+// Delete with IN clause: Run DbEval in the area
+#command DELETE                                                         ;
+         [FOR <lfor>]                                                   ;
+         [WHILE <lwhile>]                                               ;
+         [NEXT <nnext>]                                                 ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [<noopt: NOOPTIMIZE>]                                          ;
+         [ALL]                                                          ;
+         <x:IN,ALIAS> <(a)>                                             ;
+                                                                        ;
+      => (<(a)>)->(DbEval(                                              ;
+                 {|| __DbDelete()},                                       ;
+                 <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <.noopt.>;
+               ))
+
+// Single Record Delete
+#command DELETE                     =>  __DbDelete()
+#command DELETE  <x:IN,ALIAS> <(a)> =>  (<(a)>)->(__DbDelete())
+
+// Normal RECALL
+#command RECALL                                                         ;
+         [FOR <lfor>]                                                   ;
+         [WHILE <lwhile>]                                               ;
+         [NEXT <nnext>]                                                 ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [<noopt: NOOPTIMIZE>]                                          ;
+         [ALL]                                                          ;
+                                                                        ;
+      => DBEval(                                                        ;
+                 {|| __DbRecall()},                                       ;
+                 <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <.noopt.>;
+               )
+// RECALL with IN Clause: Run DbEval in the area
+#command RECALL                                                         ;
+         [FOR <lfor>]                                                   ;
+         [WHILE <lwhile>]                                               ;
+         [NEXT <nnext>]                                                 ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [<noopt: NOOPTIMIZE>]                                          ;
+         [ALL]                                                          ;
+         <x:IN,ALIAS> <(a)>                                             ;
+                                                                        ;
+      => (<(a)>)->(DBEval(                                              ;
+                 {|| __DbRecall()},                                     ;
+                 <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <.noopt.>;
+               ))
+
+// Single record RECALL
+#command RECALL                     =>  __DbRecall()
+#command RECALL  <x:IN,ALIAS> <(a)> =>  (a)->(__DbRecall())
+
+// Find command has no IN clause !
+#command FIND <*text*>          => DbSeek( <(text)> )
+#command FIND := <xpr>          => ( find := <xpr> )
+#command FIND = <xpr>           => ( find := <xpr> )
+
+#command CONTINUE                      => DbContinue()
+#command CONTINUE <x:IN,ALIAS> <(a)>   => (a)->(DbContinue())
+
+// Normal Locate command
+#command LOCATE                                                         ;
+         [FOR <lfor>]                                                   ;
+         [WHILE <lwhile>]                                               ;
+         [NEXT <nnext>]                                                 ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [<noopt: NOOPTIMIZE>]                                          ;
+         [ALL]                                                          ;
+                                                                        ;
+      => DbLocate( <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <.noopt.> )
+
+// Locate command with IN clause:
+#command LOCATE                                                         ;
+         [FOR <lfor>]                                                   ;
+         [WHILE <lwhile>]                                               ;
+         [NEXT <nnext>]                                                 ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [<noopt: NOOPTIMIZE>]                                          ;
+         [ALL]                                                          ;
+         <x:IN,ALIAS> <(a)>                                             ;
+                                                                        ;
+      => (<(a)>)->(DbLocate( <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <.noopt.> ))
+
+
+// Relation commands: Note the order is important !
+// Scoped Relations
+#command SET RELATION                                                   ;
+         [TO <key1> INTO <(alias1)> [, [TO] <keyn> INTO <(aliasn)>]]    ;
+         [SCOPED] [ADDITIVE]                                            ;
+      => OrdSetRelation( <(alias1)>, <{key1}>, <"key1"> )               ;
+      [; OrdSetRelation( <(aliasn)>, <{keyn}>, <"keyn"> )]
+
+#command SET RELATION                                                   ;
+         [TO <key1> INTO <(alias1)> [, [TO] <keyn> INTO <(aliasn)>]]    ;
+         SCOPED                                                         ;
+      => DbClearRelation()                                              ;
+       ; OrdSetRelation( <(alias1)>, <{key1}>, <"key1"> )               ;
+      [; OrdSetRelation( <(aliasn)>, <{keyn}>, <"keyn"> )]
+
+// Normal Relations
+#command SET RELATION                                                   ;
+         [TO <key1> INTO <(alias1)> [, [TO] <keyn> INTO <(aliasn)>]]    ;
+         [ADDITIVE]                                                       ;
+      => DbSetRelation( <(alias1)>, <{key1}>, <"key1"> )                ;
+      [; DbSetRelation( <(aliasn)>, <{keyn}>, <"keyn"> )]
+
+#command SET RELATION                                                   ;
+         [TO <key1> INTO <(alias1)> [, [TO] <keyn> INTO <(aliasn)>]]    ;
+      => DbClearRelation();
+      ;  DbSetRelation( <(alias1)>, <{key1}>, <"key1"> )                ;
+      [; DbSetRelation( <(aliasn)>, <{keyn}>, <"keyn"> )]
+
+#command SET RELATION TO        => DbClearRelation()
+
+// Set Relation command with IN clause
+
+#command SET RELATION                                                   ;
+         [TO <key1> INTO <(alias1)> [, [TO] <keyn> INTO <(aliasn)>]]    ;
+         <x:IN,ALIAS> <(a)>                                             ;
+         [ADDITIVE]                                                     ;
+      => (<(a)>)->(DbSetRelation( <(alias1)>, <{key1}>, <"key1"> ))     ;
+      [; (<(a)>)->(DbSetRelation( <(aliasn)>, <{keyn}>, <"keyn"> ))]
+
+#command SET RELATION                                                   ;
+         [TO <key1> INTO <(alias1)> [, [TO] <keyn> INTO <(aliasn)>]]    ;
+         <x:IN,ALIAS> <(a)>                                             ;
+      => (<(a)>)->(DbClearRelation())                              ;
+      ;  (<(a)>)->(DbSetRelation( <(alias1)>, <{key1}>, <"key1"> ))     ;
+      [; (<(a)>)->(DbSetRelation( <(aliasn)>, <{keyn}>, <"keyn"> ))]
+
+#command SET RELATION TO        <x:IN,ALIAS> <(a)>                      ;
+         => (<(a)>)->(DbClearRelation())
+
+#command CREATE <(file1)>           ;
+            [FROM <(file2)>]        ;
+            [ALIAS <a>]             ;
+            [VIA <rdd>]             ;
+            [<NEW: NEW>]            ;
+            => _DbCreate( <(file1)>, <(file2)> , <rdd>, <.new.>, <(a)> )
+
+
+#command COPY STRUCTURE EXTENDED TO <(file)>                      		;
+      => DbCopyXStruct( <(file)> )
+
+
+#command COPY STRUCTURE TO <(file)> [__DBFIELDLIST__ <fields>]          ;
+      => DbCopyStruct( <(file)>, <fields> )
+
+
+#ifndef __DIALECT_FOXPRO__
+
+#command COPY TO <(file)>   DELIMITED [WITH <*delim*>]                  ;
+         [__DBFIELDLIST__ <fields>]                                     ;
+         [FOR <lfor>]                                                   ;
+         [WHILE <lwhile>]                                               ;
+         [NEXT <nnext>]                                                 ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [<noopt: NOOPTIMIZE>]                                          ;
+         [ALL]                                                          ;
+                                                                        ;
+      => DbCopyDelim(                                                   ;
+                        <(file)>, <(delim)>, <fields> ,                 ;
+                        <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <.noopt.>  ;
+                      )
+
+
+#command COPY TO <(file)> SDF                                           ;
+         [__DBFIELDLIST__ <fields>]                                     ;
+         [FOR <lfor>]                                                    ;
+         [WHILE <lwhile>]                                                ;
+         [NEXT <nnext>]                                                  ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [<noopt: NOOPTIMIZE>]                                          ;
+         [ALL]                                                          ;
+                                                                        ;
+      => DbCopySDF(                                                     ;
+                      <(file)>, <fields>,                               ;
+                      <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <.noopt.>    ;
+                    )
+
+#command COPY TO <(file)>                                               ;
+         [__DBFIELDLIST__ <fields>]                                     ;
+         [FOR <lfor>]                                                    ;
+         [WHILE <lwhile>]                                                ;
+         [NEXT <nnext>]                                                  ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [<noopt: NOOPTIMIZE>]                                          ;
+         [ALL]                                                          ;
+         [VIA <rdd>]                                                    ;
+         [INHERIT <hdnlist,...>]                                        ;
+                                                                        ;
+      => DbCopy(                                                        ;
+                   <(file)>, <fields>,                                  ;
+                   <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>       ;
+                   <rdd>, { <(hdnlist)> }, <.noopt.>)
+
+
+#command APPEND FROM <(file)> DELIMITED [WITH <*delim*>]                ;
+         [__DBFIELDLIST__ <fields>]                                     ;
+         [FOR <lfor>]                                                   ;
+         [WHILE <lwhile>]                                               ;
+         [NEXT <nnext>]                                                 ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [ALL]                                                          ;
+                                                                        ;
+      => DbAppDelim(                                                    ;
+                       <(file)>, <(delim)>, <fields>,                   ;
+                       <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>   ;
+                     )
+
+
+#command APPEND FROM <(file)> SDF                                       ;
+         [__DBFIELDLIST__ <fields>]                                     ;
+         [FOR <lfor>]                                                   ;
+         [WHILE <lwhile>]                                               ;
+         [NEXT <nnext>]                                                 ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [ALL]                                                          ;
+                                                                        ;
+      => DbAppSDF(                                                      ;
+                     <(file)>, <fields>,                                ;
+                     <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>     ;
+                   )
+
+
+#command APPEND FROM <(file)>                                          ;
+         [__DBFIELDLIST__ <fields>]                                     ;
+         [FOR <lfor>]                                                    ;
+         [WHILE <lwhile>]                                                ;
+         [NEXT <nnext>]                                                  ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [ALL]                                                          ;
+         [VIA <rdd>]                                                    ;
+                                                                        ;
+      => DbApp(                                                         ;
+                  <(file)>, <fields>,                                   ;
+                  <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <rdd>    ;
+                )
+
+#command <cmd:COPY,APPEND>  <*clauses*> FIELDS <*moreclauses*> => ;
+         <cmd> <clauses>   __DBFIELDS__ <moreclauses>
+
+
+#endif
+
+#command SORT  TO <(file)>  [ON <fields,...>]                           ;
+         [FOR <lfor>]                                                    ;
+         [WHILE <lwhile>]                                                ;
+         [NEXT <nnext>]                                                  ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [<noopt: NOOPTIMIZE>]                                          ;
+         [ALL]                                                          ;
+                                                                        ;
+      => DbSort(                                                        ;
+                   <(file)>, <fields>,                                  ;
+                   <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <.noopt.> ;
+                 )
+
+
+#command TOTAL TO <(file)> ON <key>                                     ;
+         [__DBFIELDLIST__ <fields>]                                     ;
+         [FOR <lfor>]                                                    ;
+         [WHILE <lwhile>]                                                ;
+         [NEXT <nnext>]                                                  ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [<noopt: NOOPTIMIZE>]                                          ;
+         [ALL]                                                          ;
+                                                                        ;
+      => DbTotal(                                                       ;
+                    <(file)>, <{key}>, <fields>,                        ;
+                    <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <.noopt.>       ;
+                  )
+
+#command TOTAL <*clauses*> FIELDS <*moreclauses*> => ;
+         TOTAL <clauses> __DBFIELDS__ <moreclauses>
+
+
+
+#command UPDATE  FROM <(alias)>  [ON <key>]                             ;
+         [REPLACE <(f1)> WITH <x1> [, <(fn)> WITH <xn>]]                    ;
+         [<rand:RANDOM>]                                                ;
+                                                                        ;
+      => DbUpdate(                                                      ;
+                     <(alias)>, <{key}>, <.rand.>,                      ;
+                     {|| __FieldSet(<(f1)>,<x1>) [, __FieldSet(<(fn)>,<xn>)]} ;
+                   )
+
+
+#command JOIN  WITH <(alias)>  [TO <file>]                              ;
+         [__DBFIELDLIST__ <fields>]                                     ;
+         [<noopt: NOOPTIMIZE>]                                          ;
+         [FOR <lfor>]                                                   ;
+                                                                        ;
+      => DbJoin( <(alias)>, <(file)>, <fields>, <{lfor}>,<.noopt.> )
+
+
+#command JOIN <*clauses*> FIELDS <*moreclauses*> => ;
+         JOIN <clauses> __DBFIELDS__ <moreclauses>
+
+#command COUNT TO <xvar>                                                ;
+         [FOR <lfor>]                                                   ;
+         [WHILE <lwhile>]                                               ;
+         [NEXT <nnext>]                                                 ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [<noopt: NOOPTIMIZE>]                                          ;
+         [ALL]                                                          ;
+                                                                        ;
+      => <xvar> := 0                                                    ;
+       ; DbEval(                                                        ;
+               {|| <xvar> += 1},                                        ;
+               <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <.noopt.>;
+               )
+
+#command SUM  <x1> [, <xn>]  TO  <v1> [, <vn>]                          ;
+         [FOR <lfor>]                                                   ;
+         [WHILE <lwhile>]                                               ;
+         [NEXT <nnext>]                                                 ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [<noopt: NOOPTIMIZE>]                                          ;
+         [ALL]                                                          ;
+                                                                        ;
+      => <v1> := [ <vn> := ] 0                                          ;
+       ; DbEval(                                                        ;
+               {|| <v1> += <x1> [, <vn> += <xn> ]},                     ;
+               <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <.noopt.>;
+               )
+
+#command AVERAGE   <x1> [, <xn>]  TO  <v1> [, <vn>]                     ;
+         [FOR <lfor>]                                                   ;
+         [WHILE <lwhile>]                                               ;
+         [NEXT <nnext>]                                                 ;
+         [RECORD <rec>]                                                 ;
+         [<rest:REST>]                                                  ;
+         [<noopt: NOOPTIMIZE>]                                          ;
+         [ALL]                                                          ;
+                                                                        ;
+      => M->__Avg := <v1> := [ <vn> := ] 0                              ;
+                                                                        ;
+       ; DbEval(                                                        ;
+               {|| M->__Avg += 1,                                       ;
+               <v1> += <x1> [, <vn> += <xn>] },                         ;
+               <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <.noopt.>;
+               )                                                        ;
+                                                                        ;
+       ; <v1> /= M->__Avg [; <vn> /= M->__Avg ]
+
+
+// NOTE:  CLOSE <alias> must precede the others
+#command CLOSE <alias>                 => <alias>->( DbCloseArea() )
+#command CLOSE &<alias>                => (<alias>)->( DbCloseArea() )
+
+#command CLOSE [<al: DATABASES,ALL>] [ALL]   => DbCloseAll()
+#command CLOSE INDEXES                       => DbClearIndex()
+#command CLOSE <x:IN,ALIAS> <(a)>            => (<(a)>)->(DbCloseArea())
+#command CLOSE                               => DbCloseArea()
+
+#endif
+
+** EOF

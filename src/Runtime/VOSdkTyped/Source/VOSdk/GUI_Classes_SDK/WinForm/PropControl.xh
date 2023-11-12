@@ -1,0 +1,45 @@
+//
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
+// See License.txt in the project root for license information.
+//
+
+// PropControl.xh
+// Common members for Controls
+
+PROTECTED oProperties AS VOControlProperties
+PROPERTY ControlProperties AS VOControlProperties GET oProperties
+PROPERTY Control AS VOSDK.Control
+   GET
+      IF oProperties=NULL
+         RETURN NULL
+      ELSE
+         RETURN oProperties:Control
+      ENDIF
+   END GET
+END PROPERTY
+
+CONSTRUCTOR() STRICT
+   SUPER()
+   SELF:SetVisualStyle()
+   // When the control a special initialization code, call it
+   IF SELF IS IVOControlInitialize VAR oIni
+      oIni:Initialize()
+   ENDIF
+
+METHOD SetOwner(Owner AS VOSDK.Control) AS VOID
+   oProperties              := VOControlProperties{SELF, Owner}
+   oProperties:StyleChanged += SetVisualStyle
+   IF SELF:TabStop
+      Owner:SetStyle(WS_TABSTOP, TRUE)
+   ENDIF
+
+PUBLIC METHOD RevertEventPosition(p AS System.Drawing.Point) AS System.Drawing.Point
+   RETURN SELF:oProperties:RevertEventPosition(p)
+
+VIRTUAL PROTECT METHOD WndProc(m REF SWF.Message) AS VOID
+   SUPER:WndProc(REF m)
+   SELF:oProperties:Dispatch(REF m)
+   RETURN
+
+

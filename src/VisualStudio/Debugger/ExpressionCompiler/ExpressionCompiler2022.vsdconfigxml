@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+   Copyright (c) XSharp B.V.  All Rights Reserved.
+   Licensed under the Apache License, Version 2.0.
+   See License.txt in the project root for license information.
+.  For documentation of the vsdconfigxml format see:
+
+    https://github.com/Microsoft/ConcordExtensibilitySamples/wiki/Component-discovery-and-configuration 
+-->
+<Configuration xmlns="http://schemas.microsoft.com/vstudio/vsdconfig/2008">
+
+  <DefineGuid Name="guidXSharpExpressionCompilerCompId" Value="8CBFCC5C-A02F-48F8-BE54-5741CA441330"/>
+  <DefineGuid Name="guidXSharpLanguageId" Value="F579403A-D3D3-47A0-BF03-9709575BEE69"/>
+
+  <ManagedComponent
+    ComponentId="guidXSharpExpressionCompilerCompId"
+    ComponentLevel="9991900" 
+    AssemblyName="XSharp.Debugger2022"
+    Synchronized="true">   
+  <!-- By setting the ComponentLevel to 9991900, which is higher than the level of the C# Expression Compiler (9991500) we get called after the C# expression compiler-->
+    <Class Name="XSharpDebugger.ExpressionCompiler.XSharpExpressionCompiler">
+      <Implements>
+        <InterfaceGroup>
+          <Filter>
+            <LanguageId RequiredValue="guidXSharpLanguageId"/>
+          </Filter>
+          <Interface Name="IDkmClrExpressionCompiler"/>
+          <Interface Name="IDkmClrExpressionCompilerCallback"/>
+          <Interface Name="IDkmLanguageInstructionDecoder"/>
+          <Interface Name="IDkmLanguageFrameDecoder"/>
+        </InterfaceGroup>
+      </Implements>
+    </Class>
+
+  </ManagedComponent>
+
+</Configuration>

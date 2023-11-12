@@ -11,6 +11,7 @@
 *.userprefs
 
 # Build results
+[Aa]rtifacts/
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
@@ -40,7 +41,7 @@ dlldata.c
 
 # DNX
 project.lock.json
-artifacts/
+
 
 *_i.c
 *_p.c
@@ -66,6 +67,8 @@ artifacts/
 *.pidb
 *.svclog
 *.scc
+*.ppo
+*.zip
 
 # Chutzpah Test files
 _Chutzpah*
@@ -213,10 +216,17 @@ ModelManifest.xml
 /XSharp/src/Runtime
 Tools/Converter/PrjConvert.exe
 
-#Backup files
+#XIDE Files
 *.bak
-*.backup
-
+*.vicfg
+*.viapp
+*.exe
+NativeResources.RES
+Native_Resources.rc
+*.lock.json
+XSharp/src/Setup/Preprocessed.iss
+*.RES
+*.db
 # CSharp Project System DB files
 *.opendb
 *.vc.db
@@ -225,11 +235,9 @@ Tools/Converter/PrjConvert.exe
 /Binaries
 /Help/Working
 *.chm
-/Runtime/XSharp.Core/VoFunctionDocs.xml
-/Runtime/XSharp.Vo/VoFunctionDocs.xml
 *.exe
-/External/Public/XSharp.Evaluator.dll
-/External/Public/XSharp.Evaluator.dll.config
-/External/Public/XSharp.Evaluator.xml
-/External/Public/XSharp.VSParser.dll
-/External/Public/XSharp.VSParser.xml
+/External/Public
+/External/Release
+/.cr
+~tmpchm/
+.antlr/
