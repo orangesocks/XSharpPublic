@@ -2790,7 +2790,7 @@ CLASS DataBrowser INHERIT Control
     /// <include file="Gui.xml" path="doc/DataBrowser.Paste/*" />
     METHOD Paste ( )
 
-        
+
         IF oCellEdit IS Edit var oEdit
             oEdit:Paste()
         ENDIF
@@ -3141,7 +3141,7 @@ CLASS DataBrowser INHERIT Control
         /*
         IF IsInstanceOf(oParent, #__FormFrame)
         oWindow:=oParent:Owner
-        if IsInstanceOfUsual(oWindow, #DataWindow)
+        if (oWindow IS DataWindow)
         return Send(oWindow,#__CheckRecordStatus)
         endif
         endif
@@ -3245,7 +3245,7 @@ CLASS DataColumn INHERIT VObject
         LOCAL lRestoreTextColor, lRestoreBackground AS LOGIC
 
         IF (oFieldSpec != NULL_OBJECT)
-            uValue := oFieldSpec:Val(pszData)
+            uValue := oFieldSpec:Val(Psz2String(pszData))
         ELSE
             uValue := Send(oServer:FieldSpec(SELF:NameSym), #Val, Psz2String(pszData))
         ENDIF

@@ -8,16 +8,17 @@ using XSharp
 using System.Text
 using System.Globalization
 using System.Collections.Generic
+using System.Collections.Concurrent
 
 #define MAXDIGITS               30
 #define MAXDECIMALS             15
 
 internal static class XSharp.ConversionHelpers
     static internal usCulture as CultureInfo
-    static private formatStrings as Dictionary<int, string>
+    static private formatStrings as ConcurrentDictionary<int, string>
     static constructor
         usCulture := CultureInfo{"en-US"}
-        formatStrings := Dictionary<int, string>{}
+        formatStrings := ConcurrentDictionary<int, string>{}
 
     static method GetFormatString(nLen as int, nDec as int) as string
         local nKey as int
@@ -34,7 +35,7 @@ internal static class XSharp.ConversionHelpers
         endif
         cFormat := cFormat:PadLeft(nLen, c'#')
         cFormat := "{0," + nLen:ToString()+":"+cFormat+"}"
-        formatStrings:Add(nKey, cFormat)
+        formatStrings:TryAdd(nKey, cFormat)
         return cFormat
 
     private const NOCHAR := c'\0' as char
@@ -900,9 +901,12 @@ internal function _VOVal(cNumber as string) as usual
             style |= NumberStyles.AllowExponent
         endif
         if System.Double.TryParse(cNumber, style, ConversionHelpers.usCulture, out var r8Result)
-            return __Float{ r8Result , cNumber:Length - cNumber:IndexOf(c'.') - 1}
+           if RuntimeState.Dialect == XSharpDialect.FoxPro
+                return __Float{ r8Result }   // FoxPro Takes Decimals from settings
+            else
+                return __Float{ r8Result , cNumber:Length - cNumber:IndexOf(c'.') - 1}
+           endif
         endif
-
     else
 
         local style as NumberStyles
@@ -949,7 +953,6 @@ internal function _VOVal(cNumber as string) as usual
             endif
 
         endif
-
     endif
     return 0
 

@@ -19,6 +19,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{1C0880F5-7
 		Runtime\Docs\RuntimeSpecsV2.docx = Runtime\Docs\RuntimeSpecsV2.docx
 		Docs\Sql.Xml = Docs\Sql.Xml
 		Docs\System.Xml = Docs\System.Xml
+		VFPClasses.xml = VFPClasses.xml
 		Docs\VFPDocs.xml = Docs\VFPDocs.xml
 		Docs\VfpRuntimeDocs.xml = Docs\VfpRuntimeDocs.xml
 		Docs\VoFunctionDocs.xml = Docs\VoFunctionDocs.xml
@@ -44,6 +45,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		Common\FoxProSet.xh = Common\FoxProSet.xh
 		Common\FoxProSql.xh = Common\FoxProSql.xh
 		Common\GuidStrings.cs = Common\GuidStrings.cs
+		Common\HarbourCmd.xh = Common\HarbourCmd.xh
 		Common\memvar.xh = Common\memvar.xh
 		Common\NativeResourceDefines.xh = Common\NativeResourceDefines.xh
 		Runtime\README.md = Runtime\README.md
@@ -174,15 +176,17 @@ Project("{AA6C8D78-22FF-423A-9C7C-5F2393824E04}") = "XSharp.Harbour.Tests", "Run
 EndProject
 Project("{AA6C8D78-22FF-423A-9C7C-5F2393824E04}") = "SQLRddTests", "Tests\SqlRDDTests\SQLRddTests.xsproj", "{1F7D08F1-FAFD-415F-852F-153AD39F1C96}"
 EndProject
-Project("{AA6C8D78-22FF-423A-9C7C-5F2393824E04}") = "TestRelations", "..\..\..\TestProjects\Relations\TestConsoleApplication\TestRelations.xsproj", "{1432694C-431A-4471-BC36-C69AB8AB1356}"
-EndProject
 Project("{AA6C8D78-22FF-423A-9C7C-5F2393824E04}") = "VOMDITyped", "Tests\TypedSDK\VOMDITyped\VOMDITyped.xsproj", "{1ACE06E9-81F8-4AB3-BDA5-C6EFF15E2267}"
 EndProject
 Project("{AA6C8D78-22FF-423A-9C7C-5F2393824E04}") = "Bgraphic", "Tests\BGraphic\Bgraphic.xsproj", "{0D4655F7-708C-4B9F-B903-39E8BB3029DC}"
 EndProject
-Project("{AA6C8D78-22FF-423A-9C7C-5F2393824E04}") = "Bgraphic", "Tests\TypedSDK\BGraphic\Bgraphic.xsproj", "{0D4655F7-708C-4B9F-B903-39E8BB3029DD}"
-EndProject
 Project("{AA6C8D78-22FF-423A-9C7C-5F2393824E04}") = "XSharp.SQLRDD", "Runtime\XSharp.SQLRdd\XSharp.SQLRDD.xsproj", "{E83C6C8C-773F-4B01-A597-3D38398A9373}"
+EndProject
+Project("{AA6C8D78-22FF-423A-9C7C-5F2393824E04}") = "CursorAdapterTests", "Tests\CursorAdapterTests\CursorAdapterTests.xsproj", "{15F2F105-C135-48EB-88BD-7014D12512AA}"
+EndProject
+Project("{AA6C8D78-22FF-423A-9C7C-5F2393824E04}") = "FoxEmbeddedSql", "Tests\FoxEmbeddedSql\FoxEmbeddedSql.xsproj", "{7940544F-CC35-4FBA-887E-7CC0F262646C}"
+EndProject
+Project("{AA6C8D78-22FF-423A-9C7C-5F2393824E04}") = "SqlRddDataexpl", "Tests\SqlDataexpl\SqlRddDataexpl.xsproj", "{544D5F4F-1CA0-4CF0-A62A-7B4D6BA97AEA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -451,12 +455,6 @@ Global
 		{1F7D08F1-FAFD-415F-852F-153AD39F1C96}.Documentation|Any CPU.Build.0 = Debug|Any CPU
 		{1F7D08F1-FAFD-415F-852F-153AD39F1C96}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1F7D08F1-FAFD-415F-852F-153AD39F1C96}.Release|Any CPU.Build.0 = Release|Any CPU
-		{1432694C-431A-4471-BC36-C69AB8AB1356}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{1432694C-431A-4471-BC36-C69AB8AB1356}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{1432694C-431A-4471-BC36-C69AB8AB1356}.Documentation|Any CPU.ActiveCfg = Debug|Any CPU
-		{1432694C-431A-4471-BC36-C69AB8AB1356}.Documentation|Any CPU.Build.0 = Debug|Any CPU
-		{1432694C-431A-4471-BC36-C69AB8AB1356}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{1432694C-431A-4471-BC36-C69AB8AB1356}.Release|Any CPU.Build.0 = Release|Any CPU
 		{1ACE06E9-81F8-4AB3-BDA5-C6EFF15E2267}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{1ACE06E9-81F8-4AB3-BDA5-C6EFF15E2267}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1ACE06E9-81F8-4AB3-BDA5-C6EFF15E2267}.Documentation|Any CPU.ActiveCfg = Debug|Any CPU
@@ -469,18 +467,30 @@ Global
 		{0D4655F7-708C-4B9F-B903-39E8BB3029DC}.Documentation|Any CPU.Build.0 = Debug|Any CPU
 		{0D4655F7-708C-4B9F-B903-39E8BB3029DC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0D4655F7-708C-4B9F-B903-39E8BB3029DC}.Release|Any CPU.Build.0 = Release|Any CPU
-		{0D4655F7-708C-4B9F-B903-39E8BB3029DD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0D4655F7-708C-4B9F-B903-39E8BB3029DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0D4655F7-708C-4B9F-B903-39E8BB3029DD}.Documentation|Any CPU.ActiveCfg = Debug|Any CPU
-		{0D4655F7-708C-4B9F-B903-39E8BB3029DD}.Documentation|Any CPU.Build.0 = Debug|Any CPU
-		{0D4655F7-708C-4B9F-B903-39E8BB3029DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0D4655F7-708C-4B9F-B903-39E8BB3029DD}.Release|Any CPU.Build.0 = Release|Any CPU
 		{E83C6C8C-773F-4B01-A597-3D38398A9373}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{E83C6C8C-773F-4B01-A597-3D38398A9373}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E83C6C8C-773F-4B01-A597-3D38398A9373}.Documentation|Any CPU.ActiveCfg = Documentation|Any CPU
 		{E83C6C8C-773F-4B01-A597-3D38398A9373}.Documentation|Any CPU.Build.0 = Documentation|Any CPU
 		{E83C6C8C-773F-4B01-A597-3D38398A9373}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E83C6C8C-773F-4B01-A597-3D38398A9373}.Release|Any CPU.Build.0 = Release|Any CPU
+		{15F2F105-C135-48EB-88BD-7014D12512AA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{15F2F105-C135-48EB-88BD-7014D12512AA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{15F2F105-C135-48EB-88BD-7014D12512AA}.Documentation|Any CPU.ActiveCfg = Debug|Any CPU
+		{15F2F105-C135-48EB-88BD-7014D12512AA}.Documentation|Any CPU.Build.0 = Debug|Any CPU
+		{15F2F105-C135-48EB-88BD-7014D12512AA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{15F2F105-C135-48EB-88BD-7014D12512AA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7940544F-CC35-4FBA-887E-7CC0F262646C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7940544F-CC35-4FBA-887E-7CC0F262646C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7940544F-CC35-4FBA-887E-7CC0F262646C}.Documentation|Any CPU.ActiveCfg = Debug|Any CPU
+		{7940544F-CC35-4FBA-887E-7CC0F262646C}.Documentation|Any CPU.Build.0 = Debug|Any CPU
+		{7940544F-CC35-4FBA-887E-7CC0F262646C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7940544F-CC35-4FBA-887E-7CC0F262646C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{544D5F4F-1CA0-4CF0-A62A-7B4D6BA97AEA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{544D5F4F-1CA0-4CF0-A62A-7B4D6BA97AEA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{544D5F4F-1CA0-4CF0-A62A-7B4D6BA97AEA}.Documentation|Any CPU.ActiveCfg = Debug|Any CPU
+		{544D5F4F-1CA0-4CF0-A62A-7B4D6BA97AEA}.Documentation|Any CPU.Build.0 = Debug|Any CPU
+		{544D5F4F-1CA0-4CF0-A62A-7B4D6BA97AEA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{544D5F4F-1CA0-4CF0-A62A-7B4D6BA97AEA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -533,11 +543,12 @@ Global
 		{EAEE04E4-D7F6-46AC-B65A-E1B416B8D635} = {3DA9803B-3850-4448-ADA9-DE41C81522DE}
 		{10CBAF73-E66B-47EC-A02C-DD6A078C671E} = {AAA2A7F4-2856-4404-9B77-09D7AF56DE9D}
 		{1F7D08F1-FAFD-415F-852F-153AD39F1C96} = {FBBE72BB-AF27-4F54-BB40-419574C1D018}
-		{1432694C-431A-4471-BC36-C69AB8AB1356} = {FBBE72BB-AF27-4F54-BB40-419574C1D018}
 		{1ACE06E9-81F8-4AB3-BDA5-C6EFF15E2267} = {64603273-9D14-4557-A63B-C2FCB063B454}
 		{0D4655F7-708C-4B9F-B903-39E8BB3029DC} = {FBBE72BB-AF27-4F54-BB40-419574C1D018}
-		{0D4655F7-708C-4B9F-B903-39E8BB3029DD} = {64603273-9D14-4557-A63B-C2FCB063B454}
 		{E83C6C8C-773F-4B01-A597-3D38398A9373} = {3DA9803B-3850-4448-ADA9-DE41C81522DE}
+		{15F2F105-C135-48EB-88BD-7014D12512AA} = {FBBE72BB-AF27-4F54-BB40-419574C1D018}
+		{7940544F-CC35-4FBA-887E-7CC0F262646C} = {FBBE72BB-AF27-4F54-BB40-419574C1D018}
+		{544D5F4F-1CA0-4CF0-A62A-7B4D6BA97AEA} = {FBBE72BB-AF27-4F54-BB40-419574C1D018}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {EF30CE30-FC9E-4FC7-B9F0-DCA49411ACFC}

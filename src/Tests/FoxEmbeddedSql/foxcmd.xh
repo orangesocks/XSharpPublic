@@ -1,0 +1,26 @@
+#command INSERT [INTO] [<*any*>] => #error <(udc)> : Missing FROM or VALUES clause
+
+#command INSERT INTO <(table)> FROM MEMVAR => ;
+    __SqlInsertMemVar(<"table">)
+
+#command INSERT INTO <(table)> [( <(f1)> [, <(fn)> ] )]  VALUES (  <(v1)> [, <(vn)> ] )     => ;
+    __SqlInsertValues( <"table"> , { <"f1"> [, <"fn"> ] },  { <v1> [, <vn> ] } )
+
+#command INSERT INTO <(table)> FROM ARRAY <ArrayName>   => ;
+    __SqlInsertFromArray(<"table"> , <ArrayName>)
+
+#command INSERT INTO <(table)> FROM NAME <ObjectName>   => ;
+    __SqlInsertFromObject(<"table"> , <ObjectName> )
+
+
+#command INSERT INTO <(table)> [( <(f1)> [, <(fn)> ] )] <s:Select> <*moreclauses*>   => ;
+    __SqlInsertFromSQL(<"udc">, <"table"> , { <"f1"> [, <"fn"> ] },  <"s">+" "+<"moreclauses"> )
+
+
+
+// SQL Update Commands
+
+#command UPDATE [<*tableName*>] SET <*setclauses*> ;
+  [FROM <*fromclause*>] [JOIN <*joinclause*>]  ;
+  [WHERE <*whereclause*>]                                   => __SqlUpdate(<"udc">)
+

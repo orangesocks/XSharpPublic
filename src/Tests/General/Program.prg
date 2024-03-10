@@ -1,38 +1,18 @@
-﻿FUNCTION Start as VOID
-    LOCAL p AS BYTE PTR
-    #ifdef XSHARP_RT
-    MemTrace(TRUE)
-    #endif
-    p := MemAlloc(10)
-    #ifdef XSHARP_RT
-    MemGrpEnum(1, MemWalker)
-    #endif
-    p[1] := 42
-   ? p, p[1]
-    //? p, p[1], MemTotal()
-    p := MemRealloc(p, 8)
-   ? p, p[1]
-    #ifdef XSHARP_RT
-    MemGrpEnum(1, MemWalker)
-    #endif
-    //? p, p[1], MemTotal()
-    p := MemRealloc(p, 10)
-   ? p, p[1]
-    #ifdef XSHARP_RT
-    MemGrpEnum(1, MemWalker)
-    #endif
-    //? p, p[1], MemTotal()
-    p := MemRealloc(p, 1)
-   ? p, p[1]
-    #ifdef XSHARP_RT
-    MemGrpEnum(1, MemWalker)
-    #endif
-    //? p, p[1], MemTotal()
+﻿using System.IO
+FUNCTION Start as VOID
+    var hFile := Fopen("C:\Test\customers.dbf") 
+    var oStream := FGetStream(hFile) 
+    ? hFile, oStream
+    var hSafePtr := oStream:SafeFileHandle
+    var oStream2 := FileStream{hSafePtr, FileAccess.ReadWrite}
+    oStream:Position := 100
+    oStream2:Position := 200
+    ? oStream:Position, oStream2:Position
+    ? oStream:Length, oStream2:Length
+    FClose(hFile)
+    ? oStream:Position, oStream2:Position
+    ? oStream:Length, oStream2:Length
 
-    WAIT
-    RETURN
+    wait
 
 
-FUNCTION MemWalker(pMem as IntPtr, nSize as DWORD) AS LOGIC
-    ? "Walk", pMem, nSize
-    RETURN TRUE

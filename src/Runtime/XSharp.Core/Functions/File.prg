@@ -134,6 +134,7 @@ BEGIN NAMESPACE XSharp.IO
                 SELF:FileAccess	:= FileAccess.ReadWrite
             ELSEIF _AND(dwMode,FO_WRITE) == (DWORD) FO_WRITE
                 SELF:FileAccess	:= FileAccess.Write
+                SELF:UnBuffered := TRUE
             ELSE
                 SELF:FileAccess	:= FileAccess.Read
             ENDIF
@@ -202,7 +203,7 @@ BEGIN NAMESPACE XSharp.IO
         RETURN NULL
 
         STATIC PRIVATE METHOD hasStream(pStream AS IntPtr) AS LOGIC
-            return streams:ContainsKey(pStream)
+            RETURN streams:ContainsKey(pStream)
 
         STATIC PRIVATE METHOD addStream(pStream AS IntPtr, oStream AS FileStream, attributes AS DWORD) AS LOGIC
             BEGIN LOCK streams
@@ -223,7 +224,7 @@ BEGIN NAMESPACE XSharp.IO
         RETURN FALSE
 
         STATIC PRIVATE METHOD removeStream(pStream AS IntPtr) AS LOGIC
-            return streams:TryRemove(pStream, out null)
+            RETURN streams:TryRemove(pStream, OUT NULL)
 
         STATIC PRIVATE METHOD createManagedFileStream(cFile AS STRING, oMode AS VOFileMode) AS FileStream
             LOCAL oStream := NULL AS FileStream
@@ -435,6 +436,7 @@ BEGIN NAMESPACE XSharp.IO
                 TRY
                     ClearErrorState()
                     oStream:Write(pBuffer, 0, iCount)
+                    iWritten := iCount
                 CATCH e AS Exception
                     SetErrorState(e)
                 END TRY

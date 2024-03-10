@@ -39,7 +39,7 @@ macroScript         : ( CbExpr=codeblock | Code=codeblockCode ) EOS
 source              :  (Entities+=entity )* EOF
                     ;
 
-foxsource           :  ({HasMemVars}? MemVars += filewidememvar)*
+foxsource           :  (Vars += filewidevar)*
                        StmtBlk=statementBlock
                        (Entities+=entity )* EOF
                     ;
@@ -68,7 +68,7 @@ entity              : namespace_
                     | {IsXPP}? xppmethod        // XPP method, will be linked to XPP Class
                     | constructor               // Constructor Class xxx syntax
                     | destructor                // Destructor Class xxx syntax
-                    | {HasMemVars}? filewidememvar  // memvar declared at file level
+                    | filewidevar               // memvar or field declared at file level
                     | {IsFox}? foxdll           // FoxPro style of declaring Functions in External DLLs
                     | eos                       // Blank Lines between entities
                     ;
@@ -590,20 +590,20 @@ globalAttributes    : LBRKT Target=globalAttributeTarget Attributes+=attribute (
 globalAttributeTarget : Token=ID COLON      // We'll Check for ASSEMBLY and MODULE later
                       ;
 
-
-filewidememvar      : Token=MEMVAR Vars+=identifierName (COMMA Vars+=identifierName)* end=EOS
-                    | {!IsFox }? Token=PUBLIC XVars+=memvar[$Token] (COMMA XVars+=memvar[$Token])*  end=EOS 
-                    | {IsFox  }? Token=PUBLIC FoxVars+=foxmemvar[$Token] (COMMA FoxVars+=foxmemvar[$Token])*  end=EOS
+filewidevar         : Token=MEMVAR Vars+=identifierName (COMMA Vars+=identifierName)* end=eos
+                    | Token=FIELD Fields+=identifierName (COMMA Fields+=identifierName)* (IN Alias=identifierName)? end=eos
+                    | {!IsFox }? Token=PUBLIC XVars+=memvar[$Token] (COMMA XVars+=memvar[$Token])*  end=eos
+                    | {IsFox  }? Token=PUBLIC FoxVars+=foxmemvar[$Token] (COMMA FoxVars+=foxmemvar[$Token])*  end=eos
                     ;
 
  
 statement           : Decl=localdecl                            #declarationStmt
-                    | {IsFox}? Decl=foxlparameters              #foxlparametersStmt    // LPARAMETERS
+                    | Decl=foxlparameters                       #foxlparametersStmt    // LPARAMETERS
                     | Decl=localfuncproc                        #localFunctionStmt
-                    | {!IsFox && HasMemVars}? Decl=memvardecl   #memvardeclStmt  // Memvar declarations, not for FoxPro
+                    | {!IsFox && HasMemVars}? Decl=memvardecl   #memvardeclStmt       // Memvar declarations, not for FoxPro
                     | Decl=fielddecl                            #fieldStmt
-                    | {IsFox && HasMemVars}?  Decl=foxmemvardecl #foxmemvardeclStmt    // Memvar declarations FoxPro specific
-                    | {IsFox}? Decl=foxdimvardecl                #foxdimvardeclStmt        // DIMENSION this.Field(10)
+                    | {IsFox && HasMemVars}? Decl=foxmemvardecl #foxmemvardeclStmt    // Memvar declarations FoxPro specific
+                    | {IsFox }? Decl=foxdimvardecl              #foxdimvardeclStmt    // DIMENSION this.Field(10)
                     | DO? w=WHILE Expr=expression end=eos
                       StmtBlk=statementBlock
                       (e=END (DO|WHILE)? | e=ENDDO) eos	#whileStmt
@@ -882,12 +882,13 @@ assignoperator      : Op = (ASSIGN_OP | EQ)
 
 expression          : Expr=expression Op=(DOT|COLON) Name=simpleName          #accessMember           // member access.
                     | Op=(DOT|COLON|COLONCOLON)     Name=simpleName           #accessMember            // XPP & Harbour SELF member access or inside WITH
-                    | Left=expression Op=(DOT|COLON) LPAREN Rigth=expression RPAREN #accessMemberWith // member access with left expression.
+                    | Left=expression Op=(DOT|COLON) LPAREN Right=expression RPAREN #accessMemberWith // member access with left expression.
                     // Latebound member access with a ampersand and a name or an expression that evaluates to a string
                     | Left=expression Op=(DOT|COLON) AMP 
                       ( Name=identifierName | LPAREN Right=expression RPAREN)  #accessMemberLate   // aa:&Name  Expr must evaluate to a string which is the ivar name
                     | Op=(DOT|COLON|COLONCOLON) AMP 
                         ( Name=identifierName | LPAREN Right=expression RPAREN) #accessMemberLate   // .&Name  XPP & Harbour Late member access or inside WITH
+  
                     | Expr=expression LPAREN ArgList=argumentList RPAREN        #methodCall             // method call, params
                     | XFunc=xbaseFunc LPAREN ArgList=argumentList RPAREN        #xFunctionExpression    // Array(...) or Date(...) params
                     | Expr=expression LBRKT ArgList=bracketedArgumentList RBRKT #arrayAccess            // Array element access
@@ -900,6 +901,7 @@ expression          : Expr=expression Op=(DOT|COLON) Name=simpleName          #a
                     // The predicate prevents STACKALLOC(123) from being parsed as a STACKALLOC <ParenExpression>
                     | {InputStream.La(2) != LPAREN }? Op=STACKALLOC Expr=expression  #stackAllocExpression   // STACKALLOC expr 
                     | Op=(PLUS | MINUS | TILDE| ADDROF | INC | DEC | EXP) Expr=expression #prefixExpression   // +/-/~/&/++/-- expr
+                    | Expr=expression Op=IS Not=FOX_NOT? Null=NULL              #typeCheckExpression    // expr IS NOT? NULL
                     | Expr=expression Op=IS Type=datatype (VAR Id=varidentifier)? #typeCheckExpression    // expr IS typeORid [VAR identifier]
                     | Expr=expression Op=ASTYPE Type=datatype                   #typeCheckExpression    // expr AS TYPE typeORid
                     | Left=expression Op=EXP Right=expression                   #binaryExpression       // expr ^ expr
@@ -930,6 +932,7 @@ expression          : Expr=expression Op=(DOT|COLON) Name=simpleName          #a
                     // Note: No need to check for extra ) } or ] tokens. The expression rule does that already
 primary             : Key=SELF                                                  #selfExpression
                     | Key=SUPER                                                 #superExpression
+                    | Key=NULL LPAREN Type=datatype? RPAREN                     #defaultExpression		// NULL( typeORid ), NULL()
                     | Literal=literalValue                                      #literalExpression		// literals
                     | Literal=parserLiteralValue                                #parserLiteralExpression		// literals created by the preprocessor
                     | LiteralArray=literalArray                                 #literalArrayExpression	// { expr [, expr] }
@@ -937,16 +940,16 @@ primary             : Key=SELF                                                  
                     | TupleExpr=tupleExpr                                       #tupleExpression      // TUPLE { id := expr [, id := expr] }
                     | CbExpr=codeblock                                          #codeblockExpression	// {| [id [, id...] | expr [, expr...] }
                     | AnoExpr=anonymousMethodExpression                         #codeblockExpression	// DELEGATE (x as Foo) { DoSomething(Foo) }
-                    | Query=linqQuery                                           #queryExpression        // LINQ
+                    | Query=linqQuery                                           #queryExpression      // LINQ
                     | {ExpectToken(LCURLY)}? Type=datatype LCURLY Obj=expression COMMA
-                      ADDROF Func=name LPAREN RPAREN RCURLY                     #delegateCtorCall		// delegate{ obj , @func() }
+                      ADDROF Func=name LPAREN RPAREN RCURLY                     #delegateCtorCall		  // delegate{ obj , @func() }
                     | {ExpectToken(LCURLY)}? Type=datatype LCURLY ArgList=argumentList  RCURLY
-                                                   Init=objectOrCollectioninitializer?  #ctorCall				// id{ expr [, expr...] } with optional { Name1 := Expr1, [Name<n> := Expr<n>]}
+                                                   Init=objectOrCollectioninitializer?  #ctorCall			// id{ expr [, expr...] } with optional { Name1 := Expr1, [Name<n> := Expr<n>]}
                     | ch=(CHECKED|UNCHECKED) LPAREN Expr=expression  RPAREN     #checkedExpression		// checked( expression )
-                    | TYPEOF LPAREN Type=datatype RPAREN                        #typeOfExpression		// typeof( typeORid )
-                    | SIZEOF LPAREN Type=datatype RPAREN                        #sizeOfExpression		// sizeof( typeORid )
-                    | DEFAULT LPAREN Type=datatype RPAREN                       #defaultExpression		// default( typeORid )
-                    | Name=simpleName                                           #nameExpression			// generic name
+                    | TYPEOF LPAREN Type=datatype RPAREN                        #typeOfExpression		  // typeof( typeORid )
+                    | SIZEOF LPAREN Type=datatype RPAREN                        #sizeOfExpression		  // sizeof( typeORid )
+                    | Key=DEFAULT LPAREN Type=datatype? RPAREN                  #defaultExpression		// default( typeORid ), default()
+                    | Name=simpleName                                           #nameExpression			  // generic name
                     | {ExpectToken(LPAREN)}? Type=nativeType LPAREN Expr=expression RPAREN             #voConversionExpression	// nativetype( expr )
                     | {ExpectToken(LPAREN)}? XType=xbaseType LPAREN Expr=expression RPAREN             #voConversionExpression	// xbaseType( expr )
                     | {ExpectToken(LPAREN)}? Type=nativeType LPAREN CAST COMMA Expr=expression RPAREN  #voCastExpression		// nativetype(_CAST, expr )
@@ -962,7 +965,8 @@ primary             : Key=SELF                                                  
                     | {ExpectToken(ALIAS)}? Expr=aliasExpression                                      #aliasedExpression    // Handles all expressions with the ALIAS operator
                     | AMP LPAREN Expr=expression RPAREN                         #macro					      // &(expr)          // parens are needed because otherwise &(string) == Foo will match everything until Foo
                     | AMP Name=identifierName                                   #macroName			      // &name            // macro with a variable name
-                    | LPAREN Exprs+=expression (COMMA Exprs+=expression)* RPAREN #parenExpression		// ( expr[,expr,..] )
+                    | { !ModernSyntax}? LPAREN Exprs+=expression (COMMA Exprs+=expression)* RPAREN #parenExpression		// ( expr[,expr,..] )
+                    | { ModernSyntax}? LPAREN Exprs+=expression RPAREN #parenExpression		// ( expr )
                     | Key=ARGLIST                                               #argListExpression		// __ARGLIST
                     ;
 
@@ -974,7 +978,7 @@ boundExpression		  : Expr=boundExpression Op=(DOT | COLON) Name=simpleName      
                     | LBRKT ArgList=bracketedArgumentList RBRKT                         #bindArrayAccess
                     ;
 
-aliasExpression     : {HasMemVars}? MEMVAR ALIAS VarName=identifier                           #aliasedMemvar        // MEMVAR->Name
+aliasExpression     : {HasMemVars}? MEMVAR ALIAS VarName=identifier             #aliasedMemvar        // MEMVAR->Name
                     | FIELD ALIAS (Alias=identifier ALIAS)? Field=identifier    #aliasedField		      // _FIELD->CUSTOMER->NAME
                     | {InputStream.La(4) != LPAREN}?                            // this makes sure that CUSTOMER->NAME() is not matched, this is matched by aliasedExpr later
                       Alias=identifier ALIAS Field=identifier                   #aliasedField		      // CUSTOMER->NAME
@@ -1112,7 +1116,7 @@ anonMember          : Name=identifierName Op=assignoperator Expr=expression
 
 // Tuples
 
-tupleType           : TUPLE LCURLY (Elements+=tupleTypeElement (COMMA Elements+=tupleTypeElement)*)? RCURLY
+tupleType           : TUPLE? LPAREN (Elements+=tupleTypeElement (COMMA Elements+=tupleTypeElement)*)? RPAREN
                     ;
 
 tupleTypeElement    : (identifierName AS)? datatype
@@ -1293,7 +1297,7 @@ literalValue        : Token=
                     | NULL_PTR
                     | NULL_STRING
                     | NULL_SYMBOL
-                    | NULL_FOX )
+                    | NULL_FOX)
                     ;
 
                     // The following rule matches DateTime literals that are the result of a preprocessor rule
@@ -1355,8 +1359,7 @@ xppclass           :  Attributes=attributes?                                // N
                        (ConstraintsClauses+=typeparameterconstraintsclause)*             // Optional typeparameterconstraints for Generic Class
                       e=eos
                       Members+=xppclassMember*
-                      ENDCLASS
-                      eos
+                      (ENDCLASS | END CLASS) eos
                     ;
 
 xppclassModifiers   : ( Tokens+=(STATIC | FREEZE | FINAL | SEALED | ABSTRACT) )+
@@ -1452,7 +1455,7 @@ xppinlineMethod     : Attributes=attributes?                                 // 
 
 
 /// FoxPro Parser definities
-keywordfox          :  Token=( OLEPUBLIC | EACH | EXCLUDE| THISACCESS| HELPSTRING| NOINIT | FOX_AND| FOX_OR| FOX_NOT| FOX_XOR | THEN | FOX_M)
+keywordfox          :  Token=( OLEPUBLIC | EXCLUDE| THISACCESS| HELPSTRING| NOINIT | FOX_AND| FOX_OR| FOX_NOT| FOX_XOR | THEN | FOX_M)
                       // These tokens are already marked as 'only valid in a certain context ' in the lexer
                       // ENDDEFINE | DIMENSION | LPARAMETERS
                     ;

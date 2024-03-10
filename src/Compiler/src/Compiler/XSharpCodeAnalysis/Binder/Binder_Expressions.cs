@@ -460,7 +460,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     // when a class inherits from Object then SUPER:Foo() should not generate a late bind call.
                     // See https://github.com/X-Sharp/XSharpPublic/issues/1285
                     bool isSuper = boundLeft.Kind == BoundKind.BaseReference;
-                    bool earlyBound = propName == ".ctor";
+                    bool earlyBound = propName == WellKnownMemberNames.InstanceConstructorName;
                     bool isObject = leftType.IsObjectType() && !isSuper;
                     bool isUsual = false;
                     bool isArray = false;
@@ -540,7 +540,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                                     indexed: indexed,
                                     type: returnType,
                                     hasErrors: false);
-                            var hidewWarning = Compilation.Options.Dialect.AllowLateBindingForTypesWithTheAttribute() && leftType.HasLateBindingAttribute();
+                            var hidewWarning = Compilation.Options.Dialect.AllowLateBindingForTypesWithLateBindingAttribute() && leftType.HasLateBindingAttribute();
                             if (!hidewWarning)
                             {
                                 // when FoxPro dialect and the type is marked with "allowLateBound" then no need for the warning
@@ -927,7 +927,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                         }
 
                         expression = BindNonMethod(node, symbol, diagnostics, lookupResult.Kind, indexed: false, isError);
-                        
+
                         if (!isNamedType && (hasTypeArguments || node.Kind() == SyntaxKind.GenericName))
                         {
                             diagnostics.Add(ErrorCode.ERR_InvalidExprTerm, node.Location, node.XNode.GetText());
@@ -953,7 +953,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             if (expression != null && expression.Type is not null && expression.Type.IsErrorType())
             {
-                if (expression.Type.ContainingAssembly != null)
+                if (expression.Type.ContainingAssembly != null && expression.Type.ContainingAssembly != Compilation.Assembly)
                 {
                     Error(diagnostics, ErrorCode.ERR_NoTypeDef, node, expression.Type, expression.Type.ContainingAssembly);
                 }
@@ -964,6 +964,24 @@ namespace Microsoft.CodeAnalysis.CSharp
             // or in the 'full' macro compiler
 
             bool isFoxMemberAccess = false;
+
+            if (expression is BoundTypeExpression && node?.XNode is XSharpParserRuleContext xnode1)
+            {
+                // an expression like "M.Object = Something" should not resolve to the Object Type
+
+                if (xnode1 is not AccessMemberContext)
+                {
+                    xnode1 = xnode1.Parent as XSharpParserRuleContext;
+                }
+                if (xnode1 is AccessMemberContext amc && amc.IsFox)
+                {
+                    isFoxMemberAccess = true;
+                    if (amc.HasMPrefix)
+                    {
+                        expression = null;
+                    }
+                }
+            }
 
             if (expression == null && node?.XNode is XSharpParserRuleContext xnode)
             {
@@ -1140,6 +1158,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     switch (sym.Kind)
                     {
                         case SymbolKind.Field:
+                        case SymbolKind.Property:
                             if (onlyDef)
                             {
                                 if (sym.ContainingType.Name == XSharpSpecialNames.FunctionsClass)
@@ -1155,8 +1174,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                             add = true;
                             break;
                         case SymbolKind.Method:
-                        case SymbolKind.Property:
-                            add = !noMethod && !onlyDef;
+                            add = !noMethod;
                             break;
                         default:
                             //add = true;

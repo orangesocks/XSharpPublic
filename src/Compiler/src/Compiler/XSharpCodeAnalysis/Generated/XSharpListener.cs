@@ -1514,19 +1514,6 @@ public interface IXSharpListener : IParseTreeListener {
 	void ExitYieldStmt([NotNull] XSharpParser.YieldStmtContext context);
 
 	/// <summary>
-	/// Enter a parse tree produced by the <c>memvardeclStmt</c>
-	/// labeled alternative in <see cref="XSharpParser.statement"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	void EnterMemvardeclStmt([NotNull] XSharpParser.MemvardeclStmtContext context);
-	/// <summary>
-	/// Exit a parse tree produced by the <c>memvardeclStmt</c>
-	/// labeled alternative in <see cref="XSharpParser.statement"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	void ExitMemvardeclStmt([NotNull] XSharpParser.MemvardeclStmtContext context);
-
-	/// <summary>
 	/// Enter a parse tree produced by the <c>fieldStmt</c>
 	/// labeled alternative in <see cref="XSharpParser.statement"/>.
 	/// </summary>
@@ -1538,6 +1525,19 @@ public interface IXSharpListener : IParseTreeListener {
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	void ExitFieldStmt([NotNull] XSharpParser.FieldStmtContext context);
+
+	/// <summary>
+	/// Enter a parse tree produced by the <c>memvardeclStmt</c>
+	/// labeled alternative in <see cref="XSharpParser.statement"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	void EnterMemvardeclStmt([NotNull] XSharpParser.MemvardeclStmtContext context);
+	/// <summary>
+	/// Exit a parse tree produced by the <c>memvardeclStmt</c>
+	/// labeled alternative in <see cref="XSharpParser.statement"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	void ExitMemvardeclStmt([NotNull] XSharpParser.MemvardeclStmtContext context);
 
 	/// <summary>
 	/// Enter a parse tree produced by the <c>localFunctionStmt</c>
@@ -2662,15 +2662,15 @@ public interface IXSharpListener : IParseTreeListener {
 	void ExitGlobalAttributeTarget([NotNull] XSharpParser.GlobalAttributeTargetContext context);
 
 	/// <summary>
-	/// Enter a parse tree produced by <see cref="XSharpParser.filewidememvar"/>.
+	/// Enter a parse tree produced by <see cref="XSharpParser.filewidevar"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
-	void EnterFilewidememvar([NotNull] XSharpParser.FilewidememvarContext context);
+	void EnterFilewidevar([NotNull] XSharpParser.FilewidevarContext context);
 	/// <summary>
-	/// Exit a parse tree produced by <see cref="XSharpParser.filewidememvar"/>.
+	/// Exit a parse tree produced by <see cref="XSharpParser.filewidevar"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
-	void ExitFilewidememvar([NotNull] XSharpParser.FilewidememvarContext context);
+	void ExitFilewidevar([NotNull] XSharpParser.FilewidevarContext context);
 
 	/// <summary>
 	/// Enter a parse tree produced by <see cref="XSharpParser.statement"/>.

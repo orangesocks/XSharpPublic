@@ -18,7 +18,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 
         INTERNAL PROPERTY CurrentOrder AS CdxTag AUTO
         INTERNAL PROPERTY BagCount AS LONG GET _bags:Count
-
+        INTERNAL PROPERTY Bags AS List<CdxOrderBag> GET _bags
 
         INTERNAL PROPERTY First AS CdxOrderBag GET IIF(_bags:Count > 0, _bags[0], NULL)
         INTERNAL CONSTRUCTOR(oRdd AS DBFCDX)
@@ -275,6 +275,10 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 
         INTERNAL METHOD FindOrder(orderinfo AS DbOrderInfo, tag OUT CdxTag) AS LOGIC
             tag := NULL
+            IF orderinfo:IsEmpty
+                tag := SELF:CurrentOrder
+                RETURN TRUE
+            ENDIF
             IF orderinfo:Order IS STRING VAR name
                 RETURN SELF:FindOrderByName(orderinfo:BagName, name, OUT tag)
             ELSEIF orderinfo:Order IS LONG VAR number

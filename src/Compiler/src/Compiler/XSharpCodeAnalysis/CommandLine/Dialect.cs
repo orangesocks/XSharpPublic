@@ -58,6 +58,17 @@ namespace Microsoft.CodeAnalysis.CSharp
                     return true;
             }
         }
+        public static bool LikeVO(this XSharpDialect dialect)
+        {
+            switch (dialect)
+            {
+                case XSharpDialect.Vulcan:
+                case XSharpDialect.VO:
+                    return true;
+                default:
+                    return false;
+            }
+        }
 
         public static bool AllowFourLetterAbbreviations(this XSharpDialect dialect)
         {
@@ -166,7 +177,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
         }
 
-        public static bool AllowLateBindingForTypesWithTheAttribute(this XSharpDialect dialect)
+        public static bool AllowLateBindingForTypesWithLateBindingAttribute(this XSharpDialect dialect)
         {
             switch (dialect)
             {

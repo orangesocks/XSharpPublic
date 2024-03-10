@@ -2,14 +2,17 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Reflection;
+
 
 namespace XSharp.Debugger.Support
 {
     public static class RtLink
     {
         public const string ErrorPrefix = "XSharp Debugger Error : ";
+        const string ErrorValue = "** Error **";
         const string RTNotLoaded = ErrorPrefix+" XSharp Runtime not Loaded";
         const string TypeNotFound = ErrorPrefix + "Type '{0}' not found";
         const string MethodNotFound = ErrorPrefix + "Method '{0}' not found";
@@ -297,6 +300,120 @@ namespace XSharp.Debugger.Support
             {
                 return string.Format(ExceptionOccurred, e.ToString());
             }
+        }
+
+        public static object _GetArea(int areaNo)
+        {
+            if (!IsRTLoaded())
+                return RTNotLoaded;
+            string error;
+            var state = GetState(out error);
+            if (state == null)
+                return error;
+            var prop = FindProperty(stateType, "CurrentWorkarea", BFPublicStatic, out error);
+            if (prop == null)
+                return error;
+            var selectedArea = (uint)prop.GetValue(null, null);
+            prop = stateType.FindProperty("DataSession", BFPublicStatic, out error);
+            if (prop == null)
+                return error;
+            var was = prop.GetValue(null, null);
+            if (was == null)
+                return CouldNotReadDataSession;
+            var type = was.GetType();
+            var propRDDs = type.FindProperty("OpenRDDs", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy, out error);
+            if (propRDDs == null)
+                return error;
+            var rdds = propRDDs.GetValue(was, null);
+            dynamic area = null;
+            foreach (var item in (IEnumerable)rdds)
+            {
+                // use dynamic here. The type is too complicated to resolve here.
+                dynamic kvp = item;
+                var first = kvp.Key;    // DWORD
+                if ((int)first == areaNo)
+                {
+                    area = kvp.Value;
+                    break;
+                }
+            }
+            return area;
+        }
+
+        public static string GetArea(int areaNo)
+        {
+            object area = _GetArea(areaNo);
+            if (area != null)
+            {
+                var result = new NameValueItems { Sorted = true };
+                var atype = area.GetType();
+                var props = atype.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy).ToArray();
+                foreach (var property in props)
+                {
+                    if (property.CanRead)
+                    {
+                        try
+                        {
+                            var value = property.GetValue(area, null);
+                            if (value is null)
+                            {
+                                continue;
+                            }
+                            switch (value)
+                            {
+                                case string _:
+                                case bool _:
+                                case int _:
+                                case uint _:
+                                case long _:
+                                case DateTime _:
+                                case ulong _:
+                                    result.Add(new NameValueItem { Name = property.Name, Value = value.ToString() });
+                                    break;
+                            }
+                        }
+                        catch
+                        {
+                            result.Add(new NameValueItem { Name = property.Name, Value = ErrorValue });
+                        }
+                    }
+
+                }
+                return result.Serialize();
+            }
+            return "";
+            
+        }
+        public static string GetFieldValues(int areaNo)
+        {
+            dynamic area = _GetArea(areaNo);
+            if (area != null)
+            {
+                var result = new NameValueItems();
+
+                int fields = area.FieldCount;
+                for (int i = 1; i <= fields; i++)
+                {
+                    string name = $"Field {i}";
+                    object value;
+                    try
+                    {
+                        name = area.FieldName(i);
+                        value = area.GetValue(i);
+                        if (value is null)
+                        {
+                            value = "<NULL>";
+                        }
+                        result.Add(new NameValueItem { Name = name, Value = value.ToString() });
+                    }
+                    catch
+                    {
+                        result.Add(new NameValueItem { Name = name, Value = ErrorValue });
+                    }
+                }
+                return result.Serialize();
+            }
+            return "";
         }
     }
 }

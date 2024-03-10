@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!--
     Microsoft ResX Schema
@@ -1443,13 +1443,13 @@
     <value>This label has not been referenced</value>
   </data>
   <data name="ERR_UseDefViolation" xml:space="preserve">
-    <value>Use of unassigned local variable '{0}'</value>
+    <value>Use of possibly unassigned local variable '{0}'</value>
   </data>
   <data name="WRN_UseDefViolation" xml:space="preserve">
-    <value>Use of unassigned local variable '{0}'</value>
+    <value>Use of possibly unassigned local variable '{0}'</value>
   </data>
   <data name="WRN_UseDefViolation_Title" xml:space="preserve">
-    <value>Use of unassigned local variable</value>
+    <value>Use of possibly unassigned local variable</value>
   </data>
   <data name="WRN_UnreferencedVar" xml:space="preserve">
     <value>The variable '{0}' is declared but never used</value>
@@ -1776,13 +1776,13 @@
     <value>Imported type '{0}' is invalid. It contains a circular base type dependency.</value>
   </data>
   <data name="ERR_UseDefViolationOut" xml:space="preserve">
-    <value>Use of unassigned OUT parameter '{0}'</value>
+    <value>Use of possibly unassigned OUT parameter '{0}'</value>
   </data>
   <data name="WRN_UseDefViolationOut" xml:space="preserve">
-    <value>Use of unassigned OUT parameter '{0}'</value>
+    <value>Use of possibly unassigned OUT parameter '{0}'</value>
   </data>
   <data name="WRN_UseDefViolationOut_Title" xml:space="preserve">
-    <value>Use of unassigned OUT parameter</value>
+    <value>Use of possibly unassigned OUT parameter</value>
   </data>
   <data name="ERR_ArraySizeInDeclaration" xml:space="preserve">
     <value>Array size cannot be specified in a variable declaration (try initializing with a 'new' expression)</value>
@@ -5385,6 +5385,8 @@ To remove the warning, you can use /reference instead (set the Embed Interop Typ
                                This only works for the VO, XPP and Harbour dialects.
 -undeclared[+|-]               Should the compiler allow undeclared variables
                                This only works for the VO, XPP and Harbour dialects.
+-modernsyntax[+|-]             Disable some old Xbase compatibility features, such as &amp;&amp; and * comments, bracketed strings etc.
+                               This only works for the VO, XPP and Harbour dialects.
 
 
                         - PREPROCESOR -
@@ -7702,6 +7704,18 @@ To remove the warning, you can use /reference instead (set the Embed Interop Typ
  </data>
   <data name="ERR_ParameterInit" xml:space="preserve">
   <value>{0} cannot have an initial value.</value>
+ </data>
+  <data name="ERR_LambdaConversionNotPossible" xml:space="preserve">
+  <value>Cannot convert from Lambda Expression to {0}.</value>
+ </data>
+  <data name="WRN_FileWideMemVarName" xml:space="preserve">
+  <value>File Wide Memory Variable found with the same name '{0}'. You must use the MEMVAR or M prefix to access that variable.</value>
+ </data>
+  <data name="ERR_ClipperOverloaded" xml:space="preserve">
+  <value>Type '{0}' cannot have an overloaded method '{1}' because one of the overloads has the CLIPPER calling convention.</value>
+ </data>
+  <data name="ERR_UnexpectedNamedArgument" xml:space="preserve">
+  <value>The named argument '{0}' is not supported when creating typed arrays.</value>
  </data>
 
 </root>

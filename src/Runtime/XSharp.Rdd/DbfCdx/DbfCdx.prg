@@ -124,6 +124,9 @@ BEGIN NAMESPACE XSharp.RDD
                         // Already open, do nothing
                         lOk := TRUE
                     ENDIF
+                    IF RuntimeState.LastRddError != null
+                        lOk := FALSE
+                    ENDIF
                     IF lOk .and. SELF:CurrentOrder == NULL
                         orderInfo:Order := 1
                         lOk := SELF:OrderListFocus(orderInfo)
@@ -133,18 +136,18 @@ BEGIN NAMESPACE XSharp.RDD
 
 
             METHOD _CloseAllIndexes(orderInfo AS DbOrderInfo, lCloseStructural AS LOGIC) AS LOGIC
-                RETURN SELF:_indexList:Delete(orderInfo, lCloseStructural)
+                RETURN SELF:_indexList:Delete(orderInfo, lCloseStructural) .and. RuntimeState.LastRddError == null
 
             OVERRIDE METHOD OrderListDelete(orderInfo AS DbOrderInfo) AS LOGIC
                 BEGIN LOCK SELF
                     SELF:GoCold()
-                    RETURN SELF:_CloseAllIndexes(orderInfo, FALSE)
+                    RETURN SELF:_CloseAllIndexes(orderInfo, FALSE) .and. RuntimeState.LastRddError == null
                 END LOCK
 
             OVERRIDE METHOD OrderListFocus(orderInfo AS DbOrderInfo) AS LOGIC
                 BEGIN LOCK SELF
                     SELF:GoCold()
-                    RETURN SELF:_indexList:Focus(orderInfo)
+                    RETURN SELF:_indexList:Focus(orderInfo) .and. RuntimeState.LastRddError == null
                 END LOCK
 
             OVERRIDE METHOD OrderListRebuild() AS LOGIC
@@ -160,7 +163,35 @@ BEGIN NAMESPACE XSharp.RDD
                     ENDIF
 
                     SELF:GoCold()
-                    RETURN SELF:_indexList:Rebuild()
+                    // because of caching mechanisms we have to close the indexes and reopen them after rebuilding
+                    // therefor we save the names of the orderbags that are open, so we can reopen them later
+                    // we also save the active order
+                    local current := SELF:CurrentOrder as CdxTag
+                    var bags := List<DbOrderInfo>{}
+                    foreach var index in SELF:_indexList:Bags
+                        bags:Add(DbOrderInfo{} {BagName := index:FullPath})
+                    next
+                    var lOk := SELF:_indexList:Rebuild() .and. RuntimeState.LastRddError == null
+                    foreach var index in SELF:_indexList:Bags
+                        index:Close()
+                    next
+                    SELF:_indexList:Bags:Clear()
+                    var baseName := System.IO.Path.ChangeExtension(SELF:FileName,"")
+                    foreach var bag in bags
+                        var indexBase := System.IO.Path.ChangeExtension(bag:BagName,"")
+                        lOk := SELF:_indexList:Add(bag, String.Compare(indexBase, baseName, true) == 0)
+                        IF ! lOk
+                            EXIT
+                        ENDIF
+                    next
+                    IF lOk .and. current != null
+                        var orderInfo := DbOrderInfo{}
+                        orderInfo:BagName := current:OrderBag:FullPath
+                        orderInfo:Order   := current:OrderName
+                        lOk := SELF:OrderListFocus(orderInfo)
+                    ENDIF
+                    RETURN lOk
+
                 END LOCK
 
             OVERRIDE METHOD OrderInfo(nOrdinal AS DWORD , info AS DbOrderInfo ) AS OBJECT
@@ -449,7 +480,7 @@ BEGIN NAMESPACE XSharp.RDD
 
             isOk := SUPER:Pack()
             IF isOk
-                isOk := SELF:OrderListRebuild()
+                isOk := SELF:OrderListRebuild()  .and. RuntimeState.LastRddError == null
             ENDIF
             RETURN isOk
 
@@ -458,7 +489,7 @@ BEGIN NAMESPACE XSharp.RDD
 
             isOk := SUPER:Zap()
             IF isOk
-                isOk := SELF:OrderListRebuild()
+                isOk := SELF:OrderListRebuild()  .and. RuntimeState.LastRddError == null
             ENDIF
             RETURN isOk
 
@@ -512,6 +543,9 @@ BEGIN NAMESPACE XSharp.RDD
                 // Open structural index
                 IF RuntimeState.AutoOpen
                     SELF:OpenProductionIndex(info)
+                    IF RuntimeState.LastRddError != null
+                        lOk := FALSE
+                    ENDIF
                 ENDIF
                 SELF:GoTop()
             ENDIF
@@ -637,17 +671,16 @@ BEGIN NAMESPACE XSharp.RDD
         #REGION GoCold, GoHot, Flush
         OVERRIDE METHOD GoCold() AS LOGIC
             LOCAL isOk AS LOGIC
-
             isOk := TRUE
             BEGIN LOCK SELF
                 IF !SELF:IsHot
                     RETURN isOk
                 ENDIF
-                isOk := SELF:_indexList:GoCold()
-                IF !isOk
-                    RETURN isOk
-                ENDIF
-                RETURN SUPER:GoCold()
+                    isOk := SELF:_indexList:GoCold()
+                    IF isOk
+                        isOk := SUPER:GoCold()
+                    ENDIF
+                RETURN isOk
             END LOCK
 
          OVERRIDE METHOD GoHot() AS LOGIC

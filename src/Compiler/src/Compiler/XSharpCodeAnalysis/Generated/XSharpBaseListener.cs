@@ -1746,21 +1746,6 @@ public partial class XSharpBaseListener : IXSharpListener {
 	public virtual void ExitYieldStmt([NotNull] XSharpParser.YieldStmtContext context) { }
 
 	/// <summary>
-	/// Enter a parse tree produced by the <c>memvardeclStmt</c>
-	/// labeled alternative in <see cref="XSharpParser.statement"/>.
-	/// <para>The default implementation does nothing.</para>
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	public virtual void EnterMemvardeclStmt([NotNull] XSharpParser.MemvardeclStmtContext context) { }
-	/// <summary>
-	/// Exit a parse tree produced by the <c>memvardeclStmt</c>
-	/// labeled alternative in <see cref="XSharpParser.statement"/>.
-	/// <para>The default implementation does nothing.</para>
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	public virtual void ExitMemvardeclStmt([NotNull] XSharpParser.MemvardeclStmtContext context) { }
-
-	/// <summary>
 	/// Enter a parse tree produced by the <c>fieldStmt</c>
 	/// labeled alternative in <see cref="XSharpParser.statement"/>.
 	/// <para>The default implementation does nothing.</para>
@@ -1774,6 +1759,21 @@ public partial class XSharpBaseListener : IXSharpListener {
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	public virtual void ExitFieldStmt([NotNull] XSharpParser.FieldStmtContext context) { }
+
+	/// <summary>
+	/// Enter a parse tree produced by the <c>memvardeclStmt</c>
+	/// labeled alternative in <see cref="XSharpParser.statement"/>.
+	/// <para>The default implementation does nothing.</para>
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	public virtual void EnterMemvardeclStmt([NotNull] XSharpParser.MemvardeclStmtContext context) { }
+	/// <summary>
+	/// Exit a parse tree produced by the <c>memvardeclStmt</c>
+	/// labeled alternative in <see cref="XSharpParser.statement"/>.
+	/// <para>The default implementation does nothing.</para>
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	public virtual void ExitMemvardeclStmt([NotNull] XSharpParser.MemvardeclStmtContext context) { }
 
 	/// <summary>
 	/// Enter a parse tree produced by the <c>localFunctionStmt</c>
@@ -3094,17 +3094,17 @@ public partial class XSharpBaseListener : IXSharpListener {
 	public virtual void ExitGlobalAttributeTarget([NotNull] XSharpParser.GlobalAttributeTargetContext context) { }
 
 	/// <summary>
-	/// Enter a parse tree produced by <see cref="XSharpParser.filewidememvar"/>.
+	/// Enter a parse tree produced by <see cref="XSharpParser.filewidevar"/>.
 	/// <para>The default implementation does nothing.</para>
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
-	public virtual void EnterFilewidememvar([NotNull] XSharpParser.FilewidememvarContext context) { }
+	public virtual void EnterFilewidevar([NotNull] XSharpParser.FilewidevarContext context) { }
 	/// <summary>
-	/// Exit a parse tree produced by <see cref="XSharpParser.filewidememvar"/>.
+	/// Exit a parse tree produced by <see cref="XSharpParser.filewidevar"/>.
 	/// <para>The default implementation does nothing.</para>
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
-	public virtual void ExitFilewidememvar([NotNull] XSharpParser.FilewidememvarContext context) { }
+	public virtual void ExitFilewidevar([NotNull] XSharpParser.FilewidevarContext context) { }
 
 	/// <summary>
 	/// Enter a parse tree produced by <see cref="XSharpParser.statement"/>.

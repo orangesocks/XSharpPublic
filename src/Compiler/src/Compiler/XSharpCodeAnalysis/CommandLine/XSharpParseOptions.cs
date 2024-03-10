@@ -115,7 +115,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         public bool CaseSensitive { get; private set; }
         public int ClrVersion { get; private set; }
         public bool MacroScript { get; private set; }
-
+        public bool ModernSyntax { get; private set; }
         public XSharpTargetDLL TargetDLL { get; private set; }
         public bool DebugEnabled { get; private set; }
         public XSharpDialect Dialect { get; private set; }
@@ -218,6 +218,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 InitLocals = opt.InitLocals;
                 LateBinding = opt.LateBinding;
                 MemVars = opt.MemVars;
+                ModernSyntax = opt.ModernSyntax;
                 NoClipCall = opt.NoClipCall;
                 NoStdDef = opt.NoStdDef;
                 Overflow = opt.Overflow;
@@ -303,6 +304,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             LanguageVersion = defaultLanguageVersion;
             LateBinding = opt.LateBinding;
             MacroScript = opt.MacroScript;
+            ModernSyntax = opt.ModernSyntax;
             MemVars = opt.MemVars;
             NoClipCall = opt.NoClipCall;
             NoStdDef = opt.NoStdDef;
@@ -456,7 +458,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 case CompilerOption.UntypedAllowed: // vo15
                     return CheckOption(option, VOUntypedAllowed, token, options);
 
-                case CompilerOption.DefaultClipperContructors: // vo16
+                case CompilerOption.DefaultClipperConstructors: // vo16
                     return CheckOption(option, VOClipperConstructors, token, options);
 
                 case CompilerOption.CompatibleBeginSequence: // vo17

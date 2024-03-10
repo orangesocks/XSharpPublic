@@ -87,11 +87,11 @@ namespace XSharp.CodeDom
 
         private bool hasClassMember(IXTypeSymbol type, string name, MemberTypes mtype)
         {
-            if (_members.ContainsKey(name))
+            if (_members.TryGetValue(name, out var member))
             {
                 // no need to include the type itself in the cache. This cache only
                 // has fields and properties for the current window/control in the designer
-                return (_members[name].MemberType | mtype) != 0;
+                return (member.MemberType | mtype) != 0;
             }
             if (type == null)
                 return false;
@@ -134,7 +134,7 @@ namespace XSharp.CodeDom
             else
             {
                 // not in our class, maybe in a parent class
-                var parentType = findType(type.BaseTypeName);
+                var parentType = findParentType(type);
                 return hasClassMember(parentType, name, mtype);
             }
             return result;
@@ -144,9 +144,8 @@ namespace XSharp.CodeDom
 
         protected IXTypeSymbol getClassMemberType(string name, MemberTypes memberType)
         {
-            if (_members.ContainsKey(name))
+            if (_members.TryGetValue(name, out var mem))
             {
-                var mem = _members[name];
                 if (mem.MemberType == memberType)
                     return mem.Type;
             }
@@ -154,7 +153,7 @@ namespace XSharp.CodeDom
         }
         protected bool isField(string name)
         {
-            if (_members.ContainsKey(name) && _members[name].MemberType == MemberTypes.Field)
+            if (_members.TryGetValue(name, out var mem) && mem.MemberType == MemberTypes.Field)
             {
                 return true;
             }
@@ -163,7 +162,7 @@ namespace XSharp.CodeDom
         }
         protected bool isProperty(string name)
         {
-            if (_members.ContainsKey(name) && _members[name].MemberType == MemberTypes.Property)
+            if (_members.TryGetValue(name, out var mem) && mem.MemberType == MemberTypes.Property)
             {
                 return true;
             }
@@ -171,7 +170,7 @@ namespace XSharp.CodeDom
         }
         protected bool isMethod(string name)
         {
-            if (_members.ContainsKey(name) && _members[name].MemberType == MemberTypes.Method)
+            if (_members.TryGetValue(name, out var mem) && mem.MemberType == MemberTypes.Method)
             {
                 return true;
             }
@@ -179,7 +178,7 @@ namespace XSharp.CodeDom
         }
         private bool isEvent(string name)
         {
-            if (_members.ContainsKey(name) && _members[name].MemberType == MemberTypes.Event)
+            if (_members.TryGetValue(name, out var mem) && mem.MemberType == MemberTypes.Event)
             {
                 return true;
             }
@@ -769,6 +768,13 @@ namespace XSharp.CodeDom
         {
             CodeExpression expr = null;
             memberType = null;
+            if (!_members.ContainsKey(name) && CurrentType.IsPartial)
+            {
+                // get all the members from the database
+                // and check if the member is in the list
+                // when so, then the _members collection will have the member afterwards
+                findMemberInMergedType(name);
+            }
             if (!_members.ContainsKey(name))
             {
                 findMemberInBaseTypes(name, MemberTypes.All);
@@ -804,6 +810,16 @@ namespace XSharp.CodeDom
             return expr;
         }
 
+        private bool findMemberInMergedType(string name)
+        {
+            var typeName = CurrentType.Name;
+            if (CurrentNamespace != null)
+            {
+                typeName = CurrentNamespace.Name+ "." + typeName;
+            }
+            var ftype = this.findType(typeName);
+            return hasClassMember(ftype, name, MemberTypes.All);
+        }
 
         private bool findMemberInBaseTypes(string name, MemberTypes mtype)
         {

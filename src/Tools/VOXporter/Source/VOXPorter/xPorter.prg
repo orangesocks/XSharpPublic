@@ -6,7 +6,7 @@ USING System.Reflection
 USING System.Text
 USING System.Drawing
 USING System.Linq
-USING Xide
+USING VOParser
 
 GLOBAL glCreateFilePerClass := FALSE AS LOGIC
 
@@ -1291,7 +1291,7 @@ CLASS ApplicationDescriptor
 						oModuleFieldSpecs:SaveToDocument(cBinary)
 					END IF
 					IF xPorter.ExportToXide .and. aXideFieldSpecs:Count != 0
-						VOFieldSpecEditor.ProjectImportVNFs(cPrg , aXideFieldSpecs:ToArray())
+						Xide.VOFieldSpecEditor.ProjectImportVNFs(cPrg , aXideFieldSpecs:ToArray())
 					END IF
 				END IF
 
@@ -1305,7 +1305,7 @@ CLASS ApplicationDescriptor
 				END IF
 				IF xPorter.ExportToXide .and. aXideDBServers:Count != 0
 					FOREACH cDBServer AS STRING IN aXideDBServers
-						VODBServerEditor.ProjectImportVNDbs(cPrg , cDBServer)
+						Xide.VODBServerEditor.ProjectImportVNDbs(cPrg , cDBServer)
 					NEXT
 				ENDIF
 				FOREACH cFileName AS STRING IN aFilesToDel
@@ -1837,10 +1837,16 @@ CLASS ModuleDescriptor
 
 	PROTECTED METHOD Adjust_VXP_Tags(aCode AS STRING[]) AS VOID
 		FOR LOCAL n := 1 AS INT UPTO aCode:Length
-			LOCAL cLine, cUpper AS STRING
-			LOCAL nAt AS INT
+			LOCAL cLine/*, cUpper*/ AS STRING
+//			LOCAL nAt AS INT
 			cLine := aCode[n]
-			cUpper := cLine:ToUpperInvariant()
+			// We already handle such tags with the {VOXP:XXX} format, at theline level
+			// So simply convert the alternative VXP-XXX ones to {VOXP:XXX}
+			IF cLine:IndexOf("VXP-") != -1
+				cLine := cLine:Replace("VXP-DEL", "{VOXP:DEL}"):Replace("VXP-COM", "{VOXP:COM}"):Replace("VXP-UNC", "{VOXP:UNC}")
+				aCode[n] := cLine
+			END IF
+/*			cUpper := cLine:ToUpperInvariant()
 			nAt := nAt := cUpper:IndexOf("VXP-")
 			IF nAt != -1
 				LOCAL nCommentMarker := -1 AS INT
@@ -1872,7 +1878,7 @@ CLASS ModuleDescriptor
 						END IF
 					END CASE
 				END IF
-			END IF
+			END IF*/
 		NEXT
 	RETURN
 
@@ -1908,8 +1914,8 @@ CLASS ModuleDescriptor
 	RETURN FALSE
 
 	METHOD Analyze() AS VOID
-		LOCAL oBuffer AS Xide.EditorBuffer
-		oBuffer := Xide.EditorBuffer.CreateBuffer(Xide.FileType.VO , SELF:_aLines)
+		LOCAL oBuffer AS VOBuffer
+		oBuffer := VOBuffer.CreateBuffer(SELF:_aLines)
 		oBuffer:FullParse()
 
 		LOCAL oCurrentEntity := NULL AS EntityDescriptor
@@ -1967,8 +1973,8 @@ CLASS ModuleDescriptor
 	RETURN
 
 	METHOD SearchForCallbacks() AS VOID
-		LOCAL oBuffer AS Xide.EditorBuffer
-		oBuffer := Xide.EditorBuffer.CreateBuffer(Xide.FileType.VO , SELF:_aLines)
+		LOCAL oBuffer AS VOBuffer
+		oBuffer := VOBuffer.CreateBuffer(SELF:_aLines)
 		oBuffer:FullParse()
 
 		FOREACH oLine AS LineObject IN SELF:_aLines
@@ -2035,7 +2041,11 @@ CLASS ModuleDescriptor
 			CASE oEntity:Type == EntityType._Resource
 				NOP
 			CASE oEntity:Type == EntityType._TextBlock
-				oTextblocks:Combine(oEntity:Generate())
+				IF oEntity:IsTopStatements
+					oTextblocks:CombineTop(oEntity:Generate())
+				ELSE
+					oTextblocks:Combine(oEntity:Generate())
+				END IF
 			CASE oEntity:Type == EntityType._Define
 				IF xPorter.Options:ExportOnlyDefines .AND. oEntity:IsStatic
 					LOOP
@@ -2063,6 +2073,7 @@ CLASS ModuleDescriptor
 		IF xPorter.Options:ExportOnlyDefines
 			oCode:Combine(oDefines)
 		ELSE
+			// TEXTBLOCKs may contain top statements, so we always need to emit them first
 			oCode:Combine(oTextblocks)
 			IF .NOT. oDefines:IsEmpty()
 				oCode:AddLine("#region DEFINES")
@@ -2262,6 +2273,7 @@ CLASS EntityDescriptor
 	PROTECT _nStartLine AS INT
 	PROTECT _oModule AS ModuleDescriptor
 	PROTECT _lIsStatic AS LOGIC
+	PROTECT _lIsTopStatements AS LOGIC
 
 	CONSTRUCTOR(oEntity AS EntityObject , nLine AS INT , oModule AS ModuleDescriptor)
 		SELF:_aLines := List<LineObject>{}
@@ -2273,6 +2285,7 @@ CLASS EntityDescriptor
 		SELF:_oModule := oModule
 
 		SELF:_lIsStatic := oEntity:lStatic
+		SELF:_lIsTopStatements := SELF:_cName:StartsWith("VXP-TOP") .or. SELF:_cName:StartsWith("{VOXP:TOP}")
 	RETURN
 
 	PROPERTY Name AS STRING GET SELF:_cName
@@ -2285,6 +2298,7 @@ CLASS EntityDescriptor
 			SELF:_eType == EntityType._Access .OR. SELF:_eType == EntityType._Assign
 	PROPERTY PartialClass AS LOGIC AUTO
 	PROPERTY IsStatic AS LOGIC GET SELF:_lIsStatic
+	PROPERTY IsTopStatements AS LOGIC GET SELF:_lIsTopStatements
 	PROPERTY HasInherit AS LOGIC GET .NOT. (System.String.IsNullOrWhiteSpace(SELF:_cInherit) .OR. SELF:_cInherit:ToUpper() == "VOBJECT")
 
 	METHOD AddLine(oLine AS LineObject) AS VOID
@@ -2486,6 +2500,7 @@ CLASS EntityDescriptor
 					cLine := cLine:Substring(0 , nCommentMarker):TrimEnd()
 				ENDIF
 				cLine := "// " + cLine
+				RETURN cLine
 			CASE cLine:Contains("{VOXP:UNC}")
 				nCommentMarker := cLine:IndexOf("//")
 				IF nCommentMarker != - 1
@@ -2495,8 +2510,10 @@ CLASS EntityDescriptor
 						cLine := cLine:Substring(0 , nCommentMarker):TrimEnd()
 					ENDIF
 				END IF
+				RETURN cLine
 			CASE cLine:Contains("{VOXP:DEL}") .or. cLine:Contains("{VOXP:REM}")
 				cLine := ""
+				RETURN cLine
 			END CASE
 		END IF
 
@@ -2694,14 +2711,22 @@ CLASS EntityDescriptor
 		FOREACH oLine AS LineObject IN SELF:_aLines
 			cLine := oLine:LineText
 			IF lFirst
-				lFirst := FALSE
-				oCode:AddLine("/*")
+				IF .not. SELF:_lIsTopStatements
+					oCode:AddLine("/*")
+				END IF
 			END IF
-			cLine := cLine:Replace("/*" , "/-*")
-			cLine := cLine:Replace("*/" , "*-/")
-			oCode:AddLine(cLine)
+			IF .not. SELF:_lIsTopStatements
+				cLine := cLine:Replace("/*" , "/-*")
+				cLine := cLine:Replace("*/" , "*-/")
+			ENDIF
+			IF .not. (SELF:_lIsTopStatements .and. lFirst)
+				oCode:AddLine(cLine)
+			ENDIF
+			lFirst := FALSE
 		NEXT
-		oCode:AddLine("*/")
+		IF .not. SELF:_lIsTopStatements
+			oCode:AddLine("*/")
+		ENDIF
 	RETURN oCode
 
 	PROTECTED METHOD Generate_Resource() AS OutputCode
@@ -2900,7 +2925,7 @@ Probably we need to do that also to every other string in every line in the reso
 	STATIC METHOD AnalyzeLine(cLine AS STRING) AS List<WordObject>
 		LOCAL aWords AS List<WordObject>
 		aWords := List<WordObject>{}
-		FOREACH oWord AS WordObject IN EditorBuffer.ParseLine(FileType.VO , cLine)
+		FOREACH oWord AS WordObject IN VOBuffer.ParseLine(cLine)
 			IF oWord:cWord:Length != 0
 				aWords:Add(oWord)
 			END IF
@@ -2931,6 +2956,13 @@ CLASS OutputCode
 	METHOD Combine(oCode AS OutputCode) AS VOID
 		FOREACH cLine AS STRING IN oCode:Lines
 			SELF:_aLines:Add(cLine)
+		NEXT
+	RETURN
+	METHOD CombineTop(oCode AS OutputCode) AS VOID
+		LOCAL nLine := 0 AS INT
+		FOREACH cLine AS STRING IN oCode:Lines
+			SELF:_aLines:Insert(nLine, cLine)
+			nLine ++
 		NEXT
 	RETURN
 	PROPERTY AsString AS STRING

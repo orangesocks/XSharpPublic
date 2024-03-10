@@ -53,6 +53,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         public bool InitLocals { get; internal set; } = false;
         public bool LateBinding { get; internal set; } = false;
         public bool AllowNamedArguments { get; internal set; } = false;
+        public bool ModernSyntax { get; internal set; } = false;
         public bool NoClipCall { get; internal set; } = false;
         public bool NoStdDef { get; internal set; } = false;
         public string NameSpace { get; set; } = string.Empty;
@@ -92,6 +93,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         public bool VulcanRTIncluded => RuntimeAssemblies.HasFlag(RuntimeAssemblies.VulcanRT);
         public bool XSharpRTIncluded => RuntimeAssemblies.HasFlag(RuntimeAssemblies.XSharpRT);
         public bool XSharpVOIncluded => RuntimeAssemblies.HasFlag(RuntimeAssemblies.XSharpVO);
+        public bool XSharpVFPIncluded => RuntimeAssemblies.HasFlag(RuntimeAssemblies.XSharpVFP);
         public bool XSharpCoreIncluded => RuntimeAssemblies.HasFlag(RuntimeAssemblies.XSharpCore);
         public bool XSharpXPPIncluded => RuntimeAssemblies.HasFlag(RuntimeAssemblies.XSharpXPP);
         public bool XSharpHarbourIncluded => RuntimeAssemblies.HasFlag(RuntimeAssemblies.XSharpHarbour);
@@ -205,6 +207,9 @@ namespace Microsoft.CodeAnalysis.CSharp
                     break;
                 case CompilerOption.Xpp1:
                     Xpp1 = value;
+                    break;
+                case CompilerOption.ModernSyntax:
+                    ModernSyntax = value;
                     break;
                 case CompilerOption.ClrVersion:
                 case CompilerOption.None:
@@ -379,7 +384,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         Vo15 = 1 << 15,
         UntypedAllowed = Vo15,
         Vo16 = 1 << 16,
-        DefaultClipperContructors = Vo16,
+        DefaultClipperConstructors = Vo16,
         Vo17 = 1 << 17,
         CompatibleBeginSequence = Vo17,
         Xpp1 = 1 << 18,
@@ -399,6 +404,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         AllowDotForInstanceMembers = 1 << 30,
         EnforceOverride = 1L << 31,
         AllowOldStyleAssignments = 1L << 32,
+        ModernSyntax = 1L << 33,
         All = -1,       // used for Push/Pop
     }
 
@@ -448,6 +454,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 case CompilerOption.LateBinding:
                 case CompilerOption.None:
                 case CompilerOption.Overflow:
+                case CompilerOption.ModernSyntax:
                     return false;
                 default:
                     break;
@@ -482,6 +489,8 @@ namespace Microsoft.CodeAnalysis.CSharp
                     return "Enable Late Binding";
                 case CompilerOption.MemVars:
                     return "PRIVATE and or PUBLIC variables";
+                case CompilerOption.ModernSyntax:
+                    return "Modern XBase Syntax";
                 case CompilerOption.AllowNamedArgs:
                     return "Allow Named Arguments";
                 case CompilerOption.Overflow:
@@ -561,6 +570,8 @@ namespace Microsoft.CodeAnalysis.CSharp
                 case "memvar":
                 case "memvars":
                     return CompilerOption.MemVars;
+                case "modernsyntax":
+                    return CompilerOption.ModernSyntax;
                 case "namedargs":
                 case "namedarguments":
                     return CompilerOption.AllowNamedArgs;
