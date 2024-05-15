@@ -156,7 +156,7 @@ BEGIN NAMESPACE XSharp.VFP.UI
 
 #include ".\Headers\FormOverride.xh"
 			//
-		METHOD Refresh() AS VOID
+		OVERRIDE METHOD Refresh() AS VOID
 			// Refresh the BindingSource of the Current Workarea/Cursor
 			// Should we refresh all attached Cursors ??
 			IF SELF:DataEnvironment != NULL .AND. SELF:DataEnvironment:DataSource != NULL
@@ -178,10 +178,11 @@ BEGIN NAMESPACE XSharp.VFP.UI
 		PROTECTED _validQueryUnload AS LOGIC
 		INTERNAL _handledKeypress AS LOGIC
 
-		METHOD Release() AS VOID
+		METHOD Release() AS USUAL CLIPPER
 			//
 			SELF:_validQueryUnload := TRUE
-			SELF:Close()
+            SELF:Close()
+            RETURN NIL
 
 #endregion
 
@@ -189,7 +190,8 @@ BEGIN NAMESPACE XSharp.VFP.UI
 		CONSTRUCTOR(  ) STRICT
 			SUPER()
 			// Default Values
-			SELF:BindControls := TRUE
+            SELF:BindControls := TRUE
+            SELF:Size := System.Drawing.Size{375, 250}
 
 
 		PRIVATE _VFPLoad AS VFPOverride

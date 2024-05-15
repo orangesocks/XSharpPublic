@@ -100,10 +100,11 @@ BEGIN NAMESPACE XSharp.VFP.UI
 			// Default work
 			SELF:_format := NULL
 			SELF:_inputMask := NULL
-			SELF:_valueType := "C"
+            SELF:_valueType := "C"
+            SELF:Size := Size{100,21}
 
 
-		PROTECTED METHOD OnKeyDown( e AS KeyEventArgs ) AS VOID
+		OVERRIDE PROTECTED METHOD OnKeyDown( e AS KeyEventArgs ) AS VOID
 			IF SELF:maskCheck == NULL
 				SUPER:OnKeyDown(e)
 				RETURN
@@ -111,14 +112,14 @@ BEGIN NAMESPACE XSharp.VFP.UI
 			//
 			SELF:maskCheck:OnKeyDown(e)
 
-		PROTECTED METHOD OnKeyUp( e AS KeyEventArgs ) AS VOID
+		OVERRIDE PROTECTED METHOD OnKeyUp( e AS KeyEventArgs ) AS VOID
 			IF SELF:maskCheck == NULL
 				SUPER:OnKeyUp(e)
 				RETURN
 			ENDIF
 			//
 
-        PROTECTED METHOD OnKeyPress( e AS KeyPressEventArgs) AS VOID
+        OVERRIDE PROTECTED METHOD OnKeyPress( e AS KeyPressEventArgs) AS VOID
             // First call our VPF handling
             SELF:OnVFPKeyPress( SELF, e )
             //
@@ -143,7 +144,7 @@ BEGIN NAMESPACE XSharp.VFP.UI
             SELF:OnVFPKeyPress( SELF, e )
 
 
-		PROTECTED METHOD OnTextChanged ( e AS EventArgs) AS VOID
+		OVERRIDE PROTECTED METHOD OnTextChanged ( e AS EventArgs) AS VOID
 			// TRUE is changed by the user
 			IF SELF:Modified
 				// VFP fallback Code ??

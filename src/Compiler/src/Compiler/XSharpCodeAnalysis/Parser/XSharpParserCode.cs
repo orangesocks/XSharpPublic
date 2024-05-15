@@ -57,6 +57,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
 
     public partial class XSharpParser
     {
+        public List<PragmaOption> PragmaOptions;
         public CSharpParseOptions Options { get; set; }
         public bool AllowNamedArgs => Options.AllowNamedArguments;
         public bool IsXPP => Options.Dialect == XSharpDialect.XPP;
@@ -64,7 +65,13 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
         public bool IsVO => Options.Dialect switch { XSharpDialect.VO => true, XSharpDialect.Vulcan => true, _ => false };
         public bool IsCoreVO => Options.Dialect switch { XSharpDialect.Core => true, XSharpDialect.VO => true, XSharpDialect.Vulcan => true, _ => false };
         public bool ModernSyntax => Options.ModernSyntax;
-        public bool HasMemVars => Options.SupportsMemvars;
+        public bool HasMemVars
+        {
+            get
+            {
+                return Options.HasOption(CompilerOption.MemVars, (XSharpParserRuleContext) this.Context, PragmaOptions);
+            }
+        }
         bool ExpectToken(int type)
         {
             int icurrent = 1;
@@ -147,6 +154,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                 case ASSIGN_BITOR:                    // SyntaxKind.BarEqualsToken:
                 case ASSIGN_LSHIFT:                   // SyntaxKind.LessThanLessThanEqualsToken:
                 case ASSIGN_RSHIFT:                   // SyntaxKind.GreaterThanGreaterThanEqualsToken:
+                                                      // SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken // we do not have this
                 case QMARK:                           // SyntaxKind.QuestionToken:
                 case COLON:                           // SyntaxKind.ColonToken:
                 case OR:                              // SyntaxKind.BarBarToken:
@@ -163,6 +171,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                 case GTE:                             // SyntaxKind.GreaterThanEqualsToken:
                 case LSHIFT:                          // SyntaxKind.LessThanLessThanToken:
                 case RSHIFT:                          // SyntaxKind.GreaterThanGreaterThanToken:
+                                                      // SyntaxKind.GreaterThanGreaterThanGreaterThanToken // we do not have this
                 case PLUS:                            // SyntaxKind.PlusToken:
                 case MINUS:                           // SyntaxKind.MinusToken:
                 case MULT:                            // SyntaxKind.AsteriskToken:
@@ -175,8 +184,9 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                 // case ALIAS                         // SyntaxKind.MinusGreaterThanToken     Disabled we allow (ABC)->FieldName
                 case DEFAULT:                         // SyntaxKind.QuestionQuestionToken:
                 case Eof:                             // SyntaxKind.EndOfFileToken:
+                case SWITCH:                          // SyntaxKind.SwitchKeyword:
                 case UDCSEP:                          // SyntaxKind.EqualsGreaterThanToken: for lambda expressions
-                                                      // SyntaxKind.DotDotToken:  // used for ranges. We do not have that
+                case DOTDOT:                          // SyntaxKind.DotDotToken:
                     return false;
             }
             return true;
@@ -192,7 +202,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
         }
         public partial class ParenExpressionContext
         {
-            public ExpressionContext Expr => _Exprs[_Exprs.Count - 1];
+            public ExpressionContext LastExpression => _Exprs.Count == 0 ? null : _Exprs[_Exprs.Count - 1];
         }
         public partial class PragmaContext
         {

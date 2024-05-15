@@ -763,6 +763,34 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                         eos = true;
                         parseType(INCOMPLETE_STRING_CONST);
                         break;
+                    case ';':
+                        if (Dialect != XSharpDialect.FoxPro)
+                            goto default;
+                        int next = 2;
+                        while (La(next) == ' ' || La(next) == '\t')
+                            next++;
+                        if (La(next) == '&' && La(next + 1) == '&')
+                        {
+                            while (La(next) != 10 && La(next) != 13 && La(next) != EOF && !(La(1) == q && !esc))
+                                next++;
+                        }
+                        else if (La(next) == '/' && La(next + 1) == '/')
+                        {
+                            while (La(next) != 10 && La(next) != 13 && La(next) != EOF && !(La(1) == q && !esc))
+                                next++;
+                        }
+                        if (La(next) == 10 || La(next) == 13)
+                        {
+                            while (La(1) != 10 && La(1) != 13)
+                                parseSkip();
+                            if (La(1) == 13)
+                                parseSkip();
+                            if (La(1) == 10)
+                                parseSkip();
+                        }
+                        else
+                            goto default;
+                        break;
                     default:
                         bool eat2 = false;
                         if (La(1) == q && !esc)
@@ -1155,7 +1183,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                         break;
                     case '*':
                         parseOne(MULT);
-                        if (!ModernSyntax && StartOfLine(LastToken) )
+                        if (AllowOldStyleComments && StartOfLine(LastToken) )
                             parseSlComment();
                         else if (Expect('='))
                             parseOne(ASSIGN_MUL);
@@ -1235,6 +1263,8 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                                 parseType(ELLIPSIS, 2);
                             }
                         }
+                        else if (Expect('.'))
+                            parseOne(DOTDOT);
                         else if (La(3) == '.') // a.or.b should be allowed, so no check for _inDottedIdentifier
                         {
                             if (ExpectLower("or"))

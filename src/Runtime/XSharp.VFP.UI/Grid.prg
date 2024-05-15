@@ -49,6 +49,8 @@ BEGIN NAMESPACE XSharp.VFP.UI
             //
             SELF:SelectionChanged += System.EventHandler{ SELF, @VFPSelectionChanged() }
             SELF:CurrentCellChanged += System.EventHandler{ SELF, @VFPCurrentCellChanged() }
+            SELF:Size := System.Drawing.Size{320, 200}
+
             RETURN
 
         PUBLIC METHOD Column( i AS INT ) AS Column
@@ -307,7 +309,7 @@ BEGIN NAMESPACE XSharp.VFP.UI
 
         PROPERTY RowColChange AS LONG GET SELF:_rowColChange
 
-        METHOD Refresh() AS VOID
+        OVERRIDE METHOD Refresh() AS VOID
             LOCAL ds AS BindingSource
             //
             TRY
@@ -373,7 +375,7 @@ BEGIN NAMESPACE XSharp.VFP.UI
 
         PROPERTY AllowHeaderSizing AS LOGIC AUTO
         PROPERTY AllowRowSizing AS LOGIC AUTO
-        PROPERTY ReadOnly AS LOGIC AUTO
+        //OVERRIDE PROPERTY ReadOnly AS LOGIC AUTO
         PROPERTY HighlightStyle AS LONG AUTO
         PROPERTY AllowAutoColumnFit AS LONG AUTO
         PROPERTY Themes AS LOGIC AUTO
