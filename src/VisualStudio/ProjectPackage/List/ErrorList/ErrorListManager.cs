@@ -1,6 +1,6 @@
 ﻿//
-// Copyright (c) XSharp B.V.  All Rights Reserved.  
-// Licensed under the Apache License, Version 2.0.  
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
 // See License.txt in the project root for license information.
 //
 using Microsoft.VisualStudio.Shell.TableManager;
@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using XSharpModel;
 using System.Collections.Concurrent;
 using XSharp.Settings;
+using Microsoft.VisualStudio.Shell.Interop;
 namespace XSharp.Project
 {
 
@@ -24,22 +25,36 @@ namespace XSharp.Project
     {
         static ConcurrentDictionary<Guid, ErrorListManager> _projects;
         static ErrorListProvider _provider = null;
-        static IErrorList _errorList;
-        static ITableManager _manager;
+        static IErrorList _errorList = null;
+        static ITableManager _manager = null;
 
-        internal ErrorListManager(XSharpProjectNode node) : base(node, _provider)
-        {
-        }
 
         static ErrorListManager()
         {
             _projects = new ConcurrentDictionary<Guid, ErrorListManager>();
-            _errorList = XSharpProjectPackage.XInstance.ErrorList;
-            _manager = _errorList.TableControl.Manager;
-            _provider = new ErrorListProvider(_manager);
+            GetErrorList();
         }
+
+        static void GetErrorList()
+        {
+            if (_errorList != null)
+                return;
+            _errorList = XSharpProjectPackage.XInstance.ErrorList;
+            if (_errorList != null)
+            {
+                _manager = _errorList.TableControl.Manager;
+                _provider = new ErrorListProvider(_manager);
+            }
+        }
+        internal ErrorListManager(XSharpProjectNode node) : base(node)
+        {
+            GetErrorList();
+            SetProvider(_provider);
+        }
+
         internal static ErrorListManager RegisterProject(XSharpProjectNode project)
         {
+            GetErrorList();
             if (!_projects.ContainsKey(project.ProjectIDGuid))
             {
                 var manager = new ErrorListManager(project);
@@ -49,7 +64,7 @@ namespace XSharp.Project
             _projects.TryGetValue(project.ProjectIDGuid, out var errorlistmanager);
             return errorlistmanager;
         }
-  
+
 
         internal void DeleteIntellisenseErrorsFromFile(string fileName)
         {
@@ -83,7 +98,7 @@ namespace XSharp.Project
         }
 
         private IErrorListItem CreateItem(string file, int line, int column, int length, string errCode,
-            string message, MessageSeverity sev, ErrorSource errorSource, string projectName)
+            string message, __VSERRORCATEGORY sev, ErrorSource errorSource, string projectName)
         {
             var item = new ErrorListItem()
             {
@@ -103,7 +118,7 @@ namespace XSharp.Project
         }
 
         internal void AddBuildError(string file, int line, int column, string errCode,
-            string message, MessageSeverity sev)
+            string message, __VSERRORCATEGORY sev)
         {
 
             var item = this.CreateItem(file, line, column, 1, errCode, message, sev, ErrorSource.Build, Project.Caption);
@@ -111,7 +126,7 @@ namespace XSharp.Project
         }
 
         internal void AddIntellisenseError(string file, int line, int column, int length, string errCode,
-            string message, MessageSeverity sev)
+            string message, __VSERRORCATEGORY sev)
         {
             var item = this.CreateItem(file, line, column, length, errCode, message, sev, ErrorSource.Other, Project.Caption);
             this.AddItem(item);
@@ -133,7 +148,7 @@ namespace XSharp.Project
         {
             if (!dirty)
                 return;
-            // dedupe errors based on filename, row, column, 
+            // dedupe errors based on filename, row, column,
             var errors = new List<IErrorListItem>();
             HashSet<string> keys = new HashSet<string>();
 
@@ -165,7 +180,7 @@ namespace XSharp.Project
                 }
                 else
                 {
-                    isOpen = XSettings.IsDocumentOpen(file);
+                    isOpen = XDocuments.IsOpen(file);
                     filenames.Add(file, isOpen);
                 }
                 if (isOpen && !keys.Contains(key))
@@ -187,7 +202,7 @@ namespace XSharp.Project
 
         internal List<IXErrorPosition> GetIntellisenseErrorPos(string fileName)
         {
-            // dedupe errors based on filename, row, column, 
+            // dedupe errors based on filename, row, column,
             List<IXErrorPosition> errorPos = new List<XSharpModel.IXErrorPosition>();
             Dictionary<string, string> keys = new Dictionary<string, string>();
 
@@ -208,7 +223,7 @@ namespace XSharp.Project
                     }
                     else
                     {
-                        isOpen = XSettings.IsDocumentOpen(file);
+                        isOpen = XDocuments.IsOpen(file);
                         filenames.Add(file, isOpen);
                     }
                     if (isOpen && !keys.ContainsKey(key) && (file == fileName))

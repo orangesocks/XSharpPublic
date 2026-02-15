@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2026-02-09T14:10:01.023Z" lasteditedby="robert" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>自备运行时 (BYOR))</title>
+  <body>
+    <header>
+      <para styleclass="Heading1">自备运行时 (BYOR))</para>
+    </header>
+    <para styleclass="Normal" style="border:none;">XSharp 3 不再支持&quot;自带运行时&quot;功能。若需使用非核心方言进行编译，必须添加对 X# 运行时的引用。</para>
+    <para styleclass="Normal" style="border:none;">您仍可在项目中引用 Vulcan 运行时 DLL，但这些程序集中的类型和函数将被视为普通 .Net 程序集处理。</para>
+  </body>
+</topic>

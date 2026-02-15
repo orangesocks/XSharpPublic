@@ -72,6 +72,19 @@ namespace XSharp.Build
                 this.AppendNewLine();
             }
         }
+        internal void AppendPlusOrMinusSwitchAlways(string switchName, PropertyDictionary bag, string parameterName)
+        {
+            if (bag[parameterName] != null)
+            {
+                base.AppendPlusOrMinusSwitch(switchName, bag, parameterName);
+            }
+            else
+            {
+                base.AppendSwitch(switchName + "-");
+            }
+            this.AppendNewLine();
+        }
+
         internal override void AppendPlusOrMinusSwitch(string switchName, PropertyDictionary bag, string parameterName)
         {
             // Overridden so we can add a NewLine when needed
@@ -105,7 +118,7 @@ namespace XSharp.Build
             }
         }
 
-        public new void AppendSwitchUnquotedIfNotNull(string switchName, string parameter)
+        public new void AppendSwitchUnquotedIfNotNull(string switchName, string? parameter)
         {
             if (parameter != null)
             {
@@ -132,7 +145,7 @@ namespace XSharp.Build
         }
 
         internal override void AppendSwitchIfNotNull(string switchName,
-            ITaskItem[] parameters, string[] metadataNames, bool[] treatAsFlags)      // May be null. In this case no metadata are treated as flags.
+            ITaskItem[] parameters, string[]? metadataNames, bool[]? treatAsFlags)      // May be null. In this case no metadata are treated as flags.
         {
             if (parameters != null)
             {

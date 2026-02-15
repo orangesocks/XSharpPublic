@@ -20,6 +20,7 @@ using Antlr4.Runtime;
 using LanguageService.CodeAnalysis.XSharp.SyntaxParser;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
+using Microsoft.CodeAnalysis.CSharp;
 using Roslyn.Utilities;
 #if !VSPARSER
 using static Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax.XSharpLanguageParser;
@@ -27,7 +28,7 @@ using static Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax.XSharpLanguageP
 namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
 {
     using TokenType = System.Int32;
-  
+
     internal class XSharpPreprocessor
     {
         static Dictionary<string, string> embeddedHeaders = null;
@@ -252,7 +253,6 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
         public string StdDefs { get; set; } = string.Empty;
         internal List<PragmaBase> Pragmas;
 
-
         void addMacro(string macro, TokenType type)
         {
             addMacro(macro, type, macro);
@@ -336,6 +336,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             addMacro("__UTCTIME__", XSharpLexer.STRING_CONST, DateTime.Now.ToUniversalTime().ToString("HH:mm:ss"));
             addMacro("__VERSION__", XSharpLexer.STRING_CONST, global::XSharp.Constants.FileVersion);
             addMacro("__XSHARP__", XSharpLexer.TRUE_CONST);
+            addMacro("__XSHARP3__", XSharpLexer.TRUE_CONST);
 
             _macroDefines.Add("__LINE__", (token) => new XSharpPPToken(XSharpLexer.INT_CONST, token.Line.ToString(), token));
             _macroDefines.Add("__SRCLOC__", (token) => new XSharpPPToken(XSharpLexer.STRING_CONST, '"' + (inputs.SourceFileName ?? fileName) + " line " + token.Line.ToString() + '"', token));
@@ -347,9 +348,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             {
                 addMacro("__XSHARP_RT__", XSharpLexer.TRUE_CONST);
             }
-            addMacro("__SYSDIR__", XSharpLexer.STRING_CONST, _options.SystemDir);
-            addMacro("__WINDIR__", XSharpLexer.STRING_CONST, _options.WindowsDir);
-            addMacro("__WINDRIVE__", XSharpLexer.STRING_CONST, _options.WindowsDir?.Substring(0, 2));
+            addMacro("__SYSDIR__", XSharpLexer.STRING_CONST, XSharpSpecificCompilationOptions.SystemDir);
+            addMacro("__WINDIR__", XSharpLexer.STRING_CONST, XSharpSpecificCompilationOptions.WindowsDir);
+            addMacro("__WINDRIVE__", XSharpLexer.STRING_CONST, XSharpSpecificCompilationOptions.WindowsDir?.Substring(0, 2));
             var options = new string[] { "__VO1__", "__VO2__", "__VO3__", "__VO4__", "__VO5__", "__VO6__", "__VO7__", "__VO8__", "__VO9__", "__VO10__",
                                         "__VO11__","__VO12__","__VO13__","__VO14__","__VO15__","__VO16__","__VO17__","__XPP1__", "__FOX1__","__FOX2__",
                                         "__MEMVAR__","__UNDECLARED__"};
@@ -574,9 +575,9 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
 #endif
             }
             // Add default IncludeDirs;
-            if (!string.IsNullOrEmpty(options.DefaultIncludeDir))
+            if (!string.IsNullOrEmpty(XSharpSpecificCompilationOptions.DefaultIncludeDir))
             {
-                string[] paths = options.DefaultIncludeDir.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                string[] paths = XSharpSpecificCompilationOptions.DefaultIncludeDir.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
                 foreach (var path in paths)
                 {
                     _includeDirs.Add(path);
@@ -616,7 +617,6 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             }
 #endif
         }
-
 
         /// <summary>
         /// Pre-processes the input stream. Reads #Include files, processes #ifdef commands and translations from #defines, macros and UDCs
@@ -745,6 +745,10 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                     doPragmaDirective(line, write2ppo);
                     line = null;
                     break;
+                case XSharpLexer.PP_NULLABLE:
+                    doNullableDirective(line, write2ppo);
+                    line = null;
+                    break;
                 default:
                     if (_textProps != null && line.Count > 0)
                     {
@@ -816,8 +820,6 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                 return _fileName;
             }
         }
-
-
         XSharpToken FixToken(XSharpToken token)
         {
             return token;
@@ -898,7 +900,6 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
         {
             return _defStates.Count == 0 || _defStates.Peek();
         }
-
 
         bool IsDefinedMacro(XSharpToken t)
         {
@@ -1377,7 +1378,6 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             return true;
 
         }
-
 
         private bool IsDefined(string define, XSharpToken token)
         {
@@ -2050,7 +2050,64 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             }
             checkForUnexpectedPPInput(line, 1);
         }
+        private void doNullableDirective(IList<XSharpToken> originalTokens, bool isIfDef)
+        {
+            Debug.Assert(originalTokens.Count > 0);
+            var tokens = stripWs(originalTokens);
+            XSharpToken errortoken = originalTokens[0];
+            var nullableText = "";
+            foreach (var token in originalTokens)
+            {
+                nullableText += token.text;
+            }
+            if (tokens.Count != 2 && tokens.Count != 3)
+            {
+                Error(errortoken, ErrorCode.ERR_NullableDirectiveQualifierExpected);
+                return;
+            }
+            // #nullable <qualifier>
+            Pragmastate state;
+            switch (tokens[1].Text.ToLower())
+            {
+                case "enable":
+                    state = Pragmastate.On;
+                    break;
+                case "restore":
+                    state = Pragmastate.Default;
+                    break;
 
+                case "disable":
+                    state = Pragmastate.Off;
+                    break;
+                default:
+                    Error(tokens[1], ErrorCode.ERR_NullableDirectiveQualifierExpected);
+                    return;
+            }
+            XSharpToken optionToken = null;
+            SyntaxKind kind = SyntaxKind.None;
+            if (tokens.Count == 3)
+            {
+                optionToken = tokens[2];
+                switch (optionToken.Text.ToLower())
+                {
+                    case "warnings":
+                        kind = SyntaxKind.WarningsKeyword;
+                        break;
+                    case "annotations":
+                        kind = SyntaxKind.AnnotationsKeyword;
+                        break;
+                    default:
+                        Error(optionToken, ErrorCode.ERR_NullableDirectiveTargetExpected);
+                        return;
+                }
+            }
+
+            var pragma = new PragmaNullable(tokens[0], state, tokens[1], optionToken, kind);
+            if (pragma != null)
+                Pragmas.Add(pragma);
+            return;
+
+        }
         private void doPragmaDirective(IList<XSharpToken> originalTokens, bool isIfDef)
         {
             Debug.Assert(originalTokens.Count > 0);
@@ -2191,7 +2248,6 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                             error = ErrorCode.WRN_IllegalPPWarning;
                             errortoken = i2;
                         }
-
                     }
                     else
                     {
@@ -2223,14 +2279,14 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                                 case CompilerOption.MemVars:
                                 case CompilerOption.Overflow:
                                 case CompilerOption.UndeclaredMemVars:
-                                // case "vo1": // Init/axit
+                                // case CompilerOption.Vo1: // Init/axit
                                 case CompilerOption.Vo2:     // Initialize string variables with empty strings
                                 case CompilerOption.Vo3:     // All instance members virtual
                                 case CompilerOption.Vo4:     // Integer conversions
                                 case CompilerOption.Vo5:     // Implicit Clipper Calling convention
                                 case CompilerOption.Vo6:     // ResolveTypedFunctionPointersToPtr
                                 case CompilerOption.Vo7:     // Implicit Casts and Conversions
-                                                             // case "vo8": // Compatible preprocessor
+                                // case CompilerOption.Vo8: // Compatible preprocessor
                                 case CompilerOption.Vo9:     // Allow missing return statements or missing return values
                                 case CompilerOption.Vo10:     // Compatible IIF
                                 case CompilerOption.Vo11:    // Fractional -> Integral Conversions
@@ -2242,9 +2298,12 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                                 case CompilerOption.Vo17:    // Compatible Begin Sequence .. END Sequence
                                     pragma = new PragmaOption(start, state, compopt);
                                     break;
-                                //case "xpp1":    // classes inherit from XPP.Abstract
-                                //case "xpp2":    // strongly typed entry point
-                                // case "fox1": // Classes inherit from unknown
+                                case CompilerOption.Xpp1:    // classes inherit from XPP.Abstract
+                                    if (_options.Dialect != XSharpDialect.XPP)
+                                        goto default;
+                                    pragma = new PragmaOption(start, state, compopt);
+                                    break;
+                                case CompilerOption.Fox1:    // Inherit from Base
                                 case CompilerOption.Fox2:    // FoxPro array syntax
                                     if (_options.Dialect != XSharpDialect.FoxPro)
                                         goto default;
@@ -2319,19 +2378,19 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                     if (line.Count > 2)
                     {
                         ln = line[2];
-                    }
-                    if (ln.Type == XSharpLexer.STRING_CONST)
-                    {
-                        inputs.SourceFileName = ln.Text.Substring(1, ln.Text.Length - 2);
-                    }
-                    else
-                    {
-                        Error(ln, ErrorCode.ERR_PreProcessorError, "String literal expected");
+                        if (ln.Type == XSharpLexer.STRING_CONST)
+                        {
+                            inputs.SourceFileName = ln.Text.Substring(1, ln.Text.Length - 2);
+                        }
+                        else
+                        {
+                            Error(ln, ErrorCode.ERR_ExpectedPPFile);
+                        }
                     }
                 }
                 else
                 {
-                    Error(ln, ErrorCode.ERR_PreProcessorError, "Integer literal expected");
+                    Error(ln, ErrorCode.ERR_LineSpanDirectiveInvalidValue);
                 }
             }
             else

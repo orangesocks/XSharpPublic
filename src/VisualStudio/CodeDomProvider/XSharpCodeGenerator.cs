@@ -216,7 +216,7 @@ namespace XSharp.CodeDom
             ws = useTabs ? "\t" : " ";
             keywordBEGIN = FormatKeyword("BEGIN ");
             keywordEND = FormatKeyword("END ");
-            keywordDELEGATE = FormatKeyword("DELEGATE "); 
+            keywordDELEGATE = FormatKeyword("DELEGATE ");
             keywordCLASS = FormatKeyword("CLASS ");
             keywordINHERIT = FormatKeyword("INHERIT ");
             keywordIMPLEMENTS = FormatKeyword("IMPLEMENTS ");
@@ -293,14 +293,16 @@ namespace XSharp.CodeDom
         }
         protected override string CreateEscapedIdentifier(string value)
         {
-            // Is is a reserved Keyword ?
+#if XSHARPPROVIDER
+            // Is it a reserved Keyword ?
             if (XSharpKeywords.Contains(value))
             {
                 value = "@@" + value;
             }
+#endif
             return value;
         }
-       
+
         protected override string CreateValidIdentifier(string value)
         {
             // Is is a reserved Keyword ?
@@ -424,7 +426,7 @@ namespace XSharp.CodeDom
 
         protected override void GenerateAttributeDeclarationsEnd(CodeAttributeDeclarationCollection attributes)
         {
-            this.Output.Write("] ;");
+            this.Output.Write("] ");
         }
 
         protected override void GenerateAttributeDeclarationsStart(CodeAttributeDeclarationCollection attributes)
@@ -567,6 +569,7 @@ namespace XSharp.CodeDom
                     }
                     this.Indent++;
                     this.GenerateStatements(e.Statements);
+                    base.Output.Write(keywordEND + keywordCONSTRUCTOR);
                 }
                 this.Indent--;
                 if (e.HasEndingTrivia())
@@ -599,14 +602,14 @@ namespace XSharp.CodeDom
 
         protected override void GenerateEntryPointMethod(CodeEntryPointMethod e, CodeTypeDeclaration c)
         {
-            // save the parameters and delay the code generation until the end of the 
+            // save the parameters and delay the code generation until the end of the
             // compile unit, where ImplementEntryPointMethod() is called
             entryPoint = e;
             entryPointType = c;
             return;
         }
         private void ImplementEntryPointMethod(CodeEntryPointMethod e, CodeTypeDeclaration c)
-        { 
+        {
             if (e == null || c == null)
                 return;
             this.GenerateCommentStatements(e.Comments);
@@ -620,6 +623,7 @@ namespace XSharp.CodeDom
             base.Output.WriteLine();
             this.Indent++;
             this.GenerateStatements(e.Statements);
+            base.Output.Write(keywordEND + keywordFUNCTION);
             this.Indent--;
             base.Output.WriteLine();
             if (e.HasEndingTrivia())
@@ -970,7 +974,7 @@ namespace XSharp.CodeDom
                     }
                     this.Indent--;
                     // close the method.
-                    this.Output.Write("END METHOD");
+                    this.Output.Write(keywordEND+keywordMETHOD);
                     base.Output.WriteLine();
                     if (e.HasEndingTrivia())
                     {
@@ -1063,7 +1067,7 @@ namespace XSharp.CodeDom
 
             _using.Clear();
             base.GenerateCompileUnitStart(e);
-            if (e is XCodeCompileUnit xcu && ! xcu.GenerateHeader)
+            if (e is XCodeCompileUnit xcu && !xcu.GenerateHeader)
             {
                 generateComment = false;
             }
@@ -1081,6 +1085,13 @@ namespace XSharp.CodeDom
                 this.Output.WriteLine("//  </auto-generated>");
                 this.Output.WriteLine("//------------------------------------------------------------------------------");
             }
+
+            if (e.AssemblyCustomAttributes.Count > 0)
+            {
+                GenerateAttributes(e.AssemblyCustomAttributes, "assembly");
+                Output.WriteLine();
+            }
+
         }
         protected override void GenerateCompileUnitEnd(CodeCompileUnit e)
         {
@@ -1162,7 +1173,7 @@ namespace XSharp.CodeDom
 
             }
             if (! string.IsNullOrEmpty(trivia))
-            { 
+            {
                 WriteTriviaWorker(trivia);
                 return true;
             }
@@ -1676,7 +1687,7 @@ namespace XSharp.CodeDom
             base.Output.Write("\\u");
             int num = value;
             base.Output.Write(num.ToString("X4", CultureInfo.InvariantCulture));
-            
+
         }
 
 
@@ -2175,7 +2186,7 @@ namespace XSharp.CodeDom
                     }
                     else
                     {
-                        base.Output.WriteLine();
+                        base.Output.WriteLine(";");
                     }
                 }
             }
@@ -2324,7 +2335,7 @@ namespace XSharp.CodeDom
                         base.Output.Write(keywordPUBLIC);
                     else if (publicKeyword == 1)
                         base.Output.Write(keywordEXPORT);
-                    else 
+                    else
                         base.Output.Write("");
                     break;
                 case MemberAttributes.Family: // A member that is accessible within the family of its class and derived classes.

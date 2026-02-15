@@ -1,0 +1,68 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2026-02-09T14:09:23.981Z" lasteditedby="robert" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>Vulcan</title>
+  <keywords>
+    <keyword>&apos;@&apos;</keyword>
+    <keyword>__VULCAN__</keyword>
+    <keyword>_WINBOOL</keyword>
+    <keyword>PSZ</keyword>
+    <keyword>UNION</keyword>
+    <keyword>VOSTRUCT</keyword>
+    <keyword>Vulcan</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">Vulcan</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">这种方言具有“<link displaytype="text" defaultstyle="true" type="topiclink" href="dialect_All-Non-Core-dialects">所有非 Core 方言</link>”的特征。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal"><table styleclass="Default" rowcount="1" colcount="1" style="background-color:#ffff00;">
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><text style="font-weight:bold;">请注意，在 XSharp 3 中，Vulcan 方言仅支持 XSharp 运行时 DLL。不再</text><br/><text style="font-weight:bold;">支持&quot;自带运行时&quot;功能</text><br/><text style="font-weight:bold;">。此外，编译器不再自动从注册表读取 Vulcan 包含文件的位置设置。</text><br/><text style="font-weight:bold;">若使用这些文件，需确保项目设置中包含文件存储位置。</text></para>
+        </td>
+      </tr>
+    </table></para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">编译器和运行时在为&quot;Vulcan&quot;方言编译时具有以下&quot;特殊&quot;行为：</para>
+    <para styleclass="Heading2">编译器</para>
+    <list id="0" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">不允许使用 4 个字母的关键字缩写</li>
+    </list>
+    <list id="1" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">不支持内存变量</li>
+    </list>
+    <list id="2" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">不允许将 &amp;&amp; 作为同行注释字符(&amp;&amp; 在 Vulcan 中表示 .AND.)</li>
+    </list>
+    <list id="3" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">单引号用于字符字面量</li>
+    </list>
+    <list id="4" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">支持使用“@”来获取变量的地址。如果使用编译器选项 <link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo7">-vo7</link>，这也可以用于 REF 变量。</li>
+    </list>
+    <list id="5" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">NULL_STRING 会被编译成“”或 NULL，具体取决于编译器选项 <link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo2">-vo2</link></li>
+    </list>
+    <list id="6" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">预处理器添加了一个值为 TRUE 的定义 __VULCAN__</li>
+    </list>
+    <list id="7" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">添加 VOSTRUCT 和 UNION 实体类型</li>
+    </list>
+    <list id="8" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">将 _WINBOOL 类型用于 VOSTRUCT 和 UNION 实体内的逻辑值</li>
+    </list>
+    <list id="9" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Body Text" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Body Text">PSZ 类型的索引器从元素 0 开始</li>
+    </list>
+    <para styleclass="Body Text"></para>
+    <para styleclass="Heading2">运行时(Runtime)</para>
+    <list id="10" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">当以 Ansi More（SetAnsi(TRUE)，即默认值）运行时，DBFNTX 的 DBF 头会设置 Ansi 位</li>
+      <li styleclass="Normal">NoMethod() 方法会得到一个额外的第 1 个参数，其中包含被调用方法的名称。</li>
+    </list>
+  </body>
+</topic>

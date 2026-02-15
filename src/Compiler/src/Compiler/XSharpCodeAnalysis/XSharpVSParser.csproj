@@ -14,7 +14,7 @@
     <TargetFrameworks>net472</TargetFrameworks>
     <!--Use the C# compiler created in this solution-->
     <CSCToolExe>$(GeneratedCompilerPath)csc.exe</CSCToolExe>
-    <NoWarn>;1573;1591;1701;3008;3021;649;1574;NU5105;Nullable;RS0016</NoWarn>
+    <NoWarn>;1573;1591;1701;3008;3021;649;1574;NU5105;Nullable;RS0016,8032;NU1603;NU1507</NoWarn>
     <WarningLevel>4</WarningLevel>
     <DebugSymbols>true</DebugSymbols>
     <ErrorReport>prompt</ErrorReport>
@@ -23,9 +23,6 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DefineConstants>$(GenericDefines);XSHARP;TRACE;DEBUG</DefineConstants>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Public|AnyCPU' "> 
-    <DefineConstants>$(GenericDefines);XSHARP;TRACE</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DefineConstants>$(GenericDefines);XSHARP;NDEBUG</DefineConstants>
@@ -91,6 +88,11 @@
   </Target>  
   <PropertyGroup>
     <RunPostBuildEvent>OnOutputUpdated</RunPostBuildEvent>
-  </PropertyGroup> 
-
+  </PropertyGroup>  
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net472|AnyCPU'">
+    <DefineConstants>$(DefineConstants);NET472</DefineConstants>
+  </PropertyGroup>  
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net472|AnyCPU'">
+    <DefineConstants>$(DefineConstants);NET472</DefineConstants>
+  </PropertyGroup>  
 </Project> 

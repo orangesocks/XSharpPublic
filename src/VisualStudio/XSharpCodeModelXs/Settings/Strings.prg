@@ -1,15 +1,21 @@
-﻿// Strings.prg
-// Created by    : robert
-// Creation Date : 1/23/2023 1:00:15 PM
-// Created for   :
-// WorkStation   : NYX
-
+﻿//
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
+// See License.txt in the project root for license information.
+//
 
 USING System
 USING System.Collections.Generic
 USING System.Text
 
-BEGIN NAMESPACE XSharp.Settings
+NAMESPACE XSharp.Settings
+
+class GlobalUsingsPropertyPagePanel
+    const captImplicitUsings := "Implicit Global Usings" as string
+    const captEnableImplicitUsings := "Enable implicit global usings to be declared by the project SDK." as string
+
+
+end class
 class DebugPropertyPagePanel
     const catGeneral := "General" as string
     const catSpecial := "Special" as string
@@ -96,11 +102,13 @@ class GeneralPropertyPagePanel
     const captStartup := "Startup object:" as string
     const captOutputType := "Output Type:" as string
     const captTargetFramework := "Target Framework:" as string
+    const captTargetFrameworks := "Target Frameworks:" as string
     const captAppName := "Application Name" as string
     const captNamespace := "Default Namespace:" as string
     const descNamespace := "Specifies the base namespace for files added to the project." as string
     const descAssembly := "Specifies the name of the output file that will hold the assembly manifest." as string
     const descFramework := "Specifies the version of .NET that the application targets. This option can have different values depending on which versions of .NET are installed on your computer." as string
+    const descFrameworks := "Specifies the versions of .NET that the application targets, seperated with a semicolon." as string
     const descOutputType := "Specifies the type of application to build." as string
     const descStartup := "Defines the entry point to be called when the application loads. Generally this is set either to the main form in your application or to the 'Start' function that should run when the application starts. Class libraries do not define an entry point." as string
     const descIcon := "Sets the .ico file that you want to use as your program icon. Note you must specify the icon and manifest -or- a resource file." as string
@@ -172,8 +180,8 @@ class BuildPropertyPagePanel
     const descOptimize := "Should compiler optimize output? (/optimize)" as string
     const captUseSharedCompilation := "Use Shared Compiler" as string
     const descUseSharedCompilation := "Should the shared compiler be used to compile the project? (Faster, but may hide some compiler errors) (/shared)" as string
-    const captDisabledWarnings := "Suppress Specific Warnings" as string
-    const descDisabledWarnings := "Specify a list of warnings to suppress (/nowarn)" as string
+    const captNoWarn := "Suppress Specific Warnings" as string
+    const descNoWarn := "Specify a list of warnings to suppress (/nowarn)" as string
     const captWarningLevel := "Warning Level" as string
     const descWarningLevel := "Set the warning level to a value between 0 and 4 (/warn)" as string
     const captTreatWarningsAsErrors := "Warnings As Errors" as string
@@ -204,4 +212,3 @@ class BuildPropertyPagePanel
 end class
 
 
-END NAMESPACE // XSharpModel.Constants

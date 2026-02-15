@@ -1,8 +1,8 @@
-﻿// VFPGrid.prg
-// Created by    : fabri
-// Creation Date : 5/4/2022 7:57:45 PM
-// Created for   :
-// WorkStation   : FABXPS
+﻿// Grid.prg
+//
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
+// See License.txt in the project root for license information.
 
 
 USING System
@@ -16,7 +16,7 @@ USING XSharp.RT
 BEGIN NAMESPACE XSharp.VFP.UI
 
     /// <summary>
-    /// The VFPGrid class.
+    /// The VFP compatible Grid class.
     /// </summary>
     CLASS Grid INHERIT System.Windows.Forms.DataGridView IMPLEMENTS IDynamicProperties, IDynamicProperties2, IVFPOwner
 
@@ -253,13 +253,13 @@ BEGIN NAMESPACE XSharp.VFP.UI
 
 
         PRIVATE _VFPAfterRowColChange AS VFPOverride
-        PROPERTY vfpAfterRowColChange AS STRING GET _VFPAfterRowColChange?:SendTo SET Set_AfterRowColChange( VFPOverride{SELF, VALUE} )
+        PROPERTY vfpAfterRowColChange AS STRING GET _VFPAfterRowColChange?:SendTo SET SELF:Set_AfterRowColChange( VFPOverride{SELF, VALUE} )
 
         METHOD Set_AfterRowColChange( methodCall AS VFPOverride ) AS VOID
             SELF:_VFPAfterRowColChange := methodCall
 
         PRIVATE _VFPBeforeRowColChange AS VFPOverride
-        PROPERTY vfpBeforeRowColChange AS STRING GET _VFPBeforeRowColChange?:SendTo SET Set_BeforeRowColChange( VFPOverride{SELF, VALUE} )
+        PROPERTY vfpBeforeRowColChange AS STRING GET _VFPBeforeRowColChange?:SendTo SET SELF:Set_BeforeRowColChange( VFPOverride{SELF, VALUE} )
 
         METHOD Set_BeforeRowColChange( methodCall AS VFPOverride ) AS VOID
             SELF:_VFPBeforeRowColChange := methodCall
@@ -315,7 +315,7 @@ BEGIN NAMESPACE XSharp.VFP.UI
             TRY
                 ds := SELF:DataSource
                 IF SELF:_currentSource != NULL
-                    ds:Position := SELF:_currentSource:RecNo
+                    ds:Position := (INT) SELF:_currentSource:RecNo
                 ENDIF
             CATCH
                 NOP

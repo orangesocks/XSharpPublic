@@ -376,7 +376,13 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                     r = SyntaxFactory.MakeIdentifier(text);
                     break;
             }
-            (token as CommonToken).Type = XSharpParser.ID;
+            if (token.Type != XSharpParser.THISFORM)
+            {
+                if (token is CommonToken ct)
+                {
+                    ct.Type = XSharpParser.ID;
+                }
+            }
             r.XNode = new XTerminalNodeImpl(token);
             return r;
         }
@@ -1224,6 +1230,10 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                     r = SyntaxFactory.MakeToken(SyntaxKind.NotKeyword, text);
                     break;
 
+                case XSharpParser.LOCAL:
+                    r = SyntaxFactory.MakeToken(SyntaxKind.FileKeyword, text);
+                    break;
+
                 case XSharpParser.ACCESS:
                 case XSharpParser.ALIGN:
                 case XSharpParser.AS:
@@ -1248,7 +1258,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                 case XSharpParser.FUNCTION:
                 case XSharpParser.IIF:
                 case XSharpParser.INHERIT:
-                case XSharpParser.LOCAL:
+                //case XSharpParser.LOCAL:
                 case XSharpParser.MEMBER:
                 case XSharpParser.METHOD:
                 case XSharpParser.NEXT:

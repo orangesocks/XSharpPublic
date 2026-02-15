@@ -37,7 +37,23 @@ namespace XSharp.LanguageService
         private XKeyword GetFirstKeywordInLine(int lineNo)
         {
             var line = _buffer.CurrentSnapshot.GetLineFromLineNumber(lineNo);
-            return GetFirstKeywordInLine(line, out _, out _);
+            var kw = GetFirstKeywordInLine(line, out _, out var tokens);
+            if (kw.Kw1 == XTokenType.Udc_keyword)
+            {
+                // there are some rules in the UDC that for example translate
+                // NEXT x to NEXT
+                // The original token is stored in the Original property of XSharpToken
+
+                var token = tokens.Where(t => t.Type != XSharpLexer.WS).FirstOrDefault();
+                if (token != null)
+                {
+                    var t = (XSharpToken)token;
+                    var list = new List<IToken>{t.Original};
+                    kw = XSharpLineKeywords.Tokens2Keyword(list);
+                }
+
+            }
+            return kw;
         }
         private XKeyword GetFirstKeywordInLine(ITextSnapshotLine line, out int minIndent, out IList<IToken> tokens)
         {
@@ -245,14 +261,6 @@ namespace XSharp.LanguageService
                 case XSharpLexer.TRUE_CONST:        // Constant
                 case XSharpLexer.FALSE_CONST:       // Constant
                 case XSharpLexer.MACRO:             // __TERM__
-                case XSharpLexer.LOGIC_AND:         // Operator
-                case XSharpLexer.LOGIC_OR:          // Operator
-                case XSharpLexer.LOGIC_NOT:         // Operator
-                case XSharpLexer.LOGIC_XOR:         // Operator
-                case XSharpLexer.VO_AND:            // Operator
-                case XSharpLexer.VO_OR:             // Operator
-                case XSharpLexer.VO_NOT:            // Operator
-                case XSharpLexer.VO_XOR:            // Operator
                     syncKeyword = SyncKeywordCase;
                     break;
                 default:
@@ -264,7 +272,7 @@ namespace XSharp.LanguageService
                     {
                         syncKeyword = false;
                     }
-                    else if (XSharpLexer.IsKeyword(token.Type))
+                    else if (XSharpLexer.IsKeyword(token.Type) || XSharpLexer.IsWordOperator(token.Type))
                     {
                         syncKeyword = SyncKeywordCase;
                     }

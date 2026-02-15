@@ -25,8 +25,9 @@ BEGIN NAMESPACE XSharp
 [Serializable];
 PUBLIC CLASS __Array INHERIT __ArrayBase<USUAL> IMPLEMENTS IIndexer, ISerializable
     [NOSHOW] PRIVATE CONST FoxArrayName := "XSharp.__FoxArray" AS STRING
+    /// <exclude />
     [NOSHOW] STATIC FoxArrayHelpers := FoxArrayHelpers {} AS FoxArrayHelpers
-    [NOSHOW] INTERNAL PROPERTY __IsFoxArray AS LOGIC GET SELF:GetType():FullName == FoxArrayName
+    [NOSHOW] VIRTUAL PROTECTED INTERNAL PROPERTY __IsFoxArray AS LOGIC GET FALSE
     [NOSHOW] INTERNAL STATIC SuppressArrayIndexErrors := FALSE AS LOGIC  // used for Get_Element to emulate strange VO behaviour
 
     /// <inheritdoc />
@@ -317,7 +318,7 @@ PUBLIC CLASS __Array INHERIT __ArrayBase<USUAL> IMPLEMENTS IIndexer, ISerializab
             RETURN NIL
         END TRY
 
-    PRIVATE METHOD _adjustArguments(indices AS INT[], u := NIL AS USUAL) AS OBJECT[]
+    PRIVATE METHOD _adjustArguments(indices AS INT[], u := NIL IN USUAL) AS OBJECT[]
         VAR result := List<OBJECT>{}
         IF! u:IsNil
             result:Add(u)

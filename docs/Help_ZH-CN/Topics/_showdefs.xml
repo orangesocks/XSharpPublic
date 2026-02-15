@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-07-08T09:29:18.438+02:00" lasteditedby="robert" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>opt-showdefs</title>
+  <keywords>
+    <keyword>-showdefs</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">/showdefs</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">显示预处理器看到的 #define 标记</para>
+    <para styleclass="Heading2">语法</para>
+    <para styleclass="Code with box">/showdefs[+|-]</para>
+    <para styleclass="Heading2">参数</para>
+    <para styleclass="List"><text styleclass="Code Example">+ | - </text><tab />指定 + 或仅 /showdefs，编译器会在处理#defines 时输出它们的名称。</para>
+    <para styleclass="Heading2">备注</para>
+    <para styleclass="Normal">该命令行选项可用于调试编译时包含的定义</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal"><snippet src="__buildExtra" inline="false"/></para>
+    <para styleclass="Normal" style="margin-left:13px;"></para>
+  </body>
+</topic>

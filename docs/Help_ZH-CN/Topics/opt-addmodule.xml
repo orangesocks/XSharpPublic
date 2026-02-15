@@ -1,0 +1,34 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-06-30T21:55:41.274+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>-addmodule</title>
+  <keywords>
+    <keyword>-addmodule</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">-addmodule</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">该选项将使用 target:module 开关创建的模块添加到当前编译中。</para>
+    <para styleclass="Heading2">语法</para>
+    <para styleclass="Code with box">-addmodule:file[;file2] &#160;</para>
+    <para styleclass="Heading2">参数</para>
+    <para styleclass="List"><text styleclass="Code Example">file, file2</text><tab />包含元数据的输出文件。该文件不能包含程序集清单。要导入多个文件，请用逗号或分号分隔文件名。</para>
+    <para styleclass="Heading2">备注</para>
+    <para styleclass="Normal">使用 -addmodule 添加的所有模块在运行时必须与输出文件位于同一目录。也就是说，编译时可以在任何目录下指定模块，但运行时模块必须在应用程序目录下。如果运行时模块不在应用程序目录中，则会出现 TypeLoadException 异常。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">文件不能包含程序集。例如，如果输出文件是用 -target:module 创建的，则可以用 -addmodule 导入其元数据。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">如果输出文件是用 -target:module 以外的 -target 选项创建的，则其元数据不能用 -addmodule 导入，但可以用 -reference 导入。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">该编译器选项在 Visual Studio 中不可用；项目不能引用模块。此外，该编译器选项不能通过编程更改。</para>
+    <para styleclass="Heading2">示例</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">编译源文件 input.prg，并添加 metad1.netmodule 和 metad2.netmodule 中的元数据，生成 out.exe：</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Code with box">xsc -addmodule:metad1.netmodule;metad2.netmodule -out:out.exe input.prg &#160;</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal"></para>
+  </body>
+</topic>

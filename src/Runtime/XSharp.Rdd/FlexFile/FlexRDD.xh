@@ -35,8 +35,27 @@ BEGIN NAMESPACE XSharp.RDD
 
             SELF:oFlexMemo:ExportMode := BLOB_EXPORT_APPEND
 
-            /// <inheritdoc />
+        /// <inheritdoc />
         OVERRIDE PROPERTY Driver AS STRING GET nameof(RDDCLASS)
+
+      /// <inheritdoc />
+      OVERRIDE METHOD Create( openInfo AS DbOpenInfo ) AS LOGIC
+            local lOk as LOGIC
+            lOk := SUPER:Create(openInfo)
+            IF lOk
+#ifdef RDD_MEMOCDX
+                  SELF:_Header:Version := XSharp.RDD.DBFVersion.FoxBaseDBase3NoMemo
+#endif
+#ifdef RDD_MEMO
+                  IF SELF:_Ansi
+                     SELF:_Header:Version := XSharp.RDD.DBFVersion.VO
+                  ELSE
+                     SELF:_Header:Version := XSharp.RDD.DBFVersion.FoxBaseDBase3NoMemo
+                  ENDIF
+#endif
+               NOP                  
+	    ENDIF
+            RETURN lOk
 
             /// <inheritdoc />
         OVERRIDE METHOD GetValue(nFldPos AS LONG) AS OBJECT
@@ -61,6 +80,9 @@ BEGIN NAMESPACE XSharp.RDD
         OVERRIDE METHOD PutValue(nFldPos AS LONG, oValue AS OBJECT) AS LOGIC
             IF SELF:_ReadOnly
                 SELF:_dbfError(ERDD.READONLY, XSharp.Gencode.EG_READONLY )
+            ENDIF
+            IF SELF:EoF
+               RETURN TRUE
             ENDIF
             SELF:ForceRel()
             IF SELF:_readRecord()
@@ -237,7 +259,7 @@ BEGIN NAMESPACE XSharp.RDD
                 IF ! SELF:IsHot
                     SELF:GoHot()
                 ENDIF
-                RETURN SELF:oFlexMemo:PutValueFile(nFldPos, FileName)
+                RETURN SELF:oFlexMemo:PutValueFile(nFldPos, fileName)
             ENDIF
             RETURN FALSE
 

@@ -3,7 +3,7 @@
 // Licensed under the Apache License, Version 2.0.
 // See License.txt in the project root for license information.
 //
-#pragma options ("enforceself", on)
+
 #pragma warnings(165, off)
 
 partial class DbServer
@@ -41,7 +41,7 @@ partial class DbServer
             elseif IsSymbol( uField1 )
                 wPos := FieldPosSym( uField1 )
             elseif IsString( uField1 )
-                wPos := FieldPos( uField1 )
+                wPos := XSharp.RT.Functions.FieldPos( uField1 )
             else
                 wPos := uField1
             endif
@@ -57,7 +57,7 @@ partial class DbServer
                 else
                     self:__DbServerEval( { | | AAdd( aResult, __DBSFieldGet( wPos ) ) },  ;
                         nil,  ;
-                        { || Eval( cbKey ) = uValue },  ;
+                        { || XSharp.RT.Functions.Eval( cbKey ) = uValue },  ;
                         wRows,  ;
                         nil,  ;
                         true,  ;
@@ -192,7 +192,7 @@ partial class DbServer
             elseif IsSymbol( uField1 )
                 uField1 := FieldPosSym( uField1 )
             elseif IsString( uField1 )
-                uField1 := FieldPos( uField1 )
+                uField1 := XSharp.RT.Functions.FieldPos( uField1 )
             endif
 
 
@@ -201,7 +201,7 @@ partial class DbServer
             elseif IsSymbol( uField2 )
                 uField2 := FieldPosSym( uField2 )
             elseif IsString( uField2 )
-                uField2 := FieldPos( uField2 )
+                uField2 := XSharp.RT.Functions.FieldPos( uField2 )
             endif
 
 
@@ -215,7 +215,7 @@ partial class DbServer
                 else
                     self:__DbServerEval( { || AAdd( aResult, { __DBSFieldGet( uField1 ), __DBSFieldGet( uField2 ) } ) },  ;
                         nil,  ;
-                        { || Eval( cbKey ) == uValue },  ;
+                        { || XSharp.RT.Functions.Eval( cbKey ) == uValue },  ;
                         wRows,  ;
                         nil,  ;
                         true,  ;
@@ -324,10 +324,10 @@ partial class DbServer
                         uValue := uSelectionValue
                         cbKey := cbSelectionIndexingExpression
                         __DBSSeek( uSelectionValue, false, false , nTries )
-                        if Eval( cbKey ) = uValue .or. VoDbFound( )
+                        if XSharp.RT.Functions.Eval( cbKey ) = uValue .or. VoDbFound( )
                             lRetCode := self:__DbServerEval( { || },  ;
                                 nil,  ;
-                                { || Eval( cbKey ) = uValue },  ;
+                                { || XSharp.RT.Functions.Eval( cbKey ) = uValue },  ;
                                 nil,  nil,  true , false, false)
                             lRetCode := __DBSSkip( -1, nTries )
                             siSelectionStatus := DBSELECTIONNULL
@@ -375,7 +375,7 @@ partial class DbServer
 
 
     /// <include file="Rdd.xml" path="doc/DbServer.GoTo/*" />
-    method GoTo( nRecordNumber as long) as logic
+    method GoTo( nRecordNumber as DWORD) as logic
         local nCurrentRecord as dword
         local lRetCode := false as logic
         local dwCurrentWorkArea := 0 as dword
@@ -406,7 +406,7 @@ partial class DbServer
 
 
 
-                        if Eval( cbSelectionIndexingExpression ) = uSelectionValue
+                        if XSharp.RT.Functions.Eval( cbSelectionIndexingExpression ) = uSelectionValue
                             siSelectionStatus := DBSELECTIONNULL
 
 
@@ -670,7 +670,7 @@ partial class DbServer
     method Locate( cbForBlock, cbWhileBlock, uScope )  as logic clipper
         local uValue as usual
         local cbKey as usual
-        local nNextCount as longint
+        local nNextCount as DWORD
         local lRestOfFile as logic
         local lRetCode := false as logic
         local oError as usual
@@ -744,7 +744,7 @@ partial class DbServer
                 elseif lSelectionActive
                     uValue := uSelectionValue
                     cbKey := cbSelectionIndexingExpression
-                    if ! VoDbLocate( { || Eval( cbKey ) = uValue },  ;
+                    if ! VoDbLocate( { || XSharp.RT.Functions.Eval( cbKey ) = uValue },  ;
                             { || true },  ;
                             0,  ;
                             nil,  ;
@@ -843,7 +843,7 @@ partial class DbServer
                     if VoDbSeek( uSelectionValue, false )
                         lRetCode := self:__DbServerEval( { || VoDbRlock( VoDbRecno( ) ) },  ;
                             nil,  ;
-                            { || Eval( cbKey ) = uValue },  ;
+                            { || XSharp.RT.Functions.Eval( cbKey ) = uValue },  ;
                             nil,  nil,  true , false, false)
                         if ! lRetCode .or. ! VoDbGoto( uCurrentRecord )
                             break ErrorBuild( _VoDbErrInfoPtr( ) )
@@ -1058,9 +1058,9 @@ partial class DbServer
                 if lSelectionActive
                     if uDescription == nil .or. uDescription == DBSELECTIONNULL
                         VoDbSelect( wSelectionWorkArea, out dwCurrentWorkArea )
-                        uSelectionValue := Eval( cbSelectionParentExpression )
+                        uSelectionValue := XSharp.RT.Functions.Eval( cbSelectionParentExpression )
                         VoDbSetSelect( longint( wWorkArea ) )
-                        if VoDbEof( ) .or. ! ( Eval( cbSelectionIndexingExpression ) = uSelectionValue )
+                        if VoDbEof( ) .or. ! ( XSharp.RT.Functions.Eval( cbSelectionIndexingExpression ) = uSelectionValue )
                             siSelectionStatus := DBSELECTIONEMPTY
                         else
                             siSelectionStatus := DBSELECTIONNULL
@@ -1073,7 +1073,7 @@ partial class DbServer
 
                 elseif lCDXSelectionActive
                     VoDbSelect( wSelectionWorkArea, out dwCurrentWorkArea )
-                    uVOVal := uVoVal2 := Eval( cbSelectionParentExpression )
+                    uVOVal := uVoVal2 := XSharp.RT.Functions.Eval( cbSelectionParentExpression )
                     VoDbSetSelect( longint(wWorkArea ) )
                     VoDbOrderInfo( DBOI_SCOPETOP	 , "", nil, ref uVOVal )
                     VoDbOrderInfo( DBOI_SCOPEBOTTOM, "", nil, ref uVoVal2 )
@@ -1145,12 +1145,12 @@ partial class DbServer
 
 
     /// <include file="Rdd.xml" path="doc/DbServer.OrderDescend/*" />
-    method OrderDescend( uOrder as usual, oFSIndex as FileSpec, lNew := nil as usual) as long
+    method OrderDescend( uOrder as usual, oFSIndex as FileSpec, lNew := nil as usual) as logic
         return self:OrderDescend(uOrder, oFSIndex:FullPath, lNew)
 
 
     /// <include file="Rdd.xml" path="doc/DbServer.OrderDescend/*" />
-    method OrderDescend( uOrder as usual, cIndex := "" as string, lNew := nil as usual) as long
+    method OrderDescend( uOrder as usual, cIndex := "" as string, lNew := nil as usual) as logic
         local dwCurrentWorkArea := 0 as dword
         local oError as usual
 

@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-06-27T20:16:15.614+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>RENAME 命令</title>
+  <keywords>
+    <keyword>Commands</keyword>
+    <keyword>Files<keyword>renaming</keyword></keyword>
+    <keyword>RENAME command</keyword>
+    <keyword>Renaming<keyword>files</keyword></keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">RENAME 命令</para>
+    </header>
+    <para styleclass="Normal"><snippet src="__CommandInclude" inline="false"/></para>
+    <para styleclass="Heading1">用途</para>
+    <para styleclass="Normal">将文件名更改为新名称。</para>
+    <para styleclass="Heading1">语法</para>
+    <para styleclass="Code with box">RENAME &lt;xcSourceFile&gt; TO &lt;xcTargetFile&gt;</para>
+    <para styleclass="Heading1">参数</para>
+    <para styleclass="List">&lt;xcSourceFile&gt;<tab />要重命名的源文件名，包括可选的驱动器、目录和扩展名。 如果 &lt;xcSourceFile&gt; 不存在，运行时将出错。</para>
+    <para styleclass="List"></para>
+    <para styleclass="List">TO &lt;xcTargetFile&gt;<tab />新文件的名称，包括可选的驱动器、目录和扩展名。 如果 &lt;xcTargetFile&gt; 已存在或已打开，RENAME 不会执行任何操作。</para>
+    <para styleclass="List"></para>
+    <para styleclass="List"><tab />SetDefault() 和 SetPath() 不会影响此命令。 如果没有指定驱动器和目录，它将假定当前的 Windows 驱动器和目录。 不提供默认扩展名。</para>
+    <para styleclass="Heading1">描述</para>
+    <para styleclass="Normal">如果目标目录与源目录不同，文件会移动到新的目录。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal"><text styleclass="BoldItalic" style="font-family:Arial; font-size:10pt; font-weight:normal; font-style:normal; text-decoration:none; text-transform:none; vertical-align:baseline; color:#000000; background-color:transparent; letter-spacing:normal; letter-scaling:100%;">警告！ 重命名前必须关闭文件。 尝试重命名打开的文件将产生不可预知的结果。 重命名数据库文件时，请记住任何相关的备注文件也必须重命名。 否则会影响应用程序的完整性。</text></para>
+    <para styleclass="Heading1">示例</para>
+    <para styleclass="Normal">此示例重命名了一个文件，在开始 RENAME 操作前检查目标文件是否存在：</para>
+    <para styleclass="Code Example">xcOldFile := &quot;oldfile.txt&quot;<br/>xcNewFile := &quot;newfile.txt&quot;<br/>IF !File(xcNewFile)<br/><tab />RENAME (xcOldFile) TO (xcNewFile)<br/>ELSE<br/><tab />? &quot;文件已存在&quot;<br/>ENDIF</para>
+    <para styleclass="Body Text"><snippet src="__IncludeLibRt" inline="false"/></para>
+    <para styleclass="Heading1">参见</para>
+    <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="command_COPY_FILE">COPY FILE</link><text styleclass="Bold" style="font-family:Arial; font-size:10pt; font-weight:normal; font-style:normal; text-transform:none; vertical-align:baseline; color:#000000; background-color:transparent; letter-spacing:normal; letter-scaling:100%;">, </text><link displaytype="text" defaultstyle="true" type="topiclink" href="html\Overload_XSharp_Core_Functions_CurDir.htm" domain="XSharpRef.chm">CurDir()</link><text styleclass="Bold" style="font-family:Arial; font-size:10pt; font-weight:normal; font-style:normal; text-transform:none; vertical-align:baseline; color:#000000; background-color:transparent; letter-spacing:normal; letter-scaling:100%;">, </text><link displaytype="text" defaultstyle="true" type="topiclink" href="command_DELETE_FILE">DELETE FILE</link><text styleclass="Bold" style="font-family:Arial; font-size:10pt; font-weight:normal; font-style:normal; text-transform:none; vertical-align:baseline; color:#000000; background-color:transparent; letter-spacing:normal; letter-scaling:100%;">, </text><link displaytype="text" defaultstyle="true" type="topiclink" href="html\M_XSharp_Core_Functions_File.htm" domain="XSharpRef.chm">File()</link><text styleclass="Bold" style="font-family:Arial; font-size:10pt; font-weight:normal; font-style:normal; text-transform:none; vertical-align:baseline; color:#000000; background-color:transparent; letter-spacing:normal; letter-scaling:100%;">, </text><link displaytype="text" defaultstyle="true" type="topiclink" href="html\M_XSharp_Core_Functions_FErase.htm" domain="XSharpRef.chm">FErase()</link><text styleclass="Bold" style="font-family:Arial; font-size:10pt; font-weight:normal; font-style:normal; text-transform:none; vertical-align:baseline; color:#000000; background-color:transparent; letter-spacing:normal; letter-scaling:100%;">, </text><link displaytype="text" defaultstyle="true" type="topiclink" href="html\M_XSharp_Core_Functions_FRename.htm" domain="XSharpRef.chm">FRename()</link><text styleclass="Bold" style="font-family:Arial; font-size:10pt; font-weight:normal; font-style:normal; text-transform:none; vertical-align:baseline; color:#000000; background-color:transparent; letter-spacing:normal; letter-scaling:100%;">, </text><link displaytype="text" defaultstyle="true" type="topiclink" href="command_RUN">RUN</link>, <link displaytype="text" defaultstyle="true" type="topiclink" href="html\Overload_XSharp_Core_Functions_SetDefault.htm" domain="XSharpRef.chm">SetDefault()</link><text styleclass="Bold" style="font-family:Arial; font-size:10pt; font-weight:normal; font-style:normal; text-transform:none; vertical-align:baseline; color:#000000; background-color:transparent; letter-spacing:normal; letter-scaling:100%;">, </text><link displaytype="text" defaultstyle="true" type="topiclink" href="html\Overload_XSharp_Core_Functions_SetPath.htm" domain="XSharpRef.chm">SetPath()</link></para>
+    <para styleclass="Normal"></para>
+  </body>
+</topic>

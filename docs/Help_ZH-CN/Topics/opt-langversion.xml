@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-07-01T11:41:40.103+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>-langversion</title>
+  <keywords>
+    <keyword>-langversion</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">-langversion</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">该编译器选项将被忽略。与 C# 编译器相比，X# 总是以最新语言版本编译。</para>
+  </body>
+</topic>

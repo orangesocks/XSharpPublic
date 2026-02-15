@@ -1,0 +1,154 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-07-26T11:58:19.047+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>#pragma warning(s)</title>
+  <keywords>
+    <keyword>#pragma warning</keyword>
+    <keyword>#pragma warnings</keyword>
+    <keyword>pragma</keyword>
+    <keyword>warnings</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">#pragma warning(s)</para>
+    </header>
+    <para styleclass="Heading1">用途</para>
+    <para styleclass="Normal">#pragma warning 指令允许您抑制一段代码的某些编译器警告。</para>
+    <para styleclass="Normal">我们同时支持 C# 样式的实用程序警告命令(完全支持)和 Vulcan 风格的实用程序(部分支持)。</para>
+    <para styleclass="Heading1">语法</para>
+    <para styleclass="Code with box">#pragma warnings( <text style="font-style:italic;">number</text>, <text style="font-style:italic;">state</text> )<br/>#pragma warnings ( <text style="font-style:italic;">pop </text>)<br/>#pragma warning <text style="font-style:italic;">state2</text> [&lt;<text style="font-style:italic;">errornumbers</text>&gt;]</para>
+    <para styleclass="Heading3">备注</para>
+    <para styleclass="NotesBox">#pragma 指令必须出现在第一个实体之前或实体之间，不能出现在实体中间。</para>
+    <para styleclass="Heading1">参数</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="List">number<tab />要禁用的警告编号。可以是数字，也可以是 XSnnnn 的形式</para>
+    <para styleclass="List"></para>
+    <para styleclass="List">state<tab />Off | Default<tab />从命令行禁用警告或将其切换回实际情况</para>
+    <para styleclass="List"></para>
+    <para styleclass="List">pop<tab />将所有警告切换回默认值</para>
+    <para styleclass="List"></para>
+    <para styleclass="List">state2 <tab />Disable | Restore 禁用或恢复后面的警告编号。<br/>如果没有指定错误编号，则禁用所有警告，并将所有警告恢复为默认值</para>
+    <para styleclass="List"></para>
+    <para styleclass="List">errornumbers<tab />(可选)以逗号分隔的数字或名称列表(XSnnnn) </para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Heading3">备注</para>
+    <para styleclass="NotesBox"><text style="font-style:normal;">编译器不会检查这些数字是否有效，也不会检查它们是否确实是警告。因此，您可以指定不存在的数字和/或代表错误而不是警告的数字。在这种情况下，编译器不会向您发出警告。</text></para>
+    <para styleclass="NotesBox"></para>
+    <para styleclass="Heading3">C# 样式语法</para>
+    <para styleclass="Normal"><table styleclass="Default" rowcount="7" colcount="2">
+      <tr style="vertical-align:top">
+        <td style="width:342px;">
+          <para styleclass="Normal" style="text-align:center;"><text style="font-weight:bold;">示例</text></para>
+        </td>
+        <td style="width:905px;">
+          <para styleclass="Normal" style="text-align:center;"><text style="font-weight:bold;">描述</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td style="width:342px;">
+          <para styleclass="Normal">#pragma warning disable 1234</para>
+        </td>
+        <td style="width:905px;">
+          <para styleclass="Normal">禁用警告 1234</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td style="width:342px;">
+          <para styleclass="Normal">#pragma warning disable 1234, XS2345</para>
+        </td>
+        <td style="width:905px;">
+          <para styleclass="Normal">禁用 2 个警告 1234 和 XS2345</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td style="width:342px;">
+          <para styleclass="Normal">#pragma warning restore 1234</para>
+        </td>
+        <td style="width:905px;">
+          <para styleclass="Normal">将警告 1234 重置为命令行中的状态</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td style="width:342px;">
+          <para styleclass="Normal">#pragma warning restore 1234, XS2345</para>
+        </td>
+        <td style="width:905px;">
+          <para styleclass="Normal">通过命令行将 2 个警告 1234 和 XS2345 重置状态</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td style="width:342px;">
+          <para styleclass="Normal">#pragma warning disable</para>
+        </td>
+        <td style="width:905px;">
+          <para styleclass="Normal">禁用所有警告</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td style="width:342px;">
+          <para styleclass="Normal">#pragma warning restore</para>
+        </td>
+        <td style="width:905px;">
+          <para styleclass="Normal">将所有警告恢复为命令行设置</para>
+        </td>
+      </tr>
+    </table></para>
+    <para styleclass="Heading3"></para>
+    <para styleclass="Heading3">Vulcan 样式语法</para>
+    <para styleclass="Normal"><table styleclass="Default" rowcount="7" colcount="2">
+      <tr style="vertical-align:top">
+        <td style="width:342px;">
+          <para styleclass="Normal" style="text-align:center;"><text style="font-weight:bold;">示例</text></para>
+        </td>
+        <td style="width:905px;">
+          <para styleclass="Normal" style="text-align:center;"><text style="font-weight:bold;">描述</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td style="width:342px;">
+          <para styleclass="Normal">#pragma warnings (1234, off )</para>
+        </td>
+        <td style="width:905px;">
+          <para styleclass="Normal">禁用警告 1234</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td style="width:342px;">
+          <para styleclass="Normal">#pragma warnings (1234, default)</para>
+        </td>
+        <td style="width:905px;">
+          <para styleclass="Normal">将警告 1234 重置为命令行中的状态</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td style="width:342px;">
+          <para styleclass="Normal">#pragma warnings ( pop )</para>
+        </td>
+        <td style="width:905px;">
+          <para styleclass="Normal">将所有警告恢复为命令行设置</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td style="width:342px;">
+          <para styleclass="Normal"><text style="font-weight:bold;">不支持:</text></para>
+        </td>
+        <td style="width:905px;">
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td style="width:342px;">
+          <para styleclass="Normal">#pragma warnings (1234, on )</para>
+        </td>
+        <td style="width:905px;">
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td style="width:342px;">
+          <para styleclass="Normal">#pragma warnings ( push )</para>
+        </td>
+        <td style="width:905px;">
+        </td>
+      </tr>
+    </table></para>
+  </body>
+</topic>

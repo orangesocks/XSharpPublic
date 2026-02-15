@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-06-30T11:00:26.989+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>#endif</title>
+  <keywords>
+    <keyword>#endif</keyword>
+    <keyword>Preprocessor</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">#endif</para>
+    </header>
+    <para styleclass="Heading1">用途</para>
+    <para styleclass="Body Text">#endif 指定以 &#160;<link displaytype="text" defaultstyle="true" type="topiclink" href="pp-Ifdef">#ifdef</link> 或 <link displaytype="text" defaultstyle="true" type="topiclink" href="pp-Ifndef">#ifndef</link> 指令开始的条件指令的结束。例如</para>
+    <para styleclass="Code Example">// DEBUG 可在命令行中定义<br/>// ...<br/>#if DEBUG<br/> &#160; &#160;Console.WriteLine(&quot;调试版本&quot;);<br/>#else<br/> &#160; &#160;Console.WriteLine(&quot;发布版本&quot;);<br/>#endif</para>
+    <para styleclass="Normal"></para>
+  </body>
+</topic>

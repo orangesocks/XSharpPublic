@@ -17,7 +17,7 @@ USING XSharp.RDD.Support
 USING STATIC XSharp.Conversions
 BEGIN NAMESPACE XSharp.RDD.CDX
 
-    INTERNAL DELEGATE CompareFunc(aLHS AS BYTE[], aRHS AS BYTE[], nLength AS LONG, recnoLHS AS LONG, recnoRHS AS LONG) AS LONG
+    INTERNAL DELEGATE CompareFunc(aLHS AS BYTE[], aRHS AS BYTE[], nLength AS LONG, recnoLHS AS DWORD, recnoRHS AS DWORD) AS LONG
 
 
     [DebuggerDisplay("Tag: {OrderName}, Key: {Expression}, For: {Condition}")];
@@ -49,7 +49,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
         PRIVATE _newKeyLen     AS LONG
         PRIVATE _KeyExprType   AS LONG
         PRIVATE _keySize       AS WORD      // Key size. May include an extra byte for nullable keys
-        PRIVATE _rootPage      AS LONG
+        PRIVATE _rootPage      AS DWORD
         PRIVATE _ordCondInfo   AS DbOrderCondInfo
         PRIVATE _keyBuffer     AS BYTE[]
         INTERNAL _orderName    AS STRING
@@ -84,10 +84,10 @@ BEGIN NAMESPACE XSharp.RDD.CDX
         INTERNAL PROPERTY Condition         AS STRING GET _ForExpr
         INTERNAL PROPERTY OrderName         AS STRING GET _orderName
         INTERNAL PROPERTY Shared 	        AS LOGIC GET _bag:Shared
-        INTERNAL PROPERTY _RecNo 	        AS LONG GET _oRdd:RecNo
+        INTERNAL PROPERTY _RecNo 	        AS DWORD GET _oRdd:RecNo
         INTERNAL PROPERTY FileName 	        AS STRING GET _bag:FullPath
         INTERNAL PROPERTY OrderBag          AS CdxOrderBag GET SELF:_bag
-        INTERNAL PROPERTY Page              AS Int32 AUTO
+        INTERNAL PROPERTY Page              AS DWORD AUTO
         INTERNAL PROPERTY Descending        AS LOGIC GET _Descending SET _Descending := value
         INTERNAL PROPERTY IsConditional     AS LOGIC GET Options:HasFlag(CdxOptions.HasFor)
         INTERNAL PROPERTY IsHot             AS LOGIC GET _Hot
@@ -137,7 +137,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 
 
         // Constructor for Opening of tags
-        INTERNAL CONSTRUCTOR (oBag AS CdxOrderBag, nPage AS Int32, cName AS STRING)
+        INTERNAL CONSTRUCTOR (oBag AS CdxOrderBag, nPage AS DWORD, cName AS STRING)
             SUPER()
             SELF:_InitFields(oBag)
             SELF:_orderName := cName
@@ -171,9 +171,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             IF !String.IsNullOrEmpty(SELF:_Header:VFPCollation)
                 IF SELF:_oRdd IS DBFVFP
                     SELF:_Collation := VfpCollation{SELF:_Header:VFPCollation,SELF:_oRdd:Header:CodePage:ToCodePage()}
-                ELSEIF RuntimeState.Dialect != XSharpDialect.VO .and. ;
-                    RuntimeState.Dialect != XSharpDialect.Vulcan .and. ;
-                    RuntimeState.Dialect != XSharpDialect.Core
+                ELSEIF !RuntimeState.Dialect:SupportsAnsi()
                     SELF:ThrowException( Subcodes.ERDD_CORRUPT, Gencode.EG_CORRUPTION, "CdxTag.Open","Indexes with collation must be opened with the DBFVFP driver")
                 ENDIF
             ENDIF
@@ -407,8 +405,8 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             // Is called to save the current for value and key value
             RETURN SELF:_saveCurrentKey(SELF:_oRdd:RecNo, SELF:_currentvalue)
 
-        INTERNAL METHOD GetPage(nPage AS LONG) AS CdxTreePage
-            IF nPage == -1
+        INTERNAL METHOD GetPage(nPage AS DWORD) AS CdxTreePage
+            IF nPage == MISSING_PAGE
                 RETURN NULL
             ENDIF
             VAR page := SELF:_bag:GetPage(nPage, SELF:_keySize, SELF)
@@ -431,7 +429,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             res := 0
             RETURN FALSE
 
-        INTERNAL STATIC METHOD _compareTextNull(aLHS AS BYTE[], aRHS AS BYTE[], nLength AS LONG, recnoLHS AS LONG, recnoRHS AS LONG) AS LONG
+        INTERNAL STATIC METHOD _compareTextNull(aLHS AS BYTE[], aRHS AS BYTE[], nLength AS LONG, recnoLHS AS DWORD, recnoRHS AS DWORD) AS LONG
             IF aRHS == NULL
                 RETURN 0
             ENDIF
@@ -440,7 +438,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             ENDIF
             RETURN _compareText(aLHS, aRHS, nLength, recnoLHS, recnoRHS)
 
-        INTERNAL STATIC METHOD _compareText(aLHS AS BYTE[], aRHS AS BYTE[], nLength AS LONG, recnoLHS AS LONG, recnoRHS AS LONG) AS LONG
+        INTERNAL STATIC METHOD _compareText(aLHS AS BYTE[], aRHS AS BYTE[], nLength AS LONG, recnoLHS AS DWORD, recnoRHS AS DWORD) AS LONG
             IF aRHS == NULL
                 RETURN 0
             ENDIF
@@ -450,7 +448,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             ENDIF
             RETURN result
 
-        INTERNAL STATIC METHOD _compareCollationNull(aLHS AS BYTE[], aRHS AS BYTE[], nLength AS LONG, recnoLHS AS LONG, recnoRHS AS LONG) AS LONG
+        INTERNAL STATIC METHOD _compareCollationNull(aLHS AS BYTE[], aRHS AS BYTE[], nLength AS LONG, recnoLHS AS DWORD, recnoRHS AS DWORD) AS LONG
             IF aRHS == NULL
                 RETURN 0
             ENDIF
@@ -459,10 +457,10 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             ENDIF
             RETURN _compareCollation(aLHS, aRHS, nLength, recnoLHS, recnoRHS)
 
-        INTERNAL STATIC METHOD _compareCollation(aLHS AS BYTE[], aRHS AS BYTE[], nLength AS LONG, recnoLHS AS LONG, recnoRHS AS LONG) AS LONG
+        INTERNAL STATIC METHOD _compareCollation(aLHS AS BYTE[], aRHS AS BYTE[], nLength AS LONG, recnoLHS AS DWORD, recnoRHS AS DWORD) AS LONG
             RETURN _compareBin(aLHS, aRHS, nLength, recnoLHS, recnoRHS)
 
-        INTERNAL STATIC METHOD _compareRecno(recnoLHS AS LONG, recnoRHS AS LONG) AS LONG
+        INTERNAL STATIC METHOD _compareRecno(recnoLHS AS DWORD, recnoRHS AS DWORD) AS LONG
             IF recnoLHS == 0 .OR. recnoRHS == 0
                 // no record to compare against
                 RETURN 0
@@ -474,7 +472,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             ENDIF
             RETURN 0
 
-        INTERNAL STATIC METHOD _compareBinNull(aLHS AS BYTE[], aRHS AS BYTE[], nLength AS LONG, recnoLHS AS LONG, recnoRHS AS LONG) AS LONG
+        INTERNAL STATIC METHOD _compareBinNull(aLHS AS BYTE[], aRHS AS BYTE[], nLength AS LONG, recnoLHS AS DWORD, recnoRHS AS DWORD) AS LONG
             IF aRHS == NULL
                 RETURN 0
             ENDIF
@@ -483,7 +481,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             ENDIF
             RETURN _compareBin(aLHS, aRHS, nLength, recnoLHS, recnoRHS)
 
-        INTERNAL STATIC METHOD _compareBin(aLHS AS BYTE[], aRHS AS BYTE[], nLength AS LONG, recnoLHS AS LONG, recnoRHS AS LONG) AS LONG
+        INTERNAL STATIC METHOD _compareBin(aLHS AS BYTE[], aRHS AS BYTE[], nLength AS LONG, recnoLHS AS DWORD, recnoRHS AS DWORD) AS LONG
             IF aRHS == NULL
                 RETURN 0
             ENDIF
@@ -569,9 +567,9 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             resultLength := sLen
             IF SELF:_NullableKey
                 buffer[0] := 128
-                SELF:_Encoding:GetBytes( text, 0, sLen, buffer, 1)
+                SELF:_oRdd:_GetBytes(text, buffer, 1, sLen)
             ELSE
-                SELF:_Encoding:GetBytes( text, 0, sLen, buffer, 0)
+                SELF:_oRdd:_GetBytes(text, buffer, 0, sLen)
             ENDIF
             IF SELF:_Collation != NULL
                 SELF:_Collation:Translate(buffer)
@@ -610,12 +608,12 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             END SWITCH
             RETURN result
 
-        INTERNAL METHOD _CountRecords(records REF LONG ) AS LOGIC
+        INTERNAL METHOD _CountRecords(records REF DWORD ) AS LOGIC
             LOCAL isOk AS LOGIC
-            LOCAL oldRec AS LONG
-            LOCAL recno AS LONG
-            LOCAL last AS LONG
-            LOCAL count AS LONG
+            LOCAL oldRec AS DWORD
+            LOCAL recno AS DWORD
+            LOCAL last AS DWORD
+            LOCAL count AS DWORD
             LOCAL isLocked := FALSE AS LOGIC
             LOCAL oldDescend := FALSE AS LOGIC
             LOCAL saveEmpty := SELF:_scopeEmpty AS LOGIC
@@ -656,7 +654,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                             recno := SELF:_RecNo
                             last := SELF:_oRdd:RecCount + 1
                             count := 0
-                            LOCAL previous AS LONG
+                            LOCAL previous AS INT64
                             previous := recno
                             DO WHILE recno != 0 .AND. recno < last
                                 count++
@@ -710,10 +708,10 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             RETURN isOk
 
 
-        INTERNAL METHOD _getRecPos(record REF LONG ) AS LOGIC
-            LOCAL oldRec AS LONG
-            LOCAL recno AS LONG
-            LOCAL count AS LONG
+        INTERNAL METHOD _getRecPos(record REF DWORD ) AS LOGIC
+            LOCAL oldRec AS DWORD
+            LOCAL recno AS DWORD
+            LOCAL count AS DWORD
             LOCAL isLocked := FALSE AS LOGIC
             IF SELF:RDD:EoF
                record := 0
@@ -765,8 +763,8 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             END TRY
             RETURN TRUE
 
-        PRIVATE METHOD _nextKey( keyMove AS LONG ) AS LONG
-            LOCAL recno			AS LONG
+        PRIVATE METHOD _nextKey( keyMove AS LONG ) AS DWORD
+            LOCAL recno			AS DWORD
             LOCAL moveDirection	AS SkipDirection
             IF keyMove == 1
                 recno := SELF:_getNextKey(SkipDirection.Forward)
@@ -788,7 +786,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 if (recno == 0 )
                     if moveDirection == SkipDirection.Backward
                         IF !SELF:Descending
-                            recno := -1
+                            recno := MISSING_RECNO
                         ENDIF
                     else
                         // Goto 0 moves the record pointer to EOF which is correct
@@ -848,11 +846,11 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 sBlock := SELF:_Header:Dump("-----------")
                 FWrite(hDump, sBlock)
                 // Collect all pages
-                LOCAL aPages AS List<LONG>
+                LOCAL aPages AS List<DWORD>
                 LOCAL oPage AS CdxTreePage
                 LOCAL nLevel AS LONG
                 oPage  := SELF:GetPage(SELF:_rootPage)
-                aPages := (List<INT>) oPage:GetChildren()
+                aPages := (List<DWORD>) oPage:GetChildren()
                 nLevel := 1
                 LOCAL sbLevels AS StringBuilder
                 sbLevels := StringBuilder{}
@@ -860,11 +858,11 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 sbLevels:AppendLine("CDX Levels:")
                 sbLevels:AppendLine("Level 1 : 1 page")
                 DO WHILE aPages:Count > 0
-                    LOCAL aChildren AS List<LONG>
+                    LOCAL aChildren AS List<DWORD>
                     nLevel += 1
                     sbLevels:AppendLine("Level "+nLevel:ToString()+" : "+aPages:Count:ToString()+" pages")
-                    aChildren := List<LONG>{}
-                    FOREACH pageNo AS LONG IN aPages
+                    aChildren := List<DWORD>{}
+                    FOREACH pageNo AS DWORD IN aPages
                         oPage := SELF:GetPage(pageNo)
                         aChildren:AddRange(oPage:GetChildren())
                     NEXT
@@ -897,14 +895,14 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 // Collect Recycled pages
                 LOCAL sbFree AS StringBuilder
                 sbFree := StringBuilder{}
-                LOCAL nPage := SELF:OrderBag:Root:FreeList AS LONG
+                LOCAL nPage := SELF:OrderBag:Root:FreeList AS DWORD
                 sbFree:AppendLine("-------------------------------")
                 sbFree:AppendLine("List of Free pages (Bag Level) ")
                 sbFree:AppendLine("-------------------------------")
                 sbFree:AppendLine("First free: "+ nPage:ToString("X8"))
                 // stop dumping pages because from now on we only dump the page numbers
                 SELF:_bag:_PageList:DumpHandle := IntPtr.Zero
-                DO WHILE nPage != 0 .AND. nPage != -1
+                DO WHILE nPage != 0 .AND. nPage != MISSING_PAGE
                     VAR oFree := SELF:GetPage(nPage) ASTYPE CdxTreePage
                     IF oFree != NULL
                         nPage := oFree:LeftPtr
@@ -1026,6 +1024,8 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             END TRY
             RETURN result
 
+       INTERNAL METHOD ResetFilter() AS VOID
+            SELF:_mustCheckEof := TRUE
 
 
     END CLASS

@@ -32,7 +32,7 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 		METHOD CreateDBFNtx() AS VOID
 			LOCAL fieldDefs := "ID,N,5,0;NAME,C,20,0;MAN,L,1,0;BIRTHDAY,D,8,0" AS STRING
 			LOCAL fields := fieldDefs:Split( ';' ) AS STRING[]
-            InitTest()
+            SELF:InitTest()
             VAR dbInfo := DbOpenInfo{ TempFileName(), "TestNtx1", 1, FALSE, FALSE }
 			//
 			LOCAL myDBF AS DbfNtx
@@ -70,8 +70,8 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 		[Fact, Trait("DbfNtx", "Open")];
 		METHOD OpenDBFNtx() AS VOID
 			// ID,N,5,0;NAME,C,20,0
-            InitTest()
-            LOCAL cSource := TempFileName() as string
+            SELF:InitTest()
+            LOCAL cSource := TempFileName() AS STRING
 			VAR dbInfo := DbOpenInfo{ cSource, "customer", 1, FALSE, FALSE }
 			//
 			LOCAL myDBF AS DbfNtx
@@ -98,8 +98,8 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 		[Fact, Trait("DbfNtx", "CreateAppend")];
 		METHOD CreateAppend() AS VOID
 			// Create the DBF, Define a Ntx, then add a some Data
-            InitTest()
-            local cSource := TempFileName() AS STRING
+            SELF:InitTest()
+            LOCAL cSource := TempFileName() AS STRING
             SELF:CreateAppendData( cSource )
 			// Now, Verify
 			SELF:CheckOrder( cSource )
@@ -107,7 +107,7 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 		[Fact, Trait("DbfNtx", "CreateAppendSkipZero")];
 		METHOD CreateAppendSkipZero() AS VOID
 			// Create the DBF, Define a Ntx, then add a some Data
-            InitTest()
+            SELF:InitTest()
             VAR cSource := TempFileName()
 			SELF:CreateAppendData( cSource )
 			//
@@ -148,7 +148,7 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 		METHOD CreateAppendData( baseFileName AS STRING ) AS VOID
 			LOCAL fieldDefs := "ID,N,5,0;NAME,C,20,0;MAN,L,1,0;BIRTHDAY,D,8,0" AS STRING
 			LOCAL fields := fieldDefs:Split( ';' ) AS STRING[]
-            InitTest()
+            SELF:InitTest()
             VAR dbInfo := DbOpenInfo{ baseFileName, "" , 1, FALSE, FALSE }
 			//
 			LOCAL myDBF AS DbfNtx
@@ -203,8 +203,8 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 		METHOD BigCreateAppend() AS VOID
 			LOCAL fieldDefs := "ID,N,5,0;NAME,C,20,0;MAN,L,1,0;BIRTHDAY,D,8,0" AS STRING
 			LOCAL fields := fieldDefs:Split( ';' ) AS STRING[]
-            local cSource := TempFileName() as STRING
-            InitTest()
+            LOCAL cSource := TempFileName() AS STRING
+            SELF:InitTest()
 			VAR dbInfo := DbOpenInfo{ cSource, "XMenTest", 1, FALSE, FALSE }
 			//
 			LOCAL myDBF AS DbfNtx
@@ -239,7 +239,7 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 			// Now, Add some Data
 			LOCAL rnd AS Random
 			//
-			rnd := Random{ (LONG)DateTime.Now.Ticks }
+			rnd := Random{ (LONG)DateTime.Now:Ticks }
 			//"ID,N,5,0;NAME,C,20,0;MAN,L,1,0;BIRTHDAY,D,8,0"
 			// 3000 samples
 			FOR VAR i := 1 TO 3000
@@ -263,7 +263,7 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 			//
 			LOCAL myDBF AS DbfNtx
 			myDBF := DbfNtx{}
-            InitTest()
+            SELF:InitTest()
 			VAR success := myDBF:Open( dbInfo )
 			Assert.Equal( TRUE, success )
 			// WE HAVE TO SET THE WORKAREA INFO !!!!
@@ -311,11 +311,11 @@ BEGIN NAMESPACE XSharp.RDD.Tests
 			RETURN
 
         STATIC PRIVATE nCounter AS LONG
-        STATIC PRIVATE gate := Object{} as Object
-        STATIC METHOD TempFilename() as STRING
+        STATIC PRIVATE gate := OBJECT{} AS OBJECT
+        STATIC METHOD TempFilename() AS STRING
             BEGIN LOCK gate
             nCounter += 1
-            end lock
-            return "TestNTX"+nCounter:ToString()
+            END LOCK
+            RETURN "TestNTX"+nCounter:ToString()
 	END CLASS
 END NAMESPACE // XSharp.RDD.Tests

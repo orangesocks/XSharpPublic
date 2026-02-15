@@ -17,6 +17,12 @@
     <RuntimeFilesDir Condition="'$(RuntimeFilesDir)' == '' ">$(DevRtDir)Binaries\Debug\</RuntimeFilesDir>
     <EnableBaseIntermediateOutputPathMismatchWarning>false</EnableBaseIntermediateOutputPathMismatchWarning>
     <BinariesDir>$(ArtifactsDir)bin\</BinariesDir>
+    <Allowdot>True</Allowdot>
+    <AllowOldStyleAssignments>True</AllowOldStyleAssignments>
+    <Vo15>True</Vo15>
+    <Vo9>true</Vo9>
+    <Fox1>true</Fox1>
+    <ResolveNuGetPackages>false</ResolveNuGetPackages>
   </PropertyGroup>
   <Import Project="$(XSharpMsBuildDir)\XSharp.Default.props" />
   <PropertyGroup>
@@ -26,7 +32,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>TestMacroCompiler</RootNamespace>
     <AssemblyName>TestMacroCompiler</AssemblyName>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <Name>TestFullMacroCompiler</Name>
     <Nologo>true</Nologo>
     <GenerateFullPaths>true</GenerateFullPaths>
@@ -58,7 +64,7 @@
     <OutputPath>$(BinariesDir)$(ProjectName)\$(Configuration)</OutputPath>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <UseSharedCompilation>false</UseSharedCompilation>
-    <DisabledWarnings>MSB3277</DisabledWarnings>
+    <NoWarn>MSB3277</NoWarn>
     <SignAssembly>true</SignAssembly>
     <DelaySign>false</DelaySign>
     <WarningLevel>4</WarningLevel>
@@ -94,27 +100,10 @@
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Xml.Linq" />
-    <Reference Include="XSharp.Core, Version=2.6.0.0, Culture=neutral, PublicKeyToken=ed555a0467764586">
-      <Name>XSharp.Core</Name>
-      <AssemblyName>XSharp.Core.dll</AssemblyName>
-      <SpecificVersion>False</SpecificVersion>
-      <Private>True</Private>
-      <HintPath>..\..\..\..\..\Artifacts\Debug\XSharp.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="XSharp.RT, Version=2.6.0.0, Culture=neutral, PublicKeyToken=ed555a0467764586">
-      <Name>XSharp.RT</Name>
-      <AssemblyName>XSharp.RT.dll</AssemblyName>
-      <SpecificVersion>False</SpecificVersion>
-      <Private>True</Private>
-      <HintPath>..\..\..\..\..\Artifacts\Debug\XSharp.RT.dll</HintPath>
-    </Reference>
-    <Reference Include="XSharp.VFP, Version=2.6.0.0, Culture=neutral, PublicKeyToken=ed555a0467764586">
-      <Name>XSharp.VFP</Name>
-      <AssemblyName>XSharp.VFP.dll</AssemblyName>
-      <SpecificVersion>False</SpecificVersion>
-      <Private>True</Private>
-      <HintPath>..\..\..\..\..\Artifacts\Debug\XSharp.VFP.dll</HintPath>
-    </Reference>
+    <Reference Include="e:\XSharp\Dev\Artifacts\Debug\net46\XSharp.Core.dll" />
+    <Reference Include="e:\XSharp\Dev\Artifacts\Debug\net46\XSharp.RT.dll" />
+    <Reference Include="e:\XSharp\Dev\Artifacts\Debug\net46\XSharp.VFP.dll" />
+    <Reference Include="e:\XSharp\Dev\Artifacts\Debug\net46\XSharp.VO.dll" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.prg">

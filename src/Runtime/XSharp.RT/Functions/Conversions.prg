@@ -13,6 +13,17 @@ using System.Collections.Concurrent
 #define MAXDIGITS               30
 #define MAXDECIMALS             15
 
+static class ArrayExtensions
+    static Method ToObjectArray(SELF a as array) as object[]
+        return _ArrayToObjectArray(a)
+    static Method ToObjectArray(SELF a as usual[]) as object[]
+        return _UsualArrayToObjectArray(a)
+    static Method ToUsualArray(self a as array) as usual[]
+        return _ArrayToUsualArray(a)
+    static Method ToUsualArray(self a as object[]) as usual[]
+        return _ObjectArrayToUsualArray(a)
+end class
+
 internal static class XSharp.ConversionHelpers
     static internal usCulture as CultureInfo
     static private formatStrings as ConcurrentDictionary<int, string>
@@ -194,7 +205,7 @@ end class
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/ashexstring/*" />
 /// <seealso cref='C2Hex(System.String)' >C2Hex</seealso>
 /// <seealso cref='_C2Hex(System.String,System.Boolean)' >_C2Hex</seealso>
-function AsHexString(uValue as usual) as string
+function AsHexString(uValue IN usual) as string
     local result as string
     if uValue:IsString
         result := _C2Hex( (string) uValue, true)
@@ -221,8 +232,8 @@ function AsHexString(uValue as usual) as string
             result := ""
         endif
     elseif uValue:IsPtr
-        local i64 := (UIntPtr)uValue as UIntPtr
-        local u64 := i64:ToUInt64() as uint64
+        local i64 := uValue:_i64Value as int64
+        local u64 := (UINT64) i64 as uint64
         result := String.Format( iif( u64 > System.UInt32.MaxValue, "{0:X16}", "{0:X8}" ), u64 )
     else
         result := ""
@@ -235,12 +246,12 @@ function AsPadr(uValue as usual,wLen as dword) as string
 
 
 /// <exclude />
-function _AsString(u as usual) as string
+function _AsString(u IN usual) as string
     return	 AsString(u)
 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/asstring/*" />
-function AsString(uValue as usual) as string
+function AsString(uValue IN usual) as string
     local result as string
     do case
     case uValue:IsString
@@ -252,8 +263,8 @@ function AsString(uValue as usual) as string
     case uValue:IsDate
         result := DToC( (date) uValue)
     case uValue:IsPtr
-        local i64 := (UIntPtr)uValue as UIntPtr
-        local u64 := i64:ToUInt64() as uint64
+        local i64 := uValue:_i64Value as int64
+        local u64 := (UINT64) i64 as uint64
         result := String.Format( iif( u64 > System.UInt32.MaxValue, "0x{0:X16}", "0x{0:X8}" ), u64 )
     case uValue:IsArray
         var aValue := (array) uValue
@@ -282,7 +293,7 @@ function AsString(uValue as usual) as string
 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/assymbol/*" />
-function AsSymbol(uValue as usual) as symbol
+function AsSymbol(uValue IN usual) as symbol
     if uValue:IsSymbol
         return (symbol) uValue
     endif
@@ -318,13 +329,13 @@ internal function _descendingString(s as string) as string
         encoding := StringHelpers.DosEncoding
     endif
     local bytes := encoding:GetBytes( s ) as byte[]
-    local nlen := bytes:Length as int
-    for local i := 1 as int upto nlen
-        if bytes[i] != 0
-            bytes[i] := (byte) ( (int)256 - (int)bytes[i] )
-        endif
-    next
-    return encoding:GetString( bytes )
+    local nLen := bytes:Length as int
+    for local i := 1 as int upto nLen
+    if bytes[i] != 0
+        bytes[i] := (byte) ( (int)256 - (int)bytes[i] )
+    endif
+next
+return encoding:GetString( bytes )
 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/descend/*" />
@@ -335,7 +346,7 @@ function DescendA(uValue ref usual) as usual
 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/ntrim/*" />
-function NTrim(nNum as usual) as string
+function NTrim(nNum IN usual) as string
     local ret as string
     switch nNum:_usualType
     case __UsualType.Int64
@@ -440,10 +451,13 @@ function PadR( uValue as usual, nLength as int, cFillChar := " " as string ) as 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/str/*" />
 function Str(nNumber ,nLength ,nDecimals ) as string clipper
-    if PCount() < 1 .or. pCount() > 3
+    if PCount() < 1 .or. PCount() > 3
         return ""
     endif
-
+   if RuntimeState.Dialect == XSharpDialect.FoxPro
+       Default(REF nLength, 10)
+       Default(REF nDecimals, 0)
+   endif
     // Handle integer values
     if nNumber:IsInteger .and. (PCount() <= 2 .or. (PCount() == 3 .and. nDecimals:IsNumeric .and. nDecimals == 0) )
         local cRet as string
@@ -582,15 +596,15 @@ function _Str(nValue ,uLen ,uDec ) as string clipper
     // They are the equivalent of the STR() functions but always return with digit decimal separator
     // We route all three to the _Str() function that takes care of this already
 /// <exclude/>
-function __Str(n as usual) as string
+function __Str(n IN usual) as string
     return _Str( n)
 
 /// <exclude/>
-function __Str(n as usual,nLen as usual) as string
+function __Str(n IN usual,nLen IN usual) as string
     return _Str( n, nLen)
 
 /// <exclude/>
-function __Str(n as usual,nLen as usual, nDec as usual) as string
+function __Str(n IN usual,nLen IN usual, nDec IN usual) as string
     return _Str( n, nLen, nDec)
 
 
@@ -623,7 +637,7 @@ function StrZero(nNumber as usual,nLength as int) as string
 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/strzero/*" />
-function StrZero(nNumber as usual) as string
+function StrZero(nNumber IN usual) as string
     if ! ( nNumber:IsNumeric )
         throw Error.DataTypeError( __function__, nameof(nNumber),1,nNumber)
     endif
@@ -632,7 +646,7 @@ function StrZero(nNumber as usual) as string
 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/toword/*" />
-function ToWord(n as usual) as dword
+function ToWord(n IN usual) as dword
     return (dword) n
 
 
@@ -651,7 +665,7 @@ function StrFloat(flSource as float,dwLength as dword,dwDecimals as dword) as st
 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/str1/*" />
-function Str1(fNumber as usual) as string
+function Str1(fNumber IN usual) as string
     if fNumber:IsFloat
         return ConversionHelpers.AdjustDecimalSeparator(_Str1( (float) fNumber))
     else
@@ -781,17 +795,17 @@ function StrToFloat(c as string) as float
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/val/*" />
 function Val(cNumber as string) as usual
-    local isCurrency as logic
+    local IsCurrency as logic
     if String.IsNullOrEmpty(cNumber)
         return 0
     endif
     cNumber := AllTrim(cNumber)
-    isCurrency := cNumber:StartsWith("$")
-    if isCurrency
+    IsCurrency := cNumber:StartsWith("$")
+    if IsCurrency
         cNumber := cNumber:Substring(1)
     endif
     var result := _VOVal(cNumber)
-    if isCurrency
+    if IsCurrency
         return __Currency{ (real8) result }
     endif
     return result
@@ -901,11 +915,11 @@ internal function _VOVal(cNumber as string) as usual
             style |= NumberStyles.AllowExponent
         endif
         if System.Double.TryParse(cNumber, style, ConversionHelpers.usCulture, out var r8Result)
-           if RuntimeState.Dialect == XSharpDialect.FoxPro
+            if RuntimeState.Dialect == XSharpDialect.FoxPro
                 return __Float{ r8Result }   // FoxPro Takes Decimals from settings
             else
                 return __Float{ r8Result , cNumber:Length - cNumber:IndexOf(c'.') - 1}
-           endif
+            endif
         endif
     else
 
@@ -997,23 +1011,126 @@ function Object2Float(oValue as object) as float
     end switch
 
 
+    // VO writes F2Bin and Bin2F in a 80 bits floating point format (the so-called "extended precision" format).
+    // VO uses inline assembly to directly read and write the number from the 80 bits floating point register in the CPU.
+    // See https://en.wikipedia.org/wiki/Extended_precision for a description of this format.
+    // The format consists of the following bits:
+    // 79   : Sign
+    // 78-64: Exponent(15 bits, biased by 16383)
+    // 63-00: Mantissa (64 bits, with the implicit leading bit)
 
-
+#DEFINE EXTENDEDFLOATBIAS 0x3FFF
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/bin2f/*" />
 function Bin2F(cFloat as string) as float
-    local nDec as word
-    local val  as real8
-    if SLen(cFloat) >= 12
-        nDec := Bin2W(SubStr3(cFloat, 11,2))
-        val  := Bin2Real8(SubStr3(cFloat, 1,8))
-        return float{val, 0, nDec}
-    endif
-    return 0.0
+    LOCAL sign AS INT
+    LOCAL exponent AS INT
+    LOCAL mantissa AS REAL8
+    LOCAL mantissaRaw AS UINT64
+    LOCAL result AS REAL8
+    LOCAL aBytes AS BYTE[]
+    LOCAL i AS INT
+    aBytes := __String2Bytes(cFloat)
+    IF aBytes == NULL .OR. aBytes:Length != 10
+        THROW ArgumentException{"Input must be exactly 10 bytes."}
+    ENDIF
+    // Exponent + prefix: Bits 79–64 (Bytes 9 and 8), Little Endian
+    exponent := ((INT)aBytes[10] << 8) | (INT)aBytes[9]
+    sign     := exponent >> 15
+    exponent := exponent & 0x7FFF // remove first bit (sign bit)
+    // Mantisse: Bytes 0–7 (64 Bit), Little Endian
+    mantissaRaw := 0
+    FOR i := 8 DOWNTO 1
+        mantissaRaw := (mantissaRaw << 8) | aBytes[i]
+    NEXT
+    mantissa := (REAL8) mantissaRaw
+    // Special cases
+    IF exponent == 0 .AND. mantissa == 0
+        result := 0.0
+    ELSEIF exponent == 0x7FFFL
+        IF mantissa == 0
+            IF sign == 1
+                result := System.Double.NegativeInfinity
+            ELSE
+                result := System.Double.PositiveInfinity
+            ENDIF
+        ELSE
+            result := System.Double.NaN
+        ENDIF
+    ELSE
+        // create result
+        result := (REAL8) mantissaRaw / (2.0^63)
+        result := result * (2.0 ^ (exponent - EXTENDEDFLOATBIAS))
+        IF sign == 1
+            result := -result
+        ENDIF
+    ENDIF
+    RETURN (float) result
 
-
+#pragma options("az", on)
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/f2bin/*" />
 function F2Bin(fValue as float) as string
-    return Real82Bin(fValue:Value)+ e"\0\0" + W2Bin((word)fValue:Decimals)
+    LOCAL aResult := BYTE[]{10} AS BYTE[]
+    LOCAL rValue AS REAL8
+    rValue := fValue:Value
 
+    switch rValue
+    case Double.NaN
+        // Mantissa = not 0
+        // Exponent = 0x7FFF
+        aResult[0] := 0x01
+        aResult[8] := 0xFF
+        aResult[9] := 0x7F // Sign bit irrelevant
+    case System.Double.PositiveInfinity
+        // Mantissa = 0
+        // Exponent = 0x7FFF
+        aResult[8] := 0xFF
+        aResult[9] := 0x7F // no sign bit
+    case System.Double.NegativeInfinity
+        // Mantissa = 0
+        // Exponent = 0xFFFF (with sign bit set)
+        aResult[8] := 0xFF
+        aResult[9] := 0xFF // set sign bit
+    otherwise
+        F2BinWorker(rValue, aResult)
+    end switch
+    var cResult := __Bytes2String(aResult)
+RETURN cResult
 
+internal function F2BinWorker(rValue as real8, aResult as byte[]) as void
+    local negative  AS logic
+    LOCAL exponent := 0 AS INT
+    LOCAL exponentBiased AS INT
+    LOCAL scale  := 1.0 AS REAL8
+    LOCAL mantissa AS REAL8
+    LOCAL mantissaRaw AS UINT64
+    if rValue < 0.0
+        negative := true
+        rValue := -rValue
+    else
+        negative := false
+    endif
+    // make sure we have a mantissa value between 1.0 and 2.0
+    mantissa    := rValue
+    DO WHILE mantissa >= 2.0
+        exponent += 1
+        scale    *= 2.0
+        mantissa /= 2.0
+    ENDDO
+    exponentBiased  := EXTENDEDFLOATBIAS + exponent
+    mantissaRaw     := (UINT64)(mantissa * (2.0 ^ 63))
+
+    // Mantisse (8 Bytes, Little Endian)
+    FOR VAR i := 0 TO 7
+        aResult[i] := (BYTE)((mantissaRaw >> ((i) * 8)) & 0xFF)
+    NEXT
+
+    // Exponent (2 Bytes, Little Endian)
+    aResult[8] := (BYTE)(exponentBiased & 0xFF)
+    aResult[9] := (BYTE)((exponentBiased >> 8) & 0xFF)
+    if negative
+        aResult[9] |= 0x80 // Set Sign bit
+    endif
+end function
+
+#pragma options("az", default)
 

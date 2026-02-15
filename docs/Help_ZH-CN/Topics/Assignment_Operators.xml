@@ -1,0 +1,199 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-06-30T09:33:32.964+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>赋值操作符</title>
+  <keywords>
+    <keyword>%=</keyword>
+    <keyword>&amp;=</keyword>
+    <keyword>*=</keyword>
+    <keyword>/=</keyword>
+    <keyword>:=</keyword>
+    <keyword>^=</keyword>
+    <keyword>|=</keyword>
+    <keyword>~=</keyword>
+    <keyword>+=</keyword>
+    <keyword>&lt;&lt;=</keyword>
+    <keyword>=</keyword>
+    <keyword>-=</keyword>
+    <keyword>&gt;&gt;=</keyword>
+    <keyword>assignment operator</keyword>
+    <keyword>operator</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">赋值操作符</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">X# 使用以下赋值操作符：</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal"><table styleclass="Default" rowcount="15" colcount="3" style="width:auto;">
+      <tr style="vertical-align:top">
+        <td style="width:15%;">
+          <para styleclass="Normal" style="text-align:center;"><text style="font-weight:bold;">操作符</text></para>
+        </td>
+        <td style="width:15%;">
+          <para styleclass="Normal" style="text-align:center;"><text style="font-weight:bold;">示例</text></para>
+        </td>
+        <td>
+          <para styleclass="Normal" style="text-align:center;"><text style="font-weight:bold;">含义</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Body Text">:=</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x := y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">将第二个操作数的值存储到第一个操作数指定的对象中（简单赋值）。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Body Text">=</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x = y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">将第二个操作数的值存储到第一个操作数指定的对象中（简单赋值）。<br/><text style="font-weight:bold;">只有 VFP 方言允许这样做！在所有其他方言中，使用&quot;=&quot;操作符赋值将产生警告。</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Body Text">+=</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x += y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">将第二个操作数的值与第一个操作数的值相加；将结果存储到第一个操作数指定的对象中</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Body Text">-=</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x -= y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">将第二个操作数的值减去第一个操作数的值，然后将结果存储到第一个操作数指定的对象中。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Body Text">/=</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x /= y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">用第一个操作数的值除以第二个操作数的值；将结果存储在第一个操作数指定的对象中</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Body Text">%=</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x %= y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">对第二个操作数的值指定的第一个操作数取模；将结果存储在第一个操作数指定的对象中。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Body Text">*=</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x *= y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">将第一个操作数的值乘以第二个操作数的值，并将结果存储到第一个操作数指定的对象中。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Body Text">^= 或 **=</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x ^= y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">计算第一个操作数和第二个操作数的指数；将结果存储到第一个操作数指定的对象中。<br/><text style="font-weight:bold;">请注意，在 C# 等语言中，^= 运算符执行的是 Bitwise XOR</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Body Text">|=</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x |= y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">获取第一个和第二个操作数的 bitwise inclusive OR；将结果存储在由第一个操作数指定的对象中。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Body Text">&amp;= </para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x &amp;= y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">获取第一操作数和第二操作数的 bitwise AND 值；将结果存储到第一操作数指定的对象中。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Body Text">~=</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x ~= y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">获取第一个和第二个操作数的 bitwise exclusive OR；将结果存储在由第一个操作数指定的对象中。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Body Text">&lt;&lt;=</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x &lt;&lt;= y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">将第一个操作数的值向左移动由第二个操作数指定的位数；将结果存储在由第一个操作数指定的对象中。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Body Text">&gt;&gt;=</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x &gt;&gt;= y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">将第一个操作数的值向右移动第二个操作数的值所指定的位数；将结果存储在第一个操作数所指定的对象中。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Body Text">?=</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">a ?= &quot;somevalue&quot;</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">当 a 为 NULL 时，它将被赋值为 &quot;somevalue&quot;。否则，a 不变</para>
+        </td>
+      </tr>
+    </table></para>
+    <para styleclass="Heading2">赋值操作符和 XBase 类型 </para>
+    <para styleclass="Normal">请参阅有关 <link displaytype="text" defaultstyle="true" type="topiclink" href="Binary_Operators">Binary 操作符</link> 的主题，了解支持哪些复杂赋值运算符。</para>
+  </body>
+</topic>

@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-07-20T14:05:21.869+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>XS0115</title>
+  <keywords>
+    <keyword>XS0115</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">Error XS0115</para>
+    </header>
+    <para styleclass="Normal">&apos;function&apos; : 未找到合适的重写方法</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">方法标记为 override，但编译器未找到重写方法。 有关详细信息，请参阅 override 和了解何时使用 Override 和 New 关键字。</para>
+    <para styleclass="Heading2">示例</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">下面的示例生成 CS0115。 可通过以下列两种方法之一解决 CS0115 错误：</para>
+    <para styleclass="Normal"></para>
+    <list id="0" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="margin-left:13px; font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal" style="margin-left:13px;">从 MyClass2 中的方法删除 override 关键字</li>
+      <li styleclass="Normal" style="margin-left:13px;">将 MyClass1 用作 MyClass2 的基类</li>
+    </list>
+    <para styleclass="Normal"></para>
+    <para styleclass="Code with box">// XS0115.prg &#160;<br/></para>
+    <para styleclass="Normal"></para>
+  </body>
+</topic>

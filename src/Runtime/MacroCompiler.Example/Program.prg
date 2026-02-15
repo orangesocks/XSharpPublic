@@ -4,7 +4,7 @@ USING System.Linq
 USING System.Text
 USING XSharp.Runtime
 USING XSharp.MacroCompiler
-
+global gu := 1.0 as USUAL
 BEGIN NAMESPACE MacroCompilerTest
 
     function Start() as void
@@ -71,10 +71,13 @@ BEGIN NAMESPACE MacroCompilerTest
         wait
 #endif
 
+        EvalMacro(mc,"{||IsFloat(gu)}", TRUE)
+
         TestByRefPriv()
         ParserTestsFox(CreateFoxScriptCompiler())
         ParserTests(CreateScriptCompiler())
         ScriptTests()
+        FoxScriptTests()
         TestPreProcessor(CreateScriptCompiler())
         VoTests(mc)
         FoxTests(fmc)

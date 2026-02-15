@@ -10,6 +10,7 @@ using Antlr4.Runtime.Tree;
 using LanguageService.CodeAnalysis.XSharp.SyntaxParser;
 using System.Collections.Generic;
 using System.Linq;
+using static Microsoft.CodeAnalysis.FlowAnalysis.ControlFlowGraphBuilder;
 
 namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
 {
@@ -146,10 +147,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
 
         public override void ExitLocalfuncproc([NotNull] XSharpParser.LocalfuncprocContext context)
         {
-            if (context.T2 != null && context.T2.Token.Type != context.T.Token.Type)
-            {
-                _parseErrors.Add(new ParseErrorData(context.T2, ErrorCode.ERR_UnExpectedExpected, context.T2.Token.Text, context.T.Token.Text));
-            }
+
+            ValidateFuncProcEnd(context.T.Token, context.T1, context.T2?.Token);
             if (context.T.Token.Type == XSharpParser.PROCEDURE)
             {
                 if (context.Sig.Type != null && context.Sig.Type.Start.Type != XSharpLexer.VOID)
@@ -175,10 +174,10 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                         _parseErrors.Add(new ParseErrorData(param.Stop, ErrorCode.ERR_TypeExpected));
 
                     }
-                    if (param.Attributes != null)
-                    {
-                        _parseErrors.Add(new ParseErrorData(param.Stop, ErrorCode.ERR_AttributesInLocalFuncDecl));
-                    }
+                    //if (param.Attributes != null)
+                    //{
+                    //    _parseErrors.Add(new ParseErrorData(param.Stop, ErrorCode.ERR_AttributesInLocalFuncDecl));
+                    //}
                 }
             }
         }
@@ -212,6 +211,30 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             }
         }
 
+        private void ValidateFuncProcEnd(IToken T, IToken T1, IToken T2)
+        {
+            if (T2 != null && T2.Type != T.Type)
+            {
+                _parseErrors.Add(new ParseErrorData(T2, ErrorCode.ERR_UnExpectedExpected, T2.Text, T.Text));
+            }
+            var ok = true;
+            string expected = "";
+            if (T.Type == XSharpParser.PROCEDURE && T1 != null && T1.Type != XSharpParser.ENDPROC)
+            {
+                ok = false;
+                expected = "ENDPROC or END PROCEDURE";
+            }
+            else if (T.Type == XSharpParser.FUNCTION && T1 != null && T1.Type != XSharpParser.ENDFUNC)
+            {
+                ok = false;
+                expected = "ENDFUNC or END FUNCTION";
+            }
+            if (!ok)
+            {
+                _parseErrors.Add(new ParseErrorData(T2, ErrorCode.ERR_UnExpectedExpected, T1.Text, expected));
+            }
+        }
+
         public override void ExitFuncproc([NotNull] XSharpParser.FuncprocContext context)
         {
             if (context.InitExit != null)
@@ -233,11 +256,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                     }
                 }
             }
-
-            if (context.T2 != null && context.T2.Token.Type != context.T.Token.Type)
-            {
-                _parseErrors.Add(new ParseErrorData(context.T2, ErrorCode.ERR_UnExpectedExpected, context.T2.Token.Text, context.T.Token.Text));
-            }
+            ValidateFuncProcEnd(context.T.Token, context.T1, context.T2?.Token);
         }
 
         public override void ExitLocalvar([NotNull] XSharpParser.LocalvarContext context)
@@ -415,13 +434,41 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             }
         }
 
+        public override void ExitTupleExpr([NotNull] XSharpParser.TupleExprContext context)
+        {
+            if (context.T != null && context._Args.Count < 2)
+            {
+                _parseErrors.Add(new ParseErrorData(context, ErrorCode.ERR_TupleTooFewElements));
+            }
+        }
+        public override void ExitTupleType([NotNull] XSharpParser.TupleTypeContext context)
+        {
+            if (context.T != null && context._Elements.Count < 2)
+            {
+                _parseErrors.Add(new ParseErrorData(context, ErrorCode.ERR_TupleTooFewElements));
+            }
+        }
+        public override void ExitDesignationTypeExpr([NotNull] XSharpParser.DesignationTypeExprContext context)
+        {
+            if (context._Locals.Count < 2)
+            {
+                _parseErrors.Add(new ParseErrorData(context, ErrorCode.ERR_TupleTooFewElements));
+            }
+        }
+        public override void ExitDesignationExpr([NotNull] XSharpParser.DesignationExprContext context)
+        {
+            if (context._Ids.Count < 2)
+            {
+                _parseErrors.Add(new ParseErrorData(context, ErrorCode.ERR_TupleTooFewElements));
+            }
+        }
         public override void ExitFielddecl(XSharpParser.FielddeclContext context)
         {
             NotInCore(context, "FIELD statement");
         }
         public override void EnterFoxfield([NotNull] XSharpParser.FoxfieldContext context)
         {
-            string name = context.F.Name.GetText();
+            string name = context.Initializer.Name.GetText();
             if (name.EndsWith("_COMATTRIB", System.StringComparison.OrdinalIgnoreCase))
             {
                 _parseErrors.Add(new ParseErrorData(context, ErrorCode.WRN_FoxUnsupportedClause, "PEMName_COMATTRIB"));
@@ -435,27 +482,34 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
 
         public override void ExitFoxclsctor([NotNull] XSharpParser.FoxclsctorContext context)
         {
-            if (_options.fox1)
-            {
-                _parseErrors.Add(new ParseErrorData(context, ErrorCode.ERR_FoxCtorDtor));
-            }
+            _parseErrors.Add(new ParseErrorData(context, ErrorCode.ERR_FoxCtorDtor));
         }
         public override void ExitFoxclsdtor([NotNull] XSharpParser.FoxclsdtorContext context)
         {
-            if (_options.fox1)
-            {
-                _parseErrors.Add(new ParseErrorData(context, ErrorCode.ERR_FoxCtorDtor));
-            }
+            _parseErrors.Add(new ParseErrorData(context, ErrorCode.ERR_FoxCtorDtor));
         }
+
         public override void ExitFoxclass([NotNull] XSharpParser.FoxclassContext context)
         {
-            if (context.BaseType == null && _options.fox1)
+            if (context.BaseType == null)
             {
                 _parseErrors.Add(new ParseErrorData(context, ErrorCode.ERR_FoxAsClauseMandatory));
             }
             if (context.OLEPUBLIC() != null)
             {
                 _parseErrors.Add(new ParseErrorData(context.OLEPUBLIC(), ErrorCode.WRN_FoxUnsupportedClause, "OLEPUBLIC"));
+            }
+        }
+
+        public override void ExitFoxaddobjectclause([NotNull] XSharpParser.FoxaddobjectclauseContext context)
+        {
+            if (context.NoInit != null)
+            {
+                _parseErrors.Add(new ParseErrorData(context.NoInit, ErrorCode.WRN_FoxUnsupportedClause, context.NoInit.Text));
+            }
+            if (context.W != null)
+            {
+                _parseErrors.Add(new ParseErrorData(context.W, ErrorCode.WRN_FoxUnsupportedClause, context.W.Text));
             }
         }
 
@@ -635,10 +689,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             {
                 _parseErrors.Add(new ParseErrorData(context.ThisAccess, ErrorCode.WRN_FoxUnsupportedClause, "THISACCESS"));
             }
-            if (context.T2 != null && context.T2.Token.Type != context.T.Token.Type)
-            {
-                _parseErrors.Add(new ParseErrorData(context.T2, ErrorCode.ERR_UnExpectedExpected, context.T2.Token.Text, context.T.Token.Text));
-            }
+            ValidateFuncProcEnd(context.T.Token, context.T1, context.T2?.Token);
         }
         public override void ExitMethod([NotNull] XSharpParser.MethodContext context)
         {
@@ -936,6 +987,17 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
         public override void ExitClass_([NotNull] XSharpParser.Class_Context context)
         {
             checkMissingKeyword(context.End, context, "END CLASS");
+            if (context.C == null && context.C2 != null)
+            {
+                // then the end must be END RECORD
+                _parseErrors.Add(new ParseErrorData(context.C2, ErrorCode.ERR_UnexpectedToken, context.C2.Text));
+
+            }
+            if (context.C != null && context.R2 != null)
+            {
+                // then the end must be END RECORD
+                _parseErrors.Add(new ParseErrorData(context.R2, ErrorCode.ERR_UnexpectedToken, context.R2.Text));
+            }
         }
         public override void ExitInterface_([NotNull] XSharpParser.Interface_Context context)
         {
@@ -952,7 +1014,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
 
         public override void ExitNamespace_([NotNull] XSharpParser.Namespace_Context context)
         {
-            checkMissingKeyword(context.End, context, "END NAMESPACE");
+            if (context.BEGIN() != null)
+                checkMissingKeyword(context.End, context, "END NAMESPACE");
         }
 
         public override void ExitClassvar([NotNull] XSharpParser.ClassvarContext context)
@@ -985,7 +1048,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
 
         public override void ExitProperty([NotNull] XSharpParser.PropertyContext context)
         {
-            //var isInInterface = context.isInInterface();
+            var isInInterface = context.isInInterface();
             var isExtern = context.Modifiers?.EXTERN().Length > 0;
             var isAbstract = context.Modifiers?.ABSTRACT().Length > 0;
             bool HasBody = (context.Auto != null || context.Multi != null);
@@ -1014,9 +1077,27 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                     _parseErrors.Add(new ParseErrorData(context.Start, ErrorCode.ERR_AbstractHasBody, "Property"));
                 }
             }
+
             if (isAbstract && isExtern)
             {
                 _parseErrors.Add(new ParseErrorData(context.Modifiers, ErrorCode.ERR_AbstractAndExtern));
+            }
+            if (!isAbstract && !isExtern && !isInInterface && context.ParamList?._Params.Count > 0)
+            {
+                if (context?._LineAccessors.Count != 0)
+                {
+                    foreach (var acc in context._LineAccessors)
+                    {
+                        if (acc.Expr == null && acc.ExprList == null)
+                        {
+                            _parseErrors.Add(new ParseErrorData(acc, ErrorCode.ERR_AutoPropertyParameters));
+                        }
+                    }
+                }
+                else if (context.Auto != null)
+                {
+                    _parseErrors.Add(new ParseErrorData(context.Auto, ErrorCode.ERR_AutoPropertyParameters));
+                }
             }
         }
 

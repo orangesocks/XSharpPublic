@@ -7,14 +7,12 @@
 //USING Microsoft.Data.Sqlite
 USING System.IO
 USING System.Data
-USING System.Linq
 USING System.Data.Common
-USING System.Collections.Generic
 USING System.ComponentModel
 USING File := System.IO.File
 USING XSharp.Settings
 
-BEGIN NAMESPACE XSharpModel
+NAMESPACE XSharpModel
 STATIC CLASS XDatabase
     STATIC PRIVATE oFact   as DbProviderFactory
     internal static UseMicrosoftSQLite   as logic
@@ -24,7 +22,7 @@ STATIC CLASS XDatabase
     STATIC PRIVATE currentFile AS STRING
     STATIC PROPERTY FileName as STRING GET currentFile
     STATIC PROPERTY DeleteOnClose as LOGIC AUTO
-    PRIVATE CONST CurrentDbVersion := 2.0 AS System.Double
+    PRIVATE CONST CurrentDbVersion := 3.5 AS System.Double
 
     STATIC METHOD InitializeMicrosoft() AS VOID
         SQLitePCL.Batteries.Init()
@@ -113,18 +111,23 @@ STATIC CLASS XDatabase
         RETURN FALSE
 
     STATIC METHOD CloseDatabase(cFile AS STRING) AS LOGIC
+        LOCAL lResult := FALSE AS LOGIC
         IF IsDbOpen
-            IF DeleteOnClose
-                SafeFileDelete(cFile)
+            IF XSolution.HasProjects
+                IF DeleteOnClose
+                    SafeFileDelete(cFile)
+                ELSE
+                    SaveToDisk(oConn, cFile)
+                ENDIF
             ELSE
-                SaveToDisk(oConn, cFile)
+                Log(i"Delete database {cFile} because there are no X# projects in the solution")
+                SafeFileDelete(cFile)
             ENDIF
             oConn:Close()
-            oConn := NULL
-            RETURN TRUE
+            lResult := TRUE
         ENDIF
         oConn := NULL
-        RETURN FALSE
+        RETURN lResult
 
     STATIC METHOD SetPragmas(oConn AS DbConnection) AS VOID
         IF ! IsDbOpen
@@ -242,17 +245,17 @@ STATIC CLASS XDatabase
 #endregion
 #region Table Projects
             VAR stmt	:= "CREATE TABLE Projects ("
-            stmt     	+= " Id integer NOT NULL PRIMARY KEY, ProjectFileName text NOT NULL COLLATE NOCASE "
+            stmt     	+= " Id integer NOT NULL PRIMARY KEY, ProjectFileName text NOT NULL COLLATE NOCASE, Startup integer, Framework text NOT NULL COLLATE NOCASE"
             stmt		+= " ) ;"
             stmt	    += "CREATE UNIQUE INDEX Projects_Pk     ON Projects (Id) ;"
-            stmt	    += "CREATE UNIQUE INDEX Projects_Name   ON Projects (ProjectFileName); "
+            stmt	    += "CREATE UNIQUE INDEX Projects_Name   ON Projects (ProjectFileName, Framework); "
             cmd:CommandText := stmt
             cmd:ExecuteNonQuery()
 #endregion
 #region Table Files
             stmt  		:= "CREATE TABLE Files ("
             stmt     	+= " Id integer NOT NULL PRIMARY KEY, FileName text NOT NULL COLLATE NOCASE,  "
-            stmt     	+= " FileType integer NOT NULL, LastChanged DateTime NOT NULL, Size integer, Usings text, StaticUsings text"
+            stmt     	+= " FileType integer NOT NULL, LastChanged DateTime NOT NULL, Size integer"
             stmt		+= " ) ;"
             stmt	    += "CREATE UNIQUE INDEX Files_Pk    ON Files (Id) ;"
             stmt	    += "CREATE UNIQUE INDEX Files_Name  ON Files (FileName); "
@@ -269,16 +272,19 @@ STATIC CLASS XDatabase
             cmd:ExecuteNonQuery()
 #endregion
 
+
 #region Table IncludeFilesPerFile
 
             stmt    := "CREATE TABLE IncludeFilesPerFile ("
-            stmt	+= " idFile integer NOT NULL, IdInclude integer NOT NULL, "
-            stmt    += " PRIMARY KEY (idFile, IdInclude), "
-            stmt	+= " FOREIGN KEY (idFile) 	 REFERENCES Files (Id)    ON DELETE CASCADE ON UPDATE CASCADE, "
-            stmt    += " FOREIGN KEY (IdInclude) REFERENCES IncludeFiles (Id) ON DELETE CASCADE ON UPDATE CASCADE "
+            stmt	+= " idFile integer NOT NULL, IdInclude integer NOT NULL, IdProject integer NOT NULL,"
+            stmt    += " PRIMARY KEY (idFile, IdProject, IdInclude), "
+            stmt	+= " FOREIGN KEY (idFile) 	 REFERENCES Files        (Id) ON DELETE CASCADE ON UPDATE CASCADE, "
+            stmt    += " FOREIGN KEY (IdInclude) REFERENCES IncludeFiles (Id) ON DELETE CASCADE ON UPDATE CASCADE, "
+            stmt    += " FOREIGN KEY (IdProject) REFERENCES Projects     (Id) ON DELETE CASCADE ON UPDATE CASCADE "
             stmt	+= " ) ;"
             stmt	+= "CREATE UNIQUE INDEX IncludeFilesPerFile_Pk  ON IncludeFilesPerFile (IdInclude, idFile); "
-            stmt	+= "CREATE INDEX IncludeFilesPerFile_File       ON IncludeFilesPerFile (idFile) ;"
+            stmt	+= "CREATE INDEX IncludeFilesPerFile_File       ON IncludeFilesPerFile (IdFile) ;"
+            stmt	+= "CREATE INDEX IncludeFilesPerFile_Project    ON IncludeFilesPerFile (IdProject) ;"
             stmt	+= "CREATE INDEX IncludeFilesPerFile_Include    ON IncludeFilesPerFile (IdInclude); "
             cmd:CommandText := stmt
             cmd:ExecuteNonQuery()
@@ -302,11 +308,12 @@ STATIC CLASS XDatabase
 #region Table Types
 
             stmt  	:= "CREATE TABLE Types ("
-            stmt	+= " Id integer NOT NULL PRIMARY KEY, idFile integer NOT NULL, Name text NOT NULL COLLATE NOCASE, Namespace text NOT NULL COLLATE NOCASE, "
+            stmt	+= " Id integer NOT NULL PRIMARY KEY, idFile integer NOT NULL, idProject integer NOT NULL, Name text NOT NULL COLLATE NOCASE, Namespace text NOT NULL COLLATE NOCASE, "
             stmt    += " Kind integer NOT NULL, BaseTypeName text COLLATE NOCASE, Attributes integer NOT NULL, "
             stmt    += " StartLine integer , StartColumn integer, EndLine integer , EndColumn integer, Start integer , Stop integer,  "
             stmt	+= " Sourcecode text , XmlComments text, ClassType integer NOT NULL, "
-            stmt    += " FOREIGN KEY (idFile) REFERENCES Files (Id) ON DELETE CASCADE ON UPDATE CASCADE"
+            stmt    += " FOREIGN KEY (idFile)    REFERENCES Files (Id)    ON DELETE CASCADE ON UPDATE CASCADE"
+            stmt    += " FOREIGN KEY (idProject) REFERENCES Projects (Id) ON DELETE CASCADE ON UPDATE CASCADE"
             stmt	+= ") ;"
             stmt	+= "CREATE UNIQUE INDEX Types_Pk    ON Types (Id); "
             stmt	+= "CREATE INDEX Types_Name         ON Types (Name); "
@@ -416,7 +423,7 @@ STATIC CLASS XDatabase
             cmd:Parameters:Clear()
 
 #region views
-            stmt := " CREATE VIEW ProjectFiles AS SELECT fp.IdFile, f.FileName, f.FileType, f.LastChanged, f.Size, fp.IdProject, p.ProjectFileName " + ;
+            stmt := " CREATE VIEW ProjectFiles AS SELECT fp.IdFile, f.FileName, f.FileType, f.LastChanged, f.Size, fp.IdProject, p.ProjectFileName, p.Framework " + ;
                 " FROM Files f JOIN FilesPerProject fp ON f.Id = fp.IdFile JOIN Projects p ON fp.IdProject = P.Id"
             cmd:CommandText := stmt
             cmd:ExecuteNonQuery()
@@ -430,20 +437,27 @@ STATIC CLASS XDatabase
             cmd:CommandText := stmt
             cmd:ExecuteNonQuery()
 
-            stmt := " CREATE VIEW ProjectIncludeFiles AS SELECT distinct fp.IdProject, iff.IdInclude, i.FileName " + ;
-                " FROM FilesPerProject fp " + ;
-                " JOIN IncludeFilesPerFile iff ON fp.IdFile = iff.IdFile " + ;
-                " JOIN IncludeFiles i ON iff.IdInclude = i.Id "
+            stmt := " CREATE VIEW ProjectIncludeFiles AS SELECT distinct ipf.IdProject, i.Id, i.FileName " + ;
+                " FROM IncludeFilesPerFile ipf " + ;
+                " JOIN IncludeFiles i ON ipf.IdInclude = i.Id "
+
+            cmd:CommandText := stmt
+            cmd:ExecuteNonQuery()
+
+            stmt := " CREATE VIEW ProjectGlobalUsings AS "+;
+                " SELECT distinct fp.IdProject, u.Name, u.ReturnType, u.Sourcecode, u.Attributes "+;
+                " FROM ProjectFiles fp JOIN Members u ON fp.IdFile = u.IdFile where kind = " + ((Int) Kind.Using).ToString() +;
+                " and sourcecode like '%Global%' "
 
             cmd:CommandText := stmt
             cmd:ExecuteNonQuery()
 
             stmt := "CREATE VIEW TypeMembers AS SELECT m.*, t.Name AS TypeName, t.Namespace, t.BaseTypeName, t.ClassType " + ;
-                "FROM members m JOIN Types t ON m.IdType = t.Id"
+                " FROM members m JOIN Types t ON m.IdType = t.Id"
             cmd:CommandText := stmt
             cmd:ExecuteNonQuery()
 
-            stmt := "CREATE VIEW ProjectTypes AS SELECT t.*, p.IdProject, p.FileName, p.ProjectFileName " +;
+            stmt := "CREATE VIEW ProjectTypes AS SELECT t.*, p.IdProject, p.FileName, p.ProjectFileName, p.Framework " +;
                 " FROM Types t  JOIN ProjectFiles p ON t.IdFile = p.IdFile "
             cmd:CommandText := stmt
             cmd:ExecuteNonQuery()
@@ -452,7 +466,7 @@ STATIC CLASS XDatabase
             cmd:CommandText := stmt
             cmd:ExecuteNonQuery()
 
-            stmt := "CREATE VIEW ProjectMembers AS SELECT m.*, p.IdProject, p.FileName, p.ProjectFileName " +;
+            stmt := "CREATE VIEW ProjectMembers AS SELECT m.*, p.IdProject, p.FileName, p.ProjectFileName, p.Framework " +;
                 " FROM TypeMembers m  JOIN ProjectFiles p ON m.IdFile = p.IdFile "
             cmd:CommandText := stmt
             cmd:ExecuteNonQuery()
@@ -471,7 +485,7 @@ STATIC CLASS XDatabase
             cmd:CommandText := stmt
             cmd:ExecuteNonQuery()
 
-            stmt := " CREATE VIEW ProjectCommentTasks AS SELECT c.*, pf.IdProject, pf.ProjectFileName, pf.FileName FROM CommentTasks c" + ;
+            stmt := " CREATE VIEW ProjectCommentTasks AS SELECT c.*, pf.IdProject, pf.ProjectFileName, pf.Framework, pf.FileName FROM CommentTasks c" + ;
                 " JOIN ProjectFiles pf ON c.IdFile = pf.IdFile JOIN Projects p ON pf.IdProject = p.Id"
             cmd:CommandText := stmt
             cmd:ExecuteNonQuery()
@@ -538,6 +552,7 @@ STATIC CLASS XDatabase
     STATIC METHOD DeleteOrphanFiles() AS List<STRING>
         VAR result := List<STRING>{}
         IF IsDbOpen
+            Log("Delete Orphan files")
             BEGIN LOCK oConn
                 TRY
                     var project := XSolution.OrphanedFilesProject
@@ -549,6 +564,7 @@ STATIC CLASS XDatabase
 
                     cmd:CommandText := "Delete from IncludeFiles where Id not in (select IdInclude from IncludeFilesPerFile)"
                     cmd:ExecuteScalar()
+
                 CATCH e AS Exception
                     Log("Error deleting orphaned files ")
                     XSettings.Exception(e, __FUNCTION__)
@@ -562,6 +578,7 @@ STATIC CLASS XDatabase
     STATIC METHOD GetOpenDesignerFiles() AS List<STRING>
         VAR result := List<STRING>{}
         IF IsDbOpen
+            Log("Get Open Designer files")
             BEGIN LOCK oConn
                 TRY
                     USING VAR cmd := CreateCommand("SELECT FullName from OpenDesignerFiles", oConn)
@@ -581,6 +598,7 @@ STATIC CLASS XDatabase
     STATIC METHOD SaveOpenDesignerFiles(Files AS List<STRING>) AS LOGIC
         VAR result := TRUE
         IF IsDbOpen
+            Log("Save Open Designer files")
             BEGIN LOCK oConn
                 TRY
                     USING VAR cmd := CreateCommand("DELETE from OpenDesignerFiles", oConn)
@@ -599,18 +617,39 @@ STATIC CLASS XDatabase
         ENDIF
         Log(i"SaveOpenDesignerFiles returned {result}")
         RETURN result
-        ;
+
+    STATIC METHOD GetProjectsPerFile(File as XFile) AS List<Int64>
+        VAR result := List<INT64>{}
+        IF IsDbOpen
+            Log("Get Projects for file: "+File:FullPath)
+            BEGIN LOCK oConn
+                TRY
+                    USING VAR cmd := CreateCommand("SELECT DISTINCT IdProject from FilesPerProject where IdFile = $file", oConn)
+                    cmd:Parameters:AddWithValue("$file",File:Id)
+                    USING VAR rdr := cmd:ExecuteReader()
+                    DO WHILE rdr:Read()
+                        result:Add(rdr:GetInt64(0))
+                    ENDDO
+                CATCH e AS Exception
+                    Log("Error reading projects")
+                    XSettings.Exception(e, __FUNCTION__)
+                END TRY
+            END LOCK
+        ENDIF
+        Log(i"GetProjectsPerFile returned {result.Count} names")
+        RETURN result
 
     STATIC METHOD GetProjectFileNames() AS List<STRING>
         VAR result := List<STRING>{}
         IF IsDbOpen
             BEGIN LOCK oConn
                 TRY
-                    USING VAR cmd := CreateCommand("SELECT ProjectFileName from Projects", oConn)
+                    USING VAR cmd := CreateCommand("SELECT DISTINCT ProjectFileName, Framework from Projects", oConn)
                     USING VAR rdr := cmd:ExecuteReader()
                     DO WHILE rdr:Read()
-                        VAR name := rdr:GetString(0)
-                        result:Add(name)
+                        VAR name        := DbToString(rdr:GetString(0))
+                        VAR framework   := DbToString(rdr:GetString(1))
+                        result:Add(name+"|"+framework)
                     ENDDO
                 CATCH e AS Exception
                     Log("Error reading project filenames ")
@@ -626,14 +665,16 @@ STATIC CLASS XDatabase
         IF ! IsDbOpen .OR. String.IsNullOrEmpty(oProject:FileName)
             RETURN
         ENDIF
-        VAR file    := oProject:FileName
+        VAR file        := oProject:FileName
+        var framework   := oProject:Framework
         VAR lUpdated := FALSE
         Log(i"Read Project info for project {file}")
         BEGIN LOCK oConn
             TRY
                 USING VAR cmd := CreateCommand("", oConn)
-                cmd:CommandText := "SELECT Id, ProjectFileName from Projects WHERE ProjectFileName = $file"
+                cmd:CommandText := "SELECT Id, ProjectFileName from Projects WHERE ProjectFileName = $file and Framework = $framework"
                 cmd:Parameters:AddWithValue("$file",file)
+                cmd:Parameters:AddWithValue("$framework",framework)
                 VAR lOk := FALSE
                 BEGIN USING VAR rdr := cmd:ExecuteReader()
                     IF rdr:Read()
@@ -642,7 +683,7 @@ STATIC CLASS XDatabase
                     ENDIF
                 END USING
                 IF ! lOk
-                    cmd:CommandText := "INSERT INTO Projects( ProjectFileName ) values ($file); SELECT last_insert_rowid() "
+                    cmd:CommandText := "INSERT INTO Projects( ProjectFileName, Startup, Framework ) values ($file, 0, $framework); SELECT last_insert_rowid() "
                     VAR Id := (INT64) cmd:ExecuteScalar()
                     oProject:Id := Id
                     lUpdated := TRUE
@@ -656,10 +697,46 @@ STATIC CLASS XDatabase
             CommitWhenNeeded()
         ENDIF
         RETURN
+    STATIC METHOD SaveStartuprojects(Projects as List<String>) as VOID
+        IF IsDbOpen
+            Log("Update startup projects")
+            BEGIN LOCK oConn
+                USING var cmd := CreateCommand("Update projects set Startup = 0", oConn)
+                cmd:ExecuteNonQuery()
+                foreach var proj in Projects
+                    cmd:CommandText := "Update projects set Startup = 1 where ProjectFileName = $file"
+                    cmd:Parameters:Clear()
+                    cmd:Parameters:AddWithValue("$file",proj)
+                    cmd:ExecuteNonQuery()
+                next
+            END LOCK
+        ENDIF
+        RETURN
+    STATIC METHOD GetStartupProjects() as List<string>
+        VAR result := List<STRING>{}
+        IF IsDbOpen
+            Log("Load startup projects")
+            BEGIN LOCK oConn
+                TRY
+                    USING var cmd := CreateCommand("Select ProjectFileName from projects where Startup = 1", oConn)
+                    USING VAR rdr := cmd:ExecuteReader()
+                    DO WHILE rdr:Read()
+                        VAR name := rdr:GetString(0)
+                        result:Add(name)
+                    ENDDO
+                CATCH e as Exception
+                    Log("Error getting startup Projects")
+                    XSettings.Exception(e, __FUNCTION__)
+                END TRY
+
+            END LOCK
+        ENDIF
+        RETURN result
 
     STATIC METHOD GetFileNames(oProject AS XProject) AS List<STRING>
         VAR result := List<STRING>{}
         IF IsDbOpen
+            Log("Get File Names for "+oProject:Name)
             BEGIN LOCK oConn
                 TRY
                     USING VAR cmd := CreateCommand("SELECT FileName from ProjectFiles where idProject = "+oProject:Id:ToString(), oConn)
@@ -681,6 +758,7 @@ STATIC CLASS XDatabase
     STATIC METHOD GetProjectIncludeFiles(oProject AS XProject) AS List<STRING>
         VAR result := List<STRING>{}
         IF IsDbOpen
+            Log("Get Includes for "+oProject:Name)
             TRY
                 BEGIN LOCK oConn
                     USING VAR cmd := CreateCommand("SELECT FileName from ProjectIncludeFiles where idProject = "+oProject:Id:ToString(), oConn)
@@ -691,7 +769,7 @@ STATIC CLASS XDatabase
                     ENDDO
                 END LOCK
             CATCH e as Exception
-                Log("Error getting includ files for project   : "+oProject:Name)
+                Log("Error getting include files for project   : "+oProject:Name)
                 XSettings.Exception(e, __FUNCTION__)
             END TRY
         ENDIF
@@ -702,11 +780,19 @@ STATIC CLASS XDatabase
         IF ! IsDbOpen .OR. String.IsNullOrEmpty(cFileName)
             RETURN
         ENDIF
+        Log(i"Delete Project {cFileName}")
         BEGIN LOCK oConn
             TRY
                 USING VAR cmd := CreateCommand("", oConn)
-                cmd:CommandText := "delete from Projects where ProjectFileName = $file"
+                local cFramework := "" as STRING
+                if cFileName:Contains("|")
+                    VAR parts := cFileName:Split('|')
+                    cFileName := parts[1]
+                    cFramework := parts[2]
+                endif
+                cmd:CommandText := "delete from Projects where ProjectFileName = $file and Framework = $framework"
                 cmd:Parameters:AddWithValue("$file",cFileName)
+                cmd:Parameters:AddWithValue("$framework",cFramework)
                 cmd:ExecuteNonQuery()
             CATCH e as Exception
                 Log("Error deleting project   : "+cFileName)
@@ -722,7 +808,7 @@ STATIC CLASS XDatabase
         IF ! IsDbOpen .OR. String.IsNullOrEmpty(cFileName)
             RETURN
         ENDIF
-        Log(i"Delete Project info for project {cFileName}")
+        Log(i"Delete File {cFileName}")
         BEGIN LOCK oConn
             TRY
                 USING VAR cmd := CreateCommand("", oConn)
@@ -764,7 +850,7 @@ STATIC CLASS XDatabase
         /*
         "Create Table Files ("
         " Id integer NOT NULL PRIMARY KEY, FileName text NOT NULL COLLATE NOCASE "
-        " FileType integer NOT NULL, LastChanged DateTime NOT NULL, Size integer, Usings text, StaticUsings text"
+        " FileType integer NOT NULL, LastChanged DateTime NOT NULL, Size integer"
         " )"
 
         "Create Table FilesPerProject ("
@@ -780,7 +866,7 @@ STATIC CLASS XDatabase
         BEGIN LOCK oConn
             TRY
                 USING VAR cmd := CreateCommand("", oConn)
-                cmd:CommandText := "SELECT Id, LastChanged, Size, Usings,StaticUsings FROM Files WHERE FileName = $file"
+                cmd:CommandText := "SELECT Id, LastChanged, Size FROM Files WHERE FileName = $file"
                 cmd:Parameters:AddWithValue("$file",file)
                 VAR lOk := FALSE
                 BEGIN USING VAR rdr := cmd:ExecuteReader()
@@ -789,8 +875,7 @@ STATIC CLASS XDatabase
                         oFile:LastChanged       := rdr:GetDateTime(1)
                         // these can be NULL
                         oFile:Size              := DbToInt(rdr[2])
-                        oFile:UsingsStr         := DbToString(rdr[3])
-                        oFile:StaticUsingsStr := DbToString(rdr[4])
+
                         lOk := TRUE
                     ENDIF
                 END USING
@@ -814,6 +899,7 @@ STATIC CLASS XDatabase
                     cmd:CommandText := "INSERT INTO FilesPerProject(idFile, idProject) VALUES ($idFile, $idProject)"
                     cmd:ExecuteNonQuery()
                 ENDIF
+
             CATCH e AS Exception
                 Log("Error reading file : "+oFile:FullPath+" "+oFile:Id:ToString())
                 XSettings.Exception(e, __FUNCTION__)
@@ -830,20 +916,20 @@ STATIC CLASS XDatabase
             RETURN
         ENDIF
         Log(i"Update File info for file {oFile.FullPath}")
+
         BEGIN LOCK oConn
             TRY
                 IF File.Exists(oFile:FullPath)  // for files from SCC the physical file does not always exist
                     USING VAR oCmd := CreateCommand("SELECT 1", oConn)
-                    oCmd:CommandText := "UPDATE Files SET LastChanged = $last, Size = $size, Usings = $usings, StaticUsings = $staticUsings WHERE id = "+oFile:Id:ToString()
+                    oCmd:CommandText := "UPDATE Files SET LastChanged = $last, Size = $size WHERE id = "+oFile:Id:ToString()
                     VAR fi            := FileInfo{oFile:FullPath}
                     oFile:LastChanged := fi:LastWriteTime
                     oFile:Size        := fi:Length
                     oCmd:Parameters:Clear()
                     oCmd:Parameters:AddWithValue("$last", oFile:LastChanged)
                     oCmd:Parameters:AddWithValue("$size", oFile:Size)
-                    oCmd:Parameters:AddWithValue("$usings", oFile:UsingsStr)
-                    oCmd:Parameters:AddWithValue("$staticUsings", oFile:StaticUsingsStr)
                     oCmd:ExecuteNonQuery()
+
                 ENDIF
             CATCH e AS Exception
                 Log("Error updating File data : "+oFile:FullPath+" "+oFile:Id:ToString())
@@ -921,14 +1007,15 @@ STATIC CLASS XDatabase
                 oCmd:CommandText  := "DELETE FROM IncludeFilesPerFile WHERE IdFile = "+oFile:Id:ToString()
                 oCmd:ExecuteNonQuery()
 
-                oCmd:CommandText := "INSERT INTO Types (Name, IdFile, Namespace, Kind,  BaseTypeName, Attributes,  Sourcecode, XmlComments, " + ;
+                oCmd:CommandText := "INSERT INTO Types (Name, IdFile, IdProject, Namespace, Kind,  BaseTypeName, Attributes,  Sourcecode, XmlComments, " + ;
                     "                 StartLine,  StartColumn,  EndLine,  EndColumn,  Start,  Stop, ClassType) " +;
-                    " VALUES ($name, $file, $namespace, $kind, $baseTypeName,  $attributes, $sourcecode, $xmlcomments, " +;
+                    " VALUES ($name, $file, $project, $namespace, $kind, $baseTypeName,  $attributes, $sourcecode, $xmlcomments, " +;
                     "           $startline, $startcolumn, $endline, $endcolumn, $start, $stop, $classtype) ;" +;
                     " SELECT last_insert_rowid()"
                 VAR pars := List<DbParameter>{} { ;
                     oCmd:Parameters:AddWithValue("$name", ""),;
                     oCmd:Parameters:AddWithValue("$file", 0),;
+                    oCmd:Parameters:AddWithValue("$project", 0),;
                     oCmd:Parameters:AddWithValue("$namespace", ""),;
                     oCmd:Parameters:AddWithValue("$kind", 0),;
                     oCmd:Parameters:AddWithValue("$baseTypeName", ""),;
@@ -947,19 +1034,20 @@ STATIC CLASS XDatabase
                     TRY
                         pars[0]:Value := typedef:Name
                         pars[1]:Value := oFile:Id
-                        pars[2]:Value := typedef:Namespace default ""
-                        pars[3]:Value := (INT) typedef:Kind
-                        pars[4]:Value := typedef:BaseTypeName default ""
-                        pars[5]:Value := (INT) typedef:Attributes
-                        pars[6]:Value := typedef:SourceCode default ""
-                        pars[7]:Value := typedef:XmlComments default ""
-                        pars[8]:Value := typedef:Range:StartLine
-                        pars[9]:Value := typedef:Range:StartColumn
-                        pars[10]:Value := typedef:Range:EndLine
-                        pars[11]:Value := typedef:Range:EndColumn
-                        pars[12]:Value := typedef:Interval:Start
-                        pars[13]:Value := typedef:Interval:Stop
-                        pars[14]:Value := (INT) typedef:ClassType
+                        pars[2]:Value := oFile:Project:Id
+                        pars[3]:Value := typedef:Namespace default ""
+                        pars[4]:Value := (INT) typedef:Kind
+                        pars[5]:Value := typedef:BaseTypeName default ""
+                        pars[6]:Value := (INT) typedef:Attributes
+                        pars[7]:Value := typedef:SourceCode default ""
+                        pars[8]:Value := typedef:XmlComments default ""
+                        pars[9]:Value := typedef:StartLine
+                        pars[10]:Value := typedef:StartColumn
+                        pars[11]:Value := typedef:EndLine
+                        pars[12]:Value := typedef:EndColumn
+                        pars[13]:Value := typedef:Start
+                        pars[14]:Value := typedef:Stop
+                        pars[15]:Value := (INT) typedef:ClassType
                         VAR Id := (INT64) oCmd:ExecuteScalar()
                         typedef:Id := Id
                     CATCH e AS Exception
@@ -1003,18 +1091,17 @@ STATIC CLASS XDatabase
                 FOREACH VAR typedef IN Types
                     FOREACH VAR xmember IN typedef:XMembers
                         TRY
-                            // file is constant
-                            pars[ 0]:Value := oFile:Id
-                            pars[ 1]:Value := typedef:Id
-                            pars[ 2]:Value := xmember:Name
-                            pars[ 3]:Value := (INT) xmember:Kind
-                            pars[ 4]:Value := (INT) xmember:Attributes
-                            pars[ 5]:Value := xmember:Range:StartLine
-                            pars[ 6]:Value := xmember:Range:StartColumn
-                            pars[ 7]:Value := xmember:Range:EndLine
-                            pars[ 8]:Value := xmember:Range:EndColumn
-                            pars[ 9]:Value := xmember:Interval:Start
-                            pars[10]:Value := xmember:Interval:Stop
+                            pars[0]:Value := oFile:Id
+                            pars[1]:Value := typedef:Id
+                            pars[2]:Value := xmember:Name
+                            pars[3]:Value := (INT) xmember:Kind
+                            pars[4]:Value := (INT) xmember:Attributes
+                            pars[5]:Value := xmember:StartLine
+                            pars[6]:Value := xmember:StartColumn
+                            pars[7]:Value := xmember:EndLine
+                            pars[8]:Value := xmember:EndColumn
+                            pars[9]:Value := xmember:Start
+                            pars[10]:Value := xmember:Stop
                             pars[11]:Value := xmember:SourceCode default ""
                             pars[12]:Value := xmember:XmlComments default ""
                             pars[13]:Value := xmember:ReturnType default ""
@@ -1043,16 +1130,16 @@ STATIC CLASS XDatabase
                 FOREACH xmember as XSourceMemberSymbol in oFile:EntityList:Where ( {m => m.Kind.IsLocal() } )
                     TRY
                         // file is constant
-                        pars[ 0]:Value := oFile:Id
-                        pars[ 1]:Value := ((XSourceTypeSymbol) xmember:ParentType):Id
-                        pars[ 2]:Value := xmember:Name
-                        pars[ 3]:Value := (INT) xmember:Kind
-                        pars[ 4]:Value := (INT) xmember:Attributes
-                        pars[ 5]:Value := xmember:Range:StartLine
-                        pars[ 6]:Value := xmember:Range:StartColumn
-                        pars[ 7]:Value := xmember:Range:EndLine
-                        pars[ 8]:Value := xmember:Range:EndColumn
-                        pars[ 9]:Value := xmember:Interval:Start
+                        pars[0]:Value := oFile:Id
+                        pars[1]:Value := ((XSourceTypeSymbol) xmember:ParentType):Id
+                        pars[2]:Value := xmember:Name
+                        pars[3]:Value := (INT) xmember:Kind
+                        pars[4]:Value := (INT) xmember:Attributes
+                        pars[5]:Value := xmember:Range:StartLine
+                        pars[6]:Value := xmember:Range:StartColumn
+                        pars[7]:Value := xmember:Range:EndLine
+                        pars[8]:Value := xmember:Range:EndColumn
+                        pars[9]:Value := xmember:Interval:Start
                         pars[10]:Value := xmember:Interval:Stop
                         pars[11]:Value := xmember:SourceCode default ""
                         pars[12]:Value := xmember:XmlComments default ""
@@ -1082,45 +1169,48 @@ STATIC CLASS XDatabase
                         oCmd:Parameters:AddWithValue("$priority", 0),;
                         oCmd:Parameters:AddWithValue("$comment", "")}
                     FOREACH task AS XCommentTask IN oFile:CommentTasks
-                        pars[ 0]:Value := oFile:Id
-                        pars[ 1]:Value := task:Line
-                        pars[ 2]:Value := task:Column
-                        pars[ 3]:Value := task:Priority
-                        pars[ 4]:Value := task:Comment default ""
+                        pars[0]:Value := oFile:Id
+                        pars[1]:Value := task:Line
+                        pars[2]:Value := task:Column
+                        pars[3]:Value := task:Priority
+                        pars[4]:Value := task:Comment default ""
                         oCmd:ExecuteScalar()
                     NEXT
                 endif
+                if oFile:FullPath != XSolution.BuiltInFunctions
                 // Update Includefile IDs and write to disk
-                foreach include as XInclude in oFile:IncludeFiles:ToArray()
-                    if include:Id == -1
-                        oCmd:CommandText := "SELECT Id from IncludeFiles where fileName = $fileName"
-                        oCmd:Parameters:Clear()
-                        var fn := include:FileName
-                        if fn:Contains(".\")
-                            fn := System.IO.Path.GetFullPath(fn)
-                        endif
-                        oCmd:Parameters:AddWithValue("$fileName",fn)
-                        using var rdr := oCmd:ExecuteReader()
-                        if rdr:Read()
-                            include:Id := rdr.GetInt64(0)
-                        else
-                            rdr:Close()
-                            oCmd:CommandText := "INSERT INTO IncludeFiles (FileName) " +;
-                                " VALUES ($fileName) ;" +;
-                                " SELECT last_insert_rowid()"
+                    foreach include as XInclude in oFile:IncludeFiles:ToArray()
+                        if include:Id == -1
+                            oCmd:CommandText := "SELECT Id from IncludeFiles where fileName = $fileName"
                             oCmd:Parameters:Clear()
-                            oCmd:Parameters:AddWithValue("$fileName", fn)
-                            VAR Id := (INT64) oCmd:ExecuteScalar()
-                            include:Id := Id
+                            var fn := include:FileName
+                            if fn:Contains(".\")
+                                fn := System.IO.Path.GetFullPath(fn)
+                            endif
+                            oCmd:Parameters:AddWithValue("$fileName",fn)
+                            using var rdr := oCmd:ExecuteReader()
+                            if rdr:Read()
+                                include:Id := rdr.GetInt64(0)
+                            else
+                                rdr:Close()
+                                oCmd:CommandText := "INSERT INTO IncludeFiles (FileName) " +;
+                                    " VALUES ($fileName) ;" +;
+                                    " SELECT last_insert_rowid()"
+                                oCmd:Parameters:Clear()
+                                oCmd:Parameters:AddWithValue("$fileName", fn)
+                                VAR Id := (INT64) oCmd:ExecuteScalar()
+                                include:Id := Id
+                            endif
                         endif
-                    endif
-                    oCmd:CommandText := "INSERT INTO IncludeFilesPerFile (IdInclude, IdFile) " +;
-                        " VALUES ($idInclude, $idFile) "
-                    oCmd:Parameters:Clear()
-                    oCmd:Parameters:AddWithValue("$idInclude", include:Id)
-                    oCmd:Parameters:AddWithValue("$idFile", oFile:Id)
-                    oCmd:ExecuteNonQuery()
-                next
+                        oCmd:CommandText := "INSERT INTO IncludeFilesPerFile (IdInclude, IdFile, IdProject) " +;
+                            " VALUES ($idInclude, $idFile, $idProject) "
+                        oCmd:Parameters:Clear()
+                        oCmd:Parameters:AddWithValue("$idInclude", include:Id)
+                        oCmd:Parameters:AddWithValue("$idFile", oFile:Id)
+                        oCmd:Parameters:AddWithValue("$idProject", oFile:Project:Id)
+                        oCmd:ExecuteNonQuery()
+                    next
+                endif
                 oCmd:CommandText := "Delete from IncludeFiles where Id not in (select IdInclude from IncludeFilesPerFile)"
                 oCmd:Parameters:Clear()
                 oCmd:ExecuteScalar()
@@ -1392,6 +1482,27 @@ STATIC CLASS XDatabase
         RETURN result
 
 
+    STATIC METHOD GetProjectGlobalUsings(nProjectId as INT64) AS IList<XDbResult>
+
+        VAR result := List<XDbResult>{}
+        IF IsDbOpen
+            BEGIN LOCK oConn
+                TRY
+                    USING VAR oCmd := CreateCommand("SELECT 1", oConn)
+                    oCmd:CommandText := "SELECT Name, Attributes, ReturnType FROM ProjectGlobalUsings WHERE IdProject = "+nProjectId:ToString()
+                    USING VAR rdr := oCmd:ExecuteReader()
+                    DO WHILE rdr:Read()
+                        var dbResult := CreateUsing(rdr)
+                        result:Add(dbResult)
+                    ENDDO
+                CATCH e AS Exception
+                    XSettings.Exception(e, __FUNCTION__)
+                END TRY
+            END LOCK
+
+        ENDIF
+        RETURN result
+
 
     STATIC METHOD FindProjectGlobalOrDefine(sName AS STRING, sProjectIds AS STRING) AS IList<XDbResult>
         // search class members in the Types list
@@ -1626,7 +1737,7 @@ STATIC CLASS XDatabase
         RETURN result
 
     STATIC METHOD GetProjectNamespaces(sProjectIds AS STRING) AS IList<STRING>
-        VAR stmt := "Select Namespace from ProjectNamespaces where IdProject in ("+sProjectIds+")"
+        VAR stmt := "Select distinct Namespace from ProjectTypes where IdProject in ("+sProjectIds+")"
         VAR result := List<STRING>{}
         IF IsDbOpen
             BEGIN LOCK oConn
@@ -1725,8 +1836,8 @@ STATIC CLASS XDatabase
         Log(i"GetNamespacesInFile returns {result.Count} matches")
         RETURN result
 
-    STATIC METHOD GetTypesInFile(sFileId AS STRING) AS IList<XDbResult>
-        VAR stmt := "Select * from ProjectTypes where IdFile = "+sFileId
+    STATIC METHOD GetTypesInFile(XFile AS XFile) AS IList<XDbResult>
+        VAR stmt := "Select * from ProjectTypes where IdFile = "+XFile:Id:ToString()+" and IdProject = "+XFile:Project:Id:ToString()
         VAR result := List<XDbResult>{}
         IF IsDbOpen
             BEGIN LOCK oConn
@@ -1765,8 +1876,8 @@ STATIC CLASS XDatabase
         Log(i"GetExtensionMethods '{TypeName}' returns {result.Count} matches")
         RETURN result
 
-    STATIC METHOD GetMembers(idType AS INT64) AS IList<XDbResult>
-        VAR stmt := "Select * from ProjectMembers where IdType ="+idType:ToString()
+    STATIC METHOD GetMembers(idType AS INT64, idProject as INT64) AS IList<XDbResult>
+        VAR stmt := "Select * from ProjectMembers where IdType ="+idType:ToString()+" and IdProject = "+idProject:ToString()
         stmt     += " order by idFile, idType"
         VAR result := List<XDbResult>{}
         IF IsDbOpen
@@ -1808,7 +1919,7 @@ STATIC CLASS XDatabase
         IF IsDbOpen
             BEGIN LOCK oConn
                 TRY
-                    var stmt := "select TypeName, Name, Attributes, Kind from ProjectMembers where Name like 'Start%' and ProjectFileName like '%" +projectFile+"'"
+                    var stmt := "select distinct TypeName, Name, Attributes, Kind from ProjectMembers where Name like 'Start%' and ProjectFileName like '%" +projectFile+"'"
                     USING VAR oCmd := CreateCommand(stmt, oConn)
                     USING VAR rdr := oCmd:ExecuteReader()
                     DO WHILE rdr:Read()
@@ -1849,16 +1960,17 @@ STATIC CLASS XDatabase
         RETURN result
 
 
-    STATIC METHOD GetFunctions( sFileId AS STRING) AS IList<XDbResult>
+    STATIC METHOD GetFunctions( nFileId AS Int64, nProjectId as Int64) AS IList<XDbResult>
         //
         VAR result := List<XDbResult>{}
         IF IsDbOpen
             BEGIN LOCK oConn
                 TRY
                     USING VAR oCmd := CreateCommand("SELECT 1", oConn)
-                    oCmd:CommandText := "SELECT * FROM ProjectMembers WHERE IdFile = $idfile AND TypeName = $typename " + ;
+                    oCmd:CommandText := "SELECT * FROM ProjectMembers WHERE IdFile = $idfile AND IdProject = $idproject and TypeName = $typename " + ;
                         " AND Kind in ($kind1, $kind2, $kind3, $kind4, $kind5)"
-                    oCmd:Parameters:AddWithValue("$idfile", sFileId)
+                    oCmd:Parameters:AddWithValue("$idfile", nFileId)
+                    oCmd:Parameters:AddWithValue("$idproject", nProjectId)
                     oCmd:Parameters:AddWithValue("$kind1", (INT) Kind.Function)
                     oCmd:Parameters:AddWithValue("$kind2", (INT) Kind.Procedure)
                     oCmd:Parameters:AddWithValue("$kind3", (INT) Kind.VODLL)
@@ -1923,7 +2035,12 @@ STATIC CLASS XDatabase
         res:FileName     := DbToString(rdr["FileName"])
         RETURN res
 
-
+    STATIC METHOD CreateUsing(rdr AS DbDataReader) AS XDbResult
+        VAR res := XDbResult{}
+        res:Namespace    := DbToString(rdr["Name"])
+        res:Attributes   := (Modifiers) (INT64) rdr["Attributes"]
+        res:ReturnType   := DbToString(rdr["ReturnType"])
+        RETURN res
     STATIC METHOD CreateMemberInfo(rdr AS DbDataReader) AS XDbResult
         VAR res := XDbResult{}
         res:TypeName     := DbToString(rdr["TypeName"])
@@ -1933,6 +2050,7 @@ STATIC CLASS XDatabase
         res:Attributes   := (Modifiers) (INT64) rdr["Attributes"]
         res:FileName     := DbToString(rdr["FileName"])
         res:Project      := DbToString(rdr["ProjectFileName"])
+        res:Framework    := DbToString(rdr["Framework"])
         res:StartLine    := DbToInt(rdr["StartLine"])
         res:StartColumn  := DbToInt(rdr["StartColumn"])
         res:EndLine      := DbToInt(rdr["EndLine"])
@@ -2038,4 +2156,3 @@ STATIC CLASS SqlExtensions
 
 END CLASS
 
-END NAMESPACE

@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-07-18T00:05:44.690+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>匿名类型</title>
+  <body>
+    <header>
+      <para styleclass="Heading1">匿名类型</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">匿名类型在 LINQ 中使用较多。请看下面的 LINQ 示例。在第一条 LINQ 语句中，创建了一个匿名类</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal"><snippet src="Ex-LINQ" inline="false"/></para>
+  </body>
+</topic>

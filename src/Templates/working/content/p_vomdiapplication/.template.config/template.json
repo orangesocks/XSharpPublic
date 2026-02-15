@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "XSharp",
+  "classifications": [
+    "Windows",
+    "Desktop",
+    "VO"
+  ],
+  "identity": "XSharp.VOMDIApplication.SDK",
+  "name": "VO MDI Application (SDK)",
+  "description": "A SDK Style project for creating a VO MDI application in the VO Dialect.",
+  "sourceName": "XSharp.VOMDIApplication",
+  "shortName": "xsvomdiapplication",
+  "tags": {
+    "language": "X#",
+    "type": "project",
+    "icon": "template.png",
+    "is-icon-path": "true"
+  },
+  "preferNameDirectory": true,
+  "defaultName": "VOMDIApp",
+  "symbols": {
+    "TargetFrameworkOverride": {
+      "type": "parameter",
+      "description": "Overrides the target framework",
+      "replaces": "TargetFrameworkOverride",
+      "datatype": "string",
+      "defaultvalue": "",
+      "displayName": "Target framework override"
+    },
+    "Framework": {
+      "type": "parameter",
+      "description": "Target .NET version",
+      "datatype": "choice",
+      "choices": [
+        {
+          "choice": "net46",
+          "description": "Target .NET Framework 4.6"
+        },
+        {
+          "choice": "net47",
+          "description": "Target .NET Framework 4.7"
+        },
+        {
+          "choice": "net48",
+          "description": "Target .NET Framework 4.8"
+        }
+      ],
+      "replaces": "net46",
+      "defaultvalue": "net46"
+    },
+    "RootNamespace": {
+      "type": "parameter",
+      "datatype": "string",
+      "replaces": "Company.Namespace1",
+      "defaultvalue": "Company.Namespace1"
+    }
+  }
+}

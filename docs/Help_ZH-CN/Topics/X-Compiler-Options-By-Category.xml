@@ -1,0 +1,1004 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-11-10T20:40:15.107+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>按类别划分的 X# 编译器选项</title>
+  <keywords>
+    <keyword>compiler options</keyword>
+    <keyword>options</keyword>
+    <keyword>-usenativeversion</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">按类别划分的 X# 编译器选项</para>
+    </header>
+    <para styleclass="Body Text"></para>
+    <para styleclass="Body Text">以下编译器选项按类别排序。有关按字母顺序排列的列表，请参见 ：<link displaytype="text" defaultstyle="true" type="topiclink" href="X-Compiler-Options-Listed-Alph">按字母顺序排序的 X# 编译器选项</link></para>
+    <para styleclass="Heading2">方言支持</para>
+    <para styleclass="Heading2"><table styleclass="Default" rowcount="2" colcount="2">
+      <thead style="vertical-align:top">
+        <td>
+          <para styleclass="Normal" style="text-align:center;">选项</para>
+        </td>
+        <td>
+          <para styleclass="Normal" style="text-align:center;">用途</para>
+        </td>
+      </thead>
+      <tr style="vertical-align:top">
+        <td style="width:33%;">
+          <para styleclass="Body Text"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-dialect">-dialect</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定编译时使用的方言。支持以下值 Core、VO、Vulcan、dBase、FoxPro、Xbase++ 和 Harbour。有关 VO 和 Vulcan 方言的工作已经开始。</para>
+        </td>
+      </tr>
+    </table></para>
+    <para styleclass="Heading2">XBase 兼容性</para>
+    <para styleclass="Heading2"><table styleclass="Default" rowcount="45" colcount="2">
+      <thead style="vertical-align:top">
+        <td>
+          <para styleclass="Normal" style="text-align:center;">选项</para>
+        </td>
+        <td>
+          <para styleclass="Normal" style="text-align:center;">用途</para>
+        </td>
+      </thead>
+      <tr style="vertical-align:top">
+        <td style="width:33%;">
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-allowdot">-allowdot</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">允许使用 DOT (.) 字符作为示例成员的运算符</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td style="width:33%;">
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-allowoldstyleassignments" styleclass="Body Text">-allowoldstyleassignments</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">允许使用单个等号运算符 (=) 进行赋值</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td style="width:33%;">
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-az">-az</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定数组以 0 为单位，而不是以 1 为单位 </para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-cs">-cs</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定编译器使用区分大小写的类型名 </para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-debug">-d</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指示编译器发出调试信息。( <link displaytype="text" defaultstyle="true" type="topiclink" href="opt-debug">/debug</link> 的简称)</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-enforceoverride">-enforceoverride</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">强制子类使用 OVERRIDE 关键字覆盖父类的方法</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-enforceself">-enforceself</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">强制使用 SELF: 访问类内的字段、属性和方法</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-fovf">-fovf</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定在无效浮点运算时引发异常 </para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-fox1">-fox1</link></para>
+        </td>
+        <td>
+          <para styleclass="Body Text">已弃用</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-fox2">-fox2</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">兼容 FoxPro Array 支持</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-i">-i</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">指定要添加到 #include 文件搜索路径中的目录 </text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-initlocals">-initlocals</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">初始化所有局域变量</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-ins">-ins</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">使用隐式命名空间查找机制</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-lb">-lb</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">指定编译器在必要时生成后期绑定调用 </text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-memvar">-memvar</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">启用对内存变量的支持</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-modernsyntax">-modernsyntax</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">禁用某些传统编译器选项</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-namedargs">-namedargs</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">指定是否允许在解析器中使用命名参数。</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal">-<link displaytype="text" defaultstyle="true" type="topiclink" href="opt-noinit">noinit</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">禁止生成空的 $Init1() 和 $Exit() 函数</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal">-norun</para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">X# 中过时的编译器选项，继承自 Vulcan。要做到这一点，只需移除对运行时 DLL 的引用，然后用 Core 方言编译即可</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-nostddefs">-nostddefs</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">禁止 XSharpDefs.xh 中的预处理器定义</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-ns">-ns</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定输出程序集的默认命名空间</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-ovf">-ovf</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定在整数溢出时引发异常 </para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-showincludes">-showincludes</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">在编译器输出中列出 #include 文件 </text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-snk">-snk</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">用强名称密钥对签署程序集 </para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-undeclared">-undeclared</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">启用对未声明变量的支持</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo1">-vo1</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">使用 Init 和 Axit 方法代替构造函数和析构函数</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo2">-vo2</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">将 STRING 变量、字段和 DIM 数组初始化为空字符串 </para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo3">-vo3</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">将所有方法视为虚方法 </para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo4">-vo4</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">允许有符号/无符号整数的隐式转换</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo5">-vo5</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">零参数函数的隐式 CLIPPER 调用约定 </text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo6">-vo6</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">将类型化函数指针转换为 PTR </text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo7">-vo7</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">允许兼容的隐式转换 </text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo8">-vo8</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">启动兼容的预处理器行为</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo9">-vo9</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">允许缺少 RETURN 语句 </text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo10">-vo10</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">启用兼容的 IIF 行为</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo11">-vo11</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">实现与 Visual Objects 兼容的算术转换 </text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo12">-vo12</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">启用与 Clipper 兼容的整数除法 </text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo13">-vo13</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">启用与 Visual Objects 兼容的字符串比较功能 </text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo14">-vo14</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">以 FLOAT 格式插入浮点字面量</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo15">-vo15</link></para>
+        </td>
+        <td>
+          <para styleclass="" style="text-align:left; text-indent:-13px; margin-top:0px; margin-right:0px; margin-bottom:0px; margin-left:13px; line-height:1.00; background-color:transparent; white-space:normal; page-break-inside:auto; page-break-after:auto; border:none; tabstops:none;"><text styleclass="Body Text">允许未类型化的局部(变量)和返回类型</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo16">-vo16</link></para>
+        </td>
+        <td>
+          <para styleclass="" style="text-align:left; text-indent:-13px; margin-top:0px; margin-right:0px; margin-bottom:0px; margin-left:13px; line-height:1.00; background-color:transparent; white-space:normal; page-break-inside:auto; page-break-after:auto; border:none; tabstops:none;"><text styleclass="Body Text">为没有构造函数的类自动生成 Clipper 调用约定构造函数</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-w">-w</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">不支持该选项，请使用 <link displaytype="text" defaultstyle="true" type="topiclink" href="opt-nowarn">-NoWarn</link> 代替。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-wx">-wx</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">将所有警告视为错误(<link displaytype="text" defaultstyle="true" type="topiclink" href="opt-warnaserror">-warnaserror</link> 的别名)</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-xpp1">-xpp1</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">所有类都继承自抽象类</para>
+        </td>
+      </tr>
+    </table></para>
+    <para styleclass="Heading2">优化</para>
+    <para styleclass="Heading2"><table styleclass="Default" rowcount="3" colcount="2">
+      <thead style="vertical-align:top">
+        <td style="width:33%;">
+          <para styleclass="Normal" style="text-align:center;">选项</para>
+        </td>
+        <td>
+          <para styleclass="Normal" style="text-align:center;">用途</para>
+        </td>
+      </thead>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-filealign">-filealign</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定输出文件各部分的大小。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-optimize">-optimize</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">启用/禁用优化功能。</para>
+        </td>
+      </tr>
+    </table></para>
+    <para styleclass="Heading2">输出文件</para>
+    <para styleclass="Heading2"><table styleclass="Default" rowcount="10" colcount="2">
+      <thead style="vertical-align:top">
+        <td style="width:33%;">
+          <para styleclass="Normal">选项</para>
+        </td>
+        <td>
+          <para styleclass="Normal">用途</para>
+        </td>
+      </thead>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-doc">-doc</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定一个 XML 文件，用于写入处理过的文档注释。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-modulenamestring">-modulename</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定源模块的名称</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-out">-out</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定输出文件。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-pathmap">-pathmap</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定编译器输出的源路径名映射。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-pdb">-pdb</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定 .pdb 文件的文件名和位置。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-platform">-platform</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定输出平台。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-preferreduilang">-preferreduilang</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定编译器输出语言。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Body Text"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-target">-target</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">使用五个选项之一指定输出文件的格式： /target:appcontainerexe、/target:exe、/target:library、/target:module、/target:winexe 或 /target:winmdobj。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-touchedfiles" styleclass="Body Text">-touchedfiles</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定文件名，该文件名将更新编译器读取和写入的文件列表</para>
+        </td>
+      </tr>
+    </table></para>
+    <para styleclass="Heading2">.NET 程序集</para>
+    <para styleclass="Heading2"><table styleclass="Default" rowcount="10" colcount="2">
+      <thead style="vertical-align:top">
+        <td style="width:33%;">
+          <para styleclass="Normal" style="text-align:center;">选项</para>
+        </td>
+        <td>
+          <para styleclass="Normal" style="text-align:center;">用途</para>
+        </td>
+      </thead>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-_analyzer">-analyzer</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">运行该程序集的分析器(简写：/a)</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-additionalfile">-additionalfile</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">命名不直接影响代码生成，但可能被分析程序用于生成错误或警告的附加文件。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-addmodule">-addmodule</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定一个或多个模块作为该程序集的一部分。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-delaysign">-delaysign</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指示编译器添加公钥，但不对程序集签名。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-keycontainer">-keycontainer</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定加密密钥容器的名称。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-keyfile">-keyfile</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定包含加密密钥的文件名。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-lib">-lib</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定通过 <link displaytype="text" defaultstyle="true" type="topiclink" href="opt-reference">/reference</link> 引用的程序集的位置。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-nostdlib">-nostdlib</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指示编译器不要导入标准库 (mscorlib.dll)。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-reference">-reference</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">从包含程序集的文件中导入元数据。</para>
+        </td>
+      </tr>
+    </table></para>
+    <para styleclass="Heading2">调试/错误检查</para>
+    <para styleclass="Heading2"><table styleclass="Default" rowcount="14" colcount="2">
+      <thead style="vertical-align:top">
+        <td style="width:33%;">
+          <para styleclass="Normal" style="text-align:center;">选项</para>
+        </td>
+        <td>
+          <para styleclass="Normal" style="text-align:center;">用途</para>
+        </td>
+      </thead>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-ast">-ast</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">转存每个源文件的抽象语法树(扩展名为.ast)</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-checked">-checked</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定溢出数据类型边界的整数运算是否会在运行时导致异常。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-debug">-debug</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指示编译器发出调试信息。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-errorendlocation">-errorendlocation</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">输出每个错误结束位置的行和列</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-errorreport">-errorreport</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">设置错误报告行为。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-fullpaths">-fullpaths</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定编译器输出文件的绝对路径。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-lexonly">-lexonly</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">告诉编译器只读取源代码。</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-nowarn">-nowarn</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">禁止编译器生成指定的警告。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-parseonly">-parseonly</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal"><text style="color:#000000;">该编译器选项告诉编译器对代码进行 Lex 和解析。</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-ruleset">-ruleset</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定可禁用特定诊断的规则集文件。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-warn">-warn</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">设置警告级别。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-warnaserror">-warnaserror</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">将警告升级为错误。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-wx">-wx</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">这是 <link displaytype="text" defaultstyle="true" type="topiclink" href="opt-warnaserror">-warnaserror</link> 选项的别名。</para>
+        </td>
+      </tr>
+    </table></para>
+    <para styleclass="Heading2">预处理器</para>
+    <para styleclass="Heading2"><table styleclass="Default" rowcount="8" colcount="2">
+      <thead style="vertical-align:top">
+        <td style="width:33%;">
+          <para styleclass="Normal" style="text-align:center;">选项</para>
+        </td>
+        <td>
+          <para styleclass="Normal" style="text-align:center;">用途</para>
+        </td>
+      </thead>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-define">-define</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">定义预处理器符号。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-i">-i</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定要添加到 #include 文件搜索路径中的目录 </para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-ppo">-ppo</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">将预处理器输出写入文件 </para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-nostddefs">-nostddef</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">禁止 XSharpDefs.xh 中的预处理器定义 </para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="_showdefs">-showdefs</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">显示从头文件中添加的定义及其用法</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-showincludes">-showincludes</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">在编译器输出中列出 #include 文件 </para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal">-verbose</para>
+        </td>
+        <td>
+          <para styleclass="" style="text-align:left; text-indent:-13px; margin-top:0px; margin-right:0px; margin-bottom:0px; margin-left:13px; line-height:1.00; background-color:transparent; white-space:normal; page-break-inside:auto; page-break-after:auto; border:none; tabstops:none;"><text styleclass="Normal" style="font-weight:normal;">在控制台上显示包含、源文件名、定义等信息。</text></para>
+        </td>
+      </tr>
+    </table></para>
+    <para styleclass="Heading2">资源</para>
+    <para styleclass="Heading2"><table styleclass="Default" rowcount="7" colcount="2">
+      <thead style="vertical-align:top">
+        <td style="width:33%;">
+          <para styleclass="Normal" style="text-align:center;">选项</para>
+        </td>
+        <td>
+          <para styleclass="Normal" style="text-align:center;">用途</para>
+        </td>
+      </thead>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-link">-link</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">将指定程序集中的 COM 类型信息提供给项目。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-linkresource">-linkresource</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">创建指向托管资源的链接。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-resource">-resource</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">将 .NET Framework 资源嵌入输出文件。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="Opt-usenativeversion">-usenativeversion</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">优先选择本地资源(如果有)，而不是托管程序集属性生成的资源</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-win32icon">-win32icon</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定要插入到输出文件中的 .ico 文件。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-win32res">-win32res</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定要插入输出文件的 Win32 资源。</para>
+        </td>
+      </tr>
+    </table></para>
+    <para styleclass="Heading2">杂项</para>
+    <para styleclass="Heading2"><table styleclass="Default" rowcount="21" colcount="2">
+      <thead style="vertical-align:top">
+        <td style="width:33%;">
+          <para styleclass="Normal" style="text-align:center;">选项</para>
+        </td>
+        <td>
+          <para styleclass="Normal" style="text-align:center;">用途</para>
+        </td>
+      </thead>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-At">@</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定响应文件。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-help">-?</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">向 stdout 列出编译器选项。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-appconfig">-appconfig</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定包含程序集绑定设置的应用程序配置文件</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-baseaddress">-baseaddress</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定加载 DLL 的首选基地址。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-checksumalgorithm">-checksumalgorithm</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定计算 PDB 中存储的源文件校验和的算法。支持的值有 SHA1(默认)或 SHA256。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-codepage">-codepage</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">为编译中的所有源代码文件指定代码页。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-help">-help</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">向 stdout 列出编译器选项。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-highentroyva">-highentropyva</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定可执行文件支持地址空间布局随机化 (ASLR)。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-langversion">-langversion</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定语言版本模式：Core、VO、Vulcan、Harbour、FoxPro、dBase</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-main">-main</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定 Main 方法的位置。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-noconfig">-noconfig</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指示编译器不要使用 xsc.rsp 进行编译。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-nologo">-nologo</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">禁用编译器横幅信息。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-parallel">-parallel</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定是否使用并发生成 (+)。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-recurse">-recurse</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">搜索子目录，查找要编译的源文件。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-parseonly">-s</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">仅语法检查</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-shared">-shared</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">使用共享编译器</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-subsystemversion">-subsystemversion</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定可执行文件可以使用的最小子系统版本。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-unsafe">-unsafe</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">允许编译使用不安全关键字的代码。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-utf8output">-utf8output</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">使用 UTF-8 编码显示编译器输出。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="opt-win32manifest">-win32manifest</link></para>
+        </td>
+        <td>
+          <para styleclass="Normal">指定要嵌入可执行文件的用户定义 Win32 应用程序清单文件。</para>
+        </td>
+      </tr>
+    </table></para>
+  </body>
+</topic>

@@ -35,7 +35,7 @@ namespace Microsoft.CodeAnalysis.CompilerServer
                     break;
             }
 
-            return new RunRequest(language, currentDirectory, tempDirectory, libDirectory, arguments);
+            return new RunRequest(req.RequestId, language, currentDirectory, tempDirectory, libDirectory, arguments);
         }
 
         internal static string[] GetCommandLineArguments(BuildRequest req, out string? currentDirectory, out string? tempDirectory, out string? libDirectory)
@@ -57,22 +57,7 @@ namespace Microsoft.CodeAnalysis.CompilerServer
                 }
                 else if (arg.ArgumentId == BuildProtocolConstants.ArgumentId.LibEnvVariable)
                 {
-#if XSHARP
-                    string tmp = arg.Value ?? "";
-                    if (tmp.Contains(":::"))
-                    {
-                        var values = tmp.Split(new string[] { ":::" }, StringSplitOptions.None);
-                        libDirectory = values[0];
-                        if (values.Length == 4)
-                        {
-                            XSharpSpecificCompilationOptions.SetDefaultIncludeDir(values[1]);
-                            XSharpSpecificCompilationOptions.SetWinDir(values[2]);
-                            XSharpSpecificCompilationOptions.SetSysDir(values[3]);
-                        }
-                    }
-#else
                     libDirectory = arg.Value;
-#endif
                 }
                 else if (arg.ArgumentId == BuildProtocolConstants.ArgumentId.CommandLineArgument)
                 {

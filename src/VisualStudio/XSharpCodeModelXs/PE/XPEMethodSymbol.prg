@@ -3,8 +3,6 @@
 // Licensed under the Apache License, Version 2.0.
 // See License.txt in the project root for license information.
 //
-USING System.Collections.Generic
-USING System.Diagnostics
 USING Mono.Cecil
 using XSharp.Settings
 BEGIN NAMESPACE XSharpModel
@@ -77,7 +75,6 @@ CLASS XPEMethodSymbol  INHERIT XPEMemberSymbol
                         SELF:DeclaringTypeSym := asm:Types[SELF:DeclaringType]
                     endif
                 CASE KnownTypes.XSharpClipper
-                CASE KnownTypes.VulcanClipper
                     SELF:CallingConvention := CallingConvention.Clipper
                     _ccAttrib := attr
                 END SWITCH
@@ -88,7 +85,7 @@ CLASS XPEMethodSymbol  INHERIT XPEMemberSymbol
             SELF:_signature:ReadGenericParameters(def:GenericParameters)
         ENDIF
         SELF:IsSpecialName := def:IsSpecialName
-    PROTECTED INTERNAL OVERRIDE METHOD Resolve() AS VOID
+    PUBLIC OVERRIDE METHOD Resolve() AS VOID
         IF ! _resolved .and. _methoddef != NULL
             // Add Generic parameters first so have that info when processing the parameters
             IF _methoddef:HasGenericParameters

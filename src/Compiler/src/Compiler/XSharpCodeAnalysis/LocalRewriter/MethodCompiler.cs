@@ -9,15 +9,39 @@ using Microsoft.CodeAnalysis.CSharp.Symbols;
 
 namespace Microsoft.CodeAnalysis.CSharp
 {
-    internal sealed partial class MethodCompiler 
+    internal sealed partial class MethodCompiler
     {
-        internal static BoundStatement RewriteXSharpMethod(MethodSymbol method, 
-            BoundStatement body, 
+
+        internal void CheckFoxProClass(NamedTypeSymbol containingType)
+        {
+            if (containingType.DeclaringCompilation.Options.Dialect == XSharpDialect.FoxPro)
+            {
+                if (containingType.GetNonNullSyntaxNode()?.XNode?.GetChild(0) is XSharpParser.FoxclassContext)
+                {
+                    if (!containingType.InheritsFromVfpCustom())
+                    {
+                        //ERR_FoxDefineClassMustInheritFromCustom
+                        var info = new CSDiagnosticInfo(ErrorCode.ERR_FoxDefineClassMustInheritFromCustom);
+                        _diagnostics.Add(new CSDiagnostic(info, containingType.Locations[0]));
+                    }
+                }
+            }
+        }
+
+        internal static BoundStatement RewriteXSharpMethod(MethodSymbol method,
+            BoundStatement body,
             int methodOrdinal,
             TypeCompilationState compilationState,
-            DiagnosticBag diagnostics)
+            BindingDiagnosticBag diagnostics)
         {
-
+            var methodNode = method.GetNonNullSyntaxNode();
+            if (!methodNode.XGenerated)
+            {
+                foreach (var par in method.Parameters)
+                {
+                    par.ValidateDefaultParameter(diagnostics);
+                }
+            }
             switch (method.Name)
             {
                 case XSharpSpecialNames.AppInit:
@@ -30,15 +54,16 @@ namespace Microsoft.CodeAnalysis.CSharp
                     body = LocalRewriter.RewriteExit(method, body, diagnostics);
                     break;
                 case ReservedNames.RunInitProcs:
-                    body = LocalRewriter.RewriteRunInitProc(method,body,diagnostics);
+                    body = LocalRewriter.RewriteRunInitProc(method, body, diagnostics);
+                    break;
+                default:
                     break;
             }
             switch (method.MethodKind)
             {
                 case MethodKind.PropertyGet:
                 case MethodKind.PropertySet:
-                    var node = method.GetNonNullSyntaxNode();
-                    if (node.XGenerated)
+                    if (methodNode.XGenerated)
                     {
                         if (body is BoundBlock oldbody )
                         {
@@ -49,7 +74,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     break;
             }
 
-            var xnode = method.GetNonNullSyntaxNode().XNode as XSharpParserRuleContext;
+            var xnode = methodNode.XNode as XSharpParserRuleContext;
             if (xnode is XSharpParser.ClsmethodContext cmc)
             {
                 xnode = cmc.Member;

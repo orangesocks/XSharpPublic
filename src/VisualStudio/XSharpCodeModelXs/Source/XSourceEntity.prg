@@ -4,13 +4,9 @@
 // See License.txt in the project root for license information.
 //
 
-USING System.Collections.Generic
-USING System.Diagnostics
-USING System
-USING System.Linq
 USING LanguageService.CodeAnalysis.XSharp
 USING LanguageService.SyntaxTree
-BEGIN NAMESPACE XSharpModel
+NAMESPACE XSharpModel
 
 
 /// <summary>An entity in a source file. </summary>
@@ -24,12 +20,12 @@ CLASS XSourceEntity INHERIT XSourceSymbol IMPLEMENTS IXSymbol, IXSourceSymbol
     PROPERTY ParentName              AS STRING           GET SELF:Parent?:FullName
     PROPERTY ComboPrototype          AS STRING           GET SELF:FullName
     PROPERTY Prototype               AS STRING           GET SELF:FullName
-    PROPERTY Dialect                 AS XSharpDialect    AUTO
+    PROPERTY Dialect                 AS XDialect         AUTO
     PROPERTY CustomAttributes        AS STRING           AUTO
     PROPERTY SingleLine              AS LOGIC            AUTO
     PROPERTY Value                   AS STRING           AUTO
     PROPERTY XmlComments             AS STRING           AUTO
-    PRIVATE _typeName                AS STRING
+    PROTECTED _typeName                AS STRING
     PROPERTY IsGeneric               AS LOGIC            GET GenericArgs != NULL
     PROPERTY GenericArgs             AS STRING[]         AUTO GET PRIVATE SET
     PROPERTY StartOfXmlComments      AS LONG             AUTO
@@ -43,7 +39,7 @@ CLASS XSourceEntity INHERIT XSourceSymbol IMPLEMENTS IXSymbol, IXSourceSymbol
 
     CONSTRUCTOR(Name AS STRING, kind AS Kind, attributes AS Modifiers, range AS TextRange, interval AS TextInterval)
         SUPER(Name, kind, attributes, range, interval)
-        SELF:Dialect := XSharpDialect.Core
+        SELF:Dialect := XDialect.Core
 
     METHOD IncludesLine(nLine as LONG ) AS LOGIC
         RETURN SELF:Range:StartLine <= nLine .and. SELF:Range:EndLine >= nLine
@@ -54,7 +50,7 @@ CLASS XSourceEntity INHERIT XSourceSymbol IMPLEMENTS IXSymbol, IXSourceSymbol
     METHOD ForceComplete() AS VOID
         LOCAL ParentName AS STRING
         LOCAL thisName AS STRING
-        LOCAL tmp AS XSourceTypeSymbol
+        LOCAL tmp AS IXTypeSymbol
 
         IF SELF:Parent == NULL .AND. ! String.IsNullOrEmpty(SELF:ParentName)
 
@@ -75,7 +71,14 @@ CLASS XSourceEntity INHERIT XSourceSymbol IMPLEMENTS IXSymbol, IXSourceSymbol
                 ENDIF
             ENDIF
         ENDIF
-
+    METHOD Resolve() AS VOID
+        IF SELF:ResolvedType == null
+            var name := SELF:TypeName
+            SELF:ResolvedType := SELF:File:FindType(name)
+            if (SELF:ResolvedType != NULL)
+                SELF:TypeName     := SELF:ResolvedType:FullName
+            endif
+        ENDIF
 
 #region Complexer properties
         // Properties
@@ -121,7 +124,4 @@ CLASS XSourceEntity INHERIT XSourceSymbol IMPLEMENTS IXSymbol, IXSourceSymbol
 
 #endregion
 END CLASS
-
-END NAMESPACE
-
 

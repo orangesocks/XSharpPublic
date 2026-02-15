@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-07-13T02:55:13.154+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>XS9062</title>
+  <keywords>
+    <keyword>XS9062</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">Error XS9062</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">{0} 名称 &apos;{1}&apos; 与编译器生成的全局名称 &apos;{2}&apos; 相冲突。应重新命名类型或输出程序集。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">如果类或其他类型的名称与其所在的程序集名称相同，则可能出现此错误。</para>
+    <para styleclass="Normal">编译器会为 defines、globals、函数和过程等全局成员生成一个特殊类。</para>
+    <para styleclass="Normal">该类的名称源于程序集名称，与你自己声明的类有名称冲突。</para>
+    <para styleclass="Normal">您需要重新命名该类或输出程序集</para>
+  </body>
+</topic>

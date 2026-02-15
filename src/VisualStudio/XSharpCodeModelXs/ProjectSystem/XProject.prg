@@ -3,31 +3,30 @@
 // Licensed under the Apache License, Version 2.0.
 // See License.txt in the project root for license information.
 //
-USING System
-USING System.Collections.Generic
+USING System.IO
 USING System.ComponentModel
-USING System.Linq
 USING System.Text
 USING System.Threading.Tasks
 USING LanguageService.CodeAnalysis
 USING LanguageService.CodeAnalysis.XSharp
 USING System.Collections.Concurrent
-USING System.Diagnostics
 USING System.Reflection
 USING XSharp.Settings
 
+
 #pragma options ("az", ON)
-BEGIN NAMESPACE XSharpModel
-[DebuggerDisplay("{Name,nq}")];
+NAMESPACE XSharpModel
+[DebuggerDisplay("{NameId,nq}")];
 CLASS XProject
 #region Fields
     // Fields
     PROTECTED _id    := -1                    AS INT64
+    PRIVATE _framework                          AS STRING
     PRIVATE _AssemblyReferences					AS List<XAssembly>
-    PRIVATE _AssemblyDict					        AS XDictionary<INT64 ,XAssembly>
-    PRIVATE _AssemblyTypeCache                    AS XDictionary<STRING, XPETypeSymbol>
-    PRIVATE _parseOptions := NULL					AS XSharpParseOptions
-    PRIVATE _projectNode							AS IXSharpProject
+    PRIVATE _AssemblyDict					    AS XDictionary<INT64 ,XAssembly>
+    PRIVATE _AssemblyTypeCache                  AS XDictionary<STRING, XPETypeSymbol>
+    PRIVATE _parseOptions := NULL			    AS XParseOptions
+    PRIVATE _projectNode						AS IXSharpProject
     PRIVATE _projectOutputDLLs					AS ConcurrentDictionary<STRING, STRING>
     PRIVATE _ReferencedProjects					AS List<XProject>
     PRIVATE _StrangerProjects						AS List<Object>
@@ -35,14 +34,18 @@ CLASS XProject
     PRIVATE _unprocessedProjectReferences		AS List<STRING>
     PRIVATE _unprocessedStrangerProjectReferences	AS List<STRING>
     PRIVATE _failedStrangerProjectReferences   AS List<STRING>
-    PRIVATE _OtherFilesDict					 AS XFileDictionary
-    PRIVATE _SourceFilesDict					 AS XFileDictionary
+    PRIVATE _OtherFilesDict					 as XFileDictionary
+    PRIVATE _SourceFilesDict					 as XFileDictionary
     PRIVATE _FunctionClasses                   AS List<STRING>
     PRIVATE _ImplicitNamespaces                AS List<STRING>
     PRIVATE _dependentProjectList              AS STRING
     PRIVATE _dependentAssemblyList             AS STRING
     PRIVATE _name                              AS STRING
+    PRIVATE _fileName                          AS STRING
     PRIVATE _lastRefCheck                      AS DateTime
+    PRIVATE _resolvingReferences               AS LOGIC
+    private _globalUsings                      AS List<STRING>
+    private _globalStaticUsing                 AS List<STRING>
 
     PRIVATE _cachedAllNamespaces               AS IList<STRING>
     PRIVATE _cachedUsingStatics                AS IList<STRING>
@@ -53,140 +56,147 @@ CLASS XProject
 #region Properties
     PROPERTY Id   AS INT64                     GET _id INTERNAL SET _id := value
     PROPERTY FileWalkCompleted                 AS LOGIC AUTO
-    PROPERTY FileName                          AS STRING GET iif (_projectNode != null, _projectNode:Url, "")
+    PROPERTY FileName                          AS STRING GET _fileName
     PROPERTY HasFiles                          AS LOGIC GET _SourceFilesDict:Keys:Count > 0 .or. _OtherFilesDict:Keys:Count > 0
+    PROPERTY Framework                         AS STRING GET _framework
+    PROPERTY DisplayName                       AS STRING GET _projectNode?.DisplayName
+    property GlobalUsings                      AS List<STRING> GET SELF:_globalUsings
+    property GlobalStaticUsings                AS List<STRING> GET SELF:_globalStaticUsing
 
     PROPERTY DependentAssemblyList             AS STRING
-    GET
-        IF String.IsNullOrEmpty(_dependentAssemblyList)
-            SELF:_AssemblyDict := XDictionary<INT64, XAssembly>{}
-            SELF:_AssemblyTypeCache  := XDictionary<STRING, XPETypeSymbol>{}
-            VAR result := ""
-            var core := SystemTypeController.mscorlib
-            if core != null
-                result := core:Id:ToString()
-            ENDIF
-            FOREACH VAR assembly IN SELF:AssemblyReferences:ToArray()
-                _AssemblyDict:Add(assembly:Id, assembly)
-                IF result:Length > 0
-                    result += ","
+        GET
+            IF String.IsNullOrEmpty(_dependentAssemblyList)
+                SELF:_AssemblyDict := XDictionary<INT64, XAssembly>{}
+                SELF:_AssemblyTypeCache  := XDictionary<STRING, XPETypeSymbol>{}
+                VAR result := ""
+                var core := SystemTypeController.mscorlib
+                if core != null
+                    result := core:Id:ToString()
                 ENDIF
-                result += assembly:Id:ToString()
-            NEXT
-            if core != NULL
-                IF ! _AssemblyDict.ContainsKey(core:Id)
-                    _AssemblyDict:Add(core:Id, core)
-                    _AssemblyReferences:Add(core)
+                FOREACH VAR assembly IN SELF:AssemblyReferences:ToArray()
+                    _AssemblyDict:Add(assembly:Id, assembly)
+                    IF result:Length > 0
+                        result += ","
+                    ENDIF
+                    result += assembly:Id:ToString()
+                NEXT
+                if core != NULL
+                    IF ! _AssemblyDict.ContainsKey(core:Id)
+                        _AssemblyDict:Add(core:Id, core)
+                        _AssemblyReferences:Add(core)
+                    endif
                 endif
-            endif
-            _dependentAssemblyList := result
-        ENDIF
-        RETURN _dependentAssemblyList
+                _dependentAssemblyList := result
+            ENDIF
+            RETURN _dependentAssemblyList
 
-    END GET
+        END GET
     END PROPERTY
 
     PROPERTY DependentProjectList              AS STRING
-    GET
-        IF String.IsNullOrEmpty(_dependentProjectList) .OR. ;
-                (_dependentProjectList == SELF:Id:ToString() .AND. _ReferencedProjects:Count > 0)
-            VAR result := ""
-            result := SELF:Id:ToString()
-            FOREACH VAR dependent IN _ReferencedProjects:ToArray()
-                result += ","
-                result += dependent:Id:ToString()
-            NEXT
-            _dependentProjectList := result
-        ENDIF
-        RETURN _dependentProjectList
+        GET
+            IF String.IsNullOrEmpty(_dependentProjectList) .OR. ;
+                    (_dependentProjectList == SELF:Id:ToString() .AND. _ReferencedProjects:Count > 0)
+                VAR result := ""
+                result := SELF:Id:ToString()
+                FOREACH VAR dependent IN _ReferencedProjects:ToArray()
+                    result += ","
+                    result += dependent:Id:ToString()
+                NEXT
+                _dependentProjectList := result
+            ENDIF
+            RETURN _dependentProjectList
 
-    END GET
+        END GET
     END PROPERTY
 
-    PROPERTY Dialect                           AS XSharpDialect
-    GET
-        TRY
-            IF _projectNode != NULL
-                RETURN _projectNode:Dialect
-            ENDIF
-            RETURN XSharpDialect.Core
-        CATCH e AS Exception
-            XSettings.Exception(e,__FUNCTION__)
-        END TRY
-        RETURN XSharpDialect.Core
+    PROPERTY Dialect                           AS XDialect
+        GET
+            TRY
+                IF _parseOptions != NULL
+                    RETURN _parseOptions:Dialect
+                ENDIF
+            CATCH e AS Exception
+                XSettings.Exception(e,__FUNCTION__)
+            END TRY
+            RETURN XDialect.Core
 
-    END GET
+        END GET
     END PROPERTY
     PROPERTY FunctionClasses AS List<STRING>
-    GET
-        IF _FunctionClasses == NULL
-            VAR result := List<STRING>{}
-            result.Add(XLiterals.GlobalName)
-            FOREACH VAR asm IN SELF:AssemblyReferences:ToArray()
-                VAR gcn := asm:GlobalClassName
-                IF !String.IsNullOrEmpty(gcn) .AND.  result:IndexOf(gcn) == -1
-                    result:Add(gcn)
-                ENDIF
-            NEXT
-            _FunctionClasses := result
-        ENDIF
-        RETURN _FunctionClasses
-    END GET
+        GET
+            IF _FunctionClasses == NULL
+                VAR result := List<STRING>{}
+                result.Add(XLiterals.GlobalName)
+                FOREACH VAR asm IN SELF:AssemblyReferences:ToArray()
+                    VAR gcn := asm:GlobalClassName
+                    IF !String.IsNullOrEmpty(gcn) .AND.  result:IndexOf(gcn) == -1
+                        result:Add(gcn)
+                    ENDIF
+                NEXT
+                _FunctionClasses := result
+            ENDIF
+            RETURN _FunctionClasses
+        END GET
     END PROPERTY
 
     PROPERTY ImplicitNamespaces AS List<STRING>
-    GET
-        IF _ImplicitNamespaces == NULL
-            VAR result := List<STRING>{}
-            IF SELF:ParseOptions:ImplicitNamespace
-                FOREACH project AS XProject IN SELF:ReferencedProjects:ToArray()
-                    VAR ns := project:ProjectNode?:ParseOptions?:DefaultNamespace
-                    IF ! String.IsNullOrEmpty(ns) .AND. result:IndexOf(ns) == -1
-                        result:Add(ns)
-                    ENDIF
-                NEXT
-                FOREACH VAR asm IN SELF:AssemblyReferences:ToArray()
-                    IF asm:IsXSharp
-                        FOREACH VAR ns IN asm:ImplicitNamespaces
-                            IF result:IndexOf(ns) == -1
-                                result:Add(ns)
-                            ENDIF
-                        NEXT
-                    ENDIF
-                NEXT
+        GET
+            IF _ImplicitNamespaces == NULL
+                VAR result := List<STRING>{}
+                IF SELF:ParseOptions:ImplicitNamespace
+                    FOREACH project AS XProject IN SELF:ReferencedProjects:ToArray()
+                        VAR ns := project:ProjectNode?:ParseOptions?:DefaultNamespace
+                        IF ! String.IsNullOrEmpty(ns) .AND. result:IndexOf(ns) == -1
+                            result:Add(ns)
+                        ENDIF
+                    NEXT
+                    FOREACH VAR asm IN SELF:AssemblyReferences:ToArray()
+                        IF asm:IsXSharp
+                            FOREACH VAR ns IN asm:ImplicitNamespaces
+                                IF result:IndexOf(ns) == -1
+                                    result:Add(ns)
+                                ENDIF
+                            NEXT
+                        ENDIF
+                    NEXT
+                ENDIF
+                _ImplicitNamespaces := result
             ENDIF
-            _ImplicitNamespaces := result
-        ENDIF
-        RETURN _ImplicitNamespaces
-    END GET
+            RETURN _ImplicitNamespaces
+        END GET
     END PROPERTY
 
     PROPERTY IncludeFiles as List<string>
-    GET
-        return XDatabase.GetProjectIncludeFiles(SELF)
-    END GET
+        GET
+            return XDatabase.GetProjectIncludeFiles(SELF)
+        END GET
     END PROPERTY
 
     PROPERTY RootNamespace as STRING GET _projectNode:RootNameSpace
-
-
-
 #endregion
+
     CONSTRUCTOR(project AS IXSharpProject)
+        SELF(project,"", project:Url)
+    CONSTRUCTOR(project AS IXSharpProject, Framework as string, FileName as STRING)
         SUPER()
+        SELF:_framework := Framework
         SELF:_AssemblyReferences := List<XAssembly>{}
         SELF:_AssemblyTypeCache  := XDictionary<STRING, XPETypeSymbol>{}
         SELF:_unprocessedAssemblyReferences       := List<STRING>{}
         SELF:_unprocessedProjectReferences        := List<STRING>{}
         SELF:_unprocessedStrangerProjectReferences:= List<STRING>{}
         SELF:_failedStrangerProjectReferences     := List<STRING>{}
+        SELF:_globalUsings                        := List<STRING>{}
+        SELF:_globalStaticUsing                   := List<STRING>{}
         SELF:_projectOutputDLLs := ConcurrentDictionary<STRING, STRING>{StringComparer.OrdinalIgnoreCase}
         SELF:_ReferencedProjects := List<XProject>{}
         SELF:_StrangerProjects := List<Object>{}
         SELF:_projectNode := project
         SELF:_SourceFilesDict   := XFileDictionary{SELF}
         SELF:_OtherFilesDict    := XFileDictionary{SELF}
-        SELF:_name              := System.IO.Path.GetFileNameWithoutExtension(project:Url)
+        SELF:_fileName          := FileName
+        SELF:_name              := System.IO.Path.GetFileNameWithoutExtension(FileName)
         SELF:_lastRefCheck      := DateTime.MinValue
         SELF:_cachedAllNamespaces   := NULL
         SELF:_cachedUsingStatics   := NULL
@@ -215,7 +225,6 @@ CLASS XProject
         RETURN
 
 #region AssemblyReferences
-
     METHOD RefreshReferences(asmList as IList<string>) AS VOID
         var oldAsm := XDictionary<string, string>{StringComparer.OrdinalIgnoreCase}
         var newAsm := List<string>{}
@@ -224,11 +233,16 @@ CLASS XProject
             oldAsm:Add(name, name)
         next
 
+        var folder := Path.GetDirectoryName(SELF:ProjectNode:Url)
         FOREACH var asmFile in asmList
-            if oldAsm:ContainsKey(asmFile)
-                oldAsm:Remove(asmFile)
+            var cAsm := asmFile
+            if !Path.IsPathRooted(cAsm)
+                cAsm := Path.Combine(folder, cAsm)
+            endif
+            if oldAsm:ContainsKey(cAsm)
+                oldAsm:Remove(cAsm)
             else
-                newAsm:Add(asmFile)
+                newAsm:Add(cAsm)
             endif
         next
         FOREACH var item in oldAsm
@@ -239,16 +253,16 @@ CLASS XProject
         NEXT
         RETURN
 
-    METHOD AddAssemblyReference(path AS STRING) AS VOID
-        IF ! String.IsNullOrEmpty(path)
-            IF _AssemblyReferences:Any( { asm as XAssembly => asm:FileName:ToLower() == path.ToLower()} )
+    METHOD AddAssemblyReference(Path AS STRING) AS VOID
+        IF ! String.IsNullOrEmpty(Path)
+            IF _AssemblyReferences:Any( { asm as XAssembly => asm:FileName:ToLower() == Path.ToLower()} )
                 RETURN
             endif
-            SELF:LogReferenceMessage("AddAssemblyReference: "+path)
+            SELF:LogReferenceMessage("AddAssemblyReference: "+Path)
             SELF:_clearTypeCache()
             BEGIN LOCK _unprocessedAssemblyReferences
-                IF ! _unprocessedAssemblyReferences:Contains(path)
-                    _unprocessedAssemblyReferences.Add(path)
+                IF ! _unprocessedAssemblyReferences:Contains(Path)
+                    _unprocessedAssemblyReferences.Add(Path)
                 ENDIF
             END LOCK
         ENDIF
@@ -270,18 +284,18 @@ CLASS XProject
             SELF:WriteOutputMessage(message)
         ENDIF
 
-    METHOD RemoveAssemblyReference(fileName AS STRING) AS VOID
-        IF ! String.IsNullOrEmpty(fileName)
+    METHOD RemoveAssemblyReference(FileName AS STRING) AS VOID
+        IF ! String.IsNullOrEmpty(FileName)
             SELF:_clearTypeCache()
             BEGIN LOCK _unprocessedAssemblyReferences
-                IF _unprocessedAssemblyReferences:Contains(fileName)
-                    SELF:LogReferenceMessage("RemoveAssemblyReference() "+fileName)
-                    _unprocessedAssemblyReferences.Remove(fileName)
+                IF _unprocessedAssemblyReferences:Contains(FileName)
+                    SELF:LogReferenceMessage("RemoveAssemblyReference() "+FileName)
+                    _unprocessedAssemblyReferences.Remove(FileName)
                 ENDIF
             END LOCK
             FOREACH VAR asm IN SELF:_AssemblyReferences:ToArray()
-                IF String.Equals(asm:FileName, fileName, System.StringComparison.OrdinalIgnoreCase)
-                    SELF:LogReferenceMessage("RemoveAssemblyReference() "+fileName)
+                IF String.Equals(asm:FileName, FileName, System.StringComparison.OrdinalIgnoreCase)
+                    SELF:LogReferenceMessage("RemoveAssemblyReference() "+FileName)
                     SELF:_AssemblyReferences:Remove(asm)
                     EXIT
                 ENDIF
@@ -297,21 +311,21 @@ CLASS XProject
         RETURN
 
     PRIVATE METHOD ResolveUnprocessedAssemblyReferences() AS VOID
-        LOCAL loaded AS List<STRING>
+        LOCAL Loaded AS List<STRING>
         //
         IF SELF:_unprocessedAssemblyReferences:Count > 0 .AND. ! XSettings.DisableAssemblyReferences
             SELF:LogReferenceMessage("ResolveUnprocessedAssemblyReferences()")
-            loaded := List<STRING>{}
-            FOREACH path AS STRING IN SELF:_unprocessedAssemblyReferences:ToArray()
-                IF System.IO.File.Exists(path)
-                    SELF:LoadReference(path)
-                    loaded:Add(path)
+            Loaded := List<STRING>{}
+            FOREACH Path AS STRING IN SELF:_unprocessedAssemblyReferences:ToArray()
+                IF System.IO.File.Exists(Path)
+                    SELF:LoadReference(Path)
+                    Loaded:Add(Path)
                 ENDIF
             NEXT
-            IF loaded:Count > 0
-                FOREACH path AS STRING IN loaded
-                    IF SELF:_unprocessedAssemblyReferences:Contains(path)
-                        SELF:_unprocessedAssemblyReferences:Remove(path)
+            IF Loaded:Count > 0
+                FOREACH Path AS STRING IN Loaded
+                    IF SELF:_unprocessedAssemblyReferences:Contains(Path)
+                        SELF:_unprocessedAssemblyReferences:Remove(Path)
                     ENDIF
                 NEXT
                 SELF:_clearTypeCache()
@@ -321,78 +335,104 @@ CLASS XProject
         RETURN
 
     PROPERTY RefCheckTimeOut as LOGIC
-    GET
-        var now := DateTime.Now
-        LOCAL diff := now - SELF:_lastRefCheck as TimeSpan
-        IF diff:TotalSeconds < 15
-            RETURN FALSE
-        ENDIF
-        SELF:_lastRefCheck := now
-        RETURN TRUE
-    END GET
+        GET
+            var now := DateTime.Now
+            LOCAL diff := now - SELF:_lastRefCheck as TimeSpan
+            IF diff:TotalSeconds < 15
+                RETURN FALSE
+            ENDIF
+            SELF:_lastRefCheck := now
+            RETURN TRUE
+        END GET
     END PROPERTY
 
     METHOD ResolveReferences() AS VOID
-        IF SELF:hasUnprocessedReferences
-            IF ! SELF:RefCheckTimeOut
-                RETURN
-            ENDIF
-            SELF:LogReferenceMessage("<<-- ResolveReferences()")
-            XSolution.SetStatusBarText(String.Format("Loading referenced types for project {0}", SELF:Name))
-
-            TRY
-                SELF:ResolveUnprocessedAssemblyReferences()
-                SELF:ResolveUnprocessedProjectReferences()
-                SELF:ResolveUnprocessedStrangerReferences()
-                FOREACH DLL AS STRING IN SELF:_projectOutputDLLs:Values:ToArray()
-                    VAR fullName := SystemTypeController.FindAssemblyByLocation(DLL)
-                    LOCAL asm := NULL as XAssembly
-                    if ! String.IsNullOrEmpty(fullName)
-                        asm      := SystemTypeController.FindAssembly(fullName)
-                    ENDIF
-                    local lAdd := TRUE as LOGIC
-                    IF asm != NULL .and. SELF:AssemblyReferences:Contains(asm)
-                        lAdd := FALSE
-                    ENDIF
-                    IF lAdd
-                        SELF:AddAssemblyReference(DLL)
-                    ENDIF
-                NEXT
-                // repeat the assemblyreferences because we can have _projectOutputDLLs added to the list
-                SELF:ResolveUnprocessedAssemblyReferences()
-            CATCH
-                NOP
-            END TRY
-            SELF:LogReferenceMessage(">>-- ResolveReferences()")
+        IF _resolvingReferences
+            RETURN
         ENDIF
+        TRY
+            _resolvingReferences := TRUE
+            IF SELF:RefCheckTimeOut
+                IF SELF:hasUnprocessedReferences
+                    SELF:LogReferenceMessage("<<-- ResolveReferences()")
+                    XSolution.SetStatusBarText(String.Format("Loading referenced types for project {0}", SELF:Name))
+
+                    TRY
+                        SELF:ResolveUnprocessedAssemblyReferences()
+                        SELF:ResolveUnprocessedProjectReferences()
+                        SELF:ResolveUnprocessedStrangerReferences()
+                        FOREACH DLL AS STRING IN SELF:_projectOutputDLLs:Values:ToArray()
+                            VAR fullName := SystemTypeController.FindAssemblyByLocation(DLL)
+                            LOCAL asm := NULL as XAssembly
+                            if ! String.IsNullOrEmpty(fullName)
+                                asm      := SystemTypeController.FindAssembly(fullName)
+                            ENDIF
+                            local lAdd := TRUE as LOGIC
+                            IF asm != NULL .and. SELF:AssemblyReferences:Contains(asm)
+                                lAdd := FALSE
+                            ENDIF
+                            IF lAdd
+                                SELF:AddAssemblyReference(DLL)
+                            ENDIF
+                        NEXT
+                        // repeat the assemblyreferences because we can have _projectOutputDLLs added to the list
+                        SELF:ResolveUnprocessedAssemblyReferences()
+                    CATCH
+                        NOP
+                    END TRY
+                    SELF:LogReferenceMessage(">>-- ResolveReferences()")
+                ENDIF
+                SELF:RefreshAssemblyReferences()
+            ENDIF
+        FINALLY
+            _resolvingReferences := FALSE
+        END TRY
         RETURN
 
-    METHOD UpdateAssemblyReference(fileName AS STRING) AS VOID
-        IF ! XSettings.DisableAssemblyReferences .AND. ! String.IsNullOrEmpty(fileName)
-            SystemTypeController.LoadAssembly(fileName):AddProject(SELF)
+    METHOD RefreshAssemblyReferences as VOID
+        FOREACH asm as XAssembly in SELF:AssemblyReferences:ToArray()
+            if asm:IsModifiedOnDisk .and. asm:Exists
+                asm:Read()
+                SELF:_AssemblyTypeCache?:Clear()
+            endif
+        NEXT
+
+    METHOD UpdateAssemblyReference(FileName AS STRING) AS VOID
+        IF ! XSettings.DisableAssemblyReferences .AND. ! String.IsNullOrEmpty(FileName)
+            SystemTypeController.LoadAssembly(FileName):AddProject(SELF)
         ENDIF
 
 #endregion
 
 #region ProjectReferences
-    METHOD FindProjectReference(url AS STRING) AS XProject
+    METHOD FindProjectReference(Url AS STRING) AS XProject
         FOREACH VAR prj IN SELF:_ReferencedProjects
-            IF String.Compare(prj:FileName, url, TRUE) == 0
+            IF String.Compare(prj:FileName, Url, TRUE) == 0
                 RETURN prj
             ENDIF
         NEXT
         RETURN NULL
-    METHOD AddProjectReference(url AS STRING) AS LOGIC
-        IF ! String.IsNullOrEmpty(url)
-            VAR prj := SELF:FindProjectReference(url)
+
+    STATIC METHOD IsXSharpProject(FileName as string) AS LOGIC
+        if (String.IsNullOrEmpty(FileName))
+            return false
+        endif
+        return String.Equals(System.IO.Path.GetExtension(FileName), ".xsproj", StringComparison.OrdinalIgnoreCase)
+
+    METHOD AddProjectReference(Url AS STRING) AS LOGIC
+        IF !IsXSharpProject(Url)
+            RETURN SELF:AddStrangerProjectReference(Url)
+        ENDIF
+        IF ! String.IsNullOrEmpty(Url)
+            VAR prj := SELF:FindProjectReference(Url)
             IF (prj != NULL)
                 // Project has already been added and has been resolved
                 RETURN FALSE
             ENDIF
             SELF:_clearTypeCache()
-            IF ! SELF:_unprocessedProjectReferences:Contains(url)
-                SELF:LogReferenceMessage("Add XSharp ProjectReference "+url)
-                SELF:_unprocessedProjectReferences:Add(url)
+            IF ! SELF:_unprocessedProjectReferences:Contains(Url)
+                SELF:LogReferenceMessage("Add XSharp ProjectReference "+Url)
+                SELF:_unprocessedProjectReferences:Add(Url)
                 RETURN TRUE
             ENDIF
         ENDIF
@@ -429,19 +469,19 @@ CLASS XProject
             SELF:_clearTypeCache()
         ENDIF
 
-    METHOD RemoveProjectReference(url AS STRING) AS LOGIC
-        IF ! String.IsNullOrEmpty(url)
+    METHOD RemoveProjectReference(Url AS STRING) AS LOGIC
+        IF ! String.IsNullOrEmpty(Url)
             LOCAL prj AS XProject
             LOCAL outputname AS STRING
             SELF:_dependentProjectList  := ""
             SELF:_clearTypeCache()
-            IF SELF:_unprocessedProjectReferences:Contains(url)
-                SELF:LogReferenceMessage("RemoveProjectReference() "+url)
-                SELF:_unprocessedProjectReferences:Remove(url)
+            IF SELF:_unprocessedProjectReferences:Contains(Url)
+                SELF:LogReferenceMessage("RemoveProjectReference() "+Url)
+                SELF:_unprocessedProjectReferences:Remove(Url)
                 RETURN TRUE
             ENDIF
             // Does this url belongs to a project in the Solution ?
-            prj := XSolution.FindProject(url)
+            prj := XSolution.FindProjectByFileName(Url)
             IF (SELF:_ReferencedProjects:Contains(prj))
                 //
                 outputname := prj:ProjectNode:OutputFile
@@ -449,7 +489,7 @@ CLASS XProject
                 SELF:_dependentProjectList  := ""
                 RETURN TRUE
             ENDIF
-            SELF:RemoveProjectOutput(url)
+            SELF:RemoveProjectOutput(Url)
         ENDIF
         RETURN FALSE
 
@@ -463,17 +503,17 @@ CLASS XProject
     PRIVATE METHOD ResolveUnprocessedProjectReferences() AS VOID
         LOCAL existing AS List<STRING>
         LOCAL p AS XProject
-        LOCAL outputFile AS STRING
+        LOCAL OutputFile AS STRING
         IF SELF:_unprocessedProjectReferences:Count > 0  .AND. ! XSettings.DisableXSharpProjectReferences
             SELF:LogReferenceMessage("ResolveUnprocessedProjectReferences()")
             existing := List<STRING>{}
             FOREACH sProject AS STRING IN SELF:_unprocessedProjectReferences:ToArray()
-                p := XSolution.FindProject(sProject)
+                p := XSolution.FindProjectByFileName(sProject)
                 IF p != NULL
                     existing:Add(sProject)
                     SELF:_ReferencedProjects:Add(p)
-                    outputFile := p:ProjectNode:OutputFile
-                    SELF:AddProjectOutput(sProject, outputFile)
+                    OutputFile := p:ProjectNode:OutputFile
+                    SELF:AddProjectOutput(sProject, OutputFile)
                 ENDIF
             NEXT
             FOREACH sProject AS STRING IN existing
@@ -485,66 +525,44 @@ CLASS XProject
 #endregion
 
 #region References TO other project systems
-    METHOD AddStrangerProjectReference(url AS STRING) AS LOGIC
-        IF ! String.IsNullOrEmpty(url)
-            SELF:LogReferenceMessage("Add Foreign ProjectReference"+url)
-            IF ! SELF:_unprocessedStrangerProjectReferences:Contains(url)
-                SELF:_unprocessedStrangerProjectReferences:Add(url)
+    METHOD AddStrangerProjectReference(Url AS STRING) AS LOGIC
+        IF ! String.IsNullOrEmpty(Url)
+            SELF:LogReferenceMessage("Add Foreign ProjectReference"+Url)
+            IF ! SELF:_unprocessedStrangerProjectReferences:Contains(Url)
+                SELF:_unprocessedStrangerProjectReferences:Add(Url)
                 RETURN TRUE
             ENDIF
         ENDIF
         RETURN FALSE
 
     PRIVATE METHOD GetStrangerOutputDLL(sProject AS STRING, p AS Dynamic) AS STRING
-        VAR outputFile := ""
+        VAR OutputFile := ""
         TRY
-            VAR properties := p:Properties
-            VAR propType   := properties:Item("OutputType")
-            VAR propName   := properties:Item("AssemblyName")
-            var confMan    := p:ConfigurationManager
-            var activeConf := confMan:ActiveConfiguration
-            var props      := activeConf:Properties
-            VAR propPath   := props:Item( "OutputPath")
-            IF propName != NULL .AND. propPath != NULL .AND. propType != NULL
-
-                VAR path    := (STRING) propPath:Value
-                VAR type    := (INT)    propType:Value
-                outputFile  := (STRING) propName:Value
-                IF type == 2 // __VSPROJOUTPUTTYPE.VSPROJ_OUTPUTTYPE_LIBRARY, in Microsoft.VisualStudio.Shell.Interop.11.0.dll
-                    outputFile	+= ".dll"
-                ELSE
-                    outputFile	+= ".exe"
-                ENDIF
-                outputFile	:= System.IO.Path.Combine(path, outputFile)
-                IF ! System.IO.Path.IsPathRooted(outputFile)
-                    outputFile := System.IO.Path.Combine(System.IO.Path.GetDirectoryName(sProject), outputFile)
-                    // remove ../ and other garbage from the path
-                    outputFile := System.IO.Path.GetFullPath(outputFile)
-                ENDIF
-            ENDIF
-        CATCH exception AS Exception
-            XSettings.Exception(exception,__FUNCTION__)
+            // p is the Community Toolkit Project object here
+            OutputFile := p:GetAttributeAsync("TargetPath").Result
+        CATCH Exception AS Exception
+            XSettings.Exception(Exception,__FUNCTION__)
         END TRY
-        RETURN outputFile
+        RETURN OutputFile
 
 
-    METHOD RemoveStrangerProjectReference(url AS STRING) AS LOGIC
-        IF ! String.IsNullOrEmpty(url)
+    METHOD RemoveStrangerProjectReference(Url AS STRING) AS LOGIC
+        IF ! String.IsNullOrEmpty(Url)
 
             SELF:_clearTypeCache()
-            IF SELF:_unprocessedStrangerProjectReferences:Contains(url)
-                SELF:LogReferenceMessage("RemoveStrangerProjectReference() "+url)
-                SELF:_unprocessedStrangerProjectReferences:Remove(url)
+            IF SELF:_unprocessedStrangerProjectReferences:Contains(Url)
+                SELF:LogReferenceMessage("RemoveStrangerProjectReference() "+Url)
+                SELF:_unprocessedStrangerProjectReferences:Remove(Url)
                 RETURN TRUE
             ENDIF
-            IF SELF:_failedStrangerProjectReferences:Contains(url)
-                SELF:LogReferenceMessage("RemoveStrangerProjectReference() "+url)
-                SELF:_failedStrangerProjectReferences:Remove(url)
+            IF SELF:_failedStrangerProjectReferences:Contains(Url)
+                SELF:LogReferenceMessage("RemoveStrangerProjectReference() "+Url)
+                SELF:_failedStrangerProjectReferences:Remove(Url)
                 RETURN TRUE
             ENDIF
 
-            SELF:RemoveProjectOutput(url)
-            var prj := SELF:ProjectNode:FindProject(url)
+            SELF:RemoveProjectOutput(Url)
+            var prj := XSettings.ShellLink.FindProject(Url)
             IF prj != NULL .AND. SELF:_StrangerProjects:Contains(prj)
                 SELF:_StrangerProjects:Remove(prj)
                 RETURN TRUE
@@ -554,7 +572,7 @@ CLASS XProject
 
     METHOD RefreshStrangerProjectDLLOutputFiles_Worker AS VOID
         FOREACH proj as Dynamic IN SELF:_StrangerProjects:ToArray()
-            LOCAL sProjectURL := proj:FullName AS STRING
+            LOCAL sProjectURL := proj:FullPath AS STRING
             VAR mustAdd     := FALSE
             LOCAL outputFile  := SELF:GetStrangerOutputDLL(sProjectURL, proj) AS STRING
             IF SELF:_projectOutputDLLs:ContainsKey(sProjectURL)
@@ -579,22 +597,22 @@ CLASS XProject
         // Check if any DLL has changed
         IF SELF:_StrangerProjects:Count > 0 .AND. ! XSettings.DisableForeignProjectReferences .and. SELF:RefCheckTimeOut
             SELF:LogReferenceMessage("--> RefreshStrangerProjectDLLOutputFiles() "+SELF:_StrangerProjects:Count():ToString())
-            _projectNode:RunInForeGroundThread ( { => SELF:RefreshStrangerProjectDLLOutputFiles_Worker() })
+            XSettings.RunInForeGroundThread ( { => SELF:RefreshStrangerProjectDLLOutputFiles_Worker() })
             SELF:LogReferenceMessage("<-- RefreshStrangerProjectDLLOutputFiles()")
         ENDIF
 
     METHOD ResolveUnprocessedStrangerReferences_Worker AS VOID
         LOCAL existing AS List<STRING>
-        LOCAL outputFile AS STRING
+        LOCAL OutputFile AS STRING
         SELF:LogReferenceMessage("ResolveUnprocessedStrangerReferences()" +_unprocessedStrangerProjectReferences:Count:ToString())
         existing := List<STRING>{}
         FOREACH sProject AS STRING IN SELF:_unprocessedStrangerProjectReferences:ToArray()
-            VAR p := SELF:ProjectNode:FindProject(sProject)
+            VAR p := XSettings.ShellLink.FindProject(sProject)
             IF (p != NULL)
                 SELF:_StrangerProjects:Add(p)
-                outputFile := SELF:GetStrangerOutputDLL(sProject, p)
-                IF !String.IsNullOrEmpty(outputFile)
-                    SELF:AddProjectOutput(sProject, outputFile)
+                OutputFile := SELF:GetStrangerOutputDLL(sProject, p)
+                IF !String.IsNullOrEmpty(OutputFile)
+                    SELF:AddProjectOutput(sProject, OutputFile)
                 ELSE
                     IF ! SELF:_failedStrangerProjectReferences:Contains(sProject)
                         SELF:_failedStrangerProjectReferences:Add(sProject)
@@ -609,9 +627,10 @@ CLASS XProject
                 SELF:_unprocessedStrangerProjectReferences:Remove(sProject)
             ENDIF
         NEXT
+        SELF:ResolveUnprocessedAssemblyReferences()
     PRIVATE METHOD ResolveUnprocessedStrangerReferences() AS VOID
         IF SELF:_unprocessedStrangerProjectReferences:Count > 0 .AND. ! XSettings.DisableForeignProjectReferences
-            _projectNode:RunInForeGroundThread ( { => SELF:ResolveUnprocessedStrangerReferences_Worker() })
+            XSettings.RunInForeGroundThread ( { => SELF:ResolveUnprocessedStrangerReferences_Worker() })
 
             SELF:_clearTypeCache()
         ENDIF
@@ -619,18 +638,43 @@ CLASS XProject
 #endregion
 
 #region 'Normal' Files
+    METHOD RefreshGlobalUsings() AS VOID
+        var usings := XDatabase.GetProjectGlobalUsings(SELF:Id)
+        SELF:_globalUsings:Clear()
+        SELF:_globalStaticUsing:Clear()
+        foreach var item in usings
+            if item:Attributes:HasFlag(Modifiers.Global)
+                if item:Attributes:HasFlag(Modifiers.Static)
+                    SELF:AddUniqueUsing(_globalStaticUsing, item:Namespace)
 
+                else
+                    SELF:AddUniqueUsing(_globalUsings, item:Namespace)
+                endif
+            endif
+        next
+        SELF:AddUniqueUsing(_globalUsings, "System")
+        SELF:AddUniqueUsing(_globalUsings, "XSharp")
+    METHOD AddUniqueUsing(list as List<STRING>, name as string) AS VOID
+        var old := list:Find( { x => x:ToUpper() == name:ToUpper()})
+        if String.IsNullOrEmpty(old)
+            list:Add(name)
+        endif
+        RETURN
     METHOD ZapFiles() AS VOID
         SELF:_SourceFilesDict:Clear()
         SELF:_OtherFilesDict:Clear()
     METHOD AddFile(filePath AS STRING) AS LOGIC
+        VAR type := XFileTypeHelpers.GetFileType(filePath)
+        RETURN SELF:AddFile(filePath, type)
+    METHOD AddFile(filePath AS STRING, type as XFileType ) AS LOGIC
         LOCAL xamlCodeBehindFile AS STRING
         SELF:WriteOutputMessage(i"AddFile {filePath}")
         // DO NOT read the file ID from the database here.
         // This is called during startup of the solution, we try to do as little as possible
-        VAR type := XFileTypeHelpers.GetFileType(filePath)
         IF type == XFileType.SourceCode
             SELF:_SourceFilesDict:Add(filePath)
+            var xFile := XFile{filePath, SELF}
+            XDatabase.Read(xFile)
         ELSEIF type == XFileType.XAML
             VAR xFile := XFile{filePath, SELF}
             xamlCodeBehindFile := xFile:XamlCodeBehindFile
@@ -638,6 +682,7 @@ CLASS XProject
             SELF:_OtherFilesDict:Add(filePath)
         ELSE
             SELF:_OtherFilesDict:Add(filePath)
+            XDatabase.DeleteFile(filePath)
         ENDIF
         IF SELF:Name != OrphanedFilesProject.OrphanName .and. XSolution.OrphanedFilesProject != NULL
             if filePath != XSolution.BuiltInFunctions
@@ -652,13 +697,13 @@ CLASS XProject
 
 
 
-    METHOD FindXFile(fullPath AS STRING) AS XFile
-        IF ! String.IsNullOrEmpty(fullPath)
-            VAR file := SELF:_SourceFilesDict:Find(fullPath)
-            IF file == NULL
-                file := SELF:_OtherFilesDict:Find(fullPath)
+    METHOD FindXFile(FullPath AS STRING) as XFile
+        IF ! String.IsNullOrEmpty(FullPath)
+            VAR File := SELF:_SourceFilesDict:Find(FullPath)
+            IF File == NULL
+                File := SELF:_OtherFilesDict:Find(FullPath)
             ENDIF
-            RETURN file
+            RETURN File
         ENDIF
         RETURN NULL
 
@@ -667,9 +712,9 @@ CLASS XProject
         IF ! String.IsNullOrEmpty(url)
             SELF:WriteOutputMessage(i"RemoveFile {url}")
             IF SELF:_OtherFilesDict:Remove(url)
-                VAR file := XFile{url, SELF}
-                IF file:IsXaml
-                    url := file:XamlCodeBehindFile
+                VAR File := XFile{url, SELF}
+                IF File:IsXaml
+                    url := File:XamlCodeBehindFile
                 ENDIF
             ENDIF
             SELF:_SourceFilesDict:Remove( url)
@@ -687,7 +732,7 @@ CLASS XProject
         SELF:LogTypeMessage(i"FindGlobalsInAssemblyReferences {name}, found {result.Count} occurences")
         RETURN result
 
-     METHOD FindFunctionsInAssemblyReferences(name AS STRING, lLike := FALSE as LOGIC) AS IList<IXMemberSymbol>
+    METHOD FindFunctionsInAssemblyReferences(name AS STRING, lLike := FALSE as LOGIC) AS IList<IXMemberSymbol>
         SELF:LogTypeMessage(i"FindFunctionsInAssemblyReferences {name} {lLike} ")
         var dbresult := XDatabase.FindAssemblyFunction(name, SELF:DependentAssemblyList, lLike)
         var result := SELF:_MembersFromGlobalType(dbresult)
@@ -724,7 +769,7 @@ CLASS XProject
                 xFile := XSolution.FindFile(element:FileName)
                 cFile := element:FileName
             endif
-            var xmember := XSourceMemberSymbol{element, xFile}
+            var xmember := XSourceMemberSymbol.FromDbResult(element, xFile)
             result:Add(xmember)
         next
         SELF:LogTypeMessage(i"FindGlobalMembersLike {name}, found {result.Count} occurences")
@@ -747,7 +792,7 @@ CLASS XProject
                 xFile := XSolution.FindFile(element:FileName)
                 cFile := element:FileName
             endif
-            var xmember := XSourceMemberSymbol{element, xFile}
+            var xmember := XSourceMemberSymbol.FromDbResult(element, xFile)
             result:Add(xmember)
         next
         SELF:LogTypeMessage(i"FindFunctionsLike {name}, found {result.Count} occurences")
@@ -765,7 +810,7 @@ CLASS XProject
         ENDIF
         VAR result := XDatabase.FindFunction(name, projectIds)
         VAR xmember := SELF:GetGlobalMember(result)
-        SELF:LogTypeMessage(ie"FindFunction {name}, result {iif (xmember != NULL, xmember.FullName, \"not found\"} ")
+        SELF:LogTypeMessage(ie"FindFunction {name}, result {iif (xmember != NULL, xmember.FullName, \"not found\")} ")
         RETURN xmember
 
     METHOD FindGlobalOrDefine(name AS STRING, lRecursive := TRUE AS LOGIC) AS IXMemberSymbol
@@ -778,7 +823,7 @@ CLASS XProject
         ENDIF
         VAR result := XDatabase.FindProjectGlobalOrDefine(name, projectIds)
         VAR xmember := SELF:GetGlobalMember(result)
-        SELF:LogTypeMessage(ie"FindGlobalOrDefine {name}, result {iif (xmember != NULL, xmember.FullName, \"not found\"} ")
+        SELF:LogTypeMessage(ie"FindGlobalOrDefine {name}, result {iif (xmember != NULL, xmember.FullName, \"not found\")} ")
         RETURN xmember
 
     PRIVATE METHOD GetGlobalMember(result AS IList<XDbResult>) AS IXMemberSymbol
@@ -788,25 +833,25 @@ CLASS XProject
             // the global class that will be shared by the functions/globals will only
             // contain the members from the result collection
             LOCAL source AS STRING
-            LOCAL file := NULL AS XFile
+            LOCAL File := NULL as XFile
             VAR members := List<XSourceMemberSymbol>{}
             source := ""
             FOREACH VAR element IN result
-                VAR xfile    := SELF:FindXFile(element:FileName)
-                IF xfile == NULL
-                    xfile := XSolution.FindFullPath(element:FileName)
+                VAR xFile    := SELF:FindXFile(element:FileName)
+                IF xFile == NULL
+                    xFile := XSolution.FindFullPath(element:FileName)
                 ENDIF
-                if (xfile != null)
-                    file := xfile
-                    VAR xmember := XSourceMemberSymbol{element, xfile}
+                if (xFile != null)
+                    File := xFile
+                    VAR xmember := XSourceMemberSymbol.FromDbResult(element, xFile)
                     source += element:SourceCode+Environment.NewLine
                     members:Add(xmember)
                     if xmember:File != null
-                        file := xmember:File
+                        File := xmember:File
                     endif
                 endif
             NEXT
-            VAR walker := SourceWalker{file, FALSE}
+            VAR walker := SourceWalker{File, FALSE}
             walker:Parse(source)
             VAR first := (XSourceMemberSymbol) walker:EntityList:First()
             VAR parentType := (XSourceTypeSymbol) first:ParentType
@@ -892,9 +937,9 @@ CLASS XProject
         NEXT
         RETURN result
 
-    METHOD GetTypeFromCache(typeName AS STRING, result OUT XPETypeSymbol) AS LOGIC
+    METHOD GetTypeFromCache(TypeName AS STRING, result OUT XPETypeSymbol) AS LOGIC
         result := NULL
-        RETURN SELF:_AssemblyTypeCache != NULL .and. SELF:_AssemblyTypeCache:TryGetValue(typeName, out result)
+        RETURN SELF:_AssemblyTypeCache != NULL .and. SELF:_AssemblyTypeCache:TryGetValue(TypeName, out result)
 
     METHOD FindSystemType(name AS STRING, usings AS IList<STRING>) AS XPETypeSymbol
         SELF:LogTypeMessage("FindSystemType() "+name)
@@ -902,8 +947,8 @@ CLASS XProject
             SELF:RefreshStrangerProjectDLLOutputFiles()
         ENDIF
         SELF:ResolveReferences()
-        IF SELF:GetTypeFromCache(name, out var petype)
-            return petype
+        IF SELF:GetTypeFromCache(name, out var peType)
+            return peType
         endif
         // lookup the type in the Database now
         var result := XDatabase.GetAssemblyTypes(name, SELF:DependentAssemblyList)
@@ -913,24 +958,25 @@ CLASS XProject
         type := peTypes:FirstOrDefault()
         IF type != NULL
             SELF:LogTypeMessage("FindSystemType() "+name+" found "+type:FullName)
+
         ELSE
             SELF:LogTypeMessage("FindSystemType() "+name+" not found ")
         ENDIF
         RETURN type
 
     PROPERTY AssemblyNamespaces AS IList<STRING>
-    GET
-        SELF:ResolveReferences()
-        RETURN XDatabase.GetAssemblyNamespaces(SELF:DependentAssemblyList)
-    END GET
+        GET
+            SELF:ResolveReferences()
+            RETURN XDatabase.GetAssemblyNamespaces(SELF:DependentAssemblyList)
+        END GET
     END PROPERTY
 
 
     METHOD GetCommentTasks() AS IList<XCommentTask>
-        VAR tasks := XDatabase.GetCommentTasks(SELF:Id:ToString())
-        LOCAL oFile AS XFile
+        VAR Tasks := XDatabase.GetCommentTasks(SELF:Id:ToString())
+        LOCAL oFile as XFile
         VAR result := List<XCommentTask>{}
-        FOREACH VAR item IN tasks
+        FOREACH VAR item IN Tasks
             IF oFile == NULL .OR. oFile:FullPath != item:FileName
                 oFile := XFile{item:FileName, SELF}
             ENDIF
@@ -945,22 +991,22 @@ CLASS XProject
         RETURN result
 
 
-    PRIVATE METHOD AdjustUsings(typeName REF STRING, usings AS IList<STRING>) AS IList<STRING>
-        VAR pos := typeName:LastIndexOf(".")
-        VAR myusings := HashSet<string>{StringComparer.OrdinalIgnoreCase}
+    PRIVATE METHOD AdjustUsings(TypeName REF STRING, usings AS IList<STRING>) AS IList<STRING>
+        VAR pos := TypeName:LastIndexOf(".")
+        VAR myUsings := HashSet<string>{StringComparer.OrdinalIgnoreCase}
         // when we have a fully qualified typename then add that to the start of the list
         IF pos > 0
-            VAR ns   := typeName:Substring(0,pos)
-            myusings:Add(ns)
-            typeName := typeName:Substring(pos+1)
+            VAR ns   := TypeName:Substring(0,pos)
+            myUsings:Add(ns)
+            TypeName := TypeName:Substring(pos+1)
         ENDIF
-        myusings:Add(SELF:RootNamespace)
-        myusings:AddRange(usings)
-        myusings:AddRange(SELF:ImplicitNamespaces)
-        RETURN myusings:ToList()
+        myUsings:Add(SELF:RootNamespace)
+        myUsings:AddRange(usings)
+        myUsings:AddRange(SELF:ImplicitNamespaces)
+        RETURN myUsings:ToList()
 
 
-    PRIVATE _lastFound := NULL AS XSourceTypeSymbol
+    PRIVATE _lastFound := NULL AS IXTypeSymbol
     PRIVATE _lastName  := NULL AS STRING
 
     METHOD GetTypesLike( startWith AS STRING, usings AS IList<STRING>) AS IList<XSourceTypeSymbol>
@@ -968,39 +1014,39 @@ CLASS XProject
         result := SELF:FilterUsings(result,usings,startWith,TRUE)
         RETURN SELF:GetSourceTypes(result)
 
-    METHOD ClearCache(file as XFile) AS VOID
+    METHOD ClearCache(File as XFile) AS VOID
         IF SELF:_lastFound != NULL
             SELF:_lastFound := NULL
             SELF:_lastName  := NULL
         ENDIF
 
-    METHOD FindType(typeName as STRING, usings AS IList<STRING>) AS IXTypeSymbol
+    METHOD FindType(TypeName as STRING, usings AS IList<STRING>) AS IXTypeSymbol
         LOCAL result as IXTypeSymbol
         local systemFirst as LOGIC
-        typeName := typeName:GetSystemTypeName(ParseOptions:XSharpRuntime)
-        if SELF:GetTypeFromCache(typeName, OUT VAR petype)
-            return petype
+        TypeName := TypeName:GetSystemTypeName(ParseOptions:XSharpRuntime)
+        if SELF:GetTypeFromCache(TypeName, OUT VAR peType)
+            return peType
         ENDIF
-        systemFirst := typeName.StartsWith("XSharp." ) .or. typeName.StartsWith("System.")
+        systemFirst := TypeName.StartsWith("XSharp." ) .or. TypeName.StartsWith("System.")
         if (systemFirst)
-            result := SELF:FindSystemType(typeName, usings)
+            result := SELF:FindSystemType(TypeName, usings)
             if result == NULL
-                result := SELF:Lookup(typeName, usings)
+                result := SELF:Lookup(TypeName, usings)
             endif
 
         else
-            result := SELF:Lookup(typeName, usings)
+            result := SELF:Lookup(TypeName, usings)
             if result == NULL
-                result := SELF:FindSystemType(typeName, usings)
+                result := SELF:FindSystemType(TypeName, usings)
             ENDIF
         endif
         RETURN result
 
-    METHOD Lookup(typeName AS STRING) AS XSourceTypeSymbol
+    METHOD Lookup(TypeName AS STRING) AS IXTypeSymbol
         VAR usings := List<STRING>{}
-        RETURN SELF:Lookup(typeName, usings)
+        RETURN SELF:Lookup(TypeName, usings)
 
-    METHOD Lookup(typeName AS STRING, usings AS IList<STRING>) AS XSourceTypeSymbol
+    METHOD Lookup(typeName AS STRING, usings AS IList<STRING>) AS IXTypeSymbol
         // lookup Type definition in this project and X# projects referenced by this project
         SELF:LogTypeMessage(i"Lookup {typeName}")
         VAR originalName := typeName
@@ -1032,27 +1078,38 @@ CLASS XProject
             var elements := originalName:Split(<char>{'.'})
             var first := SELF:Lookup(elements.First(), usings)
             if first != NULL
+                if elements.Length > 1
+                    var mem := elements[1]
+                    foreach var m in first.Members
+                        if String.Equals(m.Name, mem, StringComparison.OrdinalIgnoreCase)
+                            m.Resolve()
+                            _lastFound := m.ResolvedType
+                            return _lastFound
+                        endif
+                    next
+                endif
+
                 typeName := first:FullName + "." + typeName
                 return SELF:Lookup(typeName, usings)
             endif
         endif
-        SELF:LogTypeMessage(ie"Lookup {typeName}, result {iif(_lastFound != NULL, _lastFound.FullName, \"not found\" } ")
+        SELF:LogTypeMessage(ie"Lookup {typeName}, result {iif(_lastFound != NULL, _lastFound.FullName, \"not found\" )} ")
         RETURN _lastFound
 
 
-    METHOD FilterUsings(list AS IList<XDbResult> , usings AS IList<STRING>, typeName AS STRING, partial AS LOGIC) AS IList<XDbResult>
+    METHOD FilterUsings(List AS IList<XDbResult> , usings AS IList<STRING>, TypeName AS STRING, partial AS LOGIC) AS IList<XDbResult>
         VAR result  := List<XDbResult>{}
         VAR emptyNs := List<XDbResult>{}
         VAR checkCase := SELF:ParseOptions:CaseSensitive
-        usings := SELF:AdjustUsings(REF typeName, usings)
-        FOREACH VAR element IN list
+        usings := SELF:AdjustUsings(REF TypeName, usings)
+        FOREACH VAR element IN List
             IF checkCase
                 IF partial
-                    IF !element:TypeName:StartsWith(typeName)
+                    IF !element:TypeName:StartsWith(TypeName)
                         LOOP
                     ENDIF
                 ELSE
-                    IF element:TypeName != typeName
+                    IF element:TypeName != TypeName
                         LOOP
                     ENDIF
                 ENDIF
@@ -1091,8 +1148,8 @@ CLASS XProject
         projectIds := ","+self:DependentProjectList+","
         interfaces := ""
         FOREACH var element in found
-            var id := ","+element:IdProject.ToString()+","
-            IF projectIds.IndexOf(id) >= 0
+            var Id := ","+element:IdProject.ToString()+","
+            IF projectIds.IndexOf(Id) >= 0
                 IF sTypeIds:Length > 0
                     sTypeIds += ", "
                 ENDIF
@@ -1119,17 +1176,20 @@ CLASS XProject
         //todo Collect interfaces from IMPLEMENTS clauses
         VAR members  := XDatabase.GetMembers(sTypeIds):ToArray()
         VAR oType   := found[0]
-        var project := XSolution.FindProject(oType:Project)
-        VAR file    := project:GetFileById(oType:IdFile)
-        IF file == null
-            file := project:FindXFile(oType:FileName)
-        ENDIF
-        IF file == NULL
+        var project := XSolution.FindProjectByFileName(oType:Project)
+        if project == null
             RETURN NULL
         ENDIF
-        VAR source  := XSourceTypeSymbol.GetTypeSource(oType, members, file)
-        aFiles:Add(oType:IdFile, file)
-        VAR walker        := SourceWalker{file, FALSE}
+        VAR File    := project:GetFileById(oType:IdFile)
+        IF File == null
+            File := project:FindXFile(oType:FileName)
+        ENDIF
+        IF File == NULL
+            RETURN NULL
+        ENDIF
+        VAR source  := XSourceTypeSymbol.GetTypeSource(oType, members, File)
+        aFiles:Add(oType:IdFile, File)
+        VAR walker        := SourceWalker{File, FALSE}
         walker:SaveToDisk := FALSE
         walker:Parse(source) // we are not interested in locals but we also do not want to update the database here
         var entities := walker:EntityList:Where({ e => e:Kind != Kind.Using })
@@ -1150,7 +1210,7 @@ CLASS XProject
                 xtype:BaseTypeName    := baseTypeName
                 xtype:CopyValuesFrom(oType)
                 xtype:Namespace   := namespace
-                xtype:ClassType   := (XSharpDialect) oType:ClassType
+                xtype:ClassType   := (XDialect) oType:ClassType
                 VAR xmembers := xtype:XMembers:ToArray()
                 VAR dict := XDictionary<STRING, IList<XSourceMemberSymbol>>{}
                 FOREACH m as XSourceMemberSymbol in xmembers
@@ -1165,11 +1225,11 @@ CLASS XProject
                     LOCAL melement  := members[i] as XDbResult
                     var key := melement:Kind:ToString()+" "+melement:MemberName
                     if dict:ContainsKey(key)
-                        var list := dict[key]
-                        if list:Count > 0
-                            var xmember := list:First()
-                            if list:Count > 1
-                                foreach var m in list
+                        var List := dict[key]
+                        if List:Count > 0
+                            var xmember := List:First()
+                            if List:Count > 1
+                                foreach var m in List
                                     if SELF:EqualSourceCode(m, melement)
                                         xmember := m
                                         exit
@@ -1180,9 +1240,9 @@ CLASS XProject
                             if aFiles:ContainsKey(melement:IdFile)
                                 xmember:File         := aFiles[melement:IdFile]
                             ELSE
-                                file := SELF:GetFileById(melement:IdFile)
-                                aFiles:Add(melement:IdFile, file)
-                                xmember:File         := file
+                                File := SELF:GetFileById(melement:IdFile)
+                                aFiles:Add(melement:IdFile, File)
+                                xmember:File         := File
                             ENDIF
                         ELSE
                             NOP
@@ -1249,23 +1309,23 @@ CLASS XProject
             IF fullTypeName:Length > 0 .AND. fullTypeName != element:Namespace+"."+element:TypeName
                 LOOP
             ENDIF
-            VAR file       := XSolution.FindFullPath(element:FileName)
-            if (file != null)
-                file:Virtual   := TRUE
-                file:Id        := element:IdFile
-                VAR xtype := XSourceTypeSymbol{element, file}
+            VAR File       := XSolution.FindFullPath(element:FileName)
+            if (File != null)
+                File:Virtual   := TRUE
+                File:Id        := element:IdFile
+                VAR xtype := XSourceTypeSymbol{element, File}
                 result:Add(xtype)
             endif
         NEXT
         RETURN result
 
-    PRIVATE METHOD GetExtensionMethodsPerFile(list as IList<XDbResult>, oFile as XFile) AS IList<IXMemberSymbol>
+    PRIVATE METHOD GetExtensionMethodsPerFile(List as IList<XDbResult>, oFile as XFile) AS IList<IXMemberSymbol>
         VAR entities := List<IXMemberSymbol>{}
         local sb as StringBuilder
         local sLastType := "" as STRING
 
         sb := StringBuilder{}
-        FOREACH VAR element IN list
+        FOREACH VAR element IN List
             if sLastType != element:TypeName
                 if ! String.IsNullOrEmpty(sLastType)
                     sb:AppendLine("END CLASS")
@@ -1279,38 +1339,40 @@ CLASS XProject
         sb:AppendLine("END CLASS")
         VAR walker := SourceWalker{oFile, FALSE}
         walker:Parse(sb:ToString())
-        foreach var entity in walker:EntityList
-            if entity is XSourceMemberSymbol var sms
-                entities:Add(sms)
-            endif
-        next
-        if entities:Count == list:Count
+        if (walker:EntityList != null)
+            foreach var entity in walker:EntityList
+                if entity is XSourceMemberSymbol var sms
+                    entities:Add(sms)
+                endif
+            next
+        endif
+        if entities:Count == List:Count
             FOR var i := 0 to entities:Count-1
                 var entity := (XSourceMemberSymbol) entities[i]
-                var dbres  := list[i]
+                var dbres  := List[i]
                 dbres:UpdateLocation(entity)
             next
         endif
         RETURN entities
 
-    PRIVATE METHOD GetExtensionMethods(list as IList<XDbResult>) AS IList<IXMemberSymbol>
+    PRIVATE METHOD GetExtensionMethods(List as IList<XDbResult>) AS IList<IXMemberSymbol>
         VAR entities := List<IXMemberSymbol>{}
         var fileNames := List<String>{}
-        if list:Count > 0
-            foreach element as XDbResult in list
+        if List:Count > 0
+            foreach element as XDbResult in List
                 if !fileNames:Contains(element:FileName)
                     fileNames:Add(element:FileName)
                 endif
             next
-            foreach var fileName in fileNames
+            foreach var FileName in fileNames
                 var entitiesPerFile := List<XDbResult>{}
-                foreach element as XDbResult in list:ToArray()
-                    if element:FileName == fileName
+                foreach element as XDbResult in List:ToArray()
+                    if element:FileName == FileName
                         entitiesPerFile:Add(element)
-                        list:Remove(element)
+                        List:Remove(element)
                     endif
                 next
-                var oFile := SELF:FindXFile(fileName)
+                var oFile := SELF:FindXFile(FileName)
                 entities:AddRange(SELF:GetExtensionMethodsPerFile(entitiesPerFile, oFile))
             next
         endif
@@ -1318,15 +1380,15 @@ CLASS XProject
 
 
 
-    METHOD GetExtensions( typeName AS STRING) AS IList<IXMemberSymbol>
+    METHOD GetExtensions( TypeName AS STRING) AS IList<IXMemberSymbol>
         local result := List<IXMemberSymbol>{} as List<IXMemberSymbol>
         local type as IXTypeSymbol
         local names as List<String>
         local usings as List<String>
         usings := List<String>{}
         names := List<String>{}
-        names:Add(typeName)
-        type := SELF:FindType(typeName, usings)
+        names:Add(TypeName)
+        type := SELF:FindType(TypeName, usings)
         if type != null
             foreach var ifname in type:Interfaces
                 var iftype := SELF:FindType(ifname, usings)
@@ -1342,7 +1404,7 @@ CLASS XProject
         next
         return result
 
-    METHOD GetFileById(nId as INT64) AS XFile
+    METHOD GetFileById(nId as INT64) as XFile
         VAR name := SELF:_SourceFilesDict:FindById(nId)
         IF name != NULL
             RETURN SELF:FindXFile(name)
@@ -1378,44 +1440,44 @@ CLASS XProject
         ENDIF
         ModelWalker.AddProject(SELF)
 
-    METHOD WalkFile(file AS XFile, lNotify := FALSE AS LOGIC) AS VOID
-        ModelWalker.FileWalk(file)
+    METHOD WalkFile(File as XFile, lNotify := FALSE AS LOGIC) AS VOID
+        ModelWalker.FileWalk(File)
         IF FileWalkComplete != NULL .AND. lNotify
-            SELF:FileWalkComplete(file)
+            SELF:FileWalkComplete(File)
         ENDIF
 
-    PUBLIC DELEGATE OnFileWalkComplete(xFile AS XFile) AS VOID
+    PUBLIC DELEGATE OnFileWalkComplete(xFile as XFile) AS VOID
 
-    PUBLIC DELEGATE OnProjectWalkComplete( xProject AS XProject ) AS VOID
+    PUBLIC DELEGATE OnProjectWalkComplete( XProject AS XProject ) AS VOID
 
 #region Properties
     PROPERTY AssemblyReferences AS List<XAssembly>
-    GET
-        SELF:ResolveReferences()
-        RETURN SELF:_AssemblyReferences
-    END GET
+        GET
+            SELF:ResolveReferences()
+            RETURN SELF:_AssemblyReferences
+        END GET
     END PROPERTY
 
     PROPERTY AssemblyReferenceNames AS IList<String>
-    GET
-        var result := List<String>{}
-        result:AddRange(SELF:_unprocessedAssemblyReferences)
-        FOREACH var reference in SELF:_AssemblyReferences
-            result:Add(reference:FileName)
-        NEXT
-        return result:ToArray()
-    END GET
+        GET
+            var result := List<String>{}
+            result:AddRange(SELF:_unprocessedAssemblyReferences)
+            FOREACH var reference in SELF:_AssemblyReferences
+                result:Add(reference:FileName)
+            NEXT
+            return result:ToArray()
+        END GET
     END PROPERTY
 
     PRIVATE PROPERTY hasUnprocessedReferences AS LOGIC
-    GET
-        IF SELF:Loaded
-            RETURN SELF:_unprocessedAssemblyReferences:Count + ;
-                SELF:_unprocessedProjectReferences:Count + ;
-                SELF:_unprocessedStrangerProjectReferences:Count > 0
-        ENDIF
-        RETURN FALSE
-    END GET
+        GET
+            IF SELF:Loaded
+                RETURN SELF:_unprocessedAssemblyReferences:Count + ;
+                    SELF:_unprocessedProjectReferences:Count + ;
+                    SELF:_unprocessedStrangerProjectReferences:Count > 0
+            ENDIF
+            RETURN FALSE
+        END GET
     END PROPERTY
 
     PROPERTY Loaded AS LOGIC AUTO
@@ -1428,107 +1490,132 @@ CLASS XProject
         RETURN
 
     PROPERTY Name AS STRING
-    GET
-        RETURN _name
-    END GET
+        GET
+            RETURN _name
+        END GET
+        INTERNAL SET
+            _name := value
+        END SET
     END PROPERTY
+    PROPERTY NameId as STRING
+        GET
+            IF String.IsNullOrEmpty(_framework)
+                RETURN _name
+            ENDIF
+            return _name+":"+_framework:ToLower()
+        END GET
+
+    END PROPERTY
+
+
+
     PRIVATE _prjNameSpaces AS IList<STRING>
     PRIVATE _lastNameSpaces := DateTime.MinValue AS DateTime
     PROPERTY ProjectNamespaces AS IList<STRING>
-    GET
-        if _prjNameSpaces != NULL .and. DateTime.Now:Subtract(_lastNameSpaces) < TimeSpan{0,0,10}
+        GET
+            if _prjNameSpaces != NULL .and. DateTime.Now:Subtract(_lastNameSpaces) < TimeSpan{0,0,10}
+                return _prjNameSpaces
+            ENDIF
+            _prjNameSpaces := XDatabase.GetProjectNamespaces(SELF:DependentProjectList)
+            _lastNameSpaces     :=  DateTime.Now
             return _prjNameSpaces
-        ENDIF
-        _prjNameSpaces := XDatabase.GetProjectNamespaces(SELF:DependentProjectList)
-        _lastNameSpaces     :=  DateTime.Now
-        return _prjNameSpaces
-    END GET
+        END GET
     END PROPERTY
 
     PROPERTY AllNamespaces AS IList<STRING>
-    GET
-        IF _cachedAllNamespaces != NULL
-            RETURN _cachedAllNamespaces
-        ENDIF
-        VAR result := SELF:ProjectNamespaces
-        VAR asmNS  := SELF:AssemblyNamespaces
-        IF result:Count > asmNS:Count
-            FOREACH ns AS STRING IN asmNS
-                IF !result:Contains(ns)
+        GET
+            IF _cachedAllNamespaces != NULL
+                RETURN _cachedAllNamespaces
+            ENDIF
+            VAR result := SELF:ProjectNamespaces
+            VAR asmNS  := SELF:AssemblyNamespaces
+            IF result:Count > asmNS:Count
+                FOREACH ns AS STRING IN asmNS
+                    IF !result:Contains(ns)
+                        result:Add(ns)
+                    ENDIF
+                NEXT
+            ELSE
+                FOREACH ns AS STRING IN result
+                    IF !asmNS:Contains(ns)
+                        asmNS:Add(ns)
+                    ENDIF
+                NEXT
+                result := asmNS
+            ENDIF
+            FOREACH var ns in SELF:_globalUsings
+                if !result:Contains(ns)
                     result:Add(ns)
-                ENDIF
+                endif
             NEXT
-        ELSE
-            FOREACH ns AS STRING IN result
-                IF !asmNS:Contains(ns)
-                    asmNS:Add(ns)
-                ENDIF
-            NEXT
-            result := asmNS
-        ENDIF
-        _cachedAllNamespaces := result
-        RETURN result
-    END GET
+            _cachedAllNamespaces := result
+            RETURN result
+        END GET
     END PROPERTY
 
     PROPERTY AllUsingStatics as IList<String>
-    GET
-        IF _cachedUsingStatics != NULL
-            RETURN _cachedUsingStatics
-        ENDIF
-        VAR statics := List<STRING>{}
-        IF SELF:ProjectNode != NULL .AND. SELF:ProjectNode:ParseOptions:HasRuntime
-            FOREACH asm AS XAssembly IN SELF:AssemblyReferences
-                VAR globalclass := asm:GlobalClassName
-                IF (! String.IsNullOrEmpty(globalclass))
-                    statics:AddUnique(globalclass)
-                ENDIF
+        GET
+            IF _cachedUsingStatics != NULL
+                RETURN _cachedUsingStatics
+            ENDIF
+            VAR statics := List<STRING>{}
+            IF SELF:ProjectNode != NULL .AND. SELF:ProjectNode:ParseOptions:HasRuntime
+                FOREACH asm AS XAssembly IN SELF:AssemblyReferences
+                    VAR globalclass := asm:GlobalClassName
+                    IF (! String.IsNullOrEmpty(globalclass))
+                        statics:AddUnique(globalclass)
+                    ENDIF
+                NEXT
+            ENDIF
+            FOREACH var ns in SELF:_globalStaticUsing
+                if !statics:Contains(ns)
+                    statics:Add(ns)
+                endif
             NEXT
-        ENDIF
-        _cachedUsingStatics := statics:ToArray()
-        RETURN _cachedUsingStatics
-    END GET
+            _cachedUsingStatics := statics:ToArray()
+            RETURN _cachedUsingStatics
+        END GET
     END PROPERTY
 
 
     PROPERTY OtherFiles AS List<STRING> GET SELF:_OtherFilesDict:Keys:ToList()
 
-    METHOD ResetParseOptions(newOptions AS XSharpParseOptions) AS VOID
+    METHOD ResetParseOptions(newOptions AS XParseOptions) AS VOID
         SELF:_parseOptions := newOptions
         RETURN
 
-    PROPERTY ParseOptions AS XSharpParseOptions
-    GET
-        IF SELF:_parseOptions == NULL
-            IF SELF:ProjectNode == NULL
-                SELF:_parseOptions := XSharpParseOptions.Default
-            ELSE
-                SELF:_parseOptions := SELF:ProjectNode:ParseOptions
+    PROPERTY ParseOptions AS XParseOptions
+        GET
+            IF SELF:_parseOptions == NULL
+                IF SELF:ProjectNode == NULL
+                    SELF:_parseOptions := XParseOptions.Default
+                ELSE
+                    SELF:_parseOptions := SELF:ProjectNode:ParseOptions
+                ENDIF
             ENDIF
-        ENDIF
-        RETURN SELF:_parseOptions
-    END GET
+            RETURN SELF:_parseOptions
+        END GET
     END PROPERTY
     PROPERTY ProjectNode AS IXSharpProject GET SELF:_projectNode
 
     PROPERTY ReferencedProjects AS IList<XProject>
-    GET
-        SELF:ResolveUnprocessedProjectReferences()
-        RETURN SELF:_ReferencedProjects.ToArray()
-    END GET
+        GET
+            SELF:ResolveUnprocessedProjectReferences()
+            RETURN SELF:_ReferencedProjects.ToArray()
+        END GET
     END PROPERTY
 
     PROPERTY SourceFiles AS List<STRING>
-    GET
-        RETURN SELF:_SourceFilesDict:Keys:ToList()
-    END GET
+        GET
+            RETURN SELF:_SourceFilesDict:Keys:ToList()
+        END GET
     END PROPERTY
 
     PROPERTY StrangerProjects AS Object[]
-    GET
-        SELF:ResolveUnprocessedStrangerReferences()
-        RETURN SELF:_StrangerProjects:ToArray()
-    END GET
+        GET
+            SELF:ResolveUnprocessedStrangerReferences()
+            RETURN SELF:_StrangerProjects:ToArray()
+        END GET
     END PROPERTY
 
 #endregion
@@ -1545,16 +1632,16 @@ CLASS XProject
 
         METHOD Clear() AS VOID
             SELF:dict:Clear()
-        METHOD Add(fileName AS STRING) AS VOID
-            IF !dict:ContainsKey(fileName)
-                dict:TryAdd(fileName,-1)
+        METHOD Add(FileName AS STRING) AS VOID
+            IF !dict:ContainsKey(FileName)
+                dict:TryAdd(FileName,-1)
             ENDIF
 
-        METHOD Find(fileName AS STRING) AS XFile
-            IF dict:ContainsKey(fileName)
-                VAR result := XFile{fileName, prj}
+        METHOD Find(FileName AS STRING) as XFile
+            IF dict:ContainsKey(FileName)
+                VAR result := XFile{FileName, prj}
                 XDatabase.Read(result)
-                dict[fileName] := result:Id
+                dict[FileName] := result:Id
                 RETURN result
             ENDIF
             RETURN NULL
@@ -1567,13 +1654,13 @@ CLASS XProject
             NEXT
             RETURN NULL
 
-        METHOD Remove(fileName AS STRING) AS LOGIC
-            IF dict:ContainsKey(fileName)
-                RETURN dict:TryRemove(fileName, OUT VAR _)
+        METHOD Remove(FileName AS STRING) AS LOGIC
+            IF dict:ContainsKey(FileName)
+                RETURN dict:TryRemove(FileName, OUT VAR _)
             ENDIF
             RETURN FALSE
         PROPERTY Keys AS ICollection<STRING> GET dict:Keys
-        METHOD First() as XFile
+        METHOD first() as XFile
             if dict:Count > 0
                 return SELF:Find(dict:Keys:First())
             endif
@@ -1583,6 +1670,4 @@ CLASS XProject
 
 
 END CLASS
-
-END NAMESPACE
 

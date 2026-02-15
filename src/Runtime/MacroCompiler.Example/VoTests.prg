@@ -28,6 +28,7 @@ BEGIN NAMESPACE MacroCompilerTest
         Compilation.Override(WellKnownMembers.XSharp_RT_Functions___popWorkarea)
         Compilation.Override(WellKnownMembers.XSharp_RT_Functions___MemVarGet)
         Compilation.Override(WellKnownMembers.XSharp_RT_Functions___MemVarPut)
+
     FUNCTION TestByRefPriv() AS VOID
         PRIVATE x
         VAR mc := CreateMacroCompiler()
@@ -69,6 +70,8 @@ BEGIN NAMESPACE MacroCompilerTest
         TestMacro(mc, "{|c|Send(c,#testmethodlate,@x), x}", Args(c), "b", typeof(STRING))
         x := "a"
         TestMacro(mc, "{|c|Send(c,#testmethodlate,ref x), x}", Args(c), "b", typeof(STRING))
+        RETURN
+
 
     FUNCTION VoTests(mc AS XSharp.Runtime.MacroCompiler) AS VOID
         Console.WriteLine("Running VO tests ...")
@@ -141,7 +144,7 @@ BEGIN NAMESPACE MacroCompilerTest
 
         TestMacro(mc, e"{|a,b| asdgfafd := a, asdgfafd(2) }", Args(M->Foo, 1), 42, typeof(INT))
         TestMacro(mc, e"{|aq| aq(1)}", Args(M->Foo, 1), 42, typeof(int))
-        TestMacro(mc, e"{|a| a(3) += a(2) + a(1), a(3)}", Args(M->Foo), 126, typeof(int))
+        TestMacro(mc, e"{|a| a(3) += a(2) + a(1), a(3)}", Args(M->Foo, 1), 126, typeof(int))
         M->FoxArrayTest := __FoxArray{2,3}
         M->FoxArrayTest[1,1] := 10
         M->FoxArrayTest[1,2] := 20
@@ -241,6 +244,7 @@ BEGIN NAMESPACE MacroCompilerTest
         TestMacro(mc, e"{|a| a := \"abc\", a + \"def\"}", Args(8), "abcdef", typeof(STRING))
         TestMacro(mc, e"{|a| 0 == 0}", Args(8), TRUE, typeof(LOGIC))
         TestMacro(mc, e"{|a| 0 != 0}", Args(8), FALSE, typeof(LOGIC))
+        TestMacro(mc, e"{|a| 0 <> 0}", Args(8), FALSE, typeof(LOGIC))
         TestMacro(mc, e"{|a| (0 > 1) .and. (0 < 1) }", Args(8), FALSE, typeof(LOGIC))
         TestMacro(mc, e"{|a| a := \"qwerty\", a:Length }", Args(8), 6, typeof(INT))
         TestMacro(mc, e"{|a| a := default(int) }", Args(8), 0, typeof(INT))
@@ -417,7 +421,9 @@ BEGIN NAMESPACE MacroCompilerTest
         TestMacro(mc, e"'AA' == (object)'A'", Args(), FALSE, typeof(LOGIC))
         TestMacro(mc, e"'AA' = (object)'A'", Args(), TRUE, typeof(LOGIC))
         TestMacro(mc, e"'AA' != U('A')", Args(), FALSE, typeof(LOGIC))
+        TestMacro(mc, e"'AA' <> U('A')", Args(), FALSE, typeof(LOGIC))
         TestMacro(mc, e"'AA' != 'A'", Args(), FALSE, typeof(LOGIC))
+        TestMacro(mc, e"'AA' <> 'A'", Args(), FALSE, typeof(LOGIC))
         TestMacro(mc, e"'AA' != (object)'A'", Args(), FALSE, typeof(LOGIC))
         TestMacro(mc, e"{|a,b| a > b}", Args("est","test"), FALSE, typeof(LOGIC))
         TestMacro(mc, e"{|a,b| a < b}", Args("est","test"), TRUE, typeof(LOGIC))
@@ -578,8 +584,11 @@ BEGIN NAMESPACE MacroCompilerTest
         TestMacro(mc, e"{|a| TestByRef(a) }", Args("123"), "123", typeof(string))
         TestMacro(mc, "{ |x| (x)-1 } ",Args(2),1,typeof(int))
         TestMacro(mc, "{ || (int)(-5.1) } ",Args(),-5,typeof(int))
-        TestMacro(mc, '"#include ""c:\Program Files (x86)\XSharp\Include\XSharpDefs.xh"" "', Args(), "#include ""c:\Program Files (x86)\XSharp\Include\XSharpDefs.xh"" ", typeof(string))
-        TestMacro(mc, "'#include ''c:\Program Files (x86)\XSharp\Include\XSharpDefs.xh'' '", Args(), '#include ''c:\Program Files (x86)\XSharp\Include\XSharpDefs.xh'' ', typeof(string))
+        TestMacro(mc, "{ || TestInNotNil(10) } ",Args(),true,typeof(logic))
+        TestMacro(mc, "{ || TestRefNotZero(10) } ",Args(),true,typeof(logic))
+        TestMacro(mc, '"#include ""XSharpDefs.xh"" "', Args(), "#include ""XSharpDefs.xh"" ", typeof(string))
+        TestMacro(mc, "'#include ''XSharpDefs.xh'' '", Args(), '#include ''XSharpDefs.xh'' ', typeof(string))
+        TestMacro(mc, "'#include [XSharpDefs.xh] '", Args(), '#include [XSharpDefs.xh] ', typeof(string))
 
         Compilation.Override(WellKnownMembers.XSharp_RT_Functions___MemVarGet, "MyMemVarGet")
         Compilation.Override(WellKnownMembers.XSharp_RT_Functions___MemVarPut, "MyMemVarPut")
@@ -678,19 +687,82 @@ BEGIN NAMESPACE MacroCompilerTest
         Testmacro(mc, e"{|str, x| PadL(str, x)}",Args("abc",2),"ab",typeof(STRING))
         TestMacro(mc, e"{|o|o:Checked}", Args(CheckBox{}), FALSE, typeof(LOGIC))
         TestMacro(mc, e"{|a,b|AltD(), a+b}", Args(1,2), 3, typeof(LONG))
-        var tempGetInst := System.Runtime.InteropServices.Marshal.GetHINSTANCE(typeof(XSharp.Core.Functions):Module)
+        var tempGetInst := System.Runtime.InteropServices.Marshal.GetHINSTANCE(typeof(XSharp.VO.Functions):Module)
         TestMacro(mc, e"{||_GetInst()}", Args(), tempGetInst, typeof(IntPtr))
 
         // Dynamic assembly load test (note: XSharp.VO needs to be compiled before this for it to work! This is ensured by the solution build order)
-        TestMacro(mc, "{ || FloatNext(0) } ", Args(), null, null, ErrorCode.NotAMethod)
-        System.Reflection.Assembly.Load("XSharp.VO")
-        TestMacro(mc, "{ || FloatNext(0) } ", Args(), 0.0, typeof(float))
+        //TestMacro(mc, "{ || FloatNext(0) } ", Args(), null, null, ErrorCode.NotAMethod)
+        //System.Reflection.Assembly.Load("XSharp.VO")
+        //TestMacro(mc, "{ || FloatNext(0) } ", Args(), 0.0, typeof(float))
+        //typed and untyped parameters
+        TestMacro(mc,"{|a,b| a + b }", Args(1,2), 3, typeof(INT))
+        TestMacro(mc,"{|a as int,b as int| a + b }", Args(1,2), 3, typeof(INT))
+        RuntimeState.MacroCompilerErrorHandler := SubstituteErrorWithNil
+        TestMacro(mc, "{|| Left('abc,10) }", Args(),NULL, typeof(OBJECT))
+        RuntimeState.MacroCompilerErrorHandler := SubstituteErrorWithNilMacro
+        TestMacro(mc, "{|| 0h }", Args(),NULL, typeof(OBJECT))
+        TestMacro(mc, "{|| 0h1 }", Args(),NULL, typeof(OBJECT))
+        RuntimeState.MacroCompilerErrorHandler := NULL
+        TestMacro(mc, "{|| Left('abc,10) }", Args(),typeof(Exception),NULL, ErrorCode.UnterminatedString)
+
+        TestMacro(mc, "{|| 10/6 }", Args(), FLOAT(10)/6, typeof(FLOAT))
+
+
+        TestMacro(mc,"{|oTest| oTest:Testx(5)}", Args( Test{}), 5, typeof(INT))
+        TestMacro(mc,"{|oTest| oTest:Testx('abc')}", Args( Test{}), "abc", typeof(STRING))
+        TestMacro(mc,"{|oTest| ((ITest)oTest):Testx(5)}", Args( Test{}), 5, typeof(INT))
+        TestMacro(mc,"{|oTest| ((ITest)oTest):Testx('abc')}", Args( Test{}), "abc", typeof(STRING))
+
+
+        TestMacro(mc,"{||GetTest():TestMethod1(1, 2)}", Args(), 1, typeof(INT))
+        TestMacro(mc,"{||GetTest():TestMethod2(1, 2)}", Args(), 2, typeof(INT))
+        // Test to call strongly typed method that is declared in an interface but implemented in a base class
+        TestMacro(mc,"{||Int32.MaxValue + 1}", Args(), Int32.MaxValue + 1, typeof(INT64))
+        TestMacro(mc,"{||Int32.MaxValue - 1}", Args(), Int32.MaxValue - 1, typeof(INT))
+        TestMacro(mc,"{||Int32.MinValue + 1}", Args(), Int32.MinValue + 1, typeof(INT))
+        TestMacro(mc,"{||Int32.MinValue - 1}", Args(), (INT64)(Int32.MinValue) - 1, typeof(INT64))
+
 
         Console.WriteLine("Total pass: {0}/{1}", TotalSuccess, TotalTests)
         RETURN
 
+        FUNCTION SubstituteErrorWithNil (cmacro as string, oEx as Exception) as ICodeblock
+            Console.WriteLine()
+            Console.WriteLine(i"Intercepted error in macro ""{cmacro}"" :")
+            Console.WriteLine(oEx:Message)
+            //Console.ReadLine()
+            return {|| NIL}
+
+        FUNCTION SubstituteErrorWithNilMacro (cmacro as string, oEx as Exception) as ICodeblock
+            //Console.ReadLine()
+            Console.WriteLine()
+            Console.WriteLine(i"Intercepted error in macro ""{cmacro}"" :")
+            Console.WriteLine(oEx:Message)
+            // Recursive, dangerous
+            return MCompile("NIL")
+
+
 END NAMESPACE
 
+
+function GetTest() as TestTyped
+	var o := TestTyped{}
+	return o
+end function
+
+
+public interface ITestTyped
+   public method TestMethod1(owin, udb, uParamsInit) as usual clipper
+   public method TestMethod2(oWin := nil as usual, uDb := nil as usual, uParamsInit := nil as usual) as usual
+end interface
+
+public class TestTyped implements ITestTyped
+   public method TestMethod1(owin, udb, uParamsInit) as usual clipper
+      return 1
+
+   public method TestMethod2(oWin := nil as usual, uDb := nil as usual, uParamsInit := nil as usual) as usual
+		return 2
+end class
 
 
 

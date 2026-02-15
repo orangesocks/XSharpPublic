@@ -201,6 +201,8 @@ class XSharp.VFP.PropertyContainer IMPLEMENTS IEnumerable<NameValuePair>
      method IEnumerable.GetEnumerator() AS IEnumerator
         var props := SELF:GetProperties()
         return props:GetEnumerator()
+    method HasProperty(cPropertyName as string) as logic
+        return _Properties:ContainsKey(cPropertyName)
 end class
 
 public class XSharp.VFP.PropertyDescriptor
@@ -219,7 +221,7 @@ end class
 public class XSharp.VFP.PropertyNotFoundException inherit Exception
     public property PropertyName as string auto get private set
     public constructor(name as string)
-        super(__VfpStr(VFPErrors.PROPERTY_NOT_FOUND, name))
+        super(__VfpStr(VFPErrors.VFP_PROPERTY_NOT_FOUND, name))
         self:PropertyName := name
         return
 end class

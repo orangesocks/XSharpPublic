@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2025-03-24T22:08:24.591+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>-az</title>
+  <keywords>
+    <keyword>-az</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">-az</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">-az 选项指定数组元素以 0 开始，而不是以 1 开始(默认值)。</para>
+    <para styleclass="Heading2">语法</para>
+    <para styleclass="Code with box">-az[+|-]</para>
+    <para styleclass="Heading2">参数</para>
+    <para styleclass="List">+ | - <tab />指定 + 或 -az，可指示编译器使用基于 0 的数组索引，而不是基于 1 的索引。</para>
+    <para styleclass="Heading2">备注</para>
+    <para styleclass="Normal">该选项默认为关闭，因为它会破坏现有的 Visual Objects 源代码。如果您希望在为 Visual Objects 编写的现有代码中使用基于 0 的数组，则需要检查源代码中所有使用数组的地方，并手动进行适当调整。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">注意：该选项不会影响其他应用程序如何使用编译后的程序集。不使用 -az 选项时，编译器会生成从数组索引中减去 1 的代码，以便在语言级提供基于 1 的数组索引语义。使用 -az 选项时，编译器不会调整数组索引。无论采用哪种方式，生成的数组在 IL 层都是基于 0 的，因此可以与所有其他 .NET 语言兼容。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Heading3">要在 Visual Studio 开发环境中设置该编译器选项，请执行以下操作</para>
+    <para styleclass="Normal"></para>
+    <list id="0" type="ol" listtype="decimal" formatstring="&#37;&#48;&#58;&#115;&#46;" format-charset="DEFAULT_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="margin-left:13px; font-family:Arial; font-size:11pt; color:#000000;">
+      <li styleclass="Normal" style="margin-left:13px;">打开项目的 &quot;属性&quot;页面.</li>
+      <li styleclass="Normal" style="margin-left:13px;">点击 Language 选项卡</li>
+      <li styleclass="Normal" style="margin-left:13px;">在 Genera(常规)部分，修改 &quot;Use Zero Based Arrays(使用零基数组)&quot; </li>
+      <li styleclass="Normal" style="margin-left:13px;"><link displaytype="text" defaultstyle="true" type="topiclink" href="PropPage-Language">查看属性页</link></li>
+    </list>
+    <para styleclass="Heading2">示例</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Code with box">FUNCTION Start() AS VOID<br/> &#160;<tab />LOCAL DIM a[1] AS INT<br/> &#160;<tab />? a[0] -/ 未使用 -az 开关时出现运行时错误<br/> &#160;<tab />? a[1] -/ 使用 -az 开关时出现运行时错误 <br/><tab />RETURN </para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Heading3"></para>
+  </body>
+</topic>

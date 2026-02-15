@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-06-29T22:36:47.843+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>RUN 命令</title>
+  <keywords>
+    <keyword>Applications<keyword>executing</keyword></keyword>
+    <keyword>Commands</keyword>
+    <keyword>Executing<keyword>applications</keyword></keyword>
+    <keyword>Program control</keyword>
+    <keyword>RUN command</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">RUN 命令</para>
+    </header>
+    <para styleclass="Normal"><snippet src="__CommandInclude" inline="false"/></para>
+    <para styleclass="Heading1">用途</para>
+    <para styleclass="Normal">执行 Windows 或 DOS 应用程序、批处理文件或 DOS 命令。</para>
+    <para styleclass="Heading1">语法</para>
+    <para styleclass="Normal">RUN &lt;<text styleclass="Italic">xcCommandLine</text>&gt;</para>
+    <para styleclass="Heading1">参数</para>
+    <para styleclass="List">&lt;xcCommandLine&gt;<tab />命令行由两部分组成。 第一部分是以下内容之一：</para>
+    <list id="0" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="List" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="List">可执行的 Windows 或 DOS 程序</li>
+      <li styleclass="List">一个 .PIF 文件</li>
+      <li styleclass="List">一个 .BAT 文件</li>
+      <li styleclass="List">任何常驻的 DOS 命令</li>
+      <li styleclass="List">COMMAND.COM</li>
+    </list>
+    <para styleclass="List"></para>
+    <para styleclass="List"><tab />第二部分是将传递给指定应用程序的命令行参数。</para>
+    <para styleclass="List"></para>
+    <para styleclass="List"><tab />注意：运行 DOS 程序时，最好指定文件扩展名（例如 .EXE），而不是让 DOS 确定默认扩展名；否则，RUN 命令将生成一个名为 VODOSRUN.BAT 的临时文件来运行指定的程序。</para>
+    <para styleclass="Heading1">描述</para>
+    <para styleclass="Normal">RUN 可在应用程序中执行 Windows 或 DOS 程序或 DOS 命令。</para>
+    <para styleclass="Normal">&lt;xcCommandLine&gt; 中的应用程序名称可选择包含路径。 如果不包含路径，Windows 将按以下顺序搜索应用程序：</para>
+    <list id="1" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Indented" style="text-align:left; text-indent:0px; margin-top:0px; margin-right:0px; margin-bottom:0px; margin-left:0px; line-height:1.00; background-color:transparent; white-space:normal; page-break-inside:auto; page-break-after:auto; border:none; tabstops:none; font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Indented" style="text-align:left; text-indent:0px; margin-top:0px; margin-right:0px; margin-bottom:0px; margin-left:0px; line-height:1.00; background-color:transparent; white-space:normal; page-break-inside:auto; page-break-after:auto; border:none; tabstops:none;"><tab /><text styleclass="Normal">当前目录</text></li>
+      <li styleclass="Indented" style="text-align:left; text-indent:0px; margin-top:0px; margin-right:0px; margin-bottom:0px; margin-left:0px; line-height:1.00; background-color:transparent; white-space:normal; page-break-inside:auto; page-break-after:auto; border:none; tabstops:none;"><tab /><text styleclass="Normal">Windows 目录</text></li>
+      <li styleclass="Indented" style="text-align:left; text-indent:0px; margin-top:0px; margin-right:0px; margin-bottom:0px; margin-left:0px; line-height:1.00; background-color:transparent; white-space:normal; page-break-inside:auto; page-break-after:auto; border:none; tabstops:none;"><tab /><text styleclass="Normal">Windows SYSTEM 子目录</text></li>
+      <li styleclass="Indented" style="text-align:left; text-indent:0px; margin-top:0px; margin-right:0px; margin-bottom:0px; margin-left:0px; line-height:1.00; background-color:transparent; white-space:normal; page-break-inside:auto; page-break-after:auto; border:none; tabstops:none;"><tab /><text styleclass="Normal">包含当前执行模块(.EXE 或 .DLL )的目录</text></li>
+      <li styleclass="Indented" style="text-align:left; text-indent:0px; margin-top:0px; margin-right:0px; margin-bottom:0px; margin-left:0px; line-height:1.00; background-color:transparent; white-space:normal; page-break-inside:auto; page-break-after:auto; border:none; tabstops:none;"><tab /><text styleclass="Normal">PATH 环境变量中的目录 </text></li>
+      <li styleclass="Indented" style="text-align:left; text-indent:0px; margin-top:0px; margin-right:0px; margin-bottom:0px; margin-left:0px; line-height:1.00; background-color:transparent; white-space:normal; page-break-inside:auto; page-break-after:auto; border:none; tabstops:none;"><tab /><text styleclass="Normal">所有网络驱动器</text></li>
+    </list>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">如果使用 RUN 启动 Windows 应用程序，两个应用程序将异步运行。 换句话说，您的 &lt;%APP%&gt; 应用程序将不会等待被调用的应用程序完成，而是继续执行 RUN 命令后面的指令。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">如果您指定了一个 DOS 应用程序、一个 .BAT 文件或一条 DOS 命令，Windows 将创建一个 DOS 任务并切换到该任务，从而停止您的应用程序。 不过，在执行 DOS 任务期间，用户可以切换回调用应用程序。 DOS 任务结束后，调用应用程序将自动恢复执行。</para>
+    <para styleclass="Normal">如果运行的是 DOS 程序，可以考虑设置一个 .PIF 文件（使用 Windows 提供的 PIF 编辑器）来微调执行环境。 例如，你可以指定 DOS 程序在窗口中执行，而不是在全屏模式下执行。 如果您使用的是 .PIF 文件，请将 .PIF 文件的名称传递给 RUN 命令，而不是应用程序的名称，或者赋予它与应用程序相同的基本名称，并将其放在相同的目录下。 在后一种情况下，如果您将应用程序名称传递给 RUN 命令，Windows 将自动获取它。</para>
+    <para styleclass="Heading1">示例</para>
+    <para styleclass="Normal">此示例在名为 DATA.TXT 的文件上启动 Windows 记事本编辑器：</para>
+    <para styleclass="Code Example">RUN notepad data.txt</para>
+    <para styleclass="Normal">您可以为用户提供的选项之一是直接访问 DOS。 请使用</para>
+    <para styleclass="Code Example">RUN command.com</para>
+    <para styleclass="Body Text"><snippet src="__IncludeLibRt" inline="false"/></para>
+    <para styleclass="Normal"></para>
+  </body>
+</topic>

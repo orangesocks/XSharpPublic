@@ -23,10 +23,12 @@
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
     <EnforceSelf>True</EnforceSelf>
+    <Allowdot>True</Allowdot>
+    <StartupObject />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
     <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
-    <DisabledWarnings>1591,219,165</DisabledWarnings>
+    <NoWarn>1591,219,165</NoWarn>
     <WarningLevel>4</WarningLevel>
     <DefineConstants>DEBUG</DefineConstants>
     <DocumentationFile>XSharp.CodeModel.Xml</DocumentationFile>
@@ -34,7 +36,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
     <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
-    <DisabledWarnings>1591,219,165</DisabledWarnings>
+    <NoWarn>1591,219,165</NoWarn>
     <WarningLevel>4</WarningLevel>
     <DefineConstants>
     </DefineConstants>
@@ -89,10 +91,12 @@
     <Compile Include="Formatting\XKeyword.prg" />
     <Compile Include="Formatting\XTokenType.prg" />
     <Compile Include="MetaData\BuiltInFunctions.prg" />
+    <Compile Include="Model\CodeDomProvider.prg" />
     <Compile Include="Model\XNamespaceSymbol.prg" />
     <Compile Include="Model\XKeywordSymbol.prg" />
     <Compile Include="Model\ClassGenerator.prg" />
     <Compile Include="Model\CommentTask.prg" />
+    <Compile Include="Parser\ParseOptions.prg" />
     <Compile Include="Parser\XSharpTokenList.prg" />
     <Compile Include="PE\XPEEventSymbol.prg" />
     <Compile Include="PE\XPEFieldSymbol.prg" />
@@ -125,6 +129,7 @@
     <Compile Include="Source\XSourceMemberSymbol.prg" />
     <Compile Include="Source\XSourceParameterSymbol.prg" />
     <Compile Include="Source\XSourceTypeSymbol.prg" />
+    <Compile Include="Source\XSourceUsing.prg" />
     <Compile Include="Source\XSourceVariableSymbol.prg" />
     <Compile Include="Support\TextInterval.prg" />
     <Compile Include="Support\TextRange.prg" />
@@ -175,15 +180,15 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite">
-      <Version>8.0.1</Version>
+      <Version>9.0.6</Version>
       <IncludeAssets>all</IncludeAssets>
     </PackageReference>
     <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3">
-      <Version>2.1.6</Version>
+      <Version>2.1.11</Version>
       <IncludeAssets>all</IncludeAssets>
     </PackageReference>
     <PackageReference Include="System.Data.SQLite.Core">
-      <Version>1.0.118</Version>
+      <Version>1.0.119</Version>
     </PackageReference>
   </ItemGroup>
   <!-- This next bit is required unless the macro used to Import your targets is defined in an MSBuild toolset. -->
@@ -202,4 +207,4 @@
     <PostBuildEvent />
     <RunPostBuildEvent />
   </PropertyGroup>
-  </Project>
+</Project>

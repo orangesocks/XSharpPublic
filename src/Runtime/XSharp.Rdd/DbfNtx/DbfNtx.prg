@@ -90,24 +90,16 @@ BEGIN NAMESPACE XSharp.RDD
             END LOCK
 
         OVERRIDE METHOD OrderInfo(nOrdinal AS DWORD , info AS DbOrderInfo ) AS OBJECT
-            LOCAL result AS LONG
+            LOCAL result AS DWORD
             LOCAL workOrder AS NtxOrder
-            LOCAL orderPos AS LONG
             LOCAL isOk := FALSE AS LOGIC
 
             result := 0
             workOrder := NULL
-            orderPos := SELF:_indexList:FindOrder(info)
-            IF orderPos <= 0
-                IF info:IsEmpty .OR. orderPos == 0
-                    workOrder := SELF:CurrentOrder
-                ELSE
-                    workOrder := NULL
-                ENDIF
-            ELSE
-                workOrder := SELF:_indexList[orderPos - 1]
+            isOk := SELF:_indexList:FindOrder(info, out workOrder)
+            IF ! isOk .and. info:IsEmpty
+                workOrder := SELF:CurrentOrder
             ENDIF
-
             BEGIN SWITCH nOrdinal
             CASE DBOI_CONDITION
                 IF workOrder != NULL
@@ -357,16 +349,7 @@ BEGIN NAMESPACE XSharp.RDD
             LOCAL isOk AS LOGIC
 
             isOk := SUPER:Create(openInfo)
-            LOCAL lSupportAnsi := FALSE AS LOGIC
-            SWITCH RuntimeState.Dialect
-                CASE XSharpDialect.VO
-                CASE XSharpDialect.Vulcan
-                CASE XSharpDialect.Core
-                    lSupportAnsi := TRUE
-                OTHERWISE
-                    lSupportAnsi := FALSE
-            END SWITCH
-            IF  XSharp.RuntimeState.Ansi .AND. isOk .and. lSupportAnsi
+            IF  XSharp.RuntimeState.Ansi .AND. isOk .and. RuntimeState.Dialect:SupportsAnsi()
                 VAR sig := SELF:_Header:Version
                 //SET bit TO Force ANSI Signature
                 sig := sig |4
@@ -428,11 +411,11 @@ BEGIN NAMESPACE XSharp.RDD
                 RETURN result
             END LOCK
 
-        METHOD __Goto(nRec AS LONG) AS LOGIC
+        METHOD __Goto(nRec AS DWORD) AS LOGIC
             // Skip without reset of stack
             RETURN SUPER:GoTo(nRec)
 
-        OVERRIDE METHOD GoTo(nRec AS LONG) AS LOGIC
+        OVERRIDE METHOD GoTo(nRec AS DWORD) AS LOGIC
             local result as LOGIC
             SELF:GoCold()
             IF SELF:CurrentOrder != NULL

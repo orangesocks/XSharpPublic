@@ -6,6 +6,7 @@
 #nullable disable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 namespace Microsoft.CodeAnalysis.CSharp
 {
@@ -393,7 +394,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     options.Vo16 = positive;
                     encode = true;
                     break;
-                case "vo17":    // VO Compatible BEGIN SEQUENCE 
+                case "vo17":    // VO Compatible BEGIN SEQUENCE
                     options.Vo17 = positive;
                     encode = true;
                     break;
@@ -405,13 +406,9 @@ namespace Microsoft.CodeAnalysis.CSharp
                     options.Xpp1 = positive;
                     encode = true;
                     break;
-                case "xpp2":       // ignored
-                    //options.Xpp2 = positive;
-                    //encode = true;
-                    break;
                 case "fox1":       // Classes inherit from unknown
-                    options.Fox1 = positive;
-                    encode = true;
+                    //options.Fox1 = positive;
+                    //encode = true;
                     break;
                 case "fox2":       // FoxPro compatible array support
                     options.Fox2 = positive;
@@ -431,8 +428,8 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
             if (encode)
             {
-               var option = CompilerOptionDecoder.Decode(name);
-               options.ExplicitOptions |= option;
+                var option = CompilerOptionDecoder.Decode(name);
+                options.ExplicitOptions |= option;
             }
             return handled;
         }
@@ -495,18 +492,6 @@ namespace Microsoft.CodeAnalysis.CSharp
                 // if a StdDefs override is specified, then we do not allow NoStdDef
                 options.NoStdDef = false;
             }
-            if (options.Dialect == XSharpDialect.Core)
-            {
-                if (!options.ExplicitOptions.HasFlag(CompilerOption.AllowNamedArgs))
-                    options.AllowNamedArguments = true;
-            }
-            else
-            {
-                if (!options.ExplicitOptions.HasFlag(CompilerOption.AllowNamedArgs))
-                    options.AllowNamedArguments = false;
-                //if (!options.ExplicitOptions.HasFlag(CompilerOption.EnforceSelf))
-                //    options.EnforceSelf = true;
-            }
             if (newDialect == XSharpDialect.XPP && options.TargetDLL == XSharpTargetDLL.XPP)
             {
                 newDialect = XSharpDialect.VO;  // the runtime uses the VO syntax for classes
@@ -525,12 +510,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                             "XSharp.Core.DLL, XSharp.RT.DLL, XSharp.VFP.DLL");
                     }
                 }
-                if (options.VulcanRTFuncsIncluded && options.VulcanRTIncluded && options.Dialect.LikeVO())
-                {
-                    // Ok;
-                    withRT = true;
-                }
-                else if (options.XSharpRTIncluded && options.XSharpCoreIncluded)
+                if (options.XSharpRTIncluded && options.XSharpCoreIncluded)
                 {
                     // Ok;
                     withRT = true;
@@ -554,7 +534,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     else
                     {
                         AddDiagnostic(diagnostics, ErrorCode.ERR_DialectRequiresReferenceToRuntime, options.Dialect.ToString(),
-                            "XSharp.Core.DLL and XSharp.RT.DLL or VulcanRT.DLL and VulcanRTFuncs.DLL");
+                            "XSharp.Core.DLL and XSharp.RT.DLL");
                     }
                     newDialect = XSharpDialect.Core;
                 }
@@ -614,39 +594,18 @@ namespace Microsoft.CodeAnalysis.CSharp
                     AddDiagnostic(diagnostics, ErrorCode.ERR_IllegalCombinationOfCommandLineOptions, "/undeclared requires the use of the X# Runtime", options.Dialect.ToString());
                     options.UndeclaredMemVars = false;
                 }
-                if (!options.ExplicitOptions.HasFlag(CompilerOption.Vo15))
-                {
-                    options.Vo15 = true;            // Untyped allowed
-                }
                 if (options.Dialect == XSharpDialect.FoxPro)
                 {
                     if (!options.XSharpRTIncluded)
                     {
                         AddDiagnostic(diagnostics, ErrorCode.ERR_IllegalCombinationOfCommandLineOptions, "The FoxPro dialect requires the use of the X# Runtime");
-                        //options.Fox2 = false;
-                    }
-                    if (!options.ExplicitOptions.HasFlag(CompilerOption.AllowOldStyleAssignments))
-                    {
-                        options.AllowOldStyleAssignments = true;
-                    }
-                    if (!options.ExplicitOptions.HasFlag(CompilerOption.Vo9))
-                    {
-                        options.Vo9 = true;             // generate default return values
-                    }
-                    if (!options.ExplicitOptions.HasFlag(CompilerOption.InitLocals))
-                    {
-                        options.InitLocals = true;
-                    }
-                    if (!options.ExplicitOptions.HasFlag(CompilerOption.Fox1))
-                    {
-                        options.Fox1 = true;             // inherit from Custom
                     }
                 }
                 else
                 {
-                    if (options.Fox1 || options.Fox2)
+                    if (options.Fox2)
                     {
-                        AddDiagnostic(diagnostics, ErrorCode.ERR_IllegalCombinationOfCommandLineOptions, "/fox1 and /fox2 are only valid for the FoxPro dialect");
+                        AddDiagnostic(diagnostics, ErrorCode.ERR_IllegalCombinationOfCommandLineOptions, "/fox2 is only valid for the FoxPro dialect");
                     }
                 }
             }
@@ -661,10 +620,6 @@ namespace Microsoft.CodeAnalysis.CSharp
                 AddDiagnostic(diagnostics, ErrorCode.ERR_IllegalCombinationOfCommandLineOptions, "/undeclared must be combined /memvars");
             }
             options.Dialect = newDialect;
-            if (!options.ExplicitOptions.HasFlag(CompilerOption.AllowDotForInstanceMembers))
-            {
-                options.AllowDotForInstanceMembers = options.Dialect.AllowDotForInstanceMembers();
-            }
         }
 #endif
         private void OptionNotImplemented(List<Diagnostic> diagnostics, string option, string description)

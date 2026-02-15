@@ -25,8 +25,13 @@ namespace XSharp.LanguageService
             IToken lastModifier = null;
             if (tokens?.Count > 0)
             {
-                foreach (var token in tokens)
+                foreach (var t in tokens)
                 {
+                    var token = t;
+                    if ( token.Type == XSharpLexer.UDC_KEYWORD)
+                    {
+                        token = ((XSharpToken)token).Original;
+                    }
                     if (token.Type == XSharpLexer.LBRKT)
                     {
                         firstkw = token;
@@ -70,7 +75,11 @@ namespace XSharp.LanguageService
                 // encode keyword
                 if (firstkw != null)
                 {
-                    if (XFormattingRule.IsSingleKeyword(firstkw.Type))
+                    if (firstkw.Type == XSharpLexer.DEFINE && secondkw?.Type == XSharpLexer.CLASS )
+                    {
+                        kw = new XKeyword(firstkw.Type, secondkw.Type);
+                    }
+                    else if (XFormattingRule.IsSingleKeyword(firstkw.Type))
                     {
                         kw = new XKeyword(firstkw.Type);
                     }

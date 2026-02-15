@@ -18,71 +18,141 @@ begin namespace XSharp.RDD.SqlRDD
 /// The Order class.
 /// </summary>
 internal class SqlDbOrder inherit SqlDbObject
-    private _KeyCodeBlock as ICodeblock
-    private _ForCodeBlock as ICodeblock
-    property KeyCodeBlock as ICodeblock get _KeyCodeBlock
-    property ForCodeBlock as ICodeblock get _ForCodeBlock
+
+#include "..\Taginfo.xh"
+
+    property DbExpression   as SqlDbExpression auto get private set
+    private _KeyCache     as IDictionary<object,dword>
+    property KeyCodeBlock as ICodeblock auto get private set
+    property ForCodeBlock as ICodeblock auto get private set
     property OrderBag     as SqlDbOrderBag auto
-    property RDD    	  as SQLRDD   auto
-    property Expression   as string   auto
-    property SQLKey		  as string   auto
-    property cbExpr		  as object   auto
-    property uTopScope	  as object   auto
-    property uBotScope	  as object   auto
-    property Descending   as logic    auto
-    property Unique    	  as logic    auto
-    property KeyLength	  as int     auto
-    property HasFunctions as logic  auto
-    property Condition    as string auto
-    property Conditional  as logic get !String.IsNullOrEmpty(Condition)
-    property TopScope     as object auto
-    property BottomScope  as object auto
-    property HasScopes  as logic get TopScope != null .or. BottomScope != null
-    property SqlWhere   as string auto
-    property Segments	as IList<SqlDbSegment>   auto
-    property ColumnList	as IList<string>    auto
-    property OrderList	as IList<string>    auto
-    property OrderListString as string auto
-    property Provider   as ISqlDbProvider get RDD:Provider
-    property Connection as SqlDbConnection get RDD:Connection
-    property FileName   as string get self:OrderBag:FileName+"_"+self:Name
+    property RDD    	  as SQLRDD   auto get private set
+    property SQLKey		  as string   get DbExpression:SQLKey
+    property cbExpr		  as object   auto get private set
+    property uTopScope	  as object   auto get private set
+    property uBotScope	  as object   auto get private set
+    property Descending   as logic    auto get protected internal set
+    property KeyLength	  as int      auto get private set
+    property HasFunctions as logic    get DbExpression:HasFunctions
+    property Conditional  as logic    get !String.IsNullOrEmpty(Condition)
+    property TopScope     as object   auto get private set
+    property BottomScope  as object   auto get private set
+    property HasScopes    as logic    get TopScope != null .or. BottomScope != null
+    property SqlWhere     as string   auto get private set
+    property Segments	  as IList<SqlDbSegment>   get DbExpression:Segments
+    property ColumnList	  as IList<string>    get DbExpression:ColumnList
+    property OrderList	  as IList<string>    get DbExpression:OrderList
+    property OrderListStr as string get DbExpression:OrderListStr
+    property Provider     as ISqlDbProvider get RDD:Provider
+    property Connection   as SqlDbConnection get RDD:Connection
+    property FileName     as string get self:OrderBag:FileName+"_"+self:Name
+
+    property KeyCache     as IDictionary<object,dword>
+        get
+            if _KeyCache == null
+                _KeyCache := Dictionary<object,dword>{}
+            endif
+            return _KeyCache
+        end get
+    end property
 
     constructor(oRDD as SQLRDD, cName as string, cIndexExpr as string, oBag as SqlDbOrderBag)
         super(cName)
         self:RDD            := oRDD
         self:Expression     := cIndexExpr
         self:OrderBag       := oBag
-        var oExp            := SqlDbExpression{self,cIndexExpr}
-        self:HasFunctions 	:= oExp:HasFunctions
-        self:SQLKey			:= oExp:SQLKey
-        self:OrderList 	    := oExp:OrderList
-        self:OrderListString := oExp:OrderListString
-        self:ColumnList	    := oExp:ColumnList
-        self:Segments		:= oExp:Segments
-        self:KeyLength      := oExp:KeyLen
-
-        self:_KeyCodeBlock := self:RDD:Compile(cIndexExpr)
+        SELF:DbExpression    := SqlDbExpression{self,cIndexExpr}
+        self:KeyCodeBlock  := self:RDD:Compile(cIndexExpr)
         self:ClearScopes()
         return
     end constructor
 
-    method ClearScopes() as void
-        self:TopScope      := null
-        self:BottomScope      := null
+    method CalculateKeyLength() as void
+        var result := self:RDD:EvalBlock(self:KeyCodeBlock) // this will set the KeyValue property
+        if result is string var strValue
+            self:KeyLength := strValue:Length
+        endif
         return
     end method
+
+    method ClearScopes() as void
+        self:TopScope      := null
+        self:BottomScope   := null
+        self:ClearCache()
+        return
+    end method
+    METHOD ClearCache() as void
+        SELF:_KeyCache      := null
+    end method
+
+    PROPERTY KeyValue as OBJECT GET SELF:RDD:EvalBlock(SELF:KeyCodeBlock)
 
     method SetCondition(cForExpr as string) as logic
         if ! String.IsNullOrEmpty(cForExpr)
             var oExp := SqlDbExpression{self,cForExpr}
             self:Condition  := cForExpr
             self:SqlWhere   := oExp:SQLKey
-            self:_ForCodeBlock := self:RDD:Compile(cForExpr)
+            self:ForCodeBlock := self:RDD:Compile(cForExpr)
 
             return true
         endif
         return false
     end method
+
+    method VerifyKeyType(oExpr as OBJECT) AS OBJECT
+        var conn := SELF:RDD:Connection
+        var tmp := conn:UseNulls
+        conn:UseNulls := FALSE
+        var keyValue := SELF:KeyValue
+        conn:UseNulls := tmp
+        SWITCH keyValue
+        CASE strValue as String
+            IF oExpr is String
+                RETURN oExpr
+            ELSE
+                RETURN oExpr:ToString()
+            ENDIF
+        CASE intValue as LONG
+            IF oExpr is LONG
+                RETURN oExpr
+            ELSEIF oExpr is INT64 var i64Value
+                return Convert.ToInt32(i64Value)
+            ELSEIF oExpr is IFloat var flValue
+                return Convert.ToInt32(flValue:Value)
+            ENDIF
+        CASE i64Value as INT64
+            IF oExpr is INT64
+                RETURN oExpr
+            ELSEIF oExpr is INT var iValue
+                return Convert.ToInt64(iValue)
+            ELSEIF oExpr is IFloat var flValue
+                return Convert.ToInt64(flValue:Value)
+            ENDIF
+        CASE dValue as IDate
+            IF oExpr is IDate
+                RETURN oExpr
+            ELSEIF oExpr is DateTime var dtValue
+                RETURN DbDate{dtValue:Year,dtValue:Month,dtValue:Day}
+            ENDIF
+        CASE dtValue as DateTime
+            IF oExpr is DateTime
+                RETURN oExpr
+            ELSEIF oExpr is IDate var dValue
+                RETURN DateTime{dValue:Year,dValue:Month,dValue:Day}
+            ENDIF
+        CASE flValue as IFloat
+            IF oExpr is IFloat
+                RETURN oExpr
+            ELSEIF oExpr is LONG var lValue
+                RETURN DbFloat{lValue,10,0}
+            ELSEIF oExpr is INT64 var iValue
+                RETURN DbFloat{iValue,10,0}
+            ENDIF
+        OTHERWISE
+            NOP
+        END SWITCH
+        SELF:RDD:_dbfError( Subcodes.ERDD_VAR_TYPE, Gencode.EG_DATATYPE,SELF:FileName)
+        RETURN NULL
 
     method SetOrderScope( oValue as object, nInfo as DbOrder_Info) as void
         switch nInfo

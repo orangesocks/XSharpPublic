@@ -31,16 +31,17 @@
     <VO15>true</VO15>
     <VO16>true</VO16>
     <NoWin32Manifest>False</NoWin32Manifest>
+    <NamedArgs>False</NamedArgs>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'" >
     <PlatformTarget>x86</PlatformTarget>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <DisabledWarnings>9032;9043;618;162;165;649;9025</DisabledWarnings>
+    <NoWarn>9032;9043;618;162;165;649;9025</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'" >
     <PlatformTarget>x86</PlatformTarget>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <DisabledWarnings>9032;9043;618;162;165;649;9025</DisabledWarnings>
+    <NoWarn>9032;9043;618;162;165;649;9025</NoWarn>
   </PropertyGroup>
   <Import Project="$(XSharpMsBuildDir)\XSharp.targets" />
   <ItemGroup>

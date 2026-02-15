@@ -29,7 +29,6 @@ BEGIN NAMESPACE XSharp.RDD.CDX
         INTERNAL _hFile     AS IntPtr
         INTERNAL _stream    AS FileStream
         INTERNAL _OpenInfo	AS DbOpenInfo
-        INTERNAL _Encoding  AS Encoding
         INTERNAL _PageList  AS CdxPageList
         INTERNAL PROPERTY Shared    AS LOGIC GET _OpenInfo:Shared
         INTERNAL PROPERTY ReadOnly  AS LOGIC GET _OpenInfo:ReadOnly
@@ -47,7 +46,6 @@ BEGIN NAMESPACE XSharp.RDD.CDX
         INTERNAL PROPERTY TagList AS CdxTagList GET _tagList
         INTERNAL PROPERTY Structural AS LOGIC AUTO
         INTERNAL PROPERTY Root      AS CdxFileHeader GET _root
-        INTERNAL PROPERTY Encoding AS System.Text.Encoding GET _oRdd:_Encoding
         INTERNAL CONSTRUCTOR(oRDD AS DBFCDX )
             SUPER( oRDD )
             SELF:_oRdd     := oRDD
@@ -103,6 +101,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 // Exception ?
                 RETURN FALSE
             ENDIF
+            var oOldTag := SELF:_oRdd:CurrentOrder
             VAR oTag := SELF:_FindTagByName(cTag)
             VAR lOk := TRUE
             IF oTag != NULL_OBJECT
@@ -119,6 +118,13 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 // Read the tag from disk to get all the normal stuff
                 oTag  := CdxTag{SELF,oTag:Header:PageNo, oTag:OrderName}
                 SELF:AddTag(oTag)
+            ELSE
+                IF SELF:Tags:Count == 0
+                    SELF:Close()
+                    FErase(SELF:FullPath)
+                    SELF:_oRdd:_indexList:CurrentOrder := oOldTag
+                    SELF:_oRdd:GoTop()
+                endif
             ENDIF
             RETURN lOk
 
@@ -312,7 +318,6 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             IF SELF:_stream != NULL_OBJECT
                 SELF:FullPath := SELF:_stream:Name
             ENDIF
-            SELF:_Encoding := _oRdd:_Encoding
             _root := CdxFileHeader{SELF}
             _root:Read()
             SELF:SetPage(_root)
@@ -392,15 +397,15 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             NEXT
             RETURN lOk
 
-        METHOD FindFreePage() AS LONG
-            LOCAL nPage AS LONG
-            LOCAL nNext AS LONG
-            IF SELF:_root:FreeList > 0
+        METHOD FindFreePage() AS DWORD
+            LOCAL nPage AS DWORD
+            LOCAL nNext AS DWORD
+            IF CdxPage.PageIsValid(SELF:_root:FreeList)
                 nPage := SELF:_root:FreeList
                 VAR oPage := SELF:_PageList:GetPage(nPage, 0, NULL)
                 IF oPage IS CdxTreePage VAR tPage
                     nNext := tPage:LeftPtr
-                    IF nNext < 0
+                    IF !CdxPage.PageIsValid(nNext)
                         nNext := 0
                     ENDIF
                     SELF:_root:FreeList := nNext
@@ -413,7 +418,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                     DebOut32(cMessage)
                     throw IOException{cMessage}
                 ENDIF
-                nPage   := (LONG) _stream:Length
+                nPage   := (DWORD) _stream:Length
                 _newPageAllocated := TRUE
             ENDIF
             RETURN nPage
@@ -432,9 +437,9 @@ BEGIN NAMESPACE XSharp.RDD.CDX
         METHOD AllocBuffer(nSize := 1 AS LONG)  AS BYTE[]
             RETURN BYTE[]{CDXPAGE_SIZE *nSize}
 
-        METHOD Read(nPage AS LONG, buffer AS BYTE[]) AS LOGIC
+        METHOD Read(nPage AS DWORD, buffer AS BYTE[]) AS LOGIC
             SELF:ThrowIfNeedsLock()
-            RETURN SELF:_stream:SafeReadAt(nPage, buffer)
+            RETURN SELF:_stream:SafeReadAt(nPage, buffer, buffer:Length)
 
         METHOD Read(oPage AS CdxPage) AS LOGIC
             SELF:ThrowIfNeedsLock()
@@ -448,7 +453,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 #ifdef CHECKVERSIONS
             SELF:_PageList:CheckVersion(SELF:Root:RootVersion)
 #endif
-            IF oPage:PageNo == -1
+            IF oPage:PageNo == MISSING_PAGE
                 oPage:PageNo := SELF:FindFreePage()
                 oPage:IsHot  := TRUE
                 SELF:_PageList:SetPage(oPage:PageNo, oPage)
@@ -459,7 +464,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
                 THROW IOException{cMessage}
             ENDIF
             IF oPage:IsHot
-                isOk := SELF:_stream:SafeWriteAt(oPage:PageNo, oPage:Buffer)
+                isOk := SELF:_stream:SafeWriteAt(oPage:PageNo, oPage:Buffer, oPage:Buffer:Length)
             ELSE
                 isOk := TRUE
             ENDIF
@@ -467,8 +472,8 @@ BEGIN NAMESPACE XSharp.RDD.CDX
 
 
 
-        METHOD GetPage(nPage AS Int32, nKeyLen AS WORD,tag AS CdxTag) AS CdxPage
-           IF nPage == -1
+        METHOD GetPage(nPage AS DWORD, nKeyLen AS WORD,tag AS CdxTag) AS CdxPage
+           IF nPage == MISSING_PAGE
                 RETURN NULL
            ENDIF
            VAR page := SELF:_PageList:GetPage(nPage, nKeyLen,tag)
@@ -583,7 +588,7 @@ BEGIN NAMESPACE XSharp.RDD.CDX
             RETURN
 
         INTERNAL METHOD ThrowIfNeedsLock() AS VOID
-            IF SELF:_needsLock && SELF:Shared
+            IF SELF:_needsLock && SELF:Shared && ! SELF:IsLocked
                 THROW CdxLockException{}
             ENDIF
             RETURN

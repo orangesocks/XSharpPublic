@@ -65,7 +65,7 @@ namespace Microsoft.VisualStudio.Project
         // Properties
         // =========================================================================================
 
-       
+
 
         /// <summary>
         /// Menu Command Id for File item.
@@ -192,6 +192,10 @@ namespace Microsoft.VisualStudio.Project
                     return this.IsNonMemberItem;
                 case __VSHPROPID.VSHPROPID_DefaultNamespace:
                     return this.ProjectMgr.GetProperty(propId);
+                case __VSHPROPID.VSHPROPID_IsNonSearchable:
+                    return this.IsNonMemberItem;
+                case __VSHPROPID.VSHPROPID_IsFindInFilesForegroundOnly:
+                    return false;
             }
 
             return base.GetProperty(propId);
@@ -240,8 +244,7 @@ namespace Microsoft.VisualStudio.Project
             {
                 for (HierarchyNode child = this.FirstChild; child != null; child = child.NextSibling)
                 {
-                    IProjectSourceNode node = child as IProjectSourceNode;
-                    if (node != null)
+                    if (child is IProjectSourceNode node)
                     {
                         int result = node.ExcludeFromProject();
                         if (result != VSConstants.S_OK)
@@ -492,7 +495,7 @@ namespace Microsoft.VisualStudio.Project
             }
             else
             {
-                if (!(this.NodeProperties is FileNodeProperties))
+                if (this.NodeProperties is XFileNodeNonMemberProperties)
                 {
                     change = true;
                 }

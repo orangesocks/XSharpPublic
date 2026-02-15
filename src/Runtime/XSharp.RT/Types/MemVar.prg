@@ -11,7 +11,7 @@ USING System.Linq
 USING System.Diagnostics
 USING System.Text
 USING System.Threading
-
+USING XSharp.Internal
 
 // Class that holds the memvars for a certain level on the callstack
 [DebuggerDisplay("{DebuggerDisplay(),nq}")];
@@ -67,12 +67,12 @@ INTERNAL CLASS XSharp.MemVarLevel
 
 #region Locals support
         // Set value for local and mark as 'updated'
-    INTERNAL METHOD UpdateLocal(cName AS STRING, uValue AS USUAL) AS VOID
+    INTERNAL METHOD UpdateLocal(cName AS STRING, uValue IN USUAL) AS VOID
         SELF:SetLocal(cName, uValue)
         _localsUpdated  := TRUE
         RETURN
         // Set value for local
-    INTERNAL METHOD SetLocal(cName AS STRING, uValue AS USUAL) AS VOID
+    INTERNAL METHOD SetLocal(cName AS STRING, uValue IN USUAL) AS VOID
         IF Locals == NULL
             Locals := ConcurrentDictionary<STRING, USUAL>{StringComparer.OrdinalIgnoreCase}
         ENDIF
@@ -87,6 +87,9 @@ INTERNAL CLASS XSharp.MemVarLevel
 
         // find local and value returns TRUE when found (value could also be NIL !)
     INTERNAL METHOD FindLocal(cName AS STRING, uValue OUT USUAL) AS LOGIC
+        if cName:ToLower() == "this"
+            cName := "_this"
+        endif
         IF Locals != NULL .AND. Locals:TryGetValue(cName, OUT uValue)
             RETURN TRUE
         ENDIF
@@ -224,7 +227,7 @@ PRIVATE STATIC ThreadList := ThreadLocal< MemVarThreadInfo >{ {=> MemVarThreadIn
     /// <summary>Value of the memory variable. The default is NIL for PRIVATEs and FALSE for PUBLICs.</summary>
     PUBLIC PROPERTY @@Value AS USUAL AUTO
         INTERNAL Level	AS MemVarLevel
-    CONSTRUCTOR (cName AS STRING, uValue AS USUAL)
+    CONSTRUCTOR (cName AS STRING, uValue IN USUAL)
         SELF:Name := cName:ToUpper()
         SELF:Value := uValue
         RETURN
@@ -264,7 +267,7 @@ PRIVATE STATIC ThreadList := ThreadLocal< MemVarThreadInfo >{ {=> MemVarThreadIn
         RETURN NULL
 
     /// <summary>Update a private variable. Does NOT add a new variable</summary>
-    STATIC METHOD PrivatePut(name AS STRING, uValue AS USUAL) AS LOGIC
+    STATIC METHOD PrivatePut(name AS STRING, uValue IN USUAL) AS LOGIC
         VAR current := CheckCurrent()
         LOCAL oMemVar AS XSharp.MemVar
         IF current != NULL .AND. current:TryGetValue(name, OUT oMemVar)
@@ -288,23 +291,27 @@ PRIVATE STATIC ThreadList := ThreadLocal< MemVarThreadInfo >{ {=> MemVarThreadIn
         RETURN GetHigherLevelPrivate(name)
 
     /// <summary>Release a private variable</summary>
-    STATIC METHOD Release(name AS STRING) AS VOID
+    STATIC METHOD Release(cName AS STRING) AS VOID
         // release variable
-        VAR oMemVar := PrivateFind(name)
+        VAR oMemVar := PrivateFind(cName)
+        VAR wasLocal := FALSE
         IF oMemVar == NULL
-            oMemVar := PublicFind(name)
+            oMemVar := PublicFind(cName)
             IF oMemVar != NULL
                 Publics:Remove(oMemVar:Name)
+            ELSEIF LocalFind(cName, OUT VAR _ , OUT VAR oLevel)
+                wasLocal := TRUE
+                oLevel:UpdateLocal(cName, NIL)
             ENDIF
         ELSE
-            LOCAL level AS MemVarLevel
-            level := oMemVar:Level
-            level:Remove(oMemVar:Name)
+            LOCAL oLevel AS MemVarLevel
+            oLevel := oMemVar:Level
+            oLevel:Remove(oMemVar:Name)
         ENDIF
         IF oMemVar != NULL
             oMemVar:Value := NIL
-        ELSE
-            THROW Exception{"Variable "+name:ToString()+" does not exist"}
+        ELSEIF ! wasLocal
+            THROW Exception{i"Variable {cName} does not exist"}
         ENDIF
         RETURN
 
@@ -427,13 +434,13 @@ PRIVATE STATIC ThreadList := ThreadLocal< MemVarThreadInfo >{ {=> MemVarThreadIn
         RETURN FALSE
 
 
-    INTERNAL STATIC METHOD LocalPut(name AS STRING, uValue AS USUAL) AS VOID
-        VAR curr := CheckCurrent()
-        IF curr != NULL
+    INTERNAL STATIC METHOD LocalPut(name AS STRING, uValue IN USUAL) AS VOID
+        VAR current := CheckCurrent()
+        IF current != NULL
             IF LocalFind(name, OUT VAR _ , OUT VAR level)
                 level:SetLocal(name, uValue)
             ENDIF
-            curr:SetLocal(name, uValue)
+            current:SetLocal(name, uValue)
         ENDIF
         RETURN
 
@@ -611,7 +618,7 @@ PRIVATE STATIC ThreadList := ThreadLocal< MemVarThreadInfo >{ {=> MemVarThreadIn
     /// <summary>Update a public variable. Does NOT create a new public when there is no variable with that name.</summary>
     /// <param name="cName">The name of the memory variable.</param>
     /// <param name="uValue">The value to assign.</param>
-    STATIC METHOD PublicPut(cName AS STRING, uValue AS USUAL) AS LOGIC
+    STATIC METHOD PublicPut(cName AS STRING, uValue IN USUAL) AS LOGIC
         VAR oMemVar := PublicFind(cName)
         IF oMemVar != NULL
             BEGIN LOCK oMemVar

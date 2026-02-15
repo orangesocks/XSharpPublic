@@ -1,5 +1,5 @@
 #translate DBFDebug(<c1> [, <cn>]) =>
-#pragma options ("enforceself", on)
+
 PARTIAL CLASS DbServer
 
 
@@ -40,7 +40,7 @@ METHOD GetArray( nMaxRows, uField1, uSearchValue )
 		ELSEIF IsSymbol( uField1 )
 			wPos := FieldPosSym( uField1 )
 		ELSEIF IsString( uField1 )
-			wPos := FieldPos( uField1 )
+			wPos := Functions.FieldPos( uField1 )
 		ELSE
 			wPos := uField1
 		ENDIF
@@ -56,7 +56,7 @@ METHOD GetArray( nMaxRows, uField1, uSearchValue )
 			ELSE
 				SELF:__DBServerEval( { | | AAdd( aResult, __DBSFieldGet( wPos ) ) },  ;
 					NIL,  ;
-					{ || Eval( cbKey ) = uValue },  ;
+					{ || Functions.Eval( cbKey ) = uValue },  ;
 					wRows,  ;
 					NIL,  ;
 					TRUE,  ;
@@ -211,7 +211,7 @@ METHOD GetLookupTable( nMaxRows, uField1, uField2, uSearchValue )
 		ELSEIF IsSymbol( uField1 )
 			uField1 := FieldPosSym( uField1 )
 		ELSEIF IsString( uField1 )
-			uField1 := FieldPos( uField1 )
+			uField1 := Functions.FieldPos( uField1 )
 		ENDIF
 
 
@@ -220,7 +220,7 @@ METHOD GetLookupTable( nMaxRows, uField1, uField2, uSearchValue )
 		ELSEIF IsSymbol( uField2 )
 			uField2 := FieldPosSym( uField2 )
 		ELSEIF IsString( uField2 )
-			uField2 := FieldPos( uField2 )
+			uField2 := Functions.FieldPos( uField2 )
 		ENDIF
 
 
@@ -234,7 +234,7 @@ METHOD GetLookupTable( nMaxRows, uField1, uField2, uSearchValue )
 			ELSE
 				SELF:__DBServerEval( { || AAdd( aResult, { __DBSFieldGet( uField1 ), __DBSFieldGet( uField2 ) } ) },  ;
 					NIL,  ;
-					{ || Eval( cbKey ) == uValue },  ;
+					{ || Functions.Eval( cbKey ) == uValue },  ;
 					wRows,  ;
 					NIL,  ;
 					TRUE,  ;
@@ -349,10 +349,10 @@ METHOD GoBottom( )
 					uValue := uSelectionValue
 					cbKey := cbSelectionIndexingExpression
 					__DBSSeek( uSelectionValue, FALSE, FALSE , nTries )
-					IF Eval( cbKey ) = uValue .OR. VODBFound( )
+					IF Functions.Eval( cbKey ) = uValue .OR. VODBFound( )
 						lRetCode := SELF:__DBServerEval( { || },  ;
 							NIL,  ;
-							{ || Eval( cbKey ) = uValue },  ;
+							{ || Functions.Eval( cbKey ) = uValue },  ;
 							NIL,  NIL,  TRUE , FALSE, FALSE)
 						lRetCode := __DBSSkip( -1, nTries )
 						siSelectionStatus := DBSELECTIONNULL
@@ -425,7 +425,6 @@ METHOD GoTo( nRecordNumber )
 	BEGIN SEQUENCE
 		VODBSelect( wWorkArea, OUT dwCurrentWorkArea )
 		IF SELF:Notify( NOTIFYINTENTTOMOVE )
-			nRecordNumber := INT( nRecordNumber )
 			IF lSelectionActive
 				#IFDEF __DEBUG__
 					DBFDebug( "SERVER:GoTo(" + NTrim( nRecordNumber ) + " )" )
@@ -444,7 +443,7 @@ METHOD GoTo( nRecordNumber )
 					#ENDIF
 
 
-					IF Eval( cbSelectionIndexingExpression ) = uSelectionValue
+					IF Functions.Eval( cbSelectionIndexingExpression ) = uSelectionValue
 						siSelectionStatus := DBSELECTIONNULL
 
 
@@ -461,7 +460,7 @@ METHOD GoTo( nRecordNumber )
 							__DBSGoBottom( nTries )
 							__DBSSkip( 1, nTries )
 						ELSE
-							__DBSGoTo( (INT) nCurrentRecord, nTries )
+							__DBSGoTo( nCurrentRecord, nTries )
 						ENDIF
 					ENDIF
 				ENDIF
@@ -750,7 +749,7 @@ METHOD Join( oDBSource, oFSTarget, aFieldList, cbForBlock )
 METHOD Locate( cbForBlock, cbWhileBlock, uScope )
 	LOCAL uValue AS USUAL
 	LOCAL cbKey AS USUAL
-	LOCAL nNextCount AS LONGINT
+	LOCAL nNextCount AS DWORD
 	LOCAL lRestOfFile AS LOGIC
 	LOCAL lRetCode AS LOGIC
 	LOCAL oError AS USUAL
@@ -827,7 +826,7 @@ METHOD Locate( cbForBlock, cbWhileBlock, uScope )
 			ELSEIF lSelectionActive
 				uValue := uSelectionValue
 				cbKey := cbSelectionIndexingExpression
-				IF ! VODBLocate( { || Eval( cbKey ) = uValue },  ;
+				IF ! VODBLocate( { || Functions.Eval( cbKey ) = uValue },  ;
 					{ || TRUE },  ;
 					0,  ;
 					NIL,  ;
@@ -968,7 +967,7 @@ METHOD LockSelection( )
 				IF VODBSeek( uSelectionValue, FALSE )
 					lRetCode := SELF:__DBServerEval( { || VODBRLock( VODBRecno( ) ) },  ;
 						NIL,  ;
-						{ || Eval( cbKey ) = uValue },  ;
+						{ || Functions.Eval( cbKey ) = uValue },  ;
 						NIL,  NIL,  TRUE , FALSE, FALSE)
 					IF ! lRetCode .OR. ! VODBGoTo( uCurrentRecord )
 						BREAK ErrorBuild( _VODBErrInfoPtr( ) )
@@ -1200,9 +1199,9 @@ METHOD Notify(	 kNotification,	 uDescription )
 			IF lSelectionActive
 				IF uDescription == NIL .OR. uDescription == DBSELECTIONNULL
 					VODBSelect( wSelectionWorkArea, OUT dwCurrentWorkArea )
-					uSelectionValue := Eval( cbSelectionParentExpression )
+					uSelectionValue := Functions.Eval( cbSelectionParentExpression )
 					VODBSetSelect( LONGINT( wWorkArea ) )
-					IF VODBEof( ) .OR. ! ( Eval( cbSelectionIndexingExpression ) = uSelectionValue )
+					IF VODBEof( ) .OR. ! ( Functions.Eval( cbSelectionIndexingExpression ) = uSelectionValue )
 						siSelectionStatus := DBSELECTIONEMPTY
 					ELSE
 						siSelectionStatus := DBSELECTIONNULL
@@ -1215,7 +1214,7 @@ METHOD Notify(	 kNotification,	 uDescription )
 
 			ELSEIF lCDXSelectionActive
 				VODBSelect( wSelectionWorkArea, OUT dwCurrentWorkArea )
-				uVOVal := uVOVal2 := XSharp.RT.Functions.Eval( cbSelectionParentExpression )
+				uVOVal := uVOVal2 := Functions.Eval( cbSelectionParentExpression )
 				VODBSetSelect( LONGINT(wWorkArea ) )
 				VODBOrderInfo( DBOI_SCOPETOP	 , "", NIL, REF uVOVal )
 				VODBOrderInfo( DBOI_SCOPEBottom, "", NIL, REF uVOVal2 )
@@ -1732,12 +1731,12 @@ METHOD OrderScope( nScope, uValue )
 		DEFAULT(REF nScope, TOPSCOPE)
 		IF nScope == TOPSCOPE
 			n := DBOI_SCOPETOP
-			IF IsNil( uValue )
+			IF IsNil( uValue ) .AND. PCount() >1
 				n := DBOI_SCOPETOPCLEAR
 			ENDIF
 		ELSE
 			n := DBOI_SCOPEBOTTOM
-			IF IsNil( uValue )
+			IF IsNil( uValue ) .AND. PCount() >1
 				n := DBOI_SCOPEBOTTOMCLEAR
 			ENDIF
 		ENDIF

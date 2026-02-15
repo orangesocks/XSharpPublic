@@ -89,6 +89,9 @@ FUNCTION IndexExt       () AS STRING STRICT
 FUNCTION IndexKey(nPosition) AS STRING CLIPPER
 	LOCAL uRetVal   AS USUAL
     IF Used()
+        if nPosition:IsNumeric .and. nPosition == 0
+            nPosition := IndexOrd()
+        ENDIF
         uRetVal := DbOrderInfo(DBOI_EXPRESSION, "", nPosition)
     ELSE
         uRetVal := NIL
@@ -458,7 +461,7 @@ FUNCTION DbScope(uScope) AS USUAL CLIPPER
     /// <seealso cref='DbClearScope' />
     /// <seealso cref='DbScope' />
 
-FUNCTION DbSetScope(nScope AS LONG, uValue AS USUAL) AS LOGIC
+FUNCTION DbSetScope(nScope AS LONG, uValue IN USUAL) AS LOGIC
     LOCAL lResult := TRUE AS LOGIC
     TRY
         SWITCH nScope

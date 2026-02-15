@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2025-03-24T22:03:07.760+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>-initlocals</title>
+  <body>
+    <header>
+      <para styleclass="Heading1">-initlocals</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">-initlocals 选项指定编译器是否应自动初始化局部变量</para>
+    <para styleclass="Heading2">语法</para>
+    <para styleclass="Code with box">-initlocals[+|-]</para>
+    <para styleclass="Heading2">参数</para>
+    <para styleclass="List"><text styleclass="Code Example">+ | - </text><tab />指定 + 或 -ins，可指示编译器是否启动局部变量。</para>
+    <para styleclass="Heading2">备注</para>
+    <para styleclass="Normal">这可用于自动初始化所有局部变量，并抑制编译器对未初始化局部变量的警告。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal"><text styleclass="Heading3">要在 Visual Studio 开发环境中设置该编译器选项，请执行以下操作</text></para>
+    <para styleclass="Normal"></para>
+    <list id="0" type="ol" listtype="decimal" formatstring="&#37;&#48;&#58;&#115;&#46;" format-charset="DEFAULT_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="margin-left:13px; font-family:Arial; font-size:11pt; color:#000000;">
+      <li styleclass="Normal" style="margin-left:13px;">打开项目的 &quot;属性&quot;页面</li>
+      <li styleclass="Normal" style="margin-left:13px;">点击 Language 选项卡</li>
+      <li styleclass="Normal" style="margin-left:13px;">在 General 部分，编辑 &quot;Initialize Local Variables(初始化局部变量)&quot; 值</li>
+      <li styleclass="Normal" style="margin-left:13px;"><link displaytype="text" defaultstyle="true" type="topiclink" href="PropPage-Language">查看属性页</link></li>
+    </list>
+    <para styleclass="Heading2"></para>
+  </body>
+</topic>

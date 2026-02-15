@@ -32,12 +32,25 @@ namespace Microsoft.CodeAnalysis.CSharp
                 {
                     binder = binder.Next;
                 }
-                if (binder is InMethodBinder imb && imb.ContainingMemberOrLambda.IsAccessor())
+                if (binder is InMethodBinder imb)
                 {
-                    if (imb.ContainingMemberOrLambda is SourcePropertyAccessorSymbol spa)
+                    if (imb.ContainingMemberOrLambda.IsAccessor())
                     {
-                        var name = spa.AssociatedSymbol.Name;
-                        if (string.Compare(name, propName, true) == 0)
+                        if (imb.ContainingMemberOrLambda is SourcePropertyAccessorSymbol spa)
+                        {
+                            var name = spa.AssociatedSymbol.Name;
+                            if (string.Compare(name, propName, true) == 0)
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                    // if we are in test$Method (XPP) then we are inside a property access/assign
+                    // if we are in test$Access or test$Assign then we are inside a property access/assign
+                    // so check if the method name starts with propName+"$"
+                    if (imb.ContainingMemberOrLambda is SourceMethodSymbol sms)
+                    {
+                        if (sms.Name.StartsWith(propName + "$", StringComparison.OrdinalIgnoreCase))
                         {
                             return true;
                         }
@@ -85,6 +98,11 @@ namespace Microsoft.CodeAnalysis.CSharp
                         }
                     }
                 }
+                if (first.Kind == SymbolKind.Namespace)
+                {
+                    warning = false;
+                    return false;
+                }
             }
             if (second.Kind == SymbolKind.NamedType)
             {
@@ -110,7 +128,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             return false;
         }
 
-        internal Symbol XSharpResolveEqualSymbols(Symbol first, Symbol second, ImmutableArray<Symbol> originalSymbols, CSharpSyntaxNode where, DiagnosticBag diagnostics)
+        internal Symbol XSharpResolveEqualSymbols(Symbol first, Symbol second, ImmutableArray<Symbol> originalSymbols, CSharpSyntaxNode where, BindingDiagnosticBag diagnostics)
         {
             CSDiagnosticInfo info;
             bool warning = true;
@@ -173,7 +191,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             }
         }
-        internal NamespaceOrTypeOrAliasSymbolWithAnnotations XsBindVoStructSymbol(ExpressionSyntax syntax, NamespaceOrTypeOrAliasSymbolWithAnnotations symbol, DiagnosticBag diagnostics)
+        internal NamespaceOrTypeOrAliasSymbolWithAnnotations XsBindVoStructSymbol(ExpressionSyntax syntax, NamespaceOrTypeOrAliasSymbolWithAnnotations symbol, BindingDiagnosticBag diagnostics)
         {
             if ((symbol.TypeWithAnnotations.Type)?.IsVoStructOrUnion() == true)
             {
@@ -190,7 +208,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
             return symbol;
         }
-        internal NamespaceOrTypeOrAliasSymbolWithAnnotations XsBindNamespaceOrTypeOrAliasSymbol(ExpressionSyntax syntax, DiagnosticBag diagnostics, ConsList<TypeSymbol> basesBeingResolved, bool suppressUseSiteDiagnostics, bool includeNameSpace = true)
+        internal NamespaceOrTypeOrAliasSymbolWithAnnotations XsBindNamespaceOrTypeOrAliasSymbol(ExpressionSyntax syntax, BindingDiagnosticBag diagnostics, ConsList<TypeSymbol> basesBeingResolved, bool suppressUseSiteDiagnostics, bool includeNameSpace = true)
         {
             switch (syntax.Kind())
             {

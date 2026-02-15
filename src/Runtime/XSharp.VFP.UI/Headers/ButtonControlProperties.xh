@@ -1,8 +1,9 @@
 ﻿// ButtonControlProperties.xh
-// Created by    : fabri
-// Creation Date : 9/9/2022 4:29:03 PM
-// Created for   : 
-// WorkStation   : FABXPS
+
+//
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
+// See License.txt in the project root for license information.
 
 
 #include "ControlProperties.xh"
@@ -13,7 +14,7 @@
 		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)];
 		[EditorBrowsable(EditorBrowsableState.Never)];
 		[Bindable(false)];
-		[Browsable(false)];
+		[Browsable(FALSE)];
 		PROPERTY BackStyle AS INT
 			GET
 				RETURN _backStyle
@@ -27,4 +28,19 @@
 					SELF:BackColor := System.Drawing.Color.Transparent
 				ENDIF
 			END SET
-		END PROPERTY
+			END PROPERTY
+
+
+
+	    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)];
+            [EditorBrowsable(EditorBrowsableState.Never)];
+		[Browsable(FALSE)];
+		NEW PROPERTY Image AS System.Drawing.Image
+            GET
+				RETURN SUPER:Image
+			END GET
+
+            SET
+                SUPER:Image := VALUE
+			END SET
+			END PROPERTY

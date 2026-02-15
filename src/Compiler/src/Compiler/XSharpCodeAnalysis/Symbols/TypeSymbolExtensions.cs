@@ -23,29 +23,19 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             {
                 // XSharp
                 {XSharpAssemblyNames.XSharpCore, XSharpTargetDLL.Core},
-                {XSharpAssemblyNames.XSharpVO,XSharpTargetDLL.VO},
-                {XSharpAssemblyNames.XSharpRT,XSharpTargetDLL.RT},
-                {XSharpAssemblyNames.XSharpXPP,XSharpTargetDLL.XPP},
-                {XSharpAssemblyNames.XSharpVFP,XSharpTargetDLL.VFP},
-                {XSharpAssemblyNames.XSharpHarbour,XSharpTargetDLL.Harbour},
-                {XSharpAssemblyNames.VoConsole,XSharpTargetDLL.VOConsoleClasses},
-                {XSharpAssemblyNames.VoGui,XSharpTargetDLL.VOGuiClasses},
-                {XSharpAssemblyNames.VoWin32,XSharpTargetDLL.VOWin32Api},
-                {XSharpAssemblyNames.VoRdd,XSharpTargetDLL.VORDDClasses},
-                {XSharpAssemblyNames.VoSql,XSharpTargetDLL.VOSQLClasses},
-                {XSharpAssemblyNames.VoSystem,XSharpTargetDLL.VOSystemClasses},
-                {XSharpAssemblyNames.VoReport,XSharpTargetDLL.VOReportClasses},
-                {XSharpAssemblyNames.VoInet,XSharpTargetDLL.VOInternetClasses},
-                // Vulcan
-                {VulcanAssemblyNames.VulcanRT,XSharpTargetDLL.VulcanRT},
-                {VulcanAssemblyNames.VulcanRTFuncs,XSharpTargetDLL.VulcanRTFuncs},
-                {VulcanAssemblyNames.VulcanVoConsole,XSharpTargetDLL.VulcanVOConsoleClasses},
-                {VulcanAssemblyNames.VulcanVoGui,XSharpTargetDLL.VulcanVOGuiClasses},
-                {VulcanAssemblyNames.VulcanVoSystem,XSharpTargetDLL.VulcanVOSystemClasses},
-                {VulcanAssemblyNames.VulcanVoRdd,XSharpTargetDLL.VulcanVORDDClasses},
-                {VulcanAssemblyNames.VulcanVoSql,XSharpTargetDLL.VulcanVOSQLClasses},
-                {VulcanAssemblyNames.VulcanVoInet,XSharpTargetDLL.VulcanVOInternetClasses},
-                {VulcanAssemblyNames.VulcanVoWin32,XSharpTargetDLL.VulcanVOWin32Api}
+                {XSharpAssemblyNames.XSharpVO, XSharpTargetDLL.VO},
+                {XSharpAssemblyNames.XSharpRT, XSharpTargetDLL.RT},
+                {XSharpAssemblyNames.XSharpXPP, XSharpTargetDLL.XPP},
+                {XSharpAssemblyNames.XSharpVFP, XSharpTargetDLL.VFP},
+                {XSharpAssemblyNames.XSharpHarbour, XSharpTargetDLL.Harbour},
+                {XSharpAssemblyNames.VoConsole, XSharpTargetDLL.VOConsoleClasses},
+                {XSharpAssemblyNames.VoGui, XSharpTargetDLL.VOGuiClasses},
+                {XSharpAssemblyNames.VoWin32, XSharpTargetDLL.VOWin32Api},
+                {XSharpAssemblyNames.VoRdd, XSharpTargetDLL.VORDDClasses},
+                {XSharpAssemblyNames.VoSql, XSharpTargetDLL.VOSQLClasses},
+                {XSharpAssemblyNames.VoSystem, XSharpTargetDLL.VOSystemClasses},
+                {XSharpAssemblyNames.VoReport, XSharpTargetDLL.VOReportClasses},
+                {XSharpAssemblyNames.VoInet, XSharpTargetDLL.VOInternetClasses},
             };
         }
 
@@ -87,7 +77,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         {
             return type is { } &&
                 type.ContainingAssembly.IsRT() &&
-                (type.Name == OurTypeNames.IsInstance || type.Name == OurTypeNames.IsVoInstance);
+                type.Name == OurTypeNames.IsInstance;
         }
         internal static bool IsUsualType(this TypeSymbol type)
         {
@@ -97,6 +87,18 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
         {
             return type is null || type.Name != OurTypeNames.UsualType;
         }
+
+        internal static bool InheritsFromVfpCustom(this TypeSymbol type)
+        {
+            while (type is { })
+            {
+                if (type.Name == "Custom" && type.ToString() == "XSharp.VFP.Custom")
+                    return true;
+                type = type.BaseTypeNoUseSiteDiagnostics;
+            }
+            return false;
+        }
+
         public static MethodSymbol MethodSymbol(this IMethodSymbol sym)
         {
             if (sym is Symbols.PublicModel.MethodSymbol pms)
@@ -386,8 +388,6 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                 case XSharpTargetDLL.VFP:
                 case XSharpTargetDLL.Harbour:
                 case XSharpTargetDLL.RTDebugger:
-                case XSharpTargetDLL.VulcanRT:
-                case XSharpTargetDLL.VulcanRTFuncs:
                     return true;
             }
             return false;
@@ -409,14 +409,6 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                 case XSharpTargetDLL.VOInternetClasses:
                 case XSharpTargetDLL.VOConsoleClasses:
                 case XSharpTargetDLL.VOReportClasses:
-                case XSharpTargetDLL.VulcanVOWin32Api:
-                case XSharpTargetDLL.VulcanVOSystemClasses:
-                case XSharpTargetDLL.VulcanVORDDClasses:
-                case XSharpTargetDLL.VulcanVOSQLClasses:
-                case XSharpTargetDLL.VulcanVOGuiClasses:
-                case XSharpTargetDLL.VulcanVOInternetClasses:
-                case XSharpTargetDLL.VulcanVOConsoleClasses:
-                case XSharpTargetDLL.VulcanVOReportClasses:
                     return true;
             }
             return false;
@@ -529,28 +521,22 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             switch (strType.ToLower())
             {
                 case "xsharp.__date":
-                case "vulcan.__vodate":
                     strType = "date";
                     break;
                 case "xsharp.__float":
-                case "vulcan.__vofloat":
                     strType = "float";
                     break;
                 case "xsharp.__symbol":
-                case "vulcan.__symbol":
                     strType = "symbol";
                     break;
                 case "xsharp.__array":
                 case "xsharp.__arraybase":
-                case "vulcan.__array":
                     strType = "array";
                     break;
                 case "xsharp.__psz":
-                case "vulcan.__psz":
                     strType = "psz";
                     break;
                 case "xsharp.__usual":
-                case "vulcan.__usual":
                     strType = "usual";
                     break;
                 case "xsharp.__currency":

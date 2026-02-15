@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-07-04T21:03:19.619+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>-unsafe</title>
+  <keywords>
+    <keyword>-unsafe</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">-unsafe</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">编译器选项 -unsafe 允许编译使用 unsafe 关键字的代码。</para>
+    <para styleclass="Heading2">语法</para>
+    <para styleclass="Code with box">-unsafe &#160;</para>
+    <para styleclass="Heading2">备注</para>
+    <para styleclass="Normal">有关不安全代码的更多信息，请参阅不安全代码和指针。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal"><text styleclass="Heading3">要在 Visual Studio 开发环境中设置该编译器选项，请执行以下操作</text></para>
+    <para styleclass="Normal"></para>
+    <list id="0" type="ol" listtype="decimal" formatstring="&#37;&#48;&#58;&#115;&#46;" format-charset="DEFAULT_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="margin-left:13px; font-family:Arial; font-size:11pt; color:#000000;">
+      <li styleclass="Normal" style="margin-left:13px;">打开项目的 &quot;属性&quot;页面</li>
+      <li styleclass="Normal" style="margin-left:13px;">点击 Language 选项卡</li>
+      <li styleclass="Normal" style="margin-left:13px;">在 General 部分设置 Allow Unsafe Code 属性</li>
+      <li styleclass="Normal" style="margin-left:13px;"><link displaytype="text" defaultstyle="true" type="topiclink" href="PropPage-Language">查看属性页</link></li>
+    </list>
+    <para styleclass="Heading2">示例</para>
+    <para styleclass="Normal">编译 in.prg，用于不安全模式：</para>
+    <para styleclass="Code with box">xsc -unsafe in.prg &#160;</para>
+    <para styleclass="Normal"></para>
+  </body>
+</topic>

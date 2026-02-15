@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-11-10T19:25:03.162+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>-fox1</title>
+  <keywords>
+    <keyword>-fox1</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">-fox1<tab /><tab />已弃用</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">已弃用</para>
+    <para styleclass="Heading2"></para>
+  </body>
+</topic>

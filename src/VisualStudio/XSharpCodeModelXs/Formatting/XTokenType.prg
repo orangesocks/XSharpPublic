@@ -5,10 +5,10 @@
 //
 
 using LanguageService.CodeAnalysis.XSharp.SyntaxParser
-
+NAMESPACE XSharpModel
 // imported from XSharpLexer.tokens
 // Keep in Sync !
-ENUM XSharpModel.XTokenType AS SHORT
+ENUM XTokenType AS SHORT
     MEMBER None := 0
     MEMBER @@First_keyword:= XSharpLexer.FIRST_KEYWORD
     MEMBER @@Access:= XSharpLexer.ACCESS
@@ -67,6 +67,7 @@ ENUM XSharpModel.XTokenType AS SHORT
     MEMBER @@Procedure:= XSharpLexer.PROCEDURE
     MEMBER @@Protected:= XSharpLexer.PROTECTED
     MEMBER @@Public:= XSharpLexer.PUBLIC
+    MEMBER @@Record := XSharpLexer.RECORD
     MEMBER @@Recover:= XSharpLexer.RECOVER
     MEMBER @@Return:= XSharpLexer.RETURN
     MEMBER @@Self:= XSharpLexer.SELF
@@ -120,6 +121,7 @@ ENUM XSharpModel.XTokenType AS SHORT
     MEMBER @@Set:= XSharpLexer.SET
     MEMBER @@Structure:= XSharpLexer.STRUCTURE
     MEMBER @@Try:= XSharpLexer.TRY
+    MEMBER @@Tuple := XSharpLexer.TUPLE
     MEMBER @@Until:= XSharpLexer.UNTIL
     MEMBER @@Value:= XSharpLexer.VALUE
     MEMBER @@Virtual:= XSharpLexer.VIRTUAL
@@ -150,8 +152,8 @@ ENUM XSharpModel.XTokenType AS SHORT
     MEMBER @@Params:= XSharpLexer.PARAMS
     MEMBER @@Remove:= XSharpLexer.REMOVE
     MEMBER @@Select:= XSharpLexer.SELECT
+    MEMBER @@StackAlloc := XSharpLexer.STACKALLOC
     MEMBER @@Switch:= XSharpLexer.SWITCH
-    MEMBER @@Tuple := XSharpLexer.TUPLE
     MEMBER @@Unchecked:= XSharpLexer.UNCHECKED
     MEMBER @@Unsafe:= XSharpLexer.UNSAFE
     MEMBER @@Var:= XSharpLexer.VAR
@@ -200,6 +202,7 @@ ENUM XSharpModel.XTokenType AS SHORT
     MEMBER @@Assignment:= XSharpLexer.ASSIGNMENT
     MEMBER @@Deferred:= XSharpLexer.DEFERRED
     MEMBER @@Endclass:= XSharpLexer.ENDCLASS
+    MEMBER @@Endsequence:= XSharpLexer.ENDSEQUENCE
     MEMBER @@Exported:= XSharpLexer.EXPORTED
     MEMBER @@Freeze:= XSharpLexer.FREEZE
     MEMBER @@Final:= XSharpLexer.FINAL
@@ -220,7 +223,15 @@ ENUM XSharpModel.XTokenType AS SHORT
     MEMBER @@Noinit:= XSharpLexer.NOINIT
     MEMBER @@Then:= XSharpLexer.THEN
     MEMBER @@Fox_m:= XSharpLexer.FOX_M
-    MEMBER @@Last_keyword:= XSharpLexer.LAST_KEYWORD
+    MEMBER @@Scan := XSharpLexer.SCAN
+    MEMBER @@EndScan := XSharpLexer.ENDSCAN
+    MEMBER @@EndFor := XSharpLexer.ENDFOR
+    MEMBER @@EndFunc := XSharpLexer.ENDFUNC
+    MEMBER @@EndProc := XSharpLexer.ENDPROC
+    MEMBER @@EndTry := XSharpLexer.ENDTRY
+    MEMBER @@EndWith := XSharpLexer.ENDWITH
+    MEMBER @@Each := XSharpLexer.EACH
+    Member @@Last_keyword := XSharpLexer.LAST_KEYWORD
     MEMBER @@First_null:= XSharpLexer.FIRST_NULL
     MEMBER @@Nil:= XSharpLexer.NIL
     MEMBER @@Null:= XSharpLexer.NULL
@@ -260,10 +271,10 @@ ENUM XSharpModel.XTokenType AS SHORT
     MEMBER @@And:= XSharpLexer.AND
     MEMBER @@Or:= XSharpLexer.OR
     MEMBER @@Not:= XSharpLexer.NOT
-    MEMBER @@Vo_not:= XSharpLexer.VO_NOT
-    MEMBER @@Vo_and:= XSharpLexer.VO_AND
-    MEMBER @@Vo_or:= XSharpLexer.VO_OR
-    MEMBER @@Vo_xor:= XSharpLexer.VO_XOR
+    MEMBER @@Bit_not:= XSharpLexer.BIT_NOT
+    MEMBER @@Bit_and:= XSharpLexer.BIT_AND
+    MEMBER @@Bit_or:= XSharpLexer.BIT_OR
+    MEMBER @@Bit_xor:= XSharpLexer.BIT_XOR
     MEMBER @@Assign_op:= XSharpLexer.ASSIGN_OP
     MEMBER @@Assign_add:= XSharpLexer.ASSIGN_ADD
     MEMBER @@Assign_sub:= XSharpLexer.ASSIGN_SUB
@@ -335,6 +346,7 @@ ENUM XSharpModel.XTokenType AS SHORT
     MEMBER @@PP_ifndef:= XSharpLexer.PP_IFNDEF
     MEMBER @@PP_include:= XSharpLexer.PP_INCLUDE
     MEMBER @@PP_line:= XSharpLexer.PP_LINE
+    MEMBER @@PP_nullable:= XSharpLexer.PP_NULLABLE
     MEMBER @@PP_region:= XSharpLexer.PP_REGION
     MEMBER @@PP_stdout:= XSharpLexer.PP_STDOUT
     MEMBER @@PP_translate:= XSharpLexer.PP_TRANSLATE

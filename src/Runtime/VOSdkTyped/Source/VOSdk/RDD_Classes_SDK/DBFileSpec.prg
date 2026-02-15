@@ -21,7 +21,7 @@ CLASS DbFileSpec INHERIT FileSpec
 	PROTECT nHeaderSize AS INT
 	PROTECT dLastUpDate AS DATE
 	PROTECT aDbStruct AS ARRAY
-	PROTECT nRecCount AS LONGINT
+	PROTECT nRecCount AS DWORD
 	PROTECT nRecSize AS INT
 	PROTECT nRLockCount AS INT
 	PROTECT nMemBlockSize AS INT
@@ -29,7 +29,7 @@ CLASS DbFileSpec INHERIT FileSpec
 	PROTECT bWhileBlock AS USUAL
 	PROTECT aFields AS ARRAY
 	PROTECT nNext AS  LONG
-	PROTECT nRecord AS  LONG
+	PROTECT nRecord AS DWORD
 	PROTECT lRest AS LOGIC
 	PROTECT cDelim AS STRING
 	PROTECT lSDF AS LOGIC
@@ -855,7 +855,7 @@ ASSIGN FileName( cFileName AS STRING)
 
 
 /// <include file="Rdd.xml" path="doc/DbFileSpec.Find/*" />
-METHOD Find() AS LOGIC STRICT
+METHOD Find() AS LOGIC
 	LOCAL lRetCode AS LOGIC
 
 
@@ -1325,21 +1325,21 @@ ACCESS RDDs AS ARRAY
 
 
 /// <include file="Rdd.xml" path="doc/DbFileSpec.RecCount/*" />
-ACCESS RecCount AS LONG
+ACCESS RecCount AS DWORD
 
 
 	RETURN SELF:nRecCount
 
 
 /// <include file="Rdd.xml" path="doc/DbFileSpec.Recno/*" />
-ACCESS RecNo AS LONG
+ACCESS RecNo AS DWORD
 
 
 	RETURN SELF:nRecord
 
 
 /// <include file="Rdd.xml" path="doc/DbFileSpec.Recno/*" />
-ASSIGN RecNo( nDWord   AS LONG)
+ASSIGN RecNo( nDWord   AS DWORD)
 
 
 	SELF:nRecord := nDWord

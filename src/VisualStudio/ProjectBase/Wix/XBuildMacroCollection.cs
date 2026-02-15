@@ -3,8 +3,6 @@
 // Licensed under the Apache License, Version 2.0.
 // See License.txt in the project root for license information.
 //
-namespace Microsoft.VisualStudio.Project
-{
     using System;
     using System.Collections;
     using System.Collections.Generic;
@@ -16,7 +14,9 @@ namespace Microsoft.VisualStudio.Project
     using Microsoft.VisualStudio.Shell;
     using Microsoft.VisualStudio.Shell.Interop;
     using XSharp;
-
+using XSharp.VisualStudio.Project;
+namespace Microsoft.VisualStudio.Project
+{
     public class XBuildMacroCollection : ICollection, IEnumerable<XBuildMacroCollection.MacroNameValuePair>
     {
         // =========================================================================================
@@ -37,8 +37,10 @@ namespace Microsoft.VisualStudio.Project
               {
                 "BaseIntermediateOutputPath",
                 "BaseOutputPath",
+                "Configuration",
                 "ConfigurationName",
                 "OutDir",
+                "Platform",
                 "PlatformName",
                 "ProjectDir",
                 "ProjectExt",
@@ -102,7 +104,12 @@ namespace Microsoft.VisualStudio.Project
                 {
                     value = project.GetProjectProperty(macroName);
                 }
-
+                if (macroName.EndsWith("path", StringComparison.OrdinalIgnoreCase) ||
+                    macroName.EndsWith("filename", StringComparison.OrdinalIgnoreCase) ||
+                    macroName.EndsWith("dir", StringComparison.OrdinalIgnoreCase))
+                {
+                    value = Path.GetFullPath(value);
+                }
                 this.list.Add(macroName, value);
             }
         }
@@ -240,8 +247,8 @@ namespace Microsoft.VisualStudio.Project
                     // this routine is called from InvokeMSBuild and we don't want that to fix because of
                     // some bug here, so this code is surrounded by try/catch until we figure this out
                     int hr = solutionBuildManager.FindActiveProjectCfg(IntPtr.Zero, IntPtr.Zero, hierarchy, projectCfgArray);
-                    ErrorHandler.ThrowOnFailure(hr);
-
+                    if (hr == 0)
+                    {
                     projectCfg2 = projectCfgArray[0] as IVsProjectCfg2;
 
                     if (projectCfg2 != null)
@@ -263,6 +270,7 @@ namespace Microsoft.VisualStudio.Project
                         configList.Append(referenceNode.ReferencedProjectName);
                         configList.Append('=');
                         configList.Append(configuration);
+                        }
                     }
                 }
                 catch (Exception)

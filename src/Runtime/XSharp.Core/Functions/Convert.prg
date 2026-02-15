@@ -55,6 +55,25 @@ FUNCTION Bin2L(cSignedInt AS STRING) AS LONG
     RETURN liResult
 
 
+/// <include file="VoFunctionDocs.xml" path="Runtimefunctions/bin2l/*" />
+FUNCTION Bin2Int64(cSignedInt AS STRING) AS INT64
+    LOCAL i64Result := 0 AS INT64
+    IF cSignedInt!= NULL .AND. cSignedInt:Length >= 8
+        LOCAL aBytes AS BYTE[]
+        aBytes := BYTE[]{8}
+        aBytes[0] := (BYTE) _AND(cSignedInt:Chars[0], 0xFF)
+        aBytes[1] := (BYTE) _AND(cSignedInt:Chars[1], 0xFF)
+        aBytes[2] := (BYTE) _AND(cSignedInt:Chars[2], 0xFF)
+        aBytes[3] := (BYTE) _AND(cSignedInt:Chars[3], 0xFF)
+        aBytes[4] := (BYTE) _AND(cSignedInt:Chars[4], 0xFF)
+        aBytes[5] := (BYTE) _AND(cSignedInt:Chars[5], 0xFF)
+        aBytes[6] := (BYTE) _AND(cSignedInt:Chars[6], 0xFF)
+        aBytes[7] := (BYTE) _AND(cSignedInt:Chars[7], 0xFF)
+        i64Result := BitConverter.ToInt64(aBytes, 0)
+    ENDIF
+    RETURN i64Result
+
+
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/bin2logic/*" />
 FUNCTION Bin2Logic(pszLogical AS STRING) AS LOGIC
     RETURN pszLogical != NULL .AND. pszLogical[0] != 0
@@ -68,7 +87,7 @@ FUNCTION Ptr2Bin(p AS IntPtr) AS STRING
     IF IntPtr.Size == 4
         RETURN L2Bin( p:ToInt32())
     ELSE
-        THROW NotSupportedException{}
+        RETURN I642Bin( p:ToInt64())
     ENDIF
 
 /// <summary>
@@ -80,7 +99,7 @@ FUNCTION Bin2Ptr(cPointer AS STRING) AS IntPtr
     IF IntPtr.Size == 4
         RETURN (IntPtr) Bin2L(cPointer)
     ELSE
-        THROW NotSupportedException{}
+        RETURN (IntPtr) Bin2Int64(cPointer)
     ENDIF
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/bin2real4/*" />
@@ -180,7 +199,7 @@ FUNCTION _C2Hex(cSource AS STRING, lAddSpace as LOGIC) AS STRING
 FUNCTION C2Hex(cSource AS STRING) AS STRING
     RETURN _C2Hex(cSource, FALSE)
 
-// helper function to convert bytes to string
+    // helper function to convert bytes to string
 
 INTERNAL FUNCTION _bytes2String(byteArray AS BYTE[]) AS STRING
     LOCAL sb AS StringBuilder
@@ -217,6 +236,12 @@ FUNCTION I2Bin(siValue AS SHORT) AS STRING
 FUNCTION L2Bin(liValue AS LONG) AS STRING
     LOCAL byteArray := BitConverter.GetBytes( liValue ) AS BYTE[]
     RETURN _bytes2String(byteArray)
+
+/// <include file="VoFunctionDocs.xml" path="Runtimefunctions/l2bin/*" />
+FUNCTION I642Bin(liValue AS INT64) AS STRING
+    LOCAL byteArray := BitConverter.GetBytes( liValue ) AS BYTE[]
+    RETURN _bytes2String(byteArray)
+
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/lobyte/*" />
 FUNCTION LoByte(wValue AS WORD) AS BYTE
@@ -266,7 +291,7 @@ FUNCTION W2Bin(wValue AS WORD) AS STRING
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/val/*" />
 FUNCTION _Val(cNumber AS STRING) AS OBJECT
     IF String.IsNullOrEmpty(cNumber)
-      RETURN 0
+        RETURN 0
     ENDIF
     cNumber := cNumber:Trim():ToUpper()
     // find non numeric characters in cNumber and trim the field to that length
@@ -388,6 +413,40 @@ FUNCTION GetPartialEnumName(cName as STRING, oType as System.Type) AS STRING
         cName := ""
     ENDIF
     RETURN cName
+
+
+/// <exclude/>
+FUNCTION __Bytes2String( bytes AS byte[]) AS STRING
+    LOCAL Chars as char[]
+    LOCAL x  AS INT
+    if bytes == NULL
+        THROW ArgumentNullException{"Input byte array cannot be null."}
+    endif
+    var len := bytes:Length
+    IF len > 0
+        Chars  := char[]{ len }
+
+        FOR x := 0 UPTO len - 1
+            Chars[x] := bytes[x]
+        NEXT
+
+        RETURN String{ Chars }
+    ELSE
+        RETURN ""
+    ENDIF
+/// <exclude/>
+FUNCTION __String2Bytes( s AS STRING) AS BYTE[]
+    LOCAL resultbytes AS BYTE[]
+    if s == NULL
+        THROW ArgumentNullException{"Input string cannot be null."}
+    endif
+    var len := s:Length
+    resultbytes  := BYTE[]{len}
+    var Chars := s:ToCharArray()
+    FOR VAR i := 0 UPTO len-1
+        resultbytes[i] := (BYTE) _AND(Chars[i], 0xFF)
+    NEXT
+    RETURN resultbytes
 
 
 

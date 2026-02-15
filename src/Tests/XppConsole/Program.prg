@@ -1,49 +1,34 @@
-// Calling method from parent class through the generated access that returns a parent object
-// https://github.com/X-Sharp/XSharpPublic/issues/1338
-#pragma warnings(9201, off)   // SHARED clause
-#pragma warnings(108, off)    // DerivedExample.a' hides inherited member 'Example.a'. Use the new keyword if hiding was intended.
-procedure Main()
-    local o
+procedure main()
     try
-    o := DerivedExample():new()
-    ? o:a
-    ? o:Example:a
-    ? o:Name()
-    ? "Example:Name",o:Example:Name()
-    ? o:OldName()
-    catch e as exception
+    local o := Example():new()  as object
+
+
+    ? Example():classField
+    ? Example():classMethod()
+    ? Example():classAccMethod
+    ?
+    ? o:classField
+    ? o:classMethod()
+    ? o:classAccMethod
+    catch e as Exception
         ? e:ToString()
     end try
-    _wait()
-    return
 
-class DerivedExample from Example
-exported:
-    inline method Init()
-        super:Init()
-        ::a := 4
-        ::Example:a := 5
-        ? "DerivedExample:Init(): ", ::a, super:a, ::Example:a
-        return self
-
-    inline method Name()
-        return "DerivedExample:Name():" + super:Name() + " " + ::Example:Name()+ " "
-
-    inline method OldName()
-    return "DerivedExample:OldName(): " + super:Name() + " " + ::Example:Name()+ " "
-
-    var a
-endclass
+    wait
+return
 
 
 class Example
 exported:
-    inline method Init()
-        ::a := 3
-        return self
+    inline access class method classAccMethod()
+    return ::classField + 2
 
-    inline method Name()
-        return "Example Name"
+    inline class method initClass()
+        ::classField := 4
+    return
 
-    var a
+    inline class method classMethod()
+    return ::classField + 1
+
+    class var classField
 endclass

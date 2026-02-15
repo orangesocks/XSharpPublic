@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-06-30T11:27:55.901+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>#ifndef</title>
+  <keywords>
+    <keyword>#ifndef</keyword>
+    <keyword>Preprocessor</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">#ifndef</para>
+    </header>
+    <para styleclass="Heading1">用途</para>
+    <para styleclass="Body Text">当 X# 编译器遇到一个 #ifndef 指令，随后又遇到一个 &#160;<link displaytype="text" defaultstyle="true" type="topiclink" href="pp-Endif">#endif</link> 指令时，只有当指定的符号未被定义时，编译器才会编译指令之间的代码。</para>
+    <para styleclass="Body Text">X# 中的 #ifndef 语句是布尔语句，只测试符号是否已定义。例如</para>
+    <para styleclass="Code Example">// DEBUG 可在命令行中定义<br/>// ...<br/>#if DEBUG<br/> &#160; &#160;Console.WriteLine(&quot;调试版本&quot;);<br/>#else<br/> &#160; &#160;Console.WriteLine(&quot;发布版本&quot;);<br/>#endif</para>
+    <para styleclass="Heading3">备注</para>
+    <para styleclass="Body Text">当 /vo8 激活时，任何以 FALSE 或 0 数值定义的符号也将被视为 &quot;未定义&quot;。</para>
+    <para styleclass="Body Text"></para>
+  </body>
+</topic>

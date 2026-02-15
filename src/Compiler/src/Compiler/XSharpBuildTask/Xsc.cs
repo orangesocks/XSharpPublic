@@ -3,6 +3,7 @@
 // Licensed under the Apache License, Version 2.0.
 // See License.txt in the project root for license information.
 //
+
 using System;
 using System.Text;
 using Microsoft.Build.Tasks;
@@ -12,6 +13,7 @@ using Microsoft.Build.Utilities;
 using System.IO;
 using System.Diagnostics;
 using Roslyn.Utilities;
+using System.Collections.Generic;
 
 namespace XSharp.Build
 {
@@ -23,6 +25,7 @@ namespace XSharp.Build
             //System.Diagnostics.Debugger.Launch();
             useCRLF = !string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable(Constants.EnvironmentXSharpDev));
             errorCount = 0;
+            RootNameSpace = "";
         }
 
 
@@ -259,6 +262,32 @@ namespace XSharp.Build
         #endregion
         #region properties copied from the csc task
 
+        #region New in X# 3.0
+
+        public string? ProjectName
+        {
+            set { _store[nameof(ProjectName)] = value; }
+            get { return (string?)_store[nameof(ProjectName)]; }
+        }
+        public bool ReportIVTs
+        {
+            set { _store[nameof(ReportIVTs)] = value; }
+            get { return _store.GetOrDefault(nameof(ReportIVTs), false); }
+        }
+
+        public string? TargetFramework
+        {
+            set { _store[nameof(TargetFramework)] = value; }
+            get { return (string?)_store[nameof(TargetFramework)]; }
+        }
+        public string? InterceptorsPreviewNamespaces
+        {
+            set { _store[nameof(InterceptorsPreviewNamespaces)] = value; }
+            get { return (string?)_store[nameof(InterceptorsPreviewNamespaces)]; }
+        }
+
+
+        #endregion
         public bool AllowUnsafeBlocks
         {
             set { _store[nameof(AllowUnsafeBlocks)] = value; }
@@ -416,7 +445,7 @@ namespace XSharp.Build
 
         #endregion
 
-        private bool useCRLF;
+        private readonly bool useCRLF;
         private int errorCount;
         //private bool hasShownMaxErrorMsg;
         protected override string ToolNameWithoutExtension
@@ -530,16 +559,61 @@ namespace XSharp.Build
                 throw;
             }
         }
+        /// <summary>
+        /// Generate the arguments to pass directly to the managed tool. These do not include
+        /// arguments in the response file.
+        /// </summary>
+        /// <remarks>
+        /// This will be the same value whether the build occurs on .NET Core or .NET Framework.
+        /// </remarks>
+        internal string GenerateToolArguments()
+        {
+            var builder = new CommandLineBuilderExtension();
+            AddCommandLineCommands(builder);
+            return builder.ToString();
+        }
 
         protected override string GetResponseFileSwitch(string responseFilePath)
         {
-            string newfile = Path.Combine(Path.GetDirectoryName(responseFilePath) , "LastXSharpResponseFile.Rsp");
+            string newfile = Path.Combine(Path.GetTempPath(), "LastXSharpResponseFile.Rsp");
             Utilities.CopyFileSafe(responseFilePath, newfile);
             return base.GetResponseFileSwitch(responseFilePath);
         }
 
+        protected List<string> GenerateCommandLineArgsList(string responseFileCommands)
+        {
+            var argumentList = new List<string>();
+            var builder = new StringBuilder();
+            CommandLineUtilities.SplitCommandLineIntoArguments(GenerateToolArguments(), removeHashComments: true, builder, argumentList, out _);
+            CommandLineUtilities.SplitCommandLineIntoArguments(responseFileCommands, removeHashComments: true, builder, argumentList,out _);
+            return argumentList;
+        }
+
+        protected internal ITaskItem[] GenerateCommandLineArgsTaskItems(string responseFileCommands) =>
+            GenerateCommandLineArgsTaskItems(GenerateCommandLineArgsList(responseFileCommands));
+
+        protected static ITaskItem[] GenerateCommandLineArgsTaskItems(List<string> commandLineArgs)
+        {
+            var items = new ITaskItem[commandLineArgs.Count];
+            for (var i = 0; i < commandLineArgs.Count; i++)
+            {
+                items[i] = new TaskItem(commandLineArgs[i]);
+            }
+
+            return items;
+        }
+
         protected override int ExecuteTool(string pathToTool, string responseFileCommands, string commandLineCommands)
         {
+            if (ProvideCommandLineArgs)
+            {
+                CommandLineArgs = GenerateCommandLineArgsTaskItems(responseFileCommands);
+            }
+
+            if (SkipCompilerExecution)
+            {
+                return 0;
+            }
             int iResult;
             DateTime start = DateTime.Now;
             iResult = base.ExecuteTool(pathToTool, responseFileCommands, commandLineCommands);
@@ -554,14 +628,15 @@ namespace XSharp.Build
             if (string.IsNullOrEmpty(CompilerPath))
             {
                 // If used after MSI Installer, value should be in the Registry
-                string InstallPath = Utilities.XSharpBinPath();
+                string InstallPath = Utilities.XSharpBinDir();
                 CompilerPath = InstallPath;
                 // Allow to override the path when developing.
                 // Please note that this must be a complete path, for example "d:\Xsharp\Dev\XSharp\Binaries\Debug"
 
-                string DevPath = System.Environment.GetEnvironmentVariable(Constants.EnvironmentXSharpDev);
-                if (!string.IsNullOrEmpty(DevPath) )
+                string? DevPath = System.Environment.GetEnvironmentVariable(Constants.EnvironmentXSharpDev);
+                if (!string.IsNullOrEmpty(DevPath))
                 {
+                    DevPath = DevPath.Trim();
                     string testPath = Path.Combine(DevPath, toolName);
                     if (File.Exists(testPath))
                     {
@@ -618,8 +693,8 @@ namespace XSharp.Build
                 string switchName = "/reference:";
                 if (!isInteractive)
                 {
-                    bool embed = Utilities.TryConvertItemMetadataToBool(reference,
-                                                                        "EmbedInteropTypes");
+
+                    bool embed = reference.GetBool("EmbedInteropTypes");
 
                     if (embed)
                     {
@@ -694,7 +769,7 @@ namespace XSharp.Build
         /// other words, a constant is either defined or not defined ... it can't have
         /// an actual value.
         /// </summary>
-        internal static string GetDefineConstantsSwitch(string originalDefineConstants, TaskLoggingHelper log)
+        internal static string? GetDefineConstantsSwitch(string? originalDefineConstants, TaskLoggingHelper log)
         {
             if (originalDefineConstants == null)
             {
@@ -757,50 +832,50 @@ namespace XSharp.Build
                 }
                 commandline.AppendSwitch("/ns:" + this.RootNameSpace);
             }
-            commandline.AppendPlusOrMinusSwitch("/allowdot", _store, nameof(AllowDot));
-            commandline.AppendPlusOrMinusSwitch("/allowoldstyleassignments", _store, nameof(AllowOldStyleAssignments));
-            commandline.AppendPlusOrMinusSwitch("/az", _store, nameof(AZ));
-            commandline.AppendPlusOrMinusSwitch("/cs", _store, nameof(CS));
-            commandline.AppendPlusOrMinusSwitch("/initlocals", _store, nameof(InitLocals));
-            commandline.AppendPlusOrMinusSwitch("/ins", _store, nameof(INS));
-            commandline.AppendPlusOrMinusSwitch("/lb", _store, nameof(LB));
-            commandline.AppendPlusOrMinusSwitch("/namedarguments", _store, nameof(NamedArgs));
+            commandline.AppendPlusOrMinusSwitchAlways("/allowdot", _store, nameof(AllowDot));
+            commandline.AppendPlusOrMinusSwitchAlways("/allowoldstyleassignments", _store, nameof(AllowOldStyleAssignments));
+            commandline.AppendPlusOrMinusSwitchAlways("/az", _store, nameof(AZ));
+            commandline.AppendPlusOrMinusSwitchAlways("/cs", _store, nameof(CS));
+            commandline.AppendPlusOrMinusSwitchAlways("/initlocals", _store, nameof(InitLocals));
+            commandline.AppendPlusOrMinusSwitchAlways("/ins", _store, nameof(INS));
+            commandline.AppendPlusOrMinusSwitchAlways("/lb", _store, nameof(LB));
+            commandline.AppendPlusOrMinusSwitchAlways("/namedarguments", _store, nameof(NamedArgs));
             if (Dialect.ToLower() != "core" && Dialect.ToLower() != "vulcan")
             {
-                commandline.AppendPlusOrMinusSwitch("/memvar", _store, nameof(MemVar));
-                commandline.AppendPlusOrMinusSwitch("/undeclared", _store, nameof(Undeclared));
+                commandline.AppendPlusOrMinusSwitchAlways("/memvar", _store, nameof(MemVar));
+                commandline.AppendPlusOrMinusSwitchAlways("/undeclared", _store, nameof(Undeclared));
             }
-            commandline.AppendPlusOrMinusSwitch("/enforceself", _store, nameof(EnforceSelf));
-            commandline.AppendPlusOrMinusSwitch("/enforceoverride", _store, nameof(EnforceOverride));
-            commandline.AppendPlusOrMinusSwitch("/modernsyntax", _store, nameof(ModernSyntax));
-            commandline.AppendPlusOrMinusSwitch("/noinit", _store, nameof(NoInit));
-            commandline.AppendPlusOrMinusSwitch("/ovf", _store, nameof(OVF));
-            commandline.AppendPlusOrMinusSwitch("/ppo", _store, nameof(PPO));
-            commandline.AppendPlusOrMinusSwitch("/vo1", _store, nameof(VO1));
-            commandline.AppendPlusOrMinusSwitch("/vo2", _store, nameof(VO2));
-            commandline.AppendPlusOrMinusSwitch("/vo3", _store, nameof(VO3));
-            commandline.AppendPlusOrMinusSwitch("/vo4", _store, nameof(VO4));
-            commandline.AppendPlusOrMinusSwitch("/vo5", _store, nameof(VO5));
-            commandline.AppendPlusOrMinusSwitch("/vo6", _store, nameof(VO6));
-            commandline.AppendPlusOrMinusSwitch("/vo7", _store, nameof(VO7));
-            commandline.AppendPlusOrMinusSwitch("/vo8", _store, nameof(VO8));
-            commandline.AppendPlusOrMinusSwitch("/vo9", _store, nameof(VO9));
-            commandline.AppendPlusOrMinusSwitch("/vo10", _store, nameof(VO10));
-            commandline.AppendPlusOrMinusSwitch("/vo11", _store, nameof(VO11));
-            commandline.AppendPlusOrMinusSwitch("/vo12", _store, nameof(VO12));
-            commandline.AppendPlusOrMinusSwitch("/vo13", _store, nameof(VO13));
-            commandline.AppendPlusOrMinusSwitch("/vo14", _store, nameof(VO14));
-            commandline.AppendPlusOrMinusSwitch("/vo15", _store, nameof(VO15));
-            commandline.AppendPlusOrMinusSwitch("/vo16", _store, nameof(VO16));
-            commandline.AppendPlusOrMinusSwitch("/vo17", _store, nameof(VO17));
+            commandline.AppendPlusOrMinusSwitchAlways("/enforceself", _store, nameof(EnforceSelf));
+            commandline.AppendPlusOrMinusSwitchAlways("/enforceoverride", _store, nameof(EnforceOverride));
+            commandline.AppendPlusOrMinusSwitchAlways("/modernsyntax", _store, nameof(ModernSyntax));
+            commandline.AppendPlusOrMinusSwitchAlways("/noinit", _store, nameof(NoInit));
+            commandline.AppendPlusOrMinusSwitchAlways("/ovf", _store, nameof(OVF));
+            commandline.AppendPlusOrMinusSwitchAlways("/ppo", _store, nameof(PPO));
+            commandline.AppendPlusOrMinusSwitchAlways("/vo1", _store, nameof(VO1));
+            commandline.AppendPlusOrMinusSwitchAlways("/vo2", _store, nameof(VO2));
+            commandline.AppendPlusOrMinusSwitchAlways("/vo3", _store, nameof(VO3));
+            commandline.AppendPlusOrMinusSwitchAlways("/vo4", _store, nameof(VO4));
+            commandline.AppendPlusOrMinusSwitchAlways("/vo5", _store, nameof(VO5));
+            commandline.AppendPlusOrMinusSwitchAlways("/vo6", _store, nameof(VO6));
+            commandline.AppendPlusOrMinusSwitchAlways("/vo7", _store, nameof(VO7));
+            commandline.AppendPlusOrMinusSwitchAlways("/vo8", _store, nameof(VO8));
+            commandline.AppendPlusOrMinusSwitchAlways("/vo9", _store, nameof(VO9));
+            commandline.AppendPlusOrMinusSwitchAlways("/vo10", _store, nameof(VO10));
+            commandline.AppendPlusOrMinusSwitchAlways("/vo11", _store, nameof(VO11));
+            commandline.AppendPlusOrMinusSwitchAlways("/vo12", _store, nameof(VO12));
+            commandline.AppendPlusOrMinusSwitchAlways("/vo13", _store, nameof(VO13));
+            commandline.AppendPlusOrMinusSwitchAlways("/vo14", _store, nameof(VO14));
+            commandline.AppendPlusOrMinusSwitchAlways("/vo15", _store, nameof(VO15));
+            commandline.AppendPlusOrMinusSwitchAlways("/vo16", _store, nameof(VO16));
+            commandline.AppendPlusOrMinusSwitchAlways("/vo17", _store, nameof(VO17));
             if (Dialect.ToLower() == "xpp")
             {
-                commandline.AppendPlusOrMinusSwitch("/xpp1", _store, nameof(XPP1));
+                commandline.AppendPlusOrMinusSwitchAlways("/xpp1", _store, nameof(XPP1));
             }
             if (Dialect.ToLower() == "foxpro")
             {
-                commandline.AppendPlusOrMinusSwitch("/fox1", _store, nameof(FOX1));
-                commandline.AppendPlusOrMinusSwitch("/fox2", _store, nameof(FOX2));
+                commandline.AppendPlusOrMinusSwitchAlways("/fox1", _store, nameof(FOX1));
+                commandline.AppendPlusOrMinusSwitchAlways("/fox2", _store, nameof(FOX2));
             }
 
             // User-defined CommandLine Option (in order to support switches unknown at that time)
@@ -919,6 +994,153 @@ namespace XSharp.Build
             }
         }
 
+    }
+    internal static class CommandLineUtilities
+    {
+        /// <summary>
+        /// Split a command line by the same rules as Main would get the commands except the original
+        /// state of backslashes and quotes are preserved.  For example in normal Windows command line
+        /// parsing the following command lines would produce equivalent Main arguments:
+        ///
+        ///     - /r:a,b
+        ///     - /r:"a,b"
+        ///
+        /// This method will differ as the latter will have the quotes preserved.  The only case where
+        /// quotes are removed is when the entire argument is surrounded by quotes without any inner
+        /// quotes.
+        /// </summary>
+        /// <remarks>
+        /// Rules for command line parsing, according to MSDN:
+        ///
+        /// Arguments are delimited by white space, which is either a space or a tab.
+        ///
+        /// A string surrounded by double quotation marks ("string") is interpreted
+        /// as a single argument, regardless of white space contained within.
+        /// A quoted string can be embedded in an argument.
+        ///
+        /// A double quotation mark preceded by a backslash (\") is interpreted as a
+        /// literal double quotation mark character (").
+        ///
+        /// Backslashes are interpreted literally, unless they immediately precede a
+        /// double quotation mark.
+        ///
+        /// If an even number of backslashes is followed by a double quotation mark,
+        /// one backslash is placed in the argv array for every pair of backslashes,
+        /// and the double quotation mark is interpreted as a string delimiter.
+        ///
+        /// If an odd number of backslashes is followed by a double quotation mark,
+        /// one backslash is placed in the argv array for every pair of backslashes,
+        /// and the double quotation mark is "escaped" by the remaining backslash,
+        /// causing a literal double quotation mark (") to be placed in argv.
+        /// </remarks>
+        public static List<string> SplitCommandLineIntoArguments(string commandLine, bool removeHashComments)
+        {
+            return SplitCommandLineIntoArguments(commandLine, removeHashComments, out _);
+        }
+
+        public static List<string> SplitCommandLineIntoArguments(string commandLine, bool removeHashComments, out char? illegalChar)
+        {
+            var list = new List<string>();
+            SplitCommandLineIntoArguments(commandLine, removeHashComments, new StringBuilder(), list, out illegalChar);
+            return list;
+        }
+
+        public static void SplitCommandLineIntoArguments(string commandLine, bool removeHashComments, StringBuilder builder, List<string> list, out char? illegalChar)
+        {
+            var i = 0;
+
+            builder.Length = 0;
+            illegalChar = null;
+            while (i < commandLine.Length)
+            {
+                while (i < commandLine.Length && char.IsWhiteSpace(commandLine[i]))
+                {
+                    i++;
+                }
+
+                if (i == commandLine.Length)
+                {
+                    break;
+                }
+
+                if (commandLine[i] == '#' && removeHashComments)
+                {
+                    break;
+                }
+
+                var quoteCount = 0;
+                builder.Length = 0;
+                while (i < commandLine.Length && (!char.IsWhiteSpace(commandLine[i]) || (quoteCount % 2 != 0)))
+                {
+                    var current = commandLine[i];
+                    switch (current)
+                    {
+                        case '\\':
+                            {
+                                var slashCount = 0;
+                                do
+                                {
+                                    builder.Append(commandLine[i]);
+                                    i++;
+                                    slashCount++;
+                                } while (i < commandLine.Length && commandLine[i] == '\\');
+
+                                // Slashes not followed by a quote character can be ignored for now
+                                if (i >= commandLine.Length || commandLine[i] != '"')
+                                {
+                                    break;
+                                }
+
+                                // If there is an odd number of slashes then it is escaping the quote
+                                // otherwise it is just a quote.
+                                if (slashCount % 2 == 0)
+                                {
+                                    quoteCount++;
+                                }
+
+                                builder.Append('"');
+                                i++;
+                                break;
+                            }
+
+                        case '"':
+                            builder.Append(current);
+                            quoteCount++;
+                            i++;
+                            break;
+
+                        default:
+                            if ((current >= 0x1 && current <= 0x1f) || current == '|')
+                            {
+                                if (illegalChar == null)
+                                {
+                                    illegalChar = current;
+                                }
+                            }
+                            else
+                            {
+                                builder.Append(current);
+                            }
+
+                            i++;
+                            break;
+                    }
+                }
+
+                // If the quote string is surrounded by quotes with no interior quotes then
+                // remove the quotes here.
+                if (quoteCount == 2 && builder[0] == '"' && builder[builder.Length - 1] == '"')
+                {
+                    builder.Remove(0, length: 1);
+                    builder.Remove(builder.Length - 1, length: 1);
+                }
+
+                if (builder.Length > 0)
+                {
+                    list.Add(builder.ToString());
+                }
+            }
+        }
     }
 
 }

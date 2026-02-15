@@ -10,18 +10,18 @@ namespace XSharp
         internal const string LanguageName = "XSharp";
         internal const string Company = "XSharp BV";
         internal const string RegCompany = "XSharpBV";
-        internal const string ProductName = "XSharp Cahors";
+        internal const string ProductName = "XSharp Gaia (\u0393\u03B1\u1FD6\u03B1)";
         internal const string Product = "XSharp";
         // NOTE: DO NOT FORGET THE VERSION NUMBER IN THE BUILDNUMBER.H FILE and the Versions.Props file
 #if RUNTIME
-        internal const string Version = "2.6.0.0";
+        internal const string Version = "3.0.0.0";
 #else
         internal const string Version = FileVersion;
 #endif
-        internal const string FileVersion = "2.20.0.0";
-        internal const string ProductVersion = "2.20 GA";
+        internal const string FileVersion = "3.0.0.1";
+        internal const string ProductVersion = "XSharp Gaia  (\u0393\u03B1\u1FD6\u03B1) 3.0 Beta";
         internal const string PublicKey = "ed555a0467764586";
-        internal const string Copyright = "Copyright © XSharp BV 2015-2024";
+        internal const string Copyright = "Copyright © XSharp BV 2015-2026";
 
         internal const string RegistryKey = @"Software\" + RegCompany + @"\" + Product;
         internal const string RegistryKey64 = @"Software\WOW6432Node\" + RegCompany + @"\" + Product;

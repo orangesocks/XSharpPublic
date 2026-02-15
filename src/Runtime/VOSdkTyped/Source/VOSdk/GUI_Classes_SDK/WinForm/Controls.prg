@@ -207,10 +207,6 @@ class VOGroupBox inherit SWF.GroupBox  implements IVoControlProperties
 						oLocChild  := oC:Location
 						IF oLocChild:X >= oLocParent:X .and. oLocChild:Y >= oLocParent:Y .and. oC:Width+oLocChild:X <= oLocParent:X+SELF:Width .and. oLocChild:Y + oC:Height <= oLocParent:Y+SELF:Height
 							oC:Location := System.Drawing.Point{oLocChild:X, oLocChild:Y + 5 + nOffset}
-                            lWasMoved := true
-                            if oC is IVOControlProperties var oVOControl .and. IsAssign(oVOControl, #WasMoved)
-								IVarPut(oVOControl:Control,#WasMoved, true)
-							ENDIF
 						ENDIF
 					ENDIF
 				NEXT
@@ -311,12 +307,13 @@ class VOOwnerDrawnLabel inherit VOLabel  implements  IVOControlProperties, IVOCo
 //	#define WM_NCHITTEST 0X0084
 //	#define HTTRANSPARENT (-1)
 
-	VIRTUAL PROTECT METHOD WndProc(m REF Message) AS VOID
-		IF (m:Msg == WM_NCHITTEST)
-			m:Result := (IntPtr)HTTRANSPARENT
-		ELSE
-			SUPER:WndProc( REF m)
-		ENDIF
+        // Disabled because this disabled the Mouse Events
+// 	VIRTUAL PROTECT METHOD WndProc(m REF Message) AS VOID
+// 		IF (m:Msg == WM_NCHITTEST)
+// 			m:Result := (IntPtr)HTTRANSPARENT
+// 		ELSE
+// 			SUPER:WndProc( REF m)
+// 		ENDIF
 
 
 	VIRTUAL PROTECT METHOD OnPaint(e AS PaintEventArgs) AS VOID
@@ -389,7 +386,7 @@ class VOHScrollBar inherit SWF.HScrollBar  implements  IVOControlProperties
 		//Debout("TextBox:OnGotFocus", SELF:Control:NameSym,SELF:Control:ControlID, CRLF)
 		SUPER:OnValueChanged(e)
 		IF oProperties != NULL_OBJECT
-			oEvent := ScrollEvent{SELF:Scrollbar}
+			oEvent := ScrollEvent{SELF:ScrollBar}
 			IF oProperties:Window != NULL_OBJECT
                 oProperties:Window:HorizontalScroll(oEvent)
     		ENDIF
@@ -437,7 +434,7 @@ class VOVScrollBar inherit SWF.VScrollBar  implements  IVOControlProperties
 		//Debout("TextBox:OnGotFocus", SELF:Control:NameSym,SELF:Control:ControlID, CRLF)
 		SUPER:OnValueChanged(e)
 		IF oProperties != NULL_OBJECT
-			oEvent := ScrollEvent{SELF:Scrollbar}
+			oEvent := ScrollEvent{SELF:ScrollBar}
 			IF oProperties:Window != NULL_OBJECT
                 oProperties:Window:VerticalScroll(oEvent)
     		ENDIF

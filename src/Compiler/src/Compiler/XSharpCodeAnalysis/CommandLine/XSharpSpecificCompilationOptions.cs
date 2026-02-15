@@ -9,6 +9,8 @@ using System.Collections.Generic;
 using System.IO;
 using Antlr4.Runtime;
 using LanguageService.CodeAnalysis.XSharp.SyntaxParser;
+using Microsoft.CodeAnalysis.CSharp;
+
 namespace Microsoft.CodeAnalysis.CSharp
 {
     /// <summary>
@@ -20,34 +22,58 @@ namespace Microsoft.CodeAnalysis.CSharp
     {
         public static readonly XSharpSpecificCompilationOptions Default = new();
 
-        static string _defaultIncludeDir;
-        static string _windir;
-        static string _sysdir;
-        public static void SetDefaultIncludeDir(string dir)
+        static XSharpSpecificCompilationOptions()
         {
-            _defaultIncludeDir = dir;
+
+            var includeDir = Environment.GetEnvironmentVariable("INCLUDE");
+#if NETSTANDARD2_0_OR_GREATER
+            string XSharpIncludeDir = String.Empty;
+            try
+            {
+                string key;
+                if (Environment.Is64BitProcess)
+                    key = @"HKEY_LOCAL_MACHINE\" + global::XSharp.Constants.RegistryKey64;
+                else
+                    key = @"HKEY_LOCAL_MACHINE\" + global::XSharp.Constants.RegistryKey;
+                XSharpIncludeDir = (string)Microsoft.Win32.Registry.GetValue(key, global::XSharp.Constants.RegistryValue, "");
+            }
+            catch (Exception) { }
+            if (!string.IsNullOrEmpty(XSharpIncludeDir))
+            {
+                XSharpIncludeDir = Path.Combine(XSharpIncludeDir, @"Include\");
+            }
+
+            if (string.IsNullOrEmpty(includeDir))
+                includeDir = XSharpIncludeDir;
+            else
+                includeDir += ";" + XSharpIncludeDir;
+#else
+            if (string.IsNullOrEmpty(includeDir))
+                includeDir = "";
+#endif
+            s_defaultIncludeDir = includeDir;
+            s_windowsdirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            s_systemdirectory = Environment.GetFolderPath(Environment.SpecialFolder.System);
+
         }
-        public static void SetWinDir(string dir)
-        {
-            _windir = dir;
-        }
-        public static void SetSysDir(string dir)
-        {
-            _sysdir = dir;
-        }
+
+        static readonly string s_defaultIncludeDir;
+        static readonly string s_windowsdirectory;
+        static readonly string s_systemdirectory;
         public XSharpSpecificCompilationOptions()
         {
             // All defaults are set at property level
+            IncludePaths = s_defaultIncludeDir;
         }
         public bool AllowDotForInstanceMembers { get; internal set; } = false;
         public bool AllowOldStyleAssignments { get; internal set; } = false;
         public bool ArrayZero { get; internal set; } = false;
         public bool CaseSensitive { get; internal set; } = false;
         public int ClrVersion { get; internal set; } = 4;
-        public string DefaultIncludeDir { get; internal set; } = _defaultIncludeDir;
+        public static string DefaultIncludeDir { get; } = s_defaultIncludeDir;
         public XSharpDialect Dialect { get; internal set; } = XSharpDialect.Core;
-        public string WindowsDir { get; internal set; } = _windir;
-        public string SystemDir { get; internal set; } = _sysdir;
+        public static string WindowsDir { get; } = s_windowsdirectory;
+        public static string SystemDir { get; } = s_systemdirectory;
         public string IncludePaths { get; internal set; } = string.Empty;
         public bool ImplicitNameSpace { get; internal set; } = false;
         public bool InitLocals { get; internal set; } = false;
@@ -87,10 +113,8 @@ namespace Microsoft.CodeAnalysis.CSharp
         public bool Vo16 { get; internal set; } = false;
         public bool Vo17 { get; internal set; } = false;
         public bool Xpp1 { get; internal set; } = false;
-        public bool Fox1 { get; internal set; } = false;
+        //public bool Fox1 { get; internal set; } = false;
         public bool Fox2 { get; internal set; } = false;
-        public bool VulcanRTFuncsIncluded => RuntimeAssemblies.HasFlag(RuntimeAssemblies.VulcanRTFuncs);
-        public bool VulcanRTIncluded => RuntimeAssemblies.HasFlag(RuntimeAssemblies.VulcanRT);
         public bool XSharpRTIncluded => RuntimeAssemblies.HasFlag(RuntimeAssemblies.XSharpRT);
         public bool XSharpVOIncluded => RuntimeAssemblies.HasFlag(RuntimeAssemblies.XSharpVO);
         public bool XSharpVFPIncluded => RuntimeAssemblies.HasFlag(RuntimeAssemblies.XSharpVFP);
@@ -131,7 +155,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     EnforceOverride = value;
                     break;
                 case CompilerOption.Fox1:
-                    Fox1 = value;
+                    //Fox1 = value;
                     break;
                 case CompilerOption.Fox2:
                     Fox2 = value;
@@ -223,12 +247,6 @@ namespace Microsoft.CodeAnalysis.CSharp
         {
             switch (System.IO.Path.GetFileNameWithoutExtension(filename).ToLower())
             {
-                case VulcanAssemblyNames.VulcanRTFuncs:
-                    this.RuntimeAssemblies |= RuntimeAssemblies.VulcanRTFuncs;
-                    break;
-                case VulcanAssemblyNames.VulcanRT:
-                    this.RuntimeAssemblies |= RuntimeAssemblies.VulcanRT;
-                    break;
                 case XSharpAssemblyNames.SdkDefines:
                     this.RuntimeAssemblies |= RuntimeAssemblies.SdkDefines;
                     break;
@@ -329,6 +347,19 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
         }
     }
+    public class PragmaNullable : PragmaBase
+    {
+        public IToken SwitchToken;
+        public IToken OptionToken;
+        public SyntaxKind TargetKind;
+        public PragmaNullable(XSharpToken token, Pragmastate state, XSharpToken switchToken,
+            XSharpToken optionToken, SyntaxKind targetKind) : base(token, state)
+        {
+            SwitchToken = switchToken;
+            OptionToken = optionToken;
+            TargetKind = targetKind;
+        }
+    }
     public class PragmaOption : PragmaBase
     {
         public CompilerOption Option { get; private set; }
@@ -356,12 +387,13 @@ namespace Microsoft.CodeAnalysis.CSharp
         None = 0,
         Overflow = 1 << 0,
         Vo1 = 1 << 1,
-        InitAxitConstructorDestructor = Vo1,
+        VoInitAxitMethods = Vo1,
         Vo2 = 1 << 2,
         NullStrings = Vo2,
         Vo3 = 1 << 3,
         VirtualInstanceMethods = Vo3,
         Vo4 = 1 << 4,
+        VOSignedUnsignedConversion = Vo4,
         Vo5 = 1 << 5,
         ClipperCallingConvention = Vo5,
         Vo6 = 1 << 6,
@@ -375,6 +407,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         Vo10 = 1 << 10,
         CompatibleIIF = Vo10,
         Vo11 = 1 << 11,
+        VOArithmeticConversions = Vo11,
         Vo12 = 1 << 12,
         ClipperIntegerDivisions = Vo12,
         Vo13 = 1 << 13,
@@ -388,7 +421,6 @@ namespace Microsoft.CodeAnalysis.CSharp
         Vo17 = 1 << 17,
         CompatibleBeginSequence = Vo17,
         Xpp1 = 1 << 18,
-        //Xpp2 = 1 << 18,
         Fox1 = 1 << 19,
         Fox2 = 1 << 20,
         FoxArraySupport = Fox2,
@@ -435,12 +467,11 @@ namespace Microsoft.CodeAnalysis.CSharp
                 case CompilerOption.Vo15: // UntypedAllowed:
                 case CompilerOption.Vo16: // DefaultClipperContructors:
                 case CompilerOption.Vo17: // CompatibleBeginSequence:
-                case CompilerOption.Fox1:
+                //case CompilerOption.Fox1:
                 case CompilerOption.Fox2:
                 case CompilerOption.MemVars:
                 case CompilerOption.UndeclaredMemVars:
                 case CompilerOption.Xpp1:
-                    //case CompilerOption.Xpp2:
                     return true;
                 case CompilerOption.AllowDotForInstanceMembers:
                 case CompilerOption.AllowOldStyleAssignments:
@@ -477,10 +508,10 @@ namespace Microsoft.CodeAnalysis.CSharp
                     return "OVERRIDE must be explicitly used in the source code"; ;
                 case CompilerOption.EnforceSelf:
                     return "Instance Method calls inside a class require a SELF prefix";
-                case CompilerOption.Fox1:
-                    return "All Classes inherit from unknown";
+                //case CompilerOption.Fox1:
+                //    return "All Classes inherit from unknown";
                 case CompilerOption.Fox2:
-                    break;
+                    return "Compatible Array Handling";
                 case CompilerOption.ImplicitNamespace:
                     return "Enable Implicit Namespace lookups";
                 case CompilerOption.InitLocals:
@@ -533,8 +564,6 @@ namespace Microsoft.CodeAnalysis.CSharp
                     return "VO Compatible BEGIN SEQUENCE .. END ";
                 case CompilerOption.Xpp1:
                     return "All classes inherit from XPP.Abstract";
-                //case CompilerOption.Xpp2:
-                //    return "n/a";
                 case CompilerOption.None:
                     return "";
             }
@@ -615,8 +644,6 @@ namespace Microsoft.CodeAnalysis.CSharp
                     return CompilerOption.Vo17;
                 case "xpp1":
                     return CompilerOption.Xpp1;
-                //case "xpp2":
-                //    return CompilerOption.Xpp2;
                 default:
                     break;
             }

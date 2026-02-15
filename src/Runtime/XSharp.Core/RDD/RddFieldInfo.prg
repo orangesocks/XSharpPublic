@@ -241,23 +241,32 @@ CLASS RddFieldInfo
         SWITCH SELF:FieldType
         CASE DbFieldType.Date
             SELF:Length := 8
-            SELF:Decimals := 0
+        CASE DbFieldType.DateTime
+            SELF:Length := 8
         CASE DbFieldType.Logic
             SELF:Length := 1
-            SELF:Decimals := 0
+        CASE DbFieldType.Integer
+            SELF:Length := 4
         CASE DbFieldType.Currency
             SELF:Length   := 8
             SELF:Decimals := 4
+        CASE DbFieldType.Double
+            SELF:Length := 8
         CASE DbFieldType.Memo
-            IF SELF:Length == 0
+            IF SELF:Length != 10 .and. SELF:Length != 4
                 SELF:Length := 10
             ENDIF
-            SELF:Decimals := 0
-        CASE DbFieldType.Integer
-            IF SELF:Length == 0
-                SELF:Length := 4
+        CASE DbFieldType.Blob
+        CASE DbFieldType.General
+            SELF:Length := 4
+        CASE DbFieldType.Character
+            IF SELF:Decimals != 0
+                SELF:Length := SELF:Decimals * 256 + SELF:Length
             ENDIF
         END SWITCH
+        IF !SELF:FieldType:HasDecimals()
+            SELF:Decimals := 0
+        ENDIF
         RETURN TRUE
 
     OVERRIDE METHOD ToString() AS STRING

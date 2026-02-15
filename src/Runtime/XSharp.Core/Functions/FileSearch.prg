@@ -119,7 +119,7 @@ INTERNAL STATIC CLASS XSharp.FileSearch
             ELSEIF (currentItem IS FileInfo)
                 size := (INT)((FileInfo)currentItem):Length
             ELSEIF currentItem IS DirectoryInfo
-                size := (INT)((DirectoryInfo) currentItem):GetFileSystemInfos().LongLength
+                size := (INT)((DirectoryInfo) currentItem):GetFileSystemInfos():LongLength
             ENDIF
         ENDIF
         RETURN (DWORD) size
@@ -128,9 +128,9 @@ INTERNAL STATIC CLASS XSharp.FileSearch
         LOCAL time := "00:00:00" AS STRING
         IF !isAtEnd
             IF (currentItem IS FileInfo)
-                time := ((FileInfo)currentItem):LastWriteTime.ToString(timeFormat)
+                time := ((FileInfo)currentItem):LastWriteTime:ToString(timeFormat)
             ELSEIF currentItem IS DirectoryInfo
-                time := ((DirectoryInfo) currentItem):LastWriteTime.ToString(timeFormat)
+                time := ((DirectoryInfo) currentItem):LastWriteTime:ToString(timeFormat)
             ENDIF
         ENDIF
         RETURN  time
@@ -282,7 +282,7 @@ FUNCTION File(cFileSpec AS STRING) AS LOGIC
                 NEXT
             ENDIF
         ENDIF
-    CATCH e as Exception
+    CATCH e AS Exception
         XSharp.IO.File.SetErrorState(e)
     END TRY
     RETURN FALSE
@@ -321,6 +321,11 @@ INTERNAL FUNCTION __GetSearchPaths() AS STRING[]
 LOCAL aDefault AS STRING[]
 aDefault := SetPathArray()
 IF aDefault != NULL
+    IF aDefault:Length > 0
+        #pragma options("az", off)
+        aDefault[aDefault:Length]  := System.Environment.CurrentDirectory // Current dir might have changed since the last call
+        #pragma options("az", default)
+    END IF
     RETURN aDefault
 ENDIF
 
@@ -337,9 +342,7 @@ IF !String.IsNullOrEmpty(cPath)
     VAR aElements := cPath:Split(<CHAR>{ ';' }, StringSplitOptions.RemoveEmptyEntries )
     aPaths:AddRange(aElements)
 ENDIF
-IF ! aPaths:Contains(System.Environment.CurrentDirectory)
-    aPaths:Add(System.Environment.CurrentDirectory)
-ENDIF
+aPaths:Add(System.Environment.CurrentDirectory) // Always add the current directory as the last element
 aDefault := aPaths:ToArray()
 SetPathArray(aDefault)
 RETURN aDefault

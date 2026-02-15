@@ -8,7 +8,7 @@
     <RootNamespace>VOMDITest</RootNamespace>
     <AssemblyName>VOMDIApp</AssemblyName>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
-    <Name>VOMDIApp</Name>
+    <Name>VOMDITest</Name>
     <Nologo>true</Nologo>
     <GenerateFullPaths>true</GenerateFullPaths>
     <Dialect>VO</Dialect>
@@ -42,13 +42,13 @@
     <VO16>true</VO16>
     <NoStandardDefs>false</NoStandardDefs>
     <IncludePaths />
-    <XSharpProjectversion>2.7.0.0</XSharpProjectversion>
     <NoWin32Manifest>False</NoWin32Manifest>
     <NamedArgs>false</NamedArgs>
     <StandardDefs />
     <MemVar>false</MemVar>
     <Undeclared>false</Undeclared>
     <InitLocals>false</InitLocals>
+    <Allowdot>false</Allowdot>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'" Label="Configuration">
     <PlatformTarget>x86</PlatformTarget>
@@ -61,7 +61,7 @@
     <WarningLevel>4</WarningLevel>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <UseSharedCompilation>true</UseSharedCompilation>
-    <DisabledWarnings>9032;9043;618;162;165;649;9025</DisabledWarnings>
+    <NoWarn>9032;9043;618;162;165;649;9025</NoWarn>
     <WarningLevel>4</WarningLevel>
     <PPO>false</PPO>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
@@ -75,7 +75,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <UseSharedCompilation>true</UseSharedCompilation>
-    <DisabledWarnings>9032;9043;618;162;165;649;9025</DisabledWarnings>
+    <NoWarn>9032;9043;618;162;165;649;9025</NoWarn>
     <PPO>false</PPO>
   </PropertyGroup>
   <Import Project="$(XSharpMsBuildDir)\XSharp.targets" />

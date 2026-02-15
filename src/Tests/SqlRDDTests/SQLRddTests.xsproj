@@ -8,7 +8,7 @@
     <RootNamespace>ConsoleApplication2</RootNamespace>
     <AssemblyName>GeneralTests</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
-    <Name>GeneralTests</Name>
+    <Name>SQLRddTests</Name>
     <Nologo>true</Nologo>
     <GenerateFullPaths>true</GenerateFullPaths>
     <Dialect>VO</Dialect>
@@ -22,23 +22,21 @@
     <VO2>false</VO2>
     <VO3>false</VO3>
     <VO4>false</VO4>
-    <VO5>false</VO5>
-    <VO6>false</VO6>
-    <VO7>False</VO7>
+    <VO5>True</VO5>
+    <VO6>False</VO6>
+    <VO7>True</VO7>
     <VO8>false</VO8>
-    <VO9>False</VO9>
+    <VO9>True</VO9>
     <VO10>false</VO10>
     <VO11>false</VO11>
     <VO12>false</VO12>
     <VO13>false</VO13>
     <VO14>False</VO14>
     <VO15>True</VO15>
-    <VO16>false</VO16>
-    <XPP1>false</XPP1>
-    <FOX1>false</FOX1>
+    <VO16>True</VO16>
     <AZ>false</AZ>
     <CS>false</CS>
-    <LB>False</LB>
+    <LB>True</LB>
     <NamedArgs>false</NamedArgs>
     <OVF>false</OVF>
     <Unsafe>True</Unsafe>
@@ -51,6 +49,7 @@
     <Undeclared>False</Undeclared>
     <InitLocals>false</InitLocals>
     <AllowOldStyleAssignments>False</AllowOldStyleAssignments>
+    <Allowdot>false</Allowdot>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'" Label="Configuration">
     <PlatformTarget>x86</PlatformTarget>
@@ -64,7 +63,7 @@
     <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
     <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
     <UseSharedCompilation>true</UseSharedCompilation>
-    <DisabledWarnings />
+    <NoWarn>9025,9026,9032</NoWarn>
     <SignAssembly>false</SignAssembly>
     <DelaySign>false</DelaySign>
     <AssemblyOriginatorKeyFile />
@@ -106,6 +105,16 @@
       <Project>{eb3f3142-07f7-48ca-b38d-f611c45a9511}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\..\Runtime\VOSDK\Source\VOSDK\RDD_Classes_SDK\VORDDClasses.xsproj">
+      <Name>VORDDClasses</Name>
+      <Project>{d7079298-1712-4b03-ad76-4ec53bfe8356}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Runtime\VOSDK\Source\VOSDK\System_Classes_SDK\VOSystemClasses.xsproj">
+      <Name>VOSystemClasses</Name>
+      <Project>{ac2aebff-69ff-405d-b7d9-6e5cb1db914c}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\..\Runtime\XSharp.Core\XSharp.Core.xsproj">
       <Name>XSharp.Core</Name>
       <Project>{535dff14-efb7-43f5-a4e1-71c1c4280040}</Project>
@@ -141,26 +150,9 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="Advantage.Data.Provider, Version=12.0.2.2, Culture=neutral, PublicKeyToken=e33137c86a38dc06">
-      <Name>Advantage.Data.Provider</Name>
-      <AssemblyName>Advantage.Data.Provider.dll</AssemblyName>
-      <SpecificVersion>False</SpecificVersion>
-      <Private>True</Private>
-      <HintPath>..\..\..\..\..\Tools\Advantage 12.0\ado.net\Redistribute\Advantage.Data.Provider.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-  <ItemGroup>
     <Content Include="SqlRdd.Ini">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="SqlRdd.Ini">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="SqlRdd.Ini" />
   </ItemGroup>
   <!-- This next bit is required unless the macro used to Import your targets is defined in an MSBuild toolset. -->
   <ProjectExtensions>

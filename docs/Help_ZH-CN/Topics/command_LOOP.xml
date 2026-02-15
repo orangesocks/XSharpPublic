@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-06-29T22:14:46.280+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>LOOP 语句</title>
+  <keywords>
+    <keyword>LOOP 语句</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">LOOP 语句</para>
+    </header>
+    <para styleclass="Heading1">用途</para>
+    <para styleclass="Body Text">LOOP 语句会使控制跳回到最内层的 FOR、FOREACH、REPEAT 或 DO WHILE 语句的开头。</para>
+    <para styleclass="Heading1">语法</para>
+    <para styleclass="Code with box">LOOP</para>
+    <para styleclass="Heading1">备注</para>
+    <para styleclass="Body Text">LOOP 语句只能在 DO WHILE、FOR ... NEXT、FOREACH .. NEXT 或 REPEAT .. UNTIL 结构内有效。在这些结构之外使用 LOOP 语句将引发编译时错误。</para>
+    <para styleclass="Heading1">参见<br/><link displaytype="text" defaultstyle="true" type="topiclink" href="command_DO_WHILE" styleclass="Body Text">DO WHILE </link><br/><link displaytype="text" defaultstyle="true" type="topiclink" href="command_FOR" styleclass="Body Text">FOR </link></para>
+    <para styleclass="Body Text"><link displaytype="text" defaultstyle="true" type="topiclink" href="command_FOREACH">FOREACH</link><br/><link displaytype="text" defaultstyle="true" type="topiclink" href="command_REPEAT_UNTIL">REPEAT UNTIL </link></para>
+    <para styleclass="Body Text"></para>
+  </body>
+</topic>

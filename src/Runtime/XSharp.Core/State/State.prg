@@ -10,7 +10,7 @@ USING System.Diagnostics
 USING System.Reflection
 USING XSharp.RDD
 USING XSharp.RDD.Enums
-
+USING System.Text
 
 
 BEGIN NAMESPACE System.Runtime.CompilerServices
@@ -50,9 +50,15 @@ CLASS XSharp.RuntimeState
 	PRIVATE STATIC _shutdown := FALSE AS LOGIC  // To prevent creating state when shutting down
 	// Static Methods and Constructor
 	PRIVATE STATIC currentState := ThreadLocal<RuntimeState>{ {=>  _initialState:Clone()},TRUE }  AS ThreadLocal<RuntimeState>
-	STATIC CONSTRUCTOR
+    STATIC CONSTRUCTOR
+        #ifdef NET5_0_OR_GREATER
+        // Next line is needed for codepage support
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance)
+        #endif
+
         AutoLock        := NULL
         AutoUnLock      := NULL
+        MacroCompilerErrorHandler := NULL
         detectDialect()
         SWITCH System.Environment.OSVersion:Platform
         CASE System.PlatformID.Win32NT
@@ -243,15 +249,47 @@ CLASS XSharp.RuntimeState
     /// <value>The default value for this option is 'False'.</value>
 	STATIC PROPERTY CompilerOptionFox2 AS LOGIC AUTO
 
+	/// <summary>The current compiler setting for the AllowOldStyleAssignments compiler option.</summary>
+    /// <include file="CoreComments.xml" path="Comments/CompilerOptions/*" />
+    /// <value>The default value for this option is 'False'.</value>
+	STATIC PROPERTY CompilerOptionAllowOldStyleAssignments AS LOGIC AUTO
+	/// <summary>The current compiler setting for the AZ compiler option.</summary>
+    /// <include file="CoreComments.xml" path="Comments/CompilerOptions/*" />
+    /// <value>The default value for this option is 'False'.</value>
+	STATIC PROPERTY CompilerOptionAZ AS LOGIC AUTO
+	/// <summary>The current compiler setting for the VO4 compiler option.</summary>
+    /// <include file="CoreComments.xml" path="Comments/CompilerOptions/*" />
+    /// <value>The default value for this option is 'False'.</value>
+	STATIC PROPERTY CompilerOptionVO4 AS LOGIC AUTO
+	/// <summary>The current compiler setting for the VO6 compiler option.</summary>
+    /// <include file="CoreComments.xml" path="Comments/CompilerOptions/*" />
+    /// <value>The default value for this option is 'False'.</value>
+	STATIC PROPERTY CompilerOptionVO6 AS LOGIC AUTO
+	/// <summary>The current compiler setting for the VO7 compiler option.</summary>
+    /// <include file="CoreComments.xml" path="Comments/CompilerOptions/*" />
+    /// <value>The default value for this option is 'False'.</value>
+	STATIC PROPERTY CompilerOptionVO7 AS LOGIC AUTO
+	/// <summary>The current compiler setting for the VO10 compiler option.</summary>
+    /// <include file="CoreComments.xml" path="Comments/CompilerOptions/*" />
+    /// <value>The default value for this option is 'False'.</value>
+	STATIC PROPERTY CompilerOptionVO10 AS LOGIC AUTO
 	/// <summary>The current compiler setting for the VO11 compiler option.</summary>
     /// <include file="CoreComments.xml" path="Comments/CompilerOptions/*" />
-    /// <value>The default vale for this option is 'False'.</value>
+    /// <value>The default value for this option is 'False'.</value>
 	STATIC PROPERTY CompilerOptionVO11 AS LOGIC AUTO
 
+	/// <summary>The current compiler setting for the VO12 compiler option.</summary>
+    /// <include file="CoreComments.xml" path="Comments/CompilerOptions/*" />
+    /// <value>The default value for this option is 'False'.</value>
+	STATIC PROPERTY CompilerOptionVO12 AS LOGIC AUTO
 	/// <summary>The current compiler setting for the VO13 compiler option.</summary>
     /// <include file="CoreComments.xml" path="Comments/CompilerOptions/*" />
     /// <value>The default value for this option is 'False'.</value>
 	STATIC PROPERTY CompilerOptionVO13 AS LOGIC AUTO
+	/// <summary>The current compiler setting for the VO12 compiler option.</summary>
+    /// <include file="CoreComments.xml" path="Comments/CompilerOptions/*" />
+    /// <value>The default value for this option is 'False'.</value>
+	STATIC PROPERTY CompilerOptionVO14 AS LOGIC AUTO
 	/// <summary>Gets / Sets the current Workarea number.</summary>
     /// <include file="CoreComments.xml" path="Comments/PerThread/*" />
     STATIC PROPERTY CurrentWorkarea AS DWORD ;
@@ -260,12 +298,12 @@ CLASS XSharp.RuntimeState
 
     /// <summary>The current compiler setting for the OVF compiler option.</summary>
     /// <include file="CoreComments.xml" path="Comments/CompilerOptions/*" />
-    /// <value>The default vale for this option is 'False'.</value>
+    /// <value>The default value for this option is 'False'.</value>
 	STATIC PROPERTY CompilerOptionOVF AS LOGIC AUTO
 
     /// <summary>The current compiler setting for the X# Dialect.</summary>
     /// <include file="CoreComments.xml" path="Comments/CompilerOptions/*" />
-    /// <value>The default vale for the Dialect is 'Core'.</value>
+    /// <value>The default value for the Dialect is 'Core'.</value>
     /// <remarks>When the dialect changes then registered DialectChanged Event Handlers will be called </remarks>
     /// <seealso cref="DialectChanged" />
     STATIC PRIVATE _dialect := XSharpDialect.Core AS XSharpDialect
@@ -284,7 +322,7 @@ CLASS XSharp.RuntimeState
 
 	/// <summary>The current compiler setting for the FOVF compiler option.</summary>
     /// <include file="CoreComments.xml" path="Comments/CompilerOptions/*" />
-    /// <value>The default vale for this option is 'False'.</value>
+    /// <value>The default value for this option is 'False'.</value>
 	STATIC PROPERTY CompilerOptionFOVF AS LOGIC AUTO
 
 	/// <summary>The System.Reflection.Module for the main application.</summary>
@@ -767,10 +805,12 @@ CLASS XSharp.RuntimeState
 		        SELF:_SetThreadValue(Set.AmExt, "AM")
 		        SELF:_SetThreadValue(Set.PmExt, "PM")
 		        SELF:_SetThreadValue(Set.AmPm, TRUE)
+                SELF:_SetThreadValue(Set.Hours, 12L)
             ELSE
 		        SELF:_SetThreadValue(Set.AmExt, "")
 		        SELF:_SetThreadValue(Set.PmExt, "")
 		        SELF:_SetThreadValue(Set.AmPm, FALSE)
+                SELF:_SetThreadValue(Set.Hours, 24L)
             ENDIF
             SELF:_SetThreadValue(Set.Timesep, Asc(SubStr3(format, 3,1)))
             SELF:_SetThreadValue(Set.Timeformat, format)
@@ -821,7 +861,9 @@ CLASS XSharp.RuntimeState
 		ELSE
 			SELF:_SetThreadValue(Set.Timesep, (DWORD) separator[0])
 		ENDIF
-		SELF:_SetThreadValue(Set.AmPm, dtInfo:ShortDatePattern:IndexOf("tt") != -1)
+        Var lAmPm := dtInfo:ShortDatePattern:IndexOf("tt") != -1
+        SELF:_SetThreadValue(Set.AmPm, lAmPm)
+        SELF:_SetThreadValue(Set.Hours, iif(lAmPm, 12L, 24L))
         SELF:_SetThreadValue(Set.Timeformat, dtInfo:LongTimePattern)
 
     INTERNAL METHOD _SetDateFormatSystem() AS VOID
@@ -829,10 +871,10 @@ CLASS XSharp.RuntimeState
         VAR dtInfo	    := System.Globalization.DateTimeFormatInfo.CurrentInfo
         format  := dtInfo:ShortDatePattern:ToLower()
 		// reduce to single m and d
-		DO WHILE (format.IndexOf("mm") != -1)
+		DO WHILE (format:IndexOf("mm") != -1)
         	format		:= format:Replace("mm", "m")
         ENDDO
-	    DO WHILE format.IndexOf("dd") != -1
+	    DO WHILE format:IndexOf("dd") != -1
 			format		:= format:Replace("dd", "d")
 		ENDDO
 		// make sure we have a double mm to get double digit dates
@@ -1001,6 +1043,11 @@ CLASS XSharp.RuntimeState
             ENDIF
         END SET
     END PROPERTY
+
+    /// <summary>
+    /// You can register an error handler that will be called when the macrocompiler encounters an error
+    /// </summary>
+    PUBLIC STATIC PROPERTY MacroCompilerErrorHandler as MacroCompilerErrorHandler AUTO
 	/// <summary>This event is thrown when one of the codepages of the runtimestate is changed</summary>
     /// <remarks>Clients can refresh cached information by registering to this event</remarks>
     /// <seealso cref="DosCodePage" />

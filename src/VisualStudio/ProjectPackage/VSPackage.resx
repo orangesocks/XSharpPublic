@@ -143,7 +143,7 @@
   </data>
   <data name="112" xml:space="preserve">
     <value>The X# Project system allows you to edit, compile and debug your X# application inside Visual Studio.
-Copyright (c) XSharp BV 2015-2023. All rights reserved.
+Copyright (c) XSharp BV 2015-2026. All rights reserved.
 http://www.xsharp.eu</value>
     <comment>Text that appears in the details window on the Help about dialog</comment>
   </data>
@@ -168,6 +168,14 @@ http://www.xsharp.eu</value>
   </data>
   <data name="80113" xml:space="preserve">
     <value>XSharp VO FieldSpec Editor</value>
+    <comment>Text that apears in Open With dialog editors list</comment>
+  </data>
+  <data name="80114" xml:space="preserve">
+    <value>XSharp VO SQL Editor</value>
+    <comment>Text that apears in Open With dialog editors list</comment>
+  </data>
+  <data name="80115" xml:space="preserve">
+    <value>XSharp VO Report Editor</value>
     <comment>Text that apears in Open With dialog editors list</comment>
   </data>
   <data name="80200" xml:space="preserve">

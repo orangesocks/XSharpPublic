@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "Author": "XSharp",
+  "Classifications": [
+    "Windows",
+    "Console"
+  ],
+  "Identity": "XSharp.ConsoleApplication.SDK",
+  "Name": "Console Application (SDK)",
+  "description": "A SDK Style project for creating a X# command-line application in the core dialect.",
+  "SourceName": "XSharp.ConsoleApplication",
+  "ShortName": "xsconsoleapplication",
+  "Tags": {
+    "language": "X#",
+    "type": "project"
+  },
+  "preferNameDirectory": true,
+  "defaultName": "ConsoleApplication",
+  "symbols": {
+    "TargetFrameworkOverride": {
+      "type": "parameter",
+      "description": "Overrides the target framework",
+      "replaces": "TargetFrameworkOverride",
+      "datatype": "string",
+      "defaultvalue": "",
+      "displayName": "Target framework override"
+    },
+    "Framework": {
+      "type": "parameter",
+      "description": "Target .NET version",
+      "datatype": "choice",
+      "choices": [
+        {
+          "choice": "net8.0",
+          "description": "Target .NET 8"
+        },
+        {
+          "choice": "net9.0",
+          "description": "Target .NET 9"
+        },
+        {
+          "choice": "net10.0",
+          "description": "Target .NET 10"
+        }
+      ],
+      "replaces": "net8.0",
+      "defaultvalue": "net8.0"
+    },
+    "DefaultNamespace": {
+      "type": "parameter",
+      "datatype": "string",
+      "replaces": "Company.Namespace1",
+      "defaultvalue": "Company.Namespace1"
+    }
+  }
+}

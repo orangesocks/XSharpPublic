@@ -37,9 +37,9 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
         #region constants
         public const int VO_AND = BIT_AND;
         public const int VO_NOT = BIT_NOT;
-        public const int VO_OR  = BIT_OR ;
+        public const int VO_OR = BIT_OR;
         public const int VO_XOR = BIT_XOR;
-        #endregion                          
+        #endregion
         #region Static Helper Methods
         // Several Help methods that can be used for colorizing in an editor
         public const int EOF = IntStreamConstants.Eof;
@@ -77,6 +77,27 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                 || (iToken > PP_FIRST && iToken < PP_LAST)
                 || iToken == SEMI;
         }
+        public static bool IsWordOperator(int iToken)
+        {
+            switch (iToken)
+            {
+                case BIT_AND:
+                case BIT_OR:
+                case BIT_NOT:
+                case BIT_XOR:
+                case LOGIC_AND:
+                case LOGIC_OR:
+                case LOGIC_NOT:
+                case LOGIC_XOR:
+                case FOX_AND:
+                case FOX_OR:
+                case FOX_NOT:
+                case FOX_XOR:
+                    return true;
+            }
+            return false;
+        }
+
         public static bool IsConstant(int iToken)
         {
             return IsLiteral(iToken);
@@ -119,7 +140,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
             return false;
         }
         /// <summary>
-        /// Return true if the operator can be used between 2 identifiers, such as 
+        /// Return true if the operator can be used between 2 identifiers, such as
         /// DOT, COLON, ALIAS, COLONCOLON
         /// </summary>
         /// <param name="iToken"></param>
@@ -160,6 +181,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
         #endregion
 
         #region Properties and Fields
+        internal bool AllowDebuggerIdentifiers = false;
         // Properties to set the behavior of the Lexer
         private readonly List<XSharpToken> pendingTokens = new();
         public CSharpParseOptions Options { get; set; }
@@ -203,7 +225,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
         bool _newLine = false;
 
         static readonly object kwlock = new();
-        static IDictionary<XSharpDialect, XSharpKeywords> _kwids = null ;       // for each dialect its own _kwids
+        static IDictionary<XSharpDialect, XSharpKeywords> _kwids = null;       // for each dialect its own _kwids
         static XSharpKeywords _symPPIds = null;
 
         #endregion
@@ -435,20 +457,38 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
             return;
         }
 
-
-        void parseToEol()
+        bool parseToEol()
         {
+            bool endsWithSemicolon = false;
             var la1 = La(1);
             while (la1 != EOF && la1 != '\r' && la1 != '\n')
             {
+                if (ExpectAny(' ', '\t'))
+                {
+                    ;// skip whitespace
+                }
+                else
+                {
+                    if (la1 == ';')
+                    {
+                        endsWithSemicolon = true;
+                    }
+                    else if (endsWithSemicolon)
+                    {
+                        // non whitespace after semicolon
+                        // will reset the endsWithSemicolon flag
+                        endsWithSemicolon = false;
+                    }
+                }
                 parseOne();
                 la1 = La(1);
             }
+            return endsWithSemicolon;
         }
 
         bool tryParseNewLine()
         {
-            if (ExpectAny('\n','\r'))
+            if (ExpectAny('\n', '\r'))
             {
                 if (Expect('\r', '\n'))
                 {
@@ -475,11 +515,21 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                 parseOne();
         }
 
-        void parseSlComment()
+        void parseSlComment(bool allowSemicolonContinue = false)
         {
             parseType(SL_COMMENT);
             _tokenChannel = TokenConstants.HiddenChannel;
-            parseToEol();
+            var endsWithSemicolon = parseToEol();
+            // FoxPro dialect allows * comments to continue on the next line when the line ends with a semicolon
+            if (Dialect == XSharpDialect.FoxPro && endsWithSemicolon && allowSemicolonContinue)
+            {
+                while (endsWithSemicolon)
+                {
+                    tryParseNewLine();
+                    parseType(SL_COMMENT);
+                    endsWithSemicolon = parseToEol();
+                }
+            }
         }
 
         void parseDocComment()
@@ -506,7 +556,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                     parseOne();
                 }
             }
-             parseType(ML_COMMENT);
+            parseType(ML_COMMENT);
             if (!Eof())
             {
                 // Eat the */
@@ -561,8 +611,6 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                     break;
             }
 
-
-
             var c = La(1);
             if (c > 0 && IsIdentifierStartCharacter((char)c))
             {
@@ -576,16 +624,17 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                 var text = _textSb.ToString().Substring(1);
                 if (KwIds.ContainsKey(text))
                 {
-                    var kwid = KwIds[text];
-                    if (kwid >= FIRST_NULL && kwid <= LAST_NULL && kwid != NULL)
-                    {
-                        // #NIL or #NULL_STRING etc., however #NULL must be allowed as Symbol
-                        parseType(NEQ2);
-                        _textSb.Clear();
-                        _textSb.Append('#');
-                        InputStream.Seek(_startCharIndex + 1);
-                    }
-                    else if (text.Equals("USING", StringComparison.OrdinalIgnoreCase))
+                    // VO allows the symbols #NULL_DATE etc.
+                    //var kwid = KwIds[text];
+                    //if (kwid >= FIRST_NULL && kwid <= LAST_NULL && kwid != NULL)
+                    //{
+                    //    // #NIL or #NULL_STRING etc., however #NULL must be allowed as Symbol
+                    //    parseType(NEQ2);
+                    //    _textSb.Clear();
+                    //    _textSb.Append('#');
+                    //    InputStream.Seek(_startCharIndex + 1);
+                    //} else
+                    if (text.Equals("USING", StringComparison.OrdinalIgnoreCase))
                     {
                         parseType(USING);
                     }
@@ -771,7 +820,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                             next++;
                         if (La(next) == '&' && La(next + 1) == '&')
                         {
-                            while (La(next) != 10 && La(next) != 13 && La(next) != EOF && !(La(1) == q && !esc))
+                            while (La(next) != 10 && La(next) != 13 && La(next) != EOF)
                                 next++;
                         }
                         else if (La(next) == '/' && La(next + 1) == '/')
@@ -1012,6 +1061,9 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                             parseOne(LCURLY);
                         }
                         break;
+                    case '\u001a':        // EOF
+                        parseOne(EOF);
+                        break;
                     case '}':
                         parseOne(RCURLY);
                         break;
@@ -1183,8 +1235,8 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                         break;
                     case '*':
                         parseOne(MULT);
-                        if (AllowOldStyleComments && StartOfLine(LastToken) )
-                            parseSlComment();
+                        if (AllowOldStyleComments && StartOfLine(LastToken))
+                            parseSlComment(allowSemicolonContinue: true);
                         else if (Expect('='))
                             parseOne(ASSIGN_MUL);
                         else if (Expect('*'))
@@ -1212,6 +1264,8 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                             parseOne(UDCSEP);
                         break;
                     case '$':
+                        if (AllowDebuggerIdentifiers)
+                            goto case '_';
                         switch (La(2))
                         {
                             case '0':
@@ -1515,7 +1569,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                     // In that case we change the type from Keyword to ID
                     if (_isValidIdentifier(t) && Expect('.'))
                     {
-                        if (t.Type != SELF && t.Type != SUPER && t.Type != FOX_M)
+                        if (t.Type != SELF && t.Type != SUPER && t.Type != FOX_M && t.Type != THISFORM)
                         {
                             t.Type = ID;
                         }
@@ -1651,7 +1705,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                 case PUBLIC:
                 case SEALED:
                 case STATIC:
-                case UNSAFE: 
+                case UNSAFE:
                 case VIRTUAL:
                 case VOLATILE:
 
@@ -1695,27 +1749,38 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                     }
                     break;
                 // Next tokens only at Start of Line
+                case CATCH:
                 case FOREACH:
                 case FINALLY:
-                case CATCH:
+                case NOP:
                 case REPEAT:
                 case UNTIL:
                 case YIELD:
-                case ENDDEFINE:
+
+                // XPP tokens at start of line only
                 case ENDCLASS:
+                case ENDSEQUENCE:
+                // FoxPro tokens at start of line only
+                case ENDSCAN:
+                case ENDDEFINE:
+                case ENDFOR:
+                case ENDFUNC:
+                case ENDPROC:
+                case ENDTRY:
+                case ENDWITH:
                 case DIMENSION:
                 case DECLARE:
                 case LPARAMETERS:
-                case NOP:
                     if (!StartOfLine(lastToken))
                     {
                         return ID;
                     }
                     break;
                 case FUNCTION:
+                case PROCEDURE:
                     if (text.Length == 4)
                     {
-                        // if specified as FUNC then we want to make sure that it is not a type
+                        // if specified as FUNC or PROC then we want to make sure that it is not a type
                         if (!StartOfLine(lastToken) && !IsModifier(lastToken)
                             && lastToken != RBRKT && lastToken != END
                             && lastToken != LOCAL && lastToken != DLL)
@@ -1740,7 +1805,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                     break;
                 // Next tokens only at Start of Line or after STATIC or INTERNAL
                 case DEFINE:
-                    if (!StartOfLine(lastToken) && !IsModifier(lastToken) && lastToken != END)
+                    if (!StartOfLine(lastToken) && !IsModifier(lastToken) && lastToken != END && lastToken != RBRKT)
                     {
                         return ID;
                     }
@@ -1754,6 +1819,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                     break;
                 // Next tokens only at Start of Line or after END
                 case TRY:
+                case SCAN:
                     if (!StartOfLine(lastToken) && lastToken != END)
                     {
                         return ID;
@@ -1778,7 +1844,13 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                 case NAMESPACE:
                 case SCOPE:
                 case LOCK:
-                    if (lastToken != BEGIN && lastToken != END)
+                    if (lastToken != BEGIN && lastToken != END && !StartOfLine(lastToken))
+                    {
+                        return ID;
+                    }
+                    break;
+                case EACH:
+                    if (lastToken != FOR)
                     {
                         return ID;
                     }
@@ -1854,12 +1926,12 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                         return ID;
 
                 case LOCAL:
-                    if (keyword == FUNCTION || keyword == PROCEDURE || keyword == ARRAY)    // local function and procedure statement and local array
+                    if (keyword == FUNCTION || keyword == PROCEDURE || keyword == ARRAY || keyword == CLASS)    // local function and procedure statement and local array
                         return keyword;
                     return ID;
 
                 case GLOBAL:
-                    if (keyword == CONST)    // GLOBAL CONST Id
+                    if (keyword == CONST || keyword == USING)    // GLOBAL CONST Id
                         return keyword;
                     return ID;
 
@@ -1890,7 +1962,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                     return ID;
                 case USING:
                     // BEGIN USING can/will be followed by a Variable Declaration
-                    if (keyword != LOCAL && keyword != VAR)
+                    if (keyword != LOCAL && keyword != VAR && keyword != AWAIT)
                         return ID;
                     break;
                 case MEMVAR:            // VO & XPP: followed by list of names
@@ -1974,7 +2046,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
 
         private XSharpKeywords _getIds(XSharpDialect dialect)
         {
-            var ids = new XSharpKeywords(); ;
+            var ids = new XSharpKeywords();
 
             XSharpKeywords voKeywords;
             if (IsMacroLexer)
@@ -2166,6 +2238,24 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                 {"FALSE", FALSE_CONST},
                 {"TRUE", TRUE_CONST},
 
+#if VSPARSER
+                    // XPP Keywords
+                    {"ENDFOR", ENDFOR },
+                    {"ENDSEQUENCE", ENDSEQUENCE},
+
+                    // VFP Keywords
+                    {"SCAN", SCAN },
+                    {"ENDSCAN", ENDSCAN },
+                    {"ENDDEFINE", ENDDEFINE },
+                    //{"ENDFOR", ENDFOR },      // Also defined for XPP
+                    {"ENDFUNC", ENDFUNC },
+                    {"ENDPROC", ENDPROC },
+                    {"ENDTRY", ENDTRY },
+                    {"ENDWITH", ENDWITH },
+                    {"EACH", EACH },
+
+#endif
+
                 };
             }
             if (!dialect.AllowFourLetterAbbreviations())
@@ -2203,7 +2293,6 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                 var xppKeywords = new XSharpKeywords
                 {
                     // normal keywords
-                    // {"ENDSEQUENCE", END }, Xbase++ redefines ENDSEQUENCE to END in STD.CH
                     // We handle that in XBasePPCmd.xh
                     // class keywords
                     {"ENDCLASS",ENDCLASS},
@@ -2222,6 +2311,10 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                 };
                 var xppKeyWordAbbrev = new XSharpKeywords
                 {
+#if !VSPARSER
+                    {"ENDFOR", ENDFOR },
+                    {"ENDSEQUENCE",ENDSEQUENCE},
+#endif
                     {"RETURN ",RETURN },
                     {"PRIVATE ",PRIVATE  },
                     {"PUBLIC",  PUBLIC },
@@ -2259,6 +2352,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                 var vfpKeywords = new XSharpKeywords
                 {
                     // normal keywords
+                    {"THISFORM", THISFORM},
                     {"THIS_ACCESS",THISACCESS },
                     {"HELPSTRING",HELPSTRING },
                     {"DIMENSION",DIMENSION},
@@ -2271,7 +2365,17 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                 };
                 var vfpKeyWordAbbrev = new XSharpKeywords
                 {
+#if !VSPARSER
+                    {"SCAN", SCAN },
+                    {"ENDSCAN", ENDSCAN },
                     {"ENDDEFINE", ENDDEFINE },
+                    {"ENDFOR", ENDFOR },
+                    {"ENDFUNC", ENDFUNC },
+                    {"ENDPROC", ENDPROC },
+                    {"ENDTRY", ENDTRY },
+                    {"ENDWITH", ENDWITH },
+                    {"EACH", EACH },
+#endif
                     {"LPARAMETERS",   LPARAMETERS },
                     {"EXCLUDE", EXCLUDE },
                     {"OLEPUBLIC", OLEPUBLIC },
@@ -2391,6 +2495,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                     { "PARAMS", PARAMS},
                     { "PARTIAL", PARTIAL},
                     { "PROPERTY", PROPERTY},
+                    { "RECORD", RECORD},
                     { "REPEAT", REPEAT},
                     { "SCOPE", SCOPE},
                     { "SEALED", SEALED},
@@ -2508,7 +2613,6 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                     { "__XSHARP__", MACRO},
                     { "__XSHARP_RT__", MACRO},
                     { "__XPP1__", MACRO},
-                    { "__XPP2__", MACRO},
                     { "__FOX1__", MACRO},
                     { "__FOX2__", MACRO},
 
@@ -2537,7 +2641,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                     if (_kwids == null)
                         _kwids = new Dictionary<XSharpDialect, XSharpKeywords>();
                     if (_kwids.ContainsKey(Dialect))
-                        ids = _kwids[Dialect] ;
+                        ids = _kwids[Dialect];
                 }
                 if (ids == null)
                 {
@@ -2578,7 +2682,8 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                 {"#STDOUT", PP_STDOUT },        // #stdout [Message]
                 {"#TEXT", PP_TEXT },            // #text const [, optionalfunc] or #text linefunc, endfunc
                 {"#PRAGMA", PP_PRAGMA },        // #pragma options.... or #pragma warnings
-                {"#ENDTEXT",  PP_ENDTEXT },      // endtext
+                {"#ENDTEXT",  PP_ENDTEXT },      // #endtext
+                {"#NULLABLE",  PP_NULLABLE},      // #nullable
             };
             if (Dialect == XSharpDialect.XPP)
             {
@@ -2612,7 +2717,7 @@ namespace LanguageService.CodeAnalysis.XSharp.SyntaxParser
                     }
                 }
             }
-            return symIds ;
+            return symIds;
         }
 
         public XSharpKeywords SymPPIds

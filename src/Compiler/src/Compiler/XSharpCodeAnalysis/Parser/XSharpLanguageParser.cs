@@ -160,7 +160,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             }
             catch (Exception e)
             {
-                // Exception during Lexing 
+                // Exception during Lexing
                 parseErrors.Add(new ParseErrorData(_fileName, ErrorCode.ERR_Internal, e.Message, e.StackTrace));
                 // create empty token stream so we can continue the rest of the code
                 _lexerTokenStream = new BufferedTokenStream(new XSharpListTokenSource(lexer, new List<IToken>()));
@@ -171,7 +171,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                 t += ts;
                 Debug.WriteLine("Lexing completed in {0}",ts);
             }
-#endif  
+#endif
             // do not pre-process when there were lexer exceptions
             if (lexer != null && parseErrors.Count == 0)
             {
@@ -269,12 +269,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             {
                 // When parsing in Sll mode we do not record any parser errors.
                 // When this fails, then we try again with LL mode and then we record errors
-                parser.RemoveErrorListeners();
-                parser.Interpreter.PredictionMode = PredictionMode.Sll;
-                // some options to have FAST parsing
-                parser.Interpreter.tail_call_preserves_sll = false;
-                parser.Interpreter.treat_sllk1_conflict_as_ambiguity = true;
-                parser.ErrorHandler = new BailErrorStrategy();
+                parser.SetSllMode();
                 try
                 {
                     tree = buildTree(parser);
@@ -286,15 +281,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                         string msg = _GetInnerExceptionMessage(e);
                         _options.ConsoleOutput.WriteLine("Antlr: SLL parsing failed with failure: " + msg + ". Trying again in LL mode.");
                     }
-                    var errorListener = new XSharpErrorListener(_fileName, parseErrors);
-                    parser.AddErrorListener(errorListener);
-                    parser.ErrorHandler = new XSharpErrorStrategy();
-                    // we need to set force_global_context to get proper error messages. This makes parsing slower
-                    // but gives better messages
-                    parser.Interpreter.treat_sllk1_conflict_as_ambiguity = false;
-                    parser.Interpreter.force_global_context = true;
-                    parser.Interpreter.enable_global_context_dfa = true;
-                    parser.Interpreter.PredictionMode = PredictionMode.Ll;
+                    parser.SetLLMode(_fileName, parseErrors);
                     _preprocessorTokenStream.Reset();
                     if (_options.Verbose && pp != null)
                     {
@@ -304,7 +291,6 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                     {
                         pp.Close();
                     }
-                    parser.Reset();
                     try
                     {
                         tree = buildTree(parser);
@@ -422,6 +408,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                     result.Globals = treeTransform.GlobalEntities.Globals;
                     result.PragmaWarnings = treeTransform.GlobalEntities.PragmaWarnings;
                     result.PragmaOptions = treeTransform.GlobalEntities.PragmaOptions;
+                    result.PragmaNullables = treeTransform.GlobalEntities.PragmaNullables;
                     if (pp != null)
                     {
                         result.IncludedFiles = pp.IncludedFiles;

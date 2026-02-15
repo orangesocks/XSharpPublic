@@ -1,4 +1,4 @@
-﻿//
+//
 // Copyright (c) XSharp B.V.  All Rights Reserved.
 // Licensed under the Apache License, Version 2.0.
 // See License.txt in the project root for license information.
@@ -14,48 +14,17 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.IO;
 using Microsoft.VisualStudio.Shell;
-using System.Globalization;
 #pragma warning disable VSTHRD010
 namespace XSharp.Project
 {
-    public partial class XSharpProjectNode
+    internal class ProjectNodeReferenceManager : IVsReferenceManagerUser
     {
-
-        public override int AddProjectReference()
+        readonly XSharpProjectNode projectNode;
+        internal ProjectNodeReferenceManager (XSharpProjectNode projectNode)
         {
-            ThreadHelper.ThrowIfNotOnUIThread("AddProjectReference");
-            var referenceManager = this.GetService(typeof(SVsReferenceManager)) as IVsReferenceManager;
-            if (referenceManager != null)
-            {
-                string title = string.Format(CultureInfo.CurrentCulture, "Reference Manager - {0}", new object[1]
-                {
-                    Path.GetFileNameWithoutExtension(Url)
-                });
-
-                var contextGuids = new[] {
-                          VSConstants.AssemblyReferenceProvider_Guid,
-                          VSConstants.ProjectReferenceProvider_Guid,
-                          //VSConstants.SharedProjectReferenceProvider_Guid,
-                          VSConstants.ComReferenceProvider_Guid,
-                          VSConstants.FileReferenceProvider_Guid,
-                    };
-                referenceManager.ShowReferenceManager(
-                      this,
-                      title,
-                      "VS.AddReference",
-                      contextGuids.First(),
-                      fForceShowDefaultProvider: false
-                      );
-                return VSConstants.S_OK;
-            }
-            else
-            {
-                return VSConstants.E_NOINTERFACE;
-            }
+            this.projectNode = projectNode;
         }
 
         #region IVsReferenceManagerUser Members
@@ -81,6 +50,7 @@ namespace XSharp.Project
             {
                 Debug.Fail(e.ToString());
                 result = __VSREFERENCECHANGEOPERATIONRESULT.VSREFERENCECHANGEOPERATIONRESULT_DENY;
+                throw;
             }
 
             if (result == __VSREFERENCECHANGEOPERATIONRESULT.VSREFERENCECHANGEOPERATIONRESULT_DENY)
@@ -92,7 +62,7 @@ namespace XSharp.Project
         Array IVsReferenceManagerUser.GetProviderContexts()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            var mgr = this.GetService(typeof(SVsReferenceManager)) as IVsReferenceManager;
+            var mgr = projectNode.GetService(typeof(SVsReferenceManager)) as IVsReferenceManager;
             return this.GetProviderContexts(mgr).ToArray();
         }
 
@@ -111,7 +81,12 @@ namespace XSharp.Project
                 yield return ctxt;
             }
 
-            //CreateSharedProjectReferenceProviderContext(referenceManager),
+            //ctxt = CreateSharedProjectReferenceProviderContext(mgr);
+            //if (ctxt != null)
+            //{
+            //    yield return ctxt;
+            //}
+
             ctxt = CreateCOMReferenceProviderContext(mgr);
             if (ctxt != null)
             {
@@ -131,9 +106,9 @@ namespace XSharp.Project
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             var context = mgr.CreateProviderContext(VSConstants.AssemblyReferenceProvider_Guid) as IVsAssemblyReferenceProviderContext;
-            context.AssemblySearchPaths = this.GetProjectProperty("AssemblySearchPaths");
-            context.TargetFrameworkMoniker = this.TargetFrameworkMoniker.ToString();
-            var referenceContainer = this.GetReferenceContainer();
+            context.AssemblySearchPaths = projectNode.GetProjectProperty("AssemblySearchPaths");
+            context.TargetFrameworkMoniker = projectNode.TargetFrameworkMoniker.ToString();
+            var referenceContainer = projectNode.GetReferenceContainer();
             var references = referenceContainer
                  .EnumReferences()
                  .OfType<AssemblyReferenceNode>();
@@ -153,7 +128,7 @@ namespace XSharp.Project
             ThreadHelper.ThrowIfNotOnUIThread();
             var context = mgr.CreateProviderContext(VSConstants.ComReferenceProvider_Guid) as IVsComReferenceProviderContext;
 
-            var referenceContainer = this.GetReferenceContainer();
+            var referenceContainer = projectNode.GetReferenceContainer();
             var references = referenceContainer
                  .EnumReferences()
                  .OfType<ComReferenceNode>();
@@ -175,9 +150,9 @@ namespace XSharp.Project
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             var context = mgr.CreateProviderContext(VSConstants.ProjectReferenceProvider_Guid) as IVsProjectReferenceProviderContext;
-            context.CurrentProject = this;
+            context.CurrentProject = projectNode;
 
-            var referenceContainer = this.GetReferenceContainer();
+            var referenceContainer = projectNode.GetReferenceContainer();
             var references = referenceContainer
                  .EnumReferences()
                  .OfType<ProjectReferenceNode>();
@@ -193,32 +168,13 @@ namespace XSharp.Project
 
             return context;
         }
-        //private IVsReferenceProviderContext CreateSharedProjectReferenceProviderContext(IVsReferenceManager mgr)
-        //{
-        //    ThreadHelper.ThrowIfNotOnUIThread();
-        //    var context = mgr.CreateProviderContext(VSConstants.SharedProjectReferenceProvider_Guid) as IVsSharedProjectReferenceProviderContext;
-
-        //    //var referenceContainer = this.GetReferenceContainer();
-        //    //var references = referenceContainer
-        //    //     .EnumReferences()
-        //    //     .OfType<ProjectReferenceNode>();
-        //    //foreach (var reference in references)
-        //    //{
-        //    //    var newReference = context.CreateReference() as IVsProjectReference;
-        //    //    newReference.Identity = reference.ReferencedProjectGuid.ToString("B");
-        //    //    newReference.AlreadyReferenced = true;
-        //    //    context.AddReference(newReference);
-        //    //}
-
-        //    return context as IVsReferenceProviderContext;
-        //}
         private IVsReferenceProviderContext CreateFileReferenceProviderContext(IVsReferenceManager mgr)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             var context = mgr.CreateProviderContext(VSConstants.FileReferenceProvider_Guid) as IVsFileReferenceProviderContext;
 
             context.BrowseFilter = AddReferenceExtensions.Replace('|', '\0') + "\0";
-            var referenceContainer = this.GetReferenceContainer();
+            var referenceContainer = projectNode.GetReferenceContainer();
             var references = referenceContainer
                 .EnumReferences()
                 .Where(n => !(n is AssemblyReferenceNode) && !(n is ProjectReferenceNode));
@@ -233,48 +189,12 @@ namespace XSharp.Project
         }
 
 
-        //private IVsReferenceProviderContext CreatePlatformReferenceProviderContext(IVsReferenceManager mgr)
-        //{
-        //    IVsPlatformReferenceProviderContext2 vsPlatformReferenceProviderContext = mgr.CreateProviderContext(VSConstants.PlatformReferenceProvider_Guid) as IVsPlatformReferenceProviderContext2;
-        //    foreach (SdkReferenceNode current in GetReferenceContainer().EnumReferences().OfType<SdkReferenceNode>())
-        //    {
-        //        IVsPlatformReference vsPlatformReference = vsPlatformReferenceProviderContext.CreateReference() as IVsPlatformReference;
-        //        vsPlatformReference.SDKIdentity = current.Caption;
-        //        vsPlatformReference.IsSDK = true;
-        //        vsPlatformReference.AlreadyReferenced = true;
-        //        vsPlatformReference.FullPath = current.Url;
-        //        vsPlatformReferenceProviderContext.AddReference(vsPlatformReference);
-        //    }
-        //    if (IsImmersive)
-        //    {
-        //        vsPlatformReferenceProviderContext.TargetFrameworkMoniker = base.TargetFrameworkMoniker.ToString();
-        //        vsPlatformReferenceProviderContext.TargetPlatformIdentifier = "UAP";
-        //        vsPlatformReferenceProviderContext.TargetPlatformVersion = "10.0.14393.0";
-        //        vsPlatformReferenceProviderContext.IsImplicitlyReferenced = true;
-        //        vsPlatformReferenceProviderContext.SDKDirectoryRoot = GetSDKRootDirectory();
-        //        vsPlatformReferenceProviderContext.SDKExtensionDirectoryRoot = GetUWPSDKRootDirectory();
-        //        vsPlatformReferenceProviderContext.SDKFilterKeywords = "WindowsAppContainer WindowsXAML CSharp Managed";
-        //        vsPlatformReferenceProviderContext.SDKRegistryRoot = "Software\\Microsoft\\Microsoft SDKs";
-        //    }
-        //    else
-        //    {
-        //        vsPlatformReferenceProviderContext.TargetFrameworkMoniker = base.TargetFrameworkMoniker.ToString();
-        //        vsPlatformReferenceProviderContext.TargetPlatformIdentifier = "Windows";
-        //        vsPlatformReferenceProviderContext.TargetPlatformVersion = "8.0";
-        //        vsPlatformReferenceProviderContext.IsImplicitlyReferenced = true;
-        //        vsPlatformReferenceProviderContext.VisualStudioVersion = "11.0";
-        //        vsPlatformReferenceProviderContext.SDKDirectoryRoot = GetSDKRootDirectory();
-        //        vsPlatformReferenceProviderContext.SDKFilterKeywords = "WindowsAppContainer Managed";
-        //    }
-        //    return vsPlatformReferenceProviderContext;
-        //}
-
         private __VSREFERENCECHANGEOPERATIONRESULT AddReferences(IVsReferenceProviderContext context)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             var addedReferences = this.GetAddedReferences(context);
 
-            var referenceContainer = this.GetReferenceContainer();
+            var referenceContainer = projectNode.GetReferenceContainer();
             foreach (var selectorData in addedReferences)
             {
                 referenceContainer.AddReferenceFromSelectorData(selectorData);
@@ -302,10 +222,6 @@ namespace XSharp.Project
             {
                 return GetAddedCOMReferences(context as IVsComReferenceProviderContext);
             }
-            //else if (context.ProviderGuid == VSConstants.PlatformReferenceProvider_Guid)
-            //{
-            //    return GetAddedPlatformReferences(context as IVsPlatformReferenceProviderContext);
-            //}
             return Enumerable.Empty<VSCOMPONENTSELECTORDATA>();
         }
 
@@ -330,28 +246,24 @@ namespace XSharp.Project
 
             if (context.ProviderGuid == VSConstants.ProjectReferenceProvider_Guid)
             {
-                removedReferences = GetRemovedProjectReferences(context as IVsProjectReferenceProviderContext);
+                removedReferences = GetRemovedProjectReferences(context);
             }
             else if (context.ProviderGuid == VSConstants.FileReferenceProvider_Guid)
             {
-                removedReferences = GetRemovedFileReferences(context as IVsFileReferenceProviderContext);
+                removedReferences = GetRemovedFileReferences(context);
             }
             else if (context.ProviderGuid == VSConstants.AssemblyReferenceProvider_Guid)
             {
-                removedReferences = GetRemovedAssemblyReferences(context as IVsAssemblyReferenceProviderContext);
+                removedReferences = GetRemovedAssemblyReferences(context);
             }
             else if (context.ProviderGuid == VSConstants.ComReferenceProvider_Guid)
             {
-                removedReferences = GetRemovedCOMReferences(context as IVsComReferenceProviderContext);
+                removedReferences = GetRemovedCOMReferences(context);
             }
-            //else if (context.ProviderGuid == VSConstants.PlatformReferenceProvider_Guid)
-            //{
-            //    removedReferences = GetRemovedPlatformReferences(context as IVsPlatformReferenceProviderContext);
-            //}
             return removedReferences;
         }
 
-        private IEnumerable<VSCOMPONENTSELECTORDATA> GetAddedProjectReferences(IVsProjectReferenceProviderContext context)
+        private IEnumerable<VSCOMPONENTSELECTORDATA> GetAddedProjectReferences(IVsReferenceProviderContext context)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             var selectedReferences = context
@@ -368,7 +280,7 @@ namespace XSharp.Project
             return selectedReferences;
         }
 
-        private IEnumerable<VSCOMPONENTSELECTORDATA> GetAddedAssemblyReferences(IVsAssemblyReferenceProviderContext context)
+        private IEnumerable<VSCOMPONENTSELECTORDATA> GetAddedAssemblyReferences(IVsReferenceProviderContext context)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             var selectedReferences = context
@@ -383,7 +295,7 @@ namespace XSharp.Project
 
             return selectedReferences;
         }
-        private IEnumerable<VSCOMPONENTSELECTORDATA> GetAddedCOMReferences(IVsComReferenceProviderContext context)
+        private IEnumerable<VSCOMPONENTSELECTORDATA> GetAddedCOMReferences(IVsReferenceProviderContext context)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             var selectedReferences = context
@@ -402,21 +314,7 @@ namespace XSharp.Project
             return selectedReferences;
         }
 
-
-        //private IEnumerable<VSCOMPONENTSELECTORDATA> GetAddedPlatformReferences(IVsPlatformReferenceProviderContext context)
-        //{
-        //    return context.References.OfType<IVsPlatformReference>().Select(delegate (IVsPlatformReference reference)
-        //    {
-        //        VSCOMPONENTSELECTORDATA result = default(VSCOMPONENTSELECTORDATA);
-        //        result.type = VSCOMPONENTTYPE.VSCOMPONENTTYPE_Custom;
-        //        result.bstrTitle = reference.Name;
-        //        result.bstrFile = reference.FullPath;
-        //        return result;
-        //    });
-        //}
-
-
-        private IEnumerable<ReferenceNode> GetRemovedProjectReferences(IVsProjectReferenceProviderContext context)
+        private IEnumerable<ReferenceNode> GetRemovedProjectReferences(IVsReferenceProviderContext context)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             var selectedReferences = context
@@ -424,7 +322,7 @@ namespace XSharp.Project
                  .OfType<IVsProjectReference>()
                  .Select(asmRef => new Guid(asmRef.Identity));
 
-            var referenceContainer = this.GetReferenceContainer();
+            var referenceContainer = projectNode.GetReferenceContainer();
             var references = referenceContainer
                  .EnumReferences()
                  .OfType<ProjectReferenceNode>()
@@ -433,7 +331,7 @@ namespace XSharp.Project
             return references;
         }
 
-        private IEnumerable<VSCOMPONENTSELECTORDATA> GetAddedFileReferences(IVsFileReferenceProviderContext context)
+        private IEnumerable<VSCOMPONENTSELECTORDATA> GetAddedFileReferences(IVsReferenceProviderContext context)
         {
             var selectedReferences = context
                  .References
@@ -447,7 +345,7 @@ namespace XSharp.Project
             return selectedReferences;
         }
 
-        private IEnumerable<ReferenceNode> GetRemovedFileReferences(IVsFileReferenceProviderContext context)
+        private IEnumerable<ReferenceNode> GetRemovedFileReferences(IVsReferenceProviderContext context)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             var selectedReferences = context
@@ -455,7 +353,7 @@ namespace XSharp.Project
                  .OfType<IVsFileReference>()
                  .Select(fileRef => fileRef.FullPath);
 
-            var referenceContainer = this.GetReferenceContainer();
+            var referenceContainer = projectNode.GetReferenceContainer();
             var references = referenceContainer
                  .EnumReferences()
                  .OfType<ReferenceNode>()
@@ -465,33 +363,23 @@ namespace XSharp.Project
         }
 
 
-        private IEnumerable<ReferenceNode> GetRemovedAssemblyReferences(IVsAssemblyReferenceProviderContext context)
+        private IEnumerable<ReferenceNode> GetRemovedAssemblyReferences(IVsReferenceProviderContext context)
         {
             IEnumerable<string> selectedReferences = from asmRef in context.References.OfType<IVsAssemblyReference>()
                                                      select asmRef.FullPath;
-            return from refNode in GetReferenceContainer().EnumReferences().OfType<AssemblyReferenceNode>()
+            return from refNode in projectNode.GetReferenceContainer().EnumReferences().OfType<AssemblyReferenceNode>()
                    where selectedReferences.Contains(refNode.Url)
                    select refNode;
         }
 
-        private IEnumerable<ReferenceNode> GetRemovedCOMReferences(IVsComReferenceProviderContext context)
+        private IEnumerable<ReferenceNode> GetRemovedCOMReferences(IVsReferenceProviderContext context)
         {
             IEnumerable<Guid> selectedReferences = from comRef in context.References.OfType<IVsComReference>()
                                                    select comRef.Guid;
-            return from refNode in GetReferenceContainer().EnumReferences().OfType<ComReferenceNode>()
+            return from refNode in projectNode.GetReferenceContainer().EnumReferences().OfType<ComReferenceNode>()
                    where selectedReferences.Contains(refNode.TypeGuid)
                    select refNode;
         }
-
-        //private IEnumerable<ReferenceNode> GetRemovedPlatformReferences(IVsPlatformReferenceProviderContext context)
-        //{
-        //    IEnumerable<string> selectedReferences = from platformRef in context.References.OfType<IVsPlatformReference>()
-        //                                             select platformRef.FullPath;
-        //    return from refNode in GetReferenceContainer().EnumReferences().OfType<SdkReferenceNode>()
-        //           where selectedReferences.Contains(refNode.Url)
-        //           select refNode;
-        //}
-
 
         protected virtual string AddReferenceExtensions
         {

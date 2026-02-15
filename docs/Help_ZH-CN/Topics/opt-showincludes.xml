@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-07-08T09:29:38.656+02:00" lasteditedby="robert" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>-showincludes</title>
+  <keywords>
+    <keyword>-showincludes</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">-showincludes</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">使用 -showincludes 选项，编译器会在处理#include 文件时输出这些文件的名称。</para>
+    <para styleclass="Heading2">语法</para>
+    <para styleclass="Code with box">-showincludes[+|-]</para>
+    <para styleclass="Heading2">参数</para>
+    <para styleclass="List"><text styleclass="Code Example">+ | - </text><tab />指定 + 或只指定 -showincludes 会导致编译器在处理 #include 文件时输出这些文件的名称。 </para>
+    <para styleclass="Heading2">备注</para>
+    <para styleclass="Normal">该选项有助于确定编译器根据 #include 指令正在处理的文件。嵌套的包含文件也会显示出来。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal"><snippet src="__buildExtra" inline="false"/></para>
+  </body>
+</topic>

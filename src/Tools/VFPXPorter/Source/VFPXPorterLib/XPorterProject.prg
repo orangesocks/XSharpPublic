@@ -57,6 +57,8 @@ BEGIN NAMESPACE VFPXPorterLib
 
         PROPERTY CurrentFileName AS STRING AUTO GET PRIVATE SET
 
+        PROPERTY SolutionPath AS STRING AUTO
+
 
         CONSTRUCTOR( filePath AS STRING, destPath AS STRING )
             //
@@ -71,11 +73,9 @@ BEGIN NAMESPACE VFPXPorterLib
             SELF:ReferenceFiles := List<Reference>{}
             SELF:ReferenceLibFiles := List<Reference>{}
             //
-            //SELF:SetLoggerToFile( NULL )
 
-        METHOD _SetLoggerToFile( fileLog AS STRING ) AS VOID
-            XPorterLogger.SetLoggerToFile( fileLog )
-
+        METHOD ClearResultText() AS VOID
+            BufferedSink.Instance:Clear()
         PROPERTY ResultText AS STRING
             GET
                 VAR log := BufferedSink.Instance:Log
@@ -237,10 +237,11 @@ BEGIN NAMESPACE VFPXPorterLib
         METHOD ExportProject( doBackup AS LOGIC, asyncWorker AS BackgroundWorker ) AS LOGIC
             LOCAL result := TRUE AS LOGIC
             LOCAL exitExport := FALSE AS LOGIC
-            VAR Dependencies := EnumerateDependencies( )
-            // All strings written to ResultText will be written to the log File
-            XPorterLogger.SetLoggerToFile( Path.Combine( SELF:outputPath, "VFPXPorter.log" )  )
+            VAR Dependencies := SELF:EnumerateDependencies( )
+            //
             TRY
+                // All strings written to ResultText will be written to the log File
+                XPorterLogger.SetLoggerToFile( Path.Combine( SELF:outputPath, "VFPXPorter.log" )  )
                 // Before, we need to enumerate all Controls that belongs to Libraries
                 // These definitions will be used when converting Control Properties
                 VAR newControls := Dictionary<STRING, SCXVCXItem>{}
@@ -500,17 +501,21 @@ BEGIN NAMESPACE VFPXPorterLib
                             IF !String.IsNullOrEmpty( vfpxporterPath )
                                 VAR uniqueNamespaces := generatedNamespaces:Distinct():ToList()
                                 VAR headerText := File.ReadAllText( vfpxporterPath )
+                                VAR comment := "// "
+                                IF Settings:AddLibraryNamespace
+                                    comment := ""
+                                ENDIF
                                 //
                                 headerText += Environment.NewLine
                                 headerText += Environment.NewLine + "// VFPXPorter - Generated Namespaces"
                                 FOREACH VAR definition IN uniqueNamespaces
-                                    headerText += Environment.NewLine + "USING " + definition
+                                    headerText += Environment.NewLine + comment + "USING " + definition
                                 NEXT
                                 headerText += Environment.NewLine
                                 File.WriteAllText( vfpxporterPath, headerText )
                             ENDIF
                             // And Don't forget the Starting block
-                            IF SELF:Project:Main != NULL
+                            IF SELF:Project:Main != NULL .AND. SELF:Settings:OutputType == ProjectType.WindowsExe
                                 // The File to be created
                                 LOCAL destFile AS STRING
                                 destFile := Path.GetFileName( SELF:StartBlockFile )
@@ -554,6 +559,7 @@ BEGIN NAMESPACE VFPXPorterLib
                 XPorterLogger.Instance:Error( e.Message)
                 THROW e
             FINALLY
+                XPorterLogger.CloseLogger()
                 XPorterLogger.SetLoggerToFile( NULL )
             END TRY
 
@@ -579,8 +585,8 @@ BEGIN NAMESPACE VFPXPorterLib
 
         // Generate a MSBuild file
         PRIVATE METHOD GenerateSolution( stdDef AS STRING ) AS VOID
-            LOCAL destFile AS STRING
             LOCAL xsLibs := NULL AS VSProject
+
             // First, do we have any "Libraries" ?
             IF SELF:GeneratedLibFiles:Count > 0
                 xsLibs := VSProject{ "ClassLibraries" }
@@ -604,17 +610,19 @@ BEGIN NAMESPACE VFPXPorterLib
                     ENDIF
                 NEXT
                 //
-                destFile := Path.Combine( SELF:outputPath, "ClassLibraries" )
-                destFile := Path.ChangeExtension( destFile, "xsproj")
+                VAR libProjPath := Path.Combine( SELF:outputPath, "ClassLibraries.xsproj")
                 // Save the MSBuild file for the Libraries
-                xsLibs:Save( destFile, stdDef )
+                xsLibs:Save( libProjPath, stdDef )
             ENDIF
+
             // Now the Main Project
-            destFile := Path.GetFileName( SELF:pjxFilePath )
-            destFile := Path.Combine( SELF:outputPath, destFile )
-            destFile := Path.ChangeExtension( destFile, "xsproj")
+            VAR projectName := Path.GetFileNameWithoutExtension( SELF:pjxFilePath )
+            VAR projectPath := Path.Combine( SELF:outputPath, projectName + ".xsproj")
+
             // The imported Project : We will add "App" at the end of the ProjectName to avoid conflicts in the Name Property
-            VAR xsProj := VSProject{ Path.GetFileNameWithoutExtension( SELF:pjxFilePath )}
+            VAR xsProj := VSProject{ projectName }
+            xsProj:ProjectType := SELF:Settings:OutputType
+
             SELF:AddStandardReferences( xsProj )
             //
             FOREACH refFile AS Reference IN SELF:ReferenceFiles
@@ -638,18 +646,53 @@ BEGIN NAMESPACE VFPXPorterLib
                 xsProj:ProjectReferenceList:Add( xsLibs )
             ENDIF
             // Save the MSBuild file for the "main" Project
-            xsProj:Save( destFile, stdDef )
+            xsProj:Save( projectPath, stdDef )
+
+            LOCAL relativeProjPath AS STRING
+            IF SELF:Settings:PlaceSolutionInSameDirectory
+                relativeProjPath := projectName + ".xsproj"
+            ELSE
+                relativeProjPath := Path.Combine(projectName, projectName + ".xsproj")
+            ENDIF
+
             // Now the Solution
             VAR xsSolution := VSSolution{}
+
+            LOCAL solutionBasePath AS STRING
+            IF String.IsNullOrWhiteSpace(SELF:SolutionPath)
+                solutionBasePath := String.Empty
+            ELSE
+                solutionBasePath := SELF:SolutionPath:TrimEnd(Path.DirectorySeparatorChar)
+            ENDIF
+
+            LOCAL solutionName AS STRING
+            IF !String.IsNullOrWhiteSpace(SELF:Settings:SolutionName)
+                solutionName := SELF:Settings:SolutionName
+            ELSE
+                solutionName := Path.GetFileName(solutionBasePath)
+            ENDIF
+
+            VAR solutionFile := Path.Combine(solutionBasePath, solutionName + ".sln")
+
+            // If user checked to Append to existing Solution, load it
+            IF SELF:Settings:AppendToSolution .AND. File.Exists( solutionFile )
+                xsSolution:Load( solutionFile )
+            ENDIF
+
+            VAR existing := xsSolution:Projects:Find({ p => String.Compare(p:Name, xsProj:Name, TRUE) == 0 })
+            IF existing != NULL
+                xsSolution:Projects:Remove(existing)
+            ENDIF
+            
+            xsProj:RelativePath := relativeProjPath
             xsSolution:Projects:Add( xsProj )
-            IF xsLibs != NULL
+
+            IF xsLibs != NULL .AND. !xsSolution:Projects:Any({ p => String.Compare(p:Name, xsLibs:Name, TRUE) == 0 })
                 xsSolution:Projects:Add( xsLibs )
             ENDIF
-            destFile := Path.GetFileName( SELF:pjxFilePath )
-            destFile := Path.Combine( SELF:outputPath, destFile )
-            destFile := Path.ChangeExtension( destFile, "sln")
-            xsSolution:Save( destFile )
-            //
+
+            xsSolution:Save( solutionFile )
+
             RETURN
 
             // Backup the PJX Items : Create an XML File with Items info, and export the associated Code
@@ -694,7 +737,7 @@ BEGIN NAMESPACE VFPXPorterLib
                 Dependencies:Add( lib:Name )
             NEXT
             // Ok, then, look for All dependencies, and Dependencies of dependencies, and ...
-            Dependencies := EnumerateDependencies( Dependencies )
+            Dependencies := SELF:EnumerateDependencies( Dependencies )
             RETURN Dependencies
 
         PRIVATE METHOD EnumerateDependencies( Dependencies AS HashSet<STRING> ) AS HashSet<STRING>

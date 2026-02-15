@@ -27,6 +27,7 @@ BEGIN NAMESPACE XSharp
         [DebuggerBrowsable(DebuggerBrowsableState.Never)];
         PRIVATE _nCols := 0 AS DWORD
         [DebuggerBrowsable(DebuggerBrowsableState.Never)];
+        OVERRIDE PROTECTED INTERNAL PROPERTY __IsFoxArray AS LOGIC GET TRUE
         PROPERTY MultiDimensional AS LOGIC GET _nCols > 0
         PROPERTY Columns          AS LONG GET (LONG) _nCols
         PROPERTY Rows             AS LONG
@@ -424,7 +425,7 @@ BEGIN NAMESPACE XSharp
                 sb:Append(_nCols)
             ENDIF
             sb:Append("] (")
-            FOR VAR i := 1 TO Math.Min(SELF:Length,10)
+            FOR VAR i := 1 TO Math.Min(SELF:Length,10U)
                 IF i > 1
                     sb:Append(",")
                 ENDIF

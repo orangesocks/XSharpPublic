@@ -132,6 +132,9 @@ namespace XSharp.Project
         {
         }
 
+        public XSharpFileNode XNode => (XSharpFileNode)this.Node;
+
+
         // =========================================================================================
         // Properties
         // =========================================================================================
@@ -152,7 +155,12 @@ namespace XSharp.Project
 
             set
             {
-                base.BuildAction = value;
+                if (value != base.BuildAction)
+                {
+                    base.BuildAction = value;
+                    XNode.BuildActionChanged();
+
+                }
             }
         }
     }
@@ -551,6 +559,18 @@ namespace XSharp.Project
         [LocDisplayName(SR.Identity)]
         [SRDescriptionAttribute(SR.IdentityDescription)]
         public override string Name
+        {
+            get
+            {
+                var o = Node as XSharpPackageReferenceNode;
+                return o.Name;
+            }
+        }
+
+        [SRCategoryAttribute(SR.Misc)]
+        [LocDisplayName(SR.Identity)]
+        [SRDescriptionAttribute(SR.IdentityDescription)]
+        public virtual string PackageName
         {
             get
             {

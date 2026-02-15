@@ -165,9 +165,6 @@ RETURN NIL
 FUNCTION GETPAD( )
 RETURN NIL
 
-[Obsolete( "This function will not be supported" )];
-FUNCTION GETPEM( )
-RETURN NIL
 
 [Obsolete( "This function will not be supported" )];
 FUNCTION HOME( )
@@ -309,9 +306,10 @@ RETURN NIL
 FUNCTION WDOCKABLE( )
 RETURN NIL
 
-[Obsolete( "This function will not be supported" )];
-FUNCTION WEXIST( )
-RETURN NIL
+// Implemented in XSharp.VFP.UI
+// [Obsolete( "This function will not be supported" )];
+// FUNCTION WEXIST( )
+// RETURN NIL
 
 [Obsolete( "This function will not be supported" )];
 FUNCTION WFONT( )
@@ -361,9 +359,10 @@ RETURN NIL
 FUNCTION WTITLE( )
 RETURN NIL
 
-[Obsolete( "This function will not be supported" )];
-FUNCTION WVISIBLE( )
-RETURN NIL
+// Implemented in XSharp.VFP.UI
+// [Obsolete( "This function will not be supported" )];
+// FUNCTION WVISIBLE( )
+// RETURN NIL
 
 
 /*

@@ -1397,17 +1397,17 @@ public interface IXSharpListener : IParseTreeListener {
 	void ExitFoxaddobject([NotNull] XSharpParser.FoxaddobjectContext context);
 
 	/// <summary>
-	/// Enter a parse tree produced by the <c>foxclsvarinit</c>
+	/// Enter a parse tree produced by the <c>foxclsfield</c>
 	/// labeled alternative in <see cref="XSharpParser.foxclassmember"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
-	void EnterFoxclsvarinit([NotNull] XSharpParser.FoxclsvarinitContext context);
+	void EnterFoxclsfield([NotNull] XSharpParser.FoxclsfieldContext context);
 	/// <summary>
-	/// Exit a parse tree produced by the <c>foxclsvarinit</c>
+	/// Exit a parse tree produced by the <c>foxclsfield</c>
 	/// labeled alternative in <see cref="XSharpParser.foxclassmember"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
-	void ExitFoxclsvarinit([NotNull] XSharpParser.FoxclsvarinitContext context);
+	void ExitFoxclsfield([NotNull] XSharpParser.FoxclsfieldContext context);
 
 	/// <summary>
 	/// Enter a parse tree produced by the <c>foxclsmethod</c>
@@ -3630,37 +3630,15 @@ public interface IXSharpListener : IParseTreeListener {
 	void ExitParserLiteralValue([NotNull] XSharpParser.ParserLiteralValueContext context);
 
 	/// <summary>
-	/// Enter a parse tree produced by <see cref="XSharpParser.keywordvo"/>.
+	/// Enter a parse tree produced by <see cref="XSharpParser.keywordsoft"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
-	void EnterKeywordvo([NotNull] XSharpParser.KeywordvoContext context);
+	void EnterKeywordsoft([NotNull] XSharpParser.KeywordsoftContext context);
 	/// <summary>
-	/// Exit a parse tree produced by <see cref="XSharpParser.keywordvo"/>.
+	/// Exit a parse tree produced by <see cref="XSharpParser.keywordsoft"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
-	void ExitKeywordvo([NotNull] XSharpParser.KeywordvoContext context);
-
-	/// <summary>
-	/// Enter a parse tree produced by <see cref="XSharpParser.keywordxs"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	void EnterKeywordxs([NotNull] XSharpParser.KeywordxsContext context);
-	/// <summary>
-	/// Exit a parse tree produced by <see cref="XSharpParser.keywordxs"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	void ExitKeywordxs([NotNull] XSharpParser.KeywordxsContext context);
-
-	/// <summary>
-	/// Enter a parse tree produced by <see cref="XSharpParser.keywordxpp"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	void EnterKeywordxpp([NotNull] XSharpParser.KeywordxppContext context);
-	/// <summary>
-	/// Exit a parse tree produced by <see cref="XSharpParser.keywordxpp"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	void ExitKeywordxpp([NotNull] XSharpParser.KeywordxppContext context);
+	void ExitKeywordsoft([NotNull] XSharpParser.KeywordsoftContext context);
 
 	/// <summary>
 	/// Enter a parse tree produced by <see cref="XSharpParser.xppclass"/>.
@@ -3826,17 +3804,6 @@ public interface IXSharpListener : IParseTreeListener {
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	void ExitXppinlineMethod([NotNull] XSharpParser.XppinlineMethodContext context);
-
-	/// <summary>
-	/// Enter a parse tree produced by <see cref="XSharpParser.keywordfox"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	void EnterKeywordfox([NotNull] XSharpParser.KeywordfoxContext context);
-	/// <summary>
-	/// Exit a parse tree produced by <see cref="XSharpParser.keywordfox"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	void ExitKeywordfox([NotNull] XSharpParser.KeywordfoxContext context);
 
 	/// <summary>
 	/// Enter a parse tree produced by <see cref="XSharpParser.foxclass"/>.

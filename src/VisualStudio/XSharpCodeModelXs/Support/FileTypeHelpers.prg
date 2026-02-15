@@ -6,7 +6,7 @@
 
 USING System
 using XSharp.Settings
-BEGIN NAMESPACE XSharpModel
+NAMESPACE XSharpModel
 
 STATIC CLASS XFileTypeHelpers
 
@@ -49,6 +49,7 @@ STATIC CLASS XFileTypeHelpers
         VAR ext := System.IO.Path.GetExtension(filename):ToLower()
         SWITCH ext
         CASE ".prg"
+        CASE ".prgx"
         CASE ".xs"
             RETURN XFileType.SourceCode
         CASE ".ppo"
@@ -66,9 +67,15 @@ STATIC CLASS XFileTypeHelpers
         CASE ".xsdbs"
         CASE ".vndbs"
             RETURN XFileType.VODBServer
+        CASE ".xssql"
+        CASE ".vnsqs"
+            RETURN XFileType.VOSqlTable
         CASE ".xsfs"
         CASE ".vnfs"
             RETURN XFileType.VOFieldSpec
+        CASE ".xsrep"
+        CASE ".vnrep"
+            RETURN XFileType.VOReport
         CASE ".xaml"
             RETURN XFileType.XAML
         CASE ".settings"
@@ -106,6 +113,8 @@ STATIC CLASS XFileTypeHelpers
         CASE XFileType.VOForm
         CASE XFileType.VOIndex
         CASE XFileType.VOOrder
+        CASE XFileType.VOReport
+        CASE XFileType.VOSqlTable
             RETURN TRUE
         END SWITCH
         RETURN FALSE
@@ -125,6 +134,4 @@ STATIC CLASS XFileTypeHelpers
 
 
 END CLASS
-
-END NAMESPACE
 

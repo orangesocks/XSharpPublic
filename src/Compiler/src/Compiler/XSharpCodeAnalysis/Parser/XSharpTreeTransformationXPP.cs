@@ -137,6 +137,17 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             };
         }
 
+        private static SyntaxToken DecodeReadonlyVisibility(int vis)
+        {
+            return vis switch
+            {
+                XP.EXPORTED or XP.PUBLIC => SyntaxFactory.MakeToken(SyntaxKind.ProtectedKeyword, "READONLY"),
+                XP.PROTECTED => SyntaxFactory.MakeToken(SyntaxKind.PrivateKeyword, "READONLY"),
+                XP.INTERNAL => SyntaxFactory.MakeToken(SyntaxKind.ProtectedKeyword, "READONLY"),
+                _ => SyntaxFactory.MakeToken(SyntaxKind.PrivateKeyword, "HIDDEN"),
+            };
+        }
+
         private XppClassInfo FindClassInfo(string name)
         {
             foreach (var info in _xppClasses)
@@ -256,6 +267,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                 keyword: SyntaxFactory.MakeToken(SyntaxKind.ClassKeyword),
                 identifier: context.Id.Get<SyntaxToken>(),
                 typeParameterList: null,
+                parameterList: null, //TODO nvk
                 baseList: _syntaxFactory.BaseList(SyntaxFactory.ColonToken, baseTypes),
                 constraintClauses: null,
                 openBraceToken: SyntaxFactory.OpenBraceToken,
@@ -282,7 +294,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             var func = _syntaxFactory.MethodDeclaration(
                 attributeLists: MakeCompilerGeneratedAttribute(),
                 modifiers: TokenListWithDefaultVisibility(false, SyntaxKind.PublicKeyword, SyntaxKind.StaticKeyword),
-                returnType: UsualType,
+                returnType: ObjectType,
                 explicitInterfaceSpecifier: null,
                 identifier: context.Id.Get<SyntaxToken>(),
                 typeParameterList: null,
@@ -340,8 +352,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             // XPP allows to declare an ACCESS METHOD and then declare the method body without ACCESS prefix !
             // The method is called with an optional parameter (the value from the property)
             // In the method body the user needs to check for the type to see if the getter or setter is called.
-            // 
-            // 
+            //
+            //
             /*
              // example from XbZLog.prg
              Class XbZ_LogWriter
@@ -400,7 +412,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             // include [SHARED], [READONLY] [ASSIGNMENT HIDDEN | PROTECTED | EXPORTED]  and [NOSAVE] modifiers
             // on top of the visibility modifier
             // The [Readonly] clause and [Assignment] clause are not supported yet
-            // In as future build we will create a private backing Ivar and 
+            // In as future build we will create a private backing Ivar and
             // Create a property with Getter and Setter with property visibility
             // to emulate the possible combinations of [ReadOnly] and Assignment and Visibility
             // The following table lists what should be done
@@ -423,7 +435,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             // when they are we do not generate variables
             var varType = getDataType(context.DataType);
             varType.XCanBeVoStruct = true;
-            var fieldList = new List<FieldDeclarationSyntax>();
+            var fieldList = new List<MemberDeclarationSyntax>();
             var attributeLists = _pool.Allocate<AttributeListSyntax>();
             if (context.Nosave != null)
             {
@@ -432,17 +444,53 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             foreach (var id in context._Vars)
             {
                 varList.Clear();
-                var variable = GenerateVariable(id.Get<SyntaxToken>());
+                var idToken = id.Get<SyntaxToken>();
+                var variable = GenerateVariable(idToken);
                 varList.Add(variable);
                 SyntaxToken isReadonly = null;
-                if (context.ReadOnly != null)
-                {
-                    isReadonly = SyntaxFactory.MakeToken(SyntaxKind.ReadOnlyKeyword, context.ReadOnly.Text);
-                }
                 // calculate modifiers
-                // each field is added separately so we can later decide which field to keep and which one to delete when they are duplicated by a 
+                // each field is added separately so we can later decide which field to keep and which one to delete when they are duplicated by a
                 var modifiers = decodeXppMemberModifiers(context, context.Visibility, false,
                     context.Modifiers?._Tokens, false, isReadonly);
+                if (context.Assignment != null || context.ReadOnly != null)
+                {
+                    var setvis = context.Assignment?.xppvisibility().Token.SyntaxKeyword() ?? DecodeReadonlyVisibility(context.Visibility);
+                    var acclist = MakeAccessorList(
+                                _syntaxFactory.AccessorDeclaration(
+                                    kind: SyntaxKind.GetAccessorDeclaration,
+                                    attributeLists: default,
+                                    modifiers: null,
+                                    keyword: SyntaxFactory.MakeToken(SyntaxKind.GetKeyword),
+                                    body: null,
+                                    expressionBody: null,
+                                    semicolonToken: SyntaxFactory.SemicolonToken
+                                    ),
+                                _syntaxFactory.AccessorDeclaration(
+                                    kind: SyntaxKind.SetAccessorDeclaration,
+                                    attributeLists: default,
+                                    modifiers: setvis,
+                                    keyword: SyntaxFactory.MakeToken(SyntaxKind.SetKeyword),
+                                    body: null,
+                                    expressionBody: null,
+                                    semicolonToken: SyntaxFactory.SemicolonToken));
+                    var initValue = GenerateInitializer(context.DataType, false);
+                    var initializer = initValue == null ? null :
+                        _syntaxFactory.EqualsValueClause(SyntaxFactory.EqualsToken, initValue);
+                    var fdecl = _syntaxFactory.PropertyDeclaration(
+                        attributeLists: attributeLists,
+                        modifiers: modifiers,
+                        type: varType,
+                        explicitInterfaceSpecifier: null,
+                        identifier: idToken,
+                        accessorList: acclist,
+                        expressionBody: null,
+                        initializer: initializer,
+                        semicolonToken: SyntaxFactory.SemicolonToken);
+                    fdecl.XNode = id;
+                    ClassEntities.Peek().Members.Add(fdecl);
+                    fieldList.Add(fdecl);
+                    varList.Clear();
+                }
                 if (varList.Count > 0)
                 {
                     var decl = _syntaxFactory.VariableDeclaration(
@@ -961,7 +1009,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
 
                 // update class declaration, add external methods
                 classdecl = classdecl.Update(classdecl.AttributeLists, classdecl.Modifiers,
-                    classdecl.Keyword, classdecl.Identifier, classdecl.TypeParameterList, classdecl.BaseList,
+                    classdecl.Keyword, classdecl.Identifier, classdecl.TypeParameterList, null /* TODO nvk */, classdecl.BaseList,
                     classdecl.ConstraintClauses, classdecl.OpenBraceToken, members, classdecl.CloseBraceToken, classdecl.SemicolonToken);
                 _pool.Free(members);
 
@@ -1010,8 +1058,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
             entities.AddRange(context._Entities.Where(e => !(e.GetChild(0) is XP.XppmethodContext)));
             _exitNamespace(context, context.Name.GetText(), entities);
         }
-        #endregion 
-        #region Modifiers 
+        #endregion
+        #region Modifiers
         public override void ExitXppclassModifiers([NotNull] XP.XppclassModifiersContext context)
         {
             SyntaxListBuilder modifiers = _pool.Allocate();
@@ -1067,7 +1115,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                     switch (m.Type)
                     {
                         case XP.DEFERRED: // DEFERRED METHOD becomes ABSTRACT METHOD
-                        case XP.ABSTRACT: // 
+                        case XP.ABSTRACT: //
                             kw = SyntaxFactory.MakeToken(SyntaxKind.AbstractKeyword, m.Text);
                             break;
                         case XP.FINAL: // FINAL METHOD will generate non virtual method, even when the Default Virtual is on
@@ -1103,7 +1151,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Syntax.InternalSyntax
                         case XP.STATIC:
                             // remove visibility modifiers
                             // STATIC member (Visibility only in the scope of the prg).
-                            // member becomes Internal 
+                            // member becomes Internal
                             kw = SyntaxFactory.MakeToken(SyntaxKind.InternalKeyword, m.Text);
                             var tmp = modifiers.ToList();
                             modifiers.Clear();

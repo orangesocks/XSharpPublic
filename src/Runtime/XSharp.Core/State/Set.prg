@@ -24,7 +24,11 @@ FUNCTION SetAmPm() AS LOGIC
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/setampm/*" />
 FUNCTION SetAmPm(lNewSetting AS LOGIC) AS LOGIC
-    SETSTATE LOGIC Set.AmPm lNewSetting
+    LOCAL lOld AS LOGIC
+    lOld := RuntimeState.GetValue<LOGIC>(Set.AmPm)
+    XSharp.RuntimeState.SetValue<LOGIC>(Set.AmPm, lNewSetting)
+    RuntimeState.SetValue<LONG>(Set.Hours, IIF(lNewSetting, 12, 24))
+    return lOld
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/setansi/*" />
 FUNCTION SetAnsi() AS LOGIC
@@ -85,11 +89,13 @@ FUNCTION SetCompatible(lNewSetting AS LOGIC) AS LOGIC
 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/setcpu/*" />
+[Obsolete];
 FUNCTION SetCpu() AS DWORD
     GETSTATE DWORD Set.Cpu
 
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/setcpu/*" />
+[Obsolete];
 FUNCTION SetCpu(nNewSetting AS DWORD) AS DWORD
     SETSTATE DWORD Set.Cpu nNewSetting
 
@@ -293,10 +299,12 @@ FUNCTION SetFixed(lNewSetting AS LOGIC) AS LOGIC
     RETURN lOld
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/setmath/*" />
+[Obsolete];
 FUNCTION SetMath() AS DWORD
     GETSTATE DWORD Set.Math
 
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/setmath/*" />
+[Obsolete];
 FUNCTION SetMath(nNewSetting AS DWORD) AS DWORD
     SETSTATE DWORD Set.Math nNewSetting
 
@@ -530,11 +538,11 @@ FUNCTION SetInternational(symNewSetting AS STRING) AS STRING
     SWITCH symNewSetting:ToUpper()
         CASE "CLIPPER"
         CASE "XPP"
-            RuntimeState.GetInstance()._SetInternationalClipper()
+            RuntimeState.GetInstance():_SetInternationalClipper()
         CASE "WINDOWS"
         CASE "UNICODE"
         CASE "ORDINAL"
-            RuntimeState.GetInstance()._SetInternationalWindows()
+            RuntimeState.GetInstance():_SetInternationalWindows()
         OTHERWISE
             THROW Error.ArgumentError(__ENTITY__, NAMEOF(symNewSetting), "Unsupported international mode: "+ symNewSetting)
     END SWITCH
@@ -589,3 +597,29 @@ FUNCTION SetRefresh(nNewSetting AS REAL8) AS REAL8
 /// <include file="VoFunctionDocs.xml" path="Runtimefunctions/setrefresh/*" />
 FUNCTION SetRefresh() AS REAL8
 	RETURN RuntimeState.Refresh
+/// <summary>Get/Set hours format (12 or 24 hours)</summary>
+/// <include file="VoFunctionDocs.xml" path="Runtimefunctions/sethours/*" />
+FUNCTION SetHours() AS LONG
+	RETURN RuntimeState.GetValue<LONG>(Set.Hours)
+
+/// <include file="VoFunctionDocs.xml" path="Runtimefunctions/sethours/*" />
+FUNCTION SetHours(tnHours AS LONG) AS LONG
+    LOCAL nOld := RuntimeState.GetValue<LONG>(Set.Hours) AS LONG
+    IF tnHours != 12 .AND. tnHours != 24
+        THROW Error.ArgumentError(__ENTITY__, NAMEOF(tnHours), "Invalid hours setting: "+tnHours:ToString())
+    ENDIF
+    RuntimeState.SetValue<LONG>(Set.Hours, tnHours)
+    RuntimeState.SetValue<LOGIC>(Set.AmPm, tnHours == 12)
+	RETURN nOld
+
+/// <summary>Get/Set seconds display</summary>
+/// <include file="VoFunctionDocs.xml" path="Runtimefunctions/setseconds/*" />
+FUNCTION SetSeconds() AS LOGIC
+	RETURN RuntimeState.GetValue<LOGIC>(Set.Seconds)
+
+/// <include file="VoFunctionDocs.xml" path="Runtimefunctions/setseconds/*" />
+FUNCTION SetSeconds(tlNewSetting AS LOGIC) AS LOGIC
+	LOCAL lOld AS LOGIC
+	lOld := RuntimeState.GetValue<LOGIC>(Set.Seconds)
+	RuntimeState.SetValue<LOGIC>(Set.Seconds, tlNewSetting)
+	RETURN lOld

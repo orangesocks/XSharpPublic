@@ -47,10 +47,9 @@ BEGIN NAMESPACE XSharp.RDD
                     // Where do we start ?
                     LOCAL iOffset := blockNbr * SELF:BlockSize AS LONG
                     //
-                    _oStream:SafeSetPos( iOffset)
                     // Max 512 Blocks
                     LOCAL isOk AS LOGIC
-                    isOk := _oStream:SafeRead(memoBlock)
+                    isOk := _oStream:SafeReadAt(iOffset, memoBlock, memoBlock:Length)
                     IF ( !isOk )
                         memoBlock := NULL
                     ENDIF
@@ -92,7 +91,7 @@ BEGIN NAMESPACE XSharp.RDD
                         _oStream:SafeRead(memoBlock, SELF:BlockSize, OUT sizeRead)
                         IF ( sizeRead > 0 )
                             // Search for one field terminator (1Ah)
-                            endPos := Array.FindIndex<BYTE>( memoBlock, { x => x == 0x1A } )
+                            endPos := System.Array.IndexOf<BYTE>( memoBlock, 0x1A, 0, memoBlock:Length)
                             IF ( endPos == - 1 )
                                 blockLen += sizeRead
                             ELSE
@@ -123,17 +122,24 @@ BEGIN NAMESPACE XSharp.RDD
             objType := oValue:GetType()
             objTypeCode := Type.GetTypeCode( objType )
             //
+            LOCAL nLen as LONG
             IF ( objTypeCode == TypeCode.Char )
                 str := STRING{ (CHAR)oValue, 1 }
+                nLen := 1
             ELSEIF ( objTypeCode == TypeCode.String )
-                str := oValue ASTYPE STRING
+                str := (STRING) oValue
+                nLen := str:Length
             ENDIF
             // Not a Char, Not a String
             IF ( str == NULL )
                 memoBlock := (BYTE[])oValue
+                nLen := memoBlock:Length
             ELSE
-                memoBlock := BYTE[]{str:Length}
-                SELF:Encoding:GetBytes( str, 0, str:Length, memoBlock, 0 )
+                memoBlock := BYTE[]{str:Length*2} // allow for multi byte characters
+                nLen := _oRdd:_GetBytes(str, memoBlock, 0, memoBlock:Length)
+                if nLen != memoBlock:Length
+                    Array.Resize(REF memoBlock, nLen)
+                endif
             ENDIF
             // Now, calculate where we will write the Datas
             LOCAL blockNbr AS INT64
@@ -148,7 +154,7 @@ BEGIN NAMESPACE XSharp.RDD
                 blockLen := SELF:_getValueLength( nFldPos )
                 IF blockLen > 0
                     // Compare the number of Blocks : Do we need more blocks ?
-                    newBlock := ( memoBlock:Length / SELF:_blockSize ) > ( blockLen / SELF:BlockSize )
+                    newBlock := ( nLen / SELF:_blockSize ) > ( blockLen / SELF:BlockSize )
                 ENDIF
             ENDIF
             IF newBlock
@@ -165,7 +171,7 @@ BEGIN NAMESPACE XSharp.RDD
                     toAdd := SELF:BlockSize - toAdd
                     LOCAL filler AS BYTE[]
                     filler := BYTE[]{ toAdd }
-                    _oStream:SafeWrite(filler)
+                    _oStream:SafeWrite(filler, filler:Length)
                     // so, new size is
                     fileSize := (LONG)_oStream:Length
 
@@ -177,7 +183,7 @@ BEGIN NAMESPACE XSharp.RDD
                 _oStream:SafeSetPos( blockNbr * SELF:BlockSize)
             ENDIF
             // Ok, now write the Datas
-            isOk := _oStream:SafeWrite(memoBlock)
+            isOk := _oStream:SafeWrite(memoBlock, memoBlock:Length)
             IF isOk
                 // Don't forget to write an End Of Block terminator (1Ah) (Should it be two ??)
                 isOk := _oStream:SafeWriteByte(0x1A)
@@ -234,7 +240,7 @@ BEGIN NAMESPACE XSharp.RDD
                 nextBlock := 1
                 Array.Copy(BitConverter.GetBytes(nextBlock),0, memoHeader, 0, SIZEOF(LONG))
                 //
-                _oStream:SafeWrite(memoHeader)
+                _oStream:SafeWrite(memoHeader, memoHeader:Length)
                 //
                 SELF:_initContext()
             ELSE
@@ -265,9 +271,8 @@ BEGIN NAMESPACE XSharp.RDD
                     // NextBlock is at the beginning of MemoFile
                     _memoBlock := BYTE[]{4}
                     VAR savedPos := _oStream:Position
-                    _oStream:SafeSetPos(0)
 
-                    IF  _oStream:SafeRead(_memoBlock )
+                    IF  _oStream:SafeReadAt(0, _memoBlock, _memoBlock:Length )
                         nBlock := BitConverter.ToInt32( _memoBlock, 0)
                     ENDIF
                     _oStream:SafeSetPos(savedPos)
@@ -281,8 +286,7 @@ BEGIN NAMESPACE XSharp.RDD
                     _memoBlock := BYTE[]{4}
                     Array.Copy(BitConverter.GetBytes(value),0, _memoBlock, 0, SIZEOF(LONG))
                     VAR savedPos := _oStream:Position
-                    _oStream:SafeSetPos(0)
-                    _oStream:SafeWrite(_memoBlock )
+                    _oStream:SafeWriteAt(0, _memoBlock,_memoBlock:Length )
                     _oStream:SafeSetPos(savedPos)
                 ENDIF
             END SET

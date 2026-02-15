@@ -1,0 +1,63 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2026-02-09T14:21:45.221Z" lasteditedby="robert" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>版本历史</title>
+  <keywords>
+    <keyword>Changes</keyword>
+    <keyword>Runtime chapter</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">版本历史</para>
+    </header>
+    <para styleclass="Normal" style="margin-top:14px; line-height:1.00; tabstops:720px left,1440px left,2160px left,2880px left,3600px left ;"><text style="font-family:&apos;Times New Roman&apos;; font-weight:bold; text-decoration:none; vertical-align:baseline; color:#ff0000; background-color:#ffffff;">注：</text><text style="font-family:&apos;Times New Roman&apos;; text-decoration:none; vertical-align:baseline; color:#000000;">当一个项目有一个匹配的 GitHub 票据时，票据编号就会出现在项目后面的括号中，前缀为 #。</text></para>
+    <para styleclass="Normal" style="margin-top:14px; line-height:1.00; tabstops:720px left,1440px left,2160px left,2880px left,3600px left ;"><text style="font-family:&apos;Times New Roman&apos;; text-decoration:none; vertical-align:baseline; color:#000000;">您可以访问 https://github.com/X-Sharp/XSharpPublic/issues/nnn 其中 nnnn 是票据编号。</text></para>
+    <para styleclass="Normal" style="margin-top:14px; line-height:1.00; tabstops:720px left,1440px left,2160px left,2880px left,3600px left ;"><text style="font-family:&apos;Times New Roman&apos;; text-decoration:none; vertical-align:baseline; color:#000000;">如果您在 X# 中发现问题，我们建议您在 GitHub 上报告。我们会通知您问题的处理进度。</text></para>
+    <para styleclass="Heading1">3.0.0.0版本变更</para>
+    <para styleclass="Normal">XSharp 3 是相对于 XSharp 2 的重大更新。过去数月间，产品所有元素均已全面升级。X# 3 包含若干破坏性变更，因此您应重新编译并测试所有现有项目和解决方案。</para>
+    <para styleclass="Heading1"><text styleclass="Heading2">破坏性变更</text></para>
+    <para styleclass="Heading1"><text styleclass="Heading3">编译器</text></para>
+    <list id="0" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">编译器不再支持&quot;自带运行时&quot;模式。若需使用VO或Vulcan方言编译，必须包含对XSharp.Core和XSharp.RT的引用。<br/>这并不意味着您无法将程序链接至Vulcan运行时DLL，但我们不再将Xbase类型映射至这些DLL中的类型。 因此USUAL将不再映射为Vulcan.__Usual。您仍可使用这些DLL中的类型、函数和类，但它们将不再获得特殊处理。若需调用Vulcan运行时函数，必须使用静态方法语法</li>
+    </list>
+    <para styleclass="Heading1"><text styleclass="Heading3">运行时</text></para>
+    <list id="1" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">X#运行时中若干函数与方法的签名已变更。对于采用AS USUAL定义参数的函数，我们普遍引入了新的IN关键字。新语法IN USUAL指示编译器采用引用传递变量，这将略微提升代码执行效率，同时告知编译器该参数在函数/方法内部不会被修改。</li>
+      <li styleclass="Normal">此外，我们已将若干函数和类型在运行时 DLL 间进行迁移，因其原位置并非最优方案。 </li>
+      <li styleclass="Normal">X# 3 同时提供 .NET 46 和 .NET 8 的运行时 DLL。并非所有 VOSDK DLL 都已移植至 .NET 8，因其包含无法在 AnyCPU 环境运行的代码。</li>
+    </list>
+    <para styleclass="Heading1"><text styleclass="Heading2">编译器</text><br/><text styleclass="Heading3">新特性</text></para>
+    <list id="2" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">全局使用</li>
+      <li styleclass="Normal">全局命名空间</li>
+      <li styleclass="Normal">类和结构的RECORD修饰符</li>
+    </list>
+    <para styleclass="Heading1"><text styleclass="Heading3">错误修复</text></para>
+    <para styleclass="Heading1"><text styleclass="Heading2">构建系统</text><br/><text styleclass="Heading3">新功能</text></para>
+    <list id="3" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">构建系统现支持新SDK风格项目</li>
+      <li styleclass="Normal">新增任务用于生成项目文件中声明的 GLOBAL USING 值对应的源代码。请注意，VS 集成目前尚无声明项目 GLOBAL USING 值的页面，该功能后续将添加。</li>
+      <li styleclass="Normal">MsBuild文件夹下Rules子文件夹中的XAML文件已废弃并删除，同时移除了.props和.targets文件中对这些文件的引用</li>
+      <li styleclass="Normal">构建系统不再自动从Vulcan安装目录获取include文件夹</li>
+      <li styleclass="Normal">为支持SDK风格项目和.Net 10，.props与.targets文件进行了大量改动。其中一项变更可自动建立文件间的依赖关系，例如VOBinary文件与其所属模块之间的关联。</li>
+    </list>
+    <para styleclass="Heading1"><text styleclass="Heading3">错误修复</text></para>
+    <para styleclass="Heading1"><text styleclass="Heading2">运行</text><br/><text styleclass="Heading3">时新特性</text></para>
+    <list id="4" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">我们现已包含大多数运行时 DLL 的 .Net 8 版本。</li>
+      <li styleclass="Normal">运行时现同时提供 DLL 格式和 Nuget 包两种形式。有关这些包和 DLL 的说明，请参阅本帮助文件中关于运行时的单独主题</li>
+      <li styleclass="Normal">FoxPro 运行时中已添加若干新功能</li>
+    </list>
+    <para styleclass="Heading1"><text styleclass="Heading3">错误修复</text></para>
+    <para styleclass="Heading1"><text styleclass="Heading2">Visual Studio </text><text styleclass="Heading3">集成</text><br/><text styleclass="Heading3">新功能</text></para>
+    <list id="5" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">现已支持SDK风格项目。为此对Visual Studio支持代码进行了全面改动</li>
+      <li styleclass="Normal">现全面支持Visual Studio 2026</li>
+      <li styleclass="Normal"><text style="font-weight:bold; text-decoration:underline;">不再支持 Visual Studio 2017。</text></li>
+      <li styleclass="Normal">我们仍支持 Visual Studio 2019，但该版本将不再新增功能。</li>
+    </list>
+    <para styleclass="Heading1"><text styleclass="Heading3">错误修复</text></para>
+    <para styleclass="Heading1"><text styleclass="Heading2">工具</text><br/><text styleclass="Heading3">新功能</text></para>
+    <para styleclass="Heading1"><text styleclass="Heading3">错误修复</text></para>
+  </body>
+</topic>

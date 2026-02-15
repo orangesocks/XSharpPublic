@@ -28,7 +28,7 @@ namespace Microsoft.CodeAnalysis.CSharp
     internal partial class Binder
     {
 
-        ArrayBuilder<BoundExpression> XsGetDefaultArguments(ArrayBuilder<BoundExpression> arguments, ImmutableArray<ParameterSymbol> parameters, DiagnosticBag diagnostics)
+        ArrayBuilder<BoundExpression> XsGetDefaultArguments(ArrayBuilder<BoundExpression> arguments, ImmutableArray<ParameterSymbol> parameters, BindingDiagnosticBag diagnostics)
         {
             if (parameters.Length == 0)
             {
@@ -64,10 +64,10 @@ namespace Microsoft.CodeAnalysis.CSharp
         }
 
 
-        private static BoundExpression XsDefaultValue(ParameterSymbol parameter, SyntaxNode syntax, CSharpCompilation compilation,DiagnosticBag diagnostics)
+        private static BoundExpression XsDefaultValue(ParameterSymbol parameter, SyntaxNode syntax, CSharpCompilation compilation, BindingDiagnosticBag diagnostics)
         {
             TypeSymbol parameterType = parameter.Type;
-            var defaultExpr = parameter.GetVODefaultParameter(syntax, compilation);
+            var defaultExpr = parameter.GetVODefaultParameter(syntax, compilation, diagnostics);
             if (defaultExpr == null)
                 return null;
             if (!Equals(defaultExpr.Type, parameterType))
@@ -83,7 +83,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 if (implicitop != null)
                 {
                     var args = ImmutableArray.Create(defaultExpr);
-                    var mcall = new BoundCall(syntax, null, implicitop, args, default, default, false, false, false, default, default, default, parameterType);
+                    var mcall = new BoundCall(syntax, null, ThreeState.False, implicitop, args, default, default, false, false, false, default, default, default, parameterType);
                     return mcall;
                 }
             }
@@ -121,11 +121,11 @@ namespace Microsoft.CodeAnalysis.CSharp
         }
         private BoundExpression BindXsInvocationExpression(
             InvocationExpressionSyntax node,
-            DiagnosticBag diagnostics)
+            BindingDiagnosticBag diagnostics)
         {
             // Handle PCall() and Chr() in this special method
             BoundExpression result;
-            var originalErrors = diagnostics.AsEnumerable().ToArray();
+            var originalErrors = diagnostics.DiagnosticBag?.AsEnumerable().ToArray();
             if (TryBindNameofOperator(node, diagnostics, out result))
             {
                 return result; // all of the binding is done by BindNameofOperator
@@ -150,17 +150,17 @@ namespace Microsoft.CodeAnalysis.CSharp
                 BoundLambda boundLambda = unboundLambda.BindForReturnTypeInference(action);
                 ts[1] = boundLambda.InferredReturnType.TypeWithAnnotations;
                 action = Compilation.GetWellKnownType(WellKnownType.System_Func_T2).ConstructIfGeneric(ts.ToImmutableArray());
-                BoundExpression boundLambdaExpression = unboundLambda.Bind(action);
-                BoundExpression boundExpression = new BoundDelegateCreationExpression(node, boundLambdaExpression, methodOpt: null, isExtensionMethod: false, type: action);
+                BoundExpression boundLambdaExpression = unboundLambda.Bind(action, isExpressionTree: false);
+                BoundExpression boundExpression = new BoundDelegateCreationExpression(node, boundLambdaExpression, methodOpt: null, isExtensionMethod: false, wasTargetTyped: false, type: action);
                 boundExpression = CheckValue(boundExpression, BindValueKind.RValueOrMethodGroup, diagnostics);
                 string name = boundExpression.Kind == BoundKind.MethodGroup ? GetName(node.Expression) : null;
                 result = BindInvocationExpression(node, node.Expression, name, boundExpression, analyzedArguments, diagnostics);
             }
             else
             {
-                if (node.XIsChr && analyzedArguments.Arguments.Count == 1 && analyzedArguments.Arguments[0].ConstantValue != null)
+                if (node.XIsChr && analyzedArguments.Arguments.Count == 1 && analyzedArguments.Arguments[0].ConstantValueOpt != null)
                 {
-                    var value = analyzedArguments.Arguments[0].ConstantValue.Int32Value;
+                    var value = analyzedArguments.Arguments[0].ConstantValueOpt.Int32Value;
                     var str = new string((char)value, 1);
                     result = new BoundLiteral(node, ConstantValue.Create(str), Compilation.GetSpecialType(SpecialType.System_String));
                 }
@@ -182,19 +182,34 @@ namespace Microsoft.CodeAnalysis.CSharp
                     result = BindInvocationExpression(node, node.Expression, name, boundExpression, analyzedArguments, diagnostics);
                     if (result is BoundCall bc)
                     {
+                        // Remove errors about passing property by reference for Clipper Calling Convention
+                        if (bc.Method.HasClipperCallingConvention())
+                        {
+                            if (diagnostics.DiagnosticBag.HasAnyErrors())
+                            {
+                                var errors = diagnostics.DiagnosticBag.AsEnumerable().Where(d => d.Code != (int)ErrorCode.ERR_RefProperty);
+                                diagnostics.Clear();
+                                diagnostics.DiagnosticBag.AddRange(errors);
+                            }
+                        }
 
-                        // check if MethodSymbol has the NeedAccessToLocals attribute combined with /fox2
+
+                        // check if MethodSymbol has the NeedAccessToLocals attribute combined with /memvars and the FoxPro Dialect
                         if (Compilation.Options.Dialect == XSharpDialect.FoxPro &&
                             Compilation.Options.HasOption(CompilerOption.MemVars, node) &&
                             bc.Method.NeedAccessToLocals(out var writeAccess))
                         {
-                            var localsymbols = new List<LocalSymbol>();
+                            var localsymbols = new List<Symbol>();
                             var binder = this;
                             while (binder != null)
                             {
                                 localsymbols.AddRange(binder.Locals);
-                                if (binder is InMethodBinder)
+                                if (binder is InMethodBinder imb)
+                                {
+                                    var ms = imb.ContainingMemberOrLambda as MethodSymbol;
+                                    localsymbols.AddRange(ms.Parameters);
                                     break;
+                                }
                                 binder = binder.Next;
                             }
                             var root = node.SyntaxTree.GetRoot() as CompilationUnitSyntax;
@@ -210,10 +225,10 @@ namespace Microsoft.CodeAnalysis.CSharp
             // Sometimes the /vo4 rules cause an ERR_AmbigCall
             // When there was no other error then we try again
             // See https://github.com/X-Sharp/XSharpPublic/issues/1211
-            if (diagnostics.HasAnyErrors() && Compilation.Options.HasOption(CompilerOption.Vo4, node))
+            if (diagnostics.DiagnosticBag?.HasAnyErrors() is true && Compilation.Options.HasOption(CompilerOption.VOSignedUnsignedConversion, node))
             {
-                var hasAmbigCall = diagnostics.AsEnumerable().Where(e => e.Code == (int)ErrorCode.ERR_AmbigCall).Any();
-                if (hasAmbigCall)
+                var hasAmbigCall = diagnostics.DiagnosticBag?.AsEnumerable().Where(e => e.Code == (int)ErrorCode.ERR_AmbigCall).Any();
+                if (hasAmbigCall is true)
                 {
                     // We have saved errors that were there before resolving the invocation expression in an array
                     try
@@ -224,7 +239,8 @@ namespace Microsoft.CodeAnalysis.CSharp
                     }
                     finally
                     {
-                        diagnostics.AddRange(originalErrors);
+                        if (originalErrors is not null)
+                            diagnostics.AddRange(originalErrors);
                         Compilation.Options.SuppressVo4 = false;
                     }
                 }
@@ -233,7 +249,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         }
 
-        private BoundExpression BindFoxProArrayPossibleAccess(InvocationExpressionSyntax node, AnalyzedArguments analyzedArguments, DiagnosticBag diagnostics)
+        private BoundExpression BindFoxProArrayPossibleAccess(InvocationExpressionSyntax node, AnalyzedArguments analyzedArguments, BindingDiagnosticBag diagnostics)
         {
 
             if (node.XGenerated)
@@ -261,7 +277,16 @@ namespace Microsoft.CodeAnalysis.CSharp
                     return null;
                 }
             }
+            var count = diagnostics.DiagnosticBag.Count;
             var expression = BindExpression(node.Expression, diagnostics);
+            // A function call Test() should not throw an error when the function exists and no variable name 'Test' has been defined.
+            if (diagnostics.DiagnosticBag.Count != count)
+            {
+                var tmp = DiagnosticBag.GetInstance();
+                tmp.AddRange(diagnostics.DiagnosticBag.AsEnumerable().Where(d => d.Code != (int)ErrorCode.WRN_UndeclaredVariable));
+                diagnostics.Clear();
+                diagnostics.DiagnosticBag.AddRangeAndFree(tmp);
+            }
             if (node.Parent is AssignmentExpressionSyntax aes && aes.Left == node)
             {
                 // a(1,2) := something
@@ -281,7 +306,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
             if (node.Expression is SimpleNameSyntax simple)
             {
-                var bag = DiagnosticBag.GetInstance();
+                var bag = BindingDiagnosticBag.GetInstance();
                 var idVar = BindXSIdentifier(simple, invoked: false, indexed: true, diagnostics: bag, bindMethod: false,
                     bindSafe: Compilation.Options.HasOption(CompilerOption.UndeclaredMemVars, node));
                 if (idVar != null && (idVar.Type.IsFoxArrayType() || idVar.Type.IsArrayType()))
@@ -331,14 +356,14 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
             if (node.Expression.Kind() == SyntaxKind.SimpleMemberAccessExpression
                 && node.Expression is MemberAccessExpressionSyntax maes &&
-                maes.Expression is IdentifierNameSyntax ins )
+                maes.Expression is IdentifierNameSyntax ins)
             {
                 // oTest:DoSomething(1)
                 // this may be a method call or a array access
                 // we have to decide at runtime
 
 
-                var bag = DiagnosticBag.GetInstance();
+                var bag = BindingDiagnosticBag.GetInstance();
                 var idVar = BindXSIdentifier(ins, invoked: false, indexed: false, diagnostics: bag, bindMethod: false, bindSafe: false);
                 if (idVar.Type.IsUsualType() || idVar.Type.IsObjectType())
                 {
@@ -359,7 +384,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
             return null;
         }
-        private void BindPCall(InvocationExpressionSyntax node, DiagnosticBag diagnostics, AnalyzedArguments analyzedArguments)
+        private void BindPCall(InvocationExpressionSyntax node, BindingDiagnosticBag diagnostics, AnalyzedArguments analyzedArguments)
         {
             if (node.XPCall && node.Expression is GenericNameSyntax)
             {
@@ -407,7 +432,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             return null;
         }
         private void BindCallAndDelegate(InvocationExpressionSyntax node, ArrayBuilder<BoundExpression> args,
-                DiagnosticBag diagnostics, TypeSyntax type, bool pcall)
+                BindingDiagnosticBag diagnostics, TypeSyntax type, bool pcall)
         {
             var XNode = node.XNode as XP.MethodCallContext;
             string method = XNode?.Expr.GetText();
@@ -455,10 +480,10 @@ namespace Microsoft.CodeAnalysis.CSharp
                 return;
             }
             var lookupResult = LookupResult.GetInstance();
-            HashSet<DiagnosticInfo> useSiteDiagnostics = null;
+            var useSiteInfo = new CompoundUseSiteInfo<AssemblySymbol>(null, Compilation.Assembly);
             LookupOptions options = LookupOptions.AllMethodsOnArityZero;
             options |= LookupOptions.MustNotBeInstance;
-            this.LookupSymbolsWithFallback(lookupResult, methodName, arity: 0, useSiteDiagnostics: ref useSiteDiagnostics, options: options);
+            this.LookupSymbolsWithFallback(lookupResult, methodName, arity: 0, useSiteInfo: ref useSiteInfo, options: options);
             SourceMethodSymbol methodSym = null;
             if (lookupResult.IsClear)
             {
@@ -498,7 +523,6 @@ namespace Microsoft.CodeAnalysis.CSharp
                             ordinal: par.Ordinal,
                             refKind: par.RefKind,
                             name: par.Name,
-                            isDiscard: false,
                             locations: par.Locations);
                         builder.Add(parameter);
                     }
@@ -519,9 +543,9 @@ namespace Microsoft.CodeAnalysis.CSharp
             var lookupResult = LookupResult.GetInstance();
             try
             {
-                HashSet<DiagnosticInfo> useSiteDiagnostics = null;
+                var useSiteInfo = new CompoundUseSiteInfo<AssemblySymbol>(null, Compilation.Assembly);
                 LookupOptions options = LookupOptions.NamespacesOrTypesOnly;
-                this.LookupSymbolsSimpleName(lookupResult, null, type.Identifier.Text, 0, null, options, false, ref useSiteDiagnostics);
+                this.LookupSymbolsSimpleName(lookupResult, null, type.Identifier.Text, 0, null, options, false, ref useSiteInfo);
                 if (lookupResult.IsSingleViable)
                 {
                     return lookupResult.Symbols[0] as TypeSymbol;
@@ -536,7 +560,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         }
 
         private bool ValidatePCallArguments(InvocationExpressionSyntax node, ArrayBuilder<BoundExpression> args,
-                DiagnosticBag diagnostics, string method)
+                BindingDiagnosticBag diagnostics, string method)
         {
             bool ok = args.Count == 1;
             if (ok)
@@ -554,7 +578,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         }
 
         private void BindCallNativeAndDelegate(InvocationExpressionSyntax node, ArrayBuilder<BoundExpression> args,
-                DiagnosticBag diagnostics, TypeSyntax type, bool pcall)
+                BindingDiagnosticBag diagnostics, TypeSyntax type, bool pcall)
         {
             var XNode = node.XNode as XP.MethodCallContext;
             string method = XNode?.Expr.GetText();
@@ -588,7 +612,6 @@ namespace Microsoft.CodeAnalysis.CSharp
                             ordinal: i,
                             refKind: delparams[i].RefKind,
                             name: delparams[i].Name,
-                            isDiscard: false,
                             locations: delparams[i].Locations);
                         builder.Add(parameter);
                         i++;

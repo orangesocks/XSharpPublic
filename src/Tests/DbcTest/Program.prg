@@ -1,43 +1,29 @@
-﻿
-#command COPY [STRUCTURE] [EXTENDED] [TO <(file)>]   ;
-    => DbCopyXStructFox( <(file)>)
+﻿Using System
+Using System.Collections.Generic
+Using System.Linq
+Using System.Text
 
+Function Start() As Void Strict
+   LOCAL u AS USUAL
+PRIVATE p
+try
+u := Today()
+p := Today()
 
-#command COPY [STRUCTURE] [EXTENDED] [TO <(file)>]  ;
-    DATABASE <dbname> [NAME <longtablename>] ;
-    => DbCopyXStructFox( <(file)>) ;; DbAdd(<(dbname)>,  <(file)>, <(longtablename)>)
-
-
-#command COPY [STRUCTURE] [TO <(file)>] [__DBFIELDLIST__ <fields>]  ;
-    [WITH <cdx:CDX, PRODUCTION>] ;
-    => DbCopyStructFox( <(file)>, <fields> , <.cdx.>)
-
-#command COPY [STRUCTURE] [TO <(file)>] [__DBFIELDLIST__ <fields>]  ;
-    [WITH <cdx:CDX, PRODUCTION>] ;
-    DATABASE <dbname> [NAME <longtablename>] ;
-    => DbCopyStructFox( <(file)>, <fields>, <.cdx.> );; DbAdd(<(dbname)>, <(file)>, <(longtablename)>)
-
-
-
-using XSharp.VFP
-FUNCTION Start () as void
-    USE C:\Test\Orders.dbf
-    USE customer  && Opens Customer table
-    COPY STRUCTURE TO backup && Creates a backup of the Customer table
-    USE backup
-    APPEND FROM customer FOR country = 'UK'
-    //BROWSE FIELDS contact, country
-    USE
-    DELETE FILE backup.dbf
+? GoMonth(u,1) // error XS0121
+? GoMonth(p,1) // error XS0121
+    ? Quarter(u, 1)
+    ? Week(u,1)
+    ? Week(u,2)
+    ? Week(u,3)
+    ? Dmy(u)
+    ? Mdy(u)
+    u := "abc"
+    //? Mdy(u)
+    //? Week(u,3)
+    //? GoMonth(u,1) // error XS0121
+    ? Quarter(u, 1)
+catch e as exception
+    ? e:ToString()
+end try
     wait
-
-function DbAdd(cDb, cFile, cTable    )
-    ? cDb, cFile, cTable
-    return true
-
-
-FUNCTION DbCopyXStructFox(cTargetFile AS STRING) AS LOGIC STRICT
-    RETURN DbCopyXStruct(cTargetFile)
-
-FUNCTION DbCopyStructFox(cTargetFile AS STRING, acStruct := NULL_ARRAY AS ARRAY, lCopyCdx as LOGIC) AS LOGIC STRICT
-    RETURN DbCopyStruct(cTargetFile,acStruct)

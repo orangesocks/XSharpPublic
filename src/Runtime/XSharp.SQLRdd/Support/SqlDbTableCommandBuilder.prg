@@ -88,7 +88,13 @@ internal class SqlDbTableCommandBuilder
         sb:Replace(SqlDbProvider.TableNameMacro, Provider:QuoteIdentifier(SELF:_oTable:RealName))
         sb:Replace(SqlDbProvider.IndexNameMacro, Provider:QuoteIdentifier(oTag:Name))
         sb:Replace(SqlDbProvider.UniqueMacro, iif(oTag:Unique, " unique", ""))
-        sb:Replace(SqlDbProvider.FieldListMacro, Functions.List2String(oTag:ColumnList))
+        var columnList := Functions.List2String(oTag:ColumnList)
+        // When there is a recno column then we want to add that,to make sure that duplicate keys
+        // are sorted by record number
+        if SELF:_oTable:HasRecnoColumn
+            columnList += ", "+ Provider:QuoteIdentifier(SELF:_oTable:RecnoColumn)
+        endif
+        sb:Replace(SqlDbProvider.FieldListMacro, columnList)
         var stmt := sb:ToString()
         var result := _connection:ExecuteNonQuery(stmt, _cTable)
         return result
@@ -96,10 +102,10 @@ internal class SqlDbTableCommandBuilder
     method SetProductionIndex() as logic
         _oRdd:CurrentOrder := null
         if self:OrderBagList:Count > 0
-            var bag := self:OrderBagList:Where( {bag => bag:FileName == _cTable}):FirstOrDefault()
+            var bag := self:OrderBagList:Where( {bag => bag:ProductionIndex}):FirstOrDefault()
             if (bag != null)
-                bag:ProductionIndex := TRUE
                 _oRdd:CurrentOrder := bag:Tags:FirstOrDefault()
+                _oRdd:CurrentOrder:ClearScopes()
                 return true
             endif
         endif
@@ -160,8 +166,8 @@ internal class SqlDbTableCommandBuilder
                     cOrderby := Provider:QuoteIdentifier(self:_oTable:RecnoColumn)
                 endif
             endif
-            cOrderby :=_connection:RaiseStringEvent(_connection, SqlRDDEventReason.OrderByClause, _cTable, cOrderby)
         elseif SELF:_oTable:HasRecnoColumn
+            sb:Append(Provider.OrderByClause)
             cOrderby := Provider:QuoteIdentifier(self:_oTable:RecnoColumn)
         endif
         cOrderby :=_connection:RaiseStringEvent(_connection, SqlRDDEventReason.OrderByClause, _cTable, cOrderby)
@@ -249,17 +255,21 @@ internal class SqlDbTableCommandBuilder
         return
 
 
-    method GetRecCount() AS LONG
+    method GetRecCount() AS DWORD
         var sb := StringBuilder{}
         sb:Append(SqlDbProvider.SelectClause)
         sb:Append("count(*)")
         sb:Append(SqlDbProvider.FromClause)
         sb:Append(Provider.QuoteIdentifier(_oTable:RealName))
+        if _oTable:HasServerFilter
+            sb:Append(SqlDbProvider.WhereClause)
+            sb:Append(_oTable:ServerFilter)
+        endif
         var stmt := sb:ToString()
         var result := _connection:ExecuteScalar(stmt, _cTable)
-        return Convert.ToInt32(result)
+        return Convert.ToUInt32(result)
 
-    method GetMaxRecno() as LONG
+    method GetMaxRecno() as DWORD
         if ! _oTable:HasRecnoColumn
             return 0
         endif
@@ -273,10 +283,10 @@ internal class SqlDbTableCommandBuilder
         if result == DBNull.Value
             return 0
         endif
-        return Convert.ToInt32(result)
+        return Convert.ToUInt32(result)
 
-    method GetNextKey() as LONG
-        local maxVal := 0 as long
+    method GetNextKey() as DWORD
+        local maxVal := 0 as DWORD
         if _oTable:HasRecnoColumn
             maxVal := self:GetMaxRecno()
         else
@@ -298,4 +308,4 @@ internal class SqlDbTableCommandBuilder
         return sb.ToString()
 
 end class
-end namespace // XSharp.SQLRdd.SupportClasses
+end namespace // XSharp.RDD.SqlRDD

@@ -275,34 +275,9 @@
         </summary>
         <value>An array containing the structure of this data server.</value>
         <remarks>
-            An array containing the structure of this data server.
-            The structure of the data server is represented in an array, whose length (that is, number of elements) is equal to the number of fields in the server.  Each subarray is comprised of five elements, which contain the following information, in this order:
-            <list type="table">
-                <listheader>
-                    <term>Constant</term>
-                    <description>Description</description>
-                </listheader>
-                <item>
-                    <term>DBS_NAME</term>
-                    <description>cName</description>
-                </item>
-                <item>
-                    <term>DBS_TYPE</term>
-                    <description>cType</description>
-                </item>
-                <item>
-                    <term>DBS_LEN</term>
-                    <description>nLength</description>
-                </item>
-                <item>
-                    <term>DBS_DEC</term>
-                    <description>nDecimals</description>
-                </item>
-                <item>
-                    <term>DBS_ALIAS</term>
-                    <description>cAlias</description>
-                </item>
-            </list>
+          An array containing the structure of this data server.
+          The structure of the data server is represented in an array, whose length (that is, number of elements) is equal to the number of fields in the server.  Each subarray is comprised of five elements, which contain the following information, in this order:
+          <include file="RTComments.xml" path="Comments/DbStruct_Constants/*"  />
         </remarks>
     </DataServer.DBStruct>
     <DataServer.Delete>
@@ -515,18 +490,15 @@
     </DataServer.NoIVarPut>
     <DataServer.Notify>
         <summary>
-            An event handler that responds to events that have occurred in methods of this server, or in other servers that are linked to this server in some way.  The standard implementation notifies all the server's clients of the event.
+            An event handler that responds to events that have occurred in methods of this server, or in other servers that are linked to this server in some way.  
+			The standard implementation notifies all the server's clients of the event.
             Description
             <br />Important!  This method is automatically called by the various action methods of the data server, and should normally not be called by application code.
         </summary>
-        <param name="kNotification">Identifies the event, specified as one of the following constants:</param>
-        <param name="uDescription">Used only with some notification types.</param>
         <returns>
             SELF, except if NOTIFYINTENTTOMOVE is specified for <paramref name="kNotifyName" />.  In this case, the return value is TRUE if successful; otherwise, FALSE.
         </returns>
-        <remarks>
-            <include file="VOSDK.xml" path="doc/commonblocks/notify/*" />
-        </remarks>
+		<include file="VOSDK.xml" path="doc/commonblocks/notify/*" />
     </DataServer.Notify>
     <DataServer.PostInit>
         <summary>

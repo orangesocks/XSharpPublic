@@ -51,6 +51,7 @@ namespace XSharp.LanguageService
         private readonly SourceWalker _sourceWalker;
         private readonly ITextBuffer _buffer;
         private XDocument _document = null;
+        private XFile _file = null;
 
         private XClassificationSpans _colorTags = new XClassificationSpans();
         private IList<ClassificationSpan> _lexerRegions = null;
@@ -63,10 +64,23 @@ namespace XSharp.LanguageService
         private bool IsLexing = false;
         private bool IsStarted = false;
         private bool _needsKeywords = false;
+        private bool forceRepaint = false;
 
         #endregion
 
         #region Properties
+
+        public bool IsFoxPro
+        {
+            get
+            {
+                if (_file == null)
+                    return false;
+                if (_file.Project == null)
+                    return false;
+                return _file.Project.ParseOptions.Dialect == XDialect.FoxPro;
+            }
+        }
         public ITextSnapshot Snapshot
         {
             get
@@ -99,6 +113,7 @@ namespace XSharp.LanguageService
             {
                 return;
             }
+            _file = file;
             // we do not check for the existence of the XDocument here.
             // The classifier may be called before the XDocument was created
             //
@@ -129,7 +144,10 @@ namespace XSharp.LanguageService
             ClassifyBuffer();
             _first = false;
             // start the model builder to do build a code model and the regions asynchronously
-            var x = ThreadHelper.JoinableTaskFactory.RunAsync(LexAsync);
+            ThreadHelper.JoinableTaskFactory.Run(async delegate
+            {
+                var x = await ThreadHelper.JoinableTaskFactory.RunAsync(LexAsync);
+            });
 
         }
 
@@ -142,11 +160,7 @@ namespace XSharp.LanguageService
                 if (!IsStarted)
                 {
                     IsStarted = true;
-#if DEV17
-                    _ = ThreadHelper.JoinableTaskFactory.StartOnIdle(LexAsync,VsTaskRunContext.UIThreadIdlePriority);
-#else
-                    _ = ThreadHelper.JoinableTaskFactory.StartOnIdleShim(StartLex, VsTaskRunContext.UIThreadIdlePriority);
-#endif
+                    _ = ThreadHelper.JoinableTaskFactory.StartOnIdleShim(StartLex,VsTaskRunContext.UIThreadIdlePriority);
                 }
             }
             else
@@ -154,14 +168,14 @@ namespace XSharp.LanguageService
                 Debug("Buffer_Changed: Suppress lexing because classifier is active");
             }
     }
-#if !DEV17
+
 #pragma warning disable VSTHRD100 // Avoid async void methods
         public async void StartLex()
 #pragma warning restore VSTHRD100 // Avoid async void methods
         {
             await LexAsync();
         }
-#endif
+
         private XDocument GetDocument()
         {
             lock (gate)
@@ -189,6 +203,7 @@ namespace XSharp.LanguageService
 
         public async Task ForceClassifyAsync()
         {
+            forceRepaint = true;
             var _ = await LexAsync();
         }
         public async Task ClassifyWhenNeededAsync()
@@ -231,7 +246,10 @@ namespace XSharp.LanguageService
             XDocument xDocument = GetDocument();
             if (xDocument != null)
             {
-                var _= ThreadHelper.JoinableTaskFactory.RunAsync(ParseAsync);
+                ThreadHelper.JoinableTaskFactory.Run(async delegate
+                {
+                    await ThreadHelper.JoinableTaskFactory.RunAsync(ParseAsync);
+                });
             }
         }
 
@@ -242,7 +260,7 @@ namespace XSharp.LanguageService
                 return result;
             var snapshot = _buffer.CurrentSnapshot;
             XDocument xDocument = GetDocument();
-            if (xDocument == null || xDocument.SnapShot.Version != snapshot.Version)
+            if (xDocument == null || xDocument.SnapShot.Version != snapshot.Version || forceRepaint)
             {
                 _lineState = new XSharpLineState();
                 _lineKeywords = new XSharpLineKeywords();
@@ -266,11 +284,12 @@ namespace XSharp.LanguageService
             }
             BuildColorClassifications();
             Debug("Ending classify at {0}, version {1}", DateTime.Now, snapshot.Version.ToString());
+            forceRepaint = false;
             result = true;
             return result;
         }
 
-        private void TriggerRepaint(ITextSnapshot snapshot)
+        internal void TriggerRepaint(ITextSnapshot snapshot)
         {
             if (ClassificationChanged != null)
             {
@@ -402,7 +421,7 @@ namespace XSharp.LanguageService
                     var canJump = block.CanJump;
                     foreach (var child in block.Children)
                     {
-                        // Jump statements are also children of the block 
+                        // Jump statements are also children of the block
                         // but should not result in a region
                         // HACK
                         // the two JUMP keywords are hard coded for simplicity
@@ -623,17 +642,14 @@ namespace XSharp.LanguageService
                         }
 
                     }
-                    else if (XSharpLexer.IsKeyword(tokenType))
+                    else if (XSharpLexer.IsKeyword(tokenType) ||
+                        XSharpLexer.IsWordOperator(tokenType))
                     {
                         type = xsharpKeywordType;
                     }
                     else if (XSharpLexer.IsOperator(tokenType))
                     {
                         type = xsharpOperatorType;
-                        // we are no longer marking these with BraceOpen and BraceClose
-                        // to avoid accidental matching of an Open paren with an ENDIF keyword
-
-
                     }
                     if (type != null)
                     {
@@ -660,9 +676,20 @@ namespace XSharp.LanguageService
 
         private void addKw(XKeyword kw, int iLine)
         {
-            
+
             if (kw.IsEmpty)
                 return;
+            var isContinued = _document.HasLineState(iLine, LineFlags.IsContinued);
+
+            if ( isContinued)
+            {
+                var afterAttribute = _document.HasLineState(iLine-1, LineFlags.StartsWithAttribute);
+                if ( ! afterAttribute)
+                {
+                    // prevent IF( at the start of a continued line to be recognized as a block
+                    return;
+                }
+            }
             var isStart = kw.IsStart();
             var isEnd = kw.IsStop();
             var isMiddle = kw.IsMiddle();
@@ -755,7 +782,7 @@ namespace XSharp.LanguageService
                         }
                     }
                     currentLine.Add(token);
- 
+
                     // Orphan End ?
                     if ((keywordContext != null) && (keywordContext.Line != token.Line) && (keywordContext.Type == XSharpLexer.END))
                     {
@@ -788,7 +815,7 @@ namespace XSharp.LanguageService
                                 case XSharpLexer.PP_DEFINE:
                                     ScanForRegion(token, iToken, tokens, ref iLastPPDefine, snapshot, regionTags);
                                     break;
-                                case XSharpLexer.DEFINE:
+                                case XSharpLexer.DEFINE when IsFoxPro:
                                     ScanForRegion(token, iToken, tokens, ref iLastDefine, snapshot, regionTags);
                                     break;
                                 case XSharpLexer.SL_COMMENT:
@@ -870,6 +897,7 @@ namespace XSharp.LanguageService
                 nextToken = tokens[i];
                 if (nextToken.Line == lastFound.Line
                     && nextToken.Type != XSharpLexer.NL
+                    && nextToken.Type != XSharpLexer.WS
                     && nextToken.Type != XSharpLexer.EOS)
                     lastFound = nextToken;
                 else

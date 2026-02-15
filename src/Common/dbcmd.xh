@@ -151,6 +151,9 @@
                  <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <.noopt.>;
                )
 
+// This variant moves the ALL clause to the end. This is needed because the WITH clause is declared as non optional
+#command REPLACE <*clauses*> ALL <*moreclauses*> => REPLACE <clauses> <moreclauses> ALL
+
 // Single record replace
 #command REPLACE <(f1)> WITH <v1> [, <(fN)> WITH <vN> ]                     ;
       => DbAutoLock(); __FieldSet(<(f1)>,<v1>) [;__FieldSet(<(fN)>,<vN>)]; DbAutoUnLock()
@@ -186,7 +189,8 @@
       => DBEval(                                                        ;
                  {|| __DbRecall()},                                       ;
                  <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <.noopt.>;
-               )
+                  )
+
 // Single record RECALL
 #command RECALL                     =>  __DbRecall()
 
@@ -257,7 +261,7 @@
 
 // These commands are also defined in the FoxPro header file
 
-#command COPY [TO <(file)>] [DELIMITED [WITH <*delim*>]]                ;
+#command COPY [TO <(file)>] DELIMITED [WITH <*delim*>]                  ;
          [__DBFIELDLIST__ <fields>]                                     ;
          [FOR <lfor>]                                                   ;
          [WHILE <lwhile>]                                               ;
@@ -272,7 +276,7 @@
                         <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>, <.noopt.>  ;
                       )
 
-#command COPY [TO <(file)>] [SDF]                                       ;
+#command COPY [TO <(file)>] SDF                                         ;
          [__DBFIELDLIST__ <fields>]                                     ;
          [FOR <lfor>]                                                   ;
          [WHILE <lwhile>]                                               ;
@@ -301,11 +305,11 @@
                                                                         ;
       => DbCopy(                                                        ;
                    <(file)>, <fields>,                                  ;
-                   <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>       ;
+                   <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>,      ;
                    <rdd>, { <(hdnlist)> }, <.noopt.>)
 
 
-#command APPEND [FROM <(file)>] [DELIMITED [WITH <*delim*>]]            ;
+#command APPEND [FROM <(file)>] DELIMITED [WITH <*delim*>]              ;
          [__DBFIELDLIST__ <fields>]                                     ;
          [FOR <lfor>]                                                   ;
          [WHILE <lwhile>]                                               ;
@@ -319,7 +323,7 @@
                        <{lfor}>, <{lwhile}>, <nnext>, <rec>, <.rest.>   ;
                      )
 
-#command APPEND [FROM <(file)>] [SDF]                                   ;
+#command APPEND [FROM <(file)>] SDF                                     ;
          [__DBFIELDLIST__ <fields>]                                     ;
          [FOR <lfor>]                                                   ;
          [WHILE <lwhile>]                                               ;

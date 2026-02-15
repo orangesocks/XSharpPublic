@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
-<topic template="Default" modified="2023-05-19T12:50:15.192+02:00" lasteditedby="robert" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+<topic template="Default" modified="2024-11-14T15:22:36.978+01:00" lasteditedby="Eva" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
   <title>FUNCTION and PROCEDURE</title>
   <keywords>
     <keyword>_ACCESS</keyword>
@@ -32,15 +32,15 @@
     <para styleclass="List">_ACCESS<tab />The _ACCESS or _ASSIGN suffixes specify to create an Access or Assign method for a property with the same name. </para>
     <para styleclass="List">_ASSIGN<tab /></para>
     <para styleclass="List"></para>
-    <para styleclass="List">HELPSTRING<tab />The HELPSTRING clause is not supported in X#</para>
+    <para styleclass="List">HELPSTRING<tab />The HELPSTRING clause is not supported in X#.</para>
     <para styleclass="List"></para>
-    <para styleclass="List"><text styleclass="Body Text">THIS_ACCESS</text><tab />The <text styleclass="Body Text">THIS_ACCESS</text> clause is not supported in X#</para>
+    <para styleclass="List"><text styleclass="Body Text">THIS_ACCESS</text><tab />The <text styleclass="Body Text">THIS_ACCESS</text> clause is not supported in X#.</para>
     <para styleclass="List"></para>
-    <para styleclass="List"><text styleclass="Body Text">NODEFAULT</text><tab />The <text styleclass="Body Text">NODEFAULT</text> clause is not supported in X#</para>
+    <para styleclass="List"><text styleclass="Body Text">NODEFAULT</text><tab />The <text styleclass="Body Text">NODEFAULT</text> clause is not supported in X#.</para>
     <para styleclass="List"></para>
-    <para styleclass="List">ENDFUNC <tab />This may also be written as END FUNCTION</para>
+    <para styleclass="List">ENDFUNC <tab />This may also be written as END FUNCTION.</para>
     <para styleclass="List"></para>
-    <para styleclass="List">ENDPROC <tab />This may also be written as END PROCEDURE</para>
+    <para styleclass="List">ENDPROC <tab />This may also be written as END PROCEDURE.</para>
     <para styleclass="Heading1"></para>
   </body>
 </topic>

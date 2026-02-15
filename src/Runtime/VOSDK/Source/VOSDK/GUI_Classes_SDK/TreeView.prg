@@ -438,17 +438,14 @@ METHOD DeleteItem(symName, lChildsOnly)
 METHOD Destroy()  AS USUAL CLIPPER
     // One customer reported problems, so we clear this now.
     if oImageList != NULL_OBJECT
-        oImageList:Destroy()
         TreeView_SetImageList(SELF:Handle(), NULL, TVSIL_NORMAL)
     	oImageList := NULL_OBJECT
     endif
     if oStateImageList != NULL_OBJECT
-        oStateImageList:Destroy()
         TreeView_SetImageList(SELF:Handle(), NULL, TVSIL_STATE)
     	oStateImageList := NULL_OBJECT
     endif
     if oDragImageList != NULL_OBJECT
-        oDragImageList:Destroy()
     	oDragImageList := NULL_OBJECT
     endif
 	aValues := NULL_ARRAY
@@ -1355,12 +1352,8 @@ ASSIGN Bold(lEnabled)
 	RETURN lBold := lEnabled
 
 
-/// <include file="Gui.xml" path="doc/TreeViewItem.Collapse/*" />
+/// <include file="Gui.xml" path="doc/TreeView.Collapse/*" />
 METHOD Collapse(lAll, lForceNotify)
-
-
-
-
 	IF (oTVControl != NULL_OBJECT)
 		RETURN oTVControl:Collapse(symName,NIL , lAll, lForceNotify)
 	ENDIF
@@ -1407,7 +1400,7 @@ ASSIGN DropTarget(lEnabled)
 	RETURN lDropTarget := lEnabled
 
 
-/// <include file="Gui.xml" path="doc/TreeViewItem.Expand/*" />
+/// <include file="Gui.xml" path="doc/TreeView.Expand/*" />
 METHOD Expand(lAll, lForceNotify)
 
 

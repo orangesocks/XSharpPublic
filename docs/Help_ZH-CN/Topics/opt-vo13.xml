@@ -1,0 +1,45 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-07-26T12:07:29.628+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>-vo13</title>
+  <keywords>
+    <keyword>-vo13</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">-vo13<tab/>兼容字符串比较 </para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">使用 -vo13 选项可以进行与 VO 兼容的字符串比较</para>
+    <para styleclass="Heading2">语法</para>
+    <para styleclass="Code with box">-vo13[+|-]</para>
+    <para styleclass="Heading2">参数</para>
+    <para styleclass="List">+ | - <tab/>指定 + 或 -vo13，会告诉编译器字符串比较的执行方式与在 VO 和 RDD 中相同，在 RDD 中，比较取决于 SetCollation() 设置。 如果指定了 - 或未指定 -vo13，代码中的字符串比较将使用 String.Compare() </para>
+    <para styleclass="Heading2">备注</para>
+    <para styleclass="Normal">当启用此选项时，字符串比较与 VO 和 RDDs 兼容，并依赖于 SetCollation() 如下：</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">当 collation=#WINDOWS 时，字符串比较利用 Windows 提供的服务，自动处理外来字符集。这些字符串比较是通过在 kernel32.dll 中调用 CompareStringA() 函数实现的。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">当 collation=#CLIPPER 时，比较是逐字节执行的，使用每个字符的权重表。与 VO 一样，可以使用 SetNatDll() 函数选择不同的表。在 .Net 中，我们使用权重表的运行时 DLL。在运行时，国家 DLL 实际上并不作为单独的文件实现；权重表作为资源嵌入在 XSharp.Core.dll 中。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">当 collation=#Unicode 时，比较将使用使用当前区域设置的常规 String.Compare() 例程进行。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">当 collation=#Ordinal 时，比较将使用使用基于序数的比较的常规 String.Compare() 例程进行(这是最快的)。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">当未启用 -v013 时，字符串比较使用 String.Compare() 执行，其中比较根据当前选择的区域设置的具有文化敏感排序规则。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">-v013 的设置在启动时由主应用程序向运行时注册。如果您的库是使用 -v013+ 编译的，但主应用程序不是，则从库调用的字符串比较将遵循与主应用程序相同的规则，因为主应用程序向运行时注册了 -v013 设置，并且运行时中的字符串比较例程现在检测到主应用程序不希望执行 VO 兼容的字符串比较。因此，我们建议第三方产品始终启用 -v013。</para>
+    <para styleclass="Heading2">兼容性说明： </para>
+    <para styleclass="Normal">使用 -vo13 时，字符串比较涉及将 unicode 字符串转换为 ansi 以实现兼容性，因此速度比使用 String.Compare() 时慢。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal"><text styleclass="Heading3">要在 Visual Studio 开发环境中设置该编译器选项，请执行以下操作</text></para>
+    <para styleclass="Normal"></para>
+    <list id="0" type="ol" listtype="decimal" formatstring="%0:s." format-charset="DEFAULT_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="margin-left:13px; font-family:Arial; font-size:11pt; color:#000000;">
+      <li styleclass="Normal" style="margin-left:13px;">打开项目的 &quot;属性&quot;页面</li>
+      <li styleclass="Normal" style="margin-left:13px;">点击 Dialect 选项卡 </li>
+      <li styleclass="Normal" style="margin-left:13px;">更改值</li>
+      <li styleclass="Normal" style="margin-left:13px;"><link displaytype="text" defaultstyle="true" type="topiclink" href="PropPage-Dialect">查看属性页</link></li>
+    </list>
+    <para styleclass="Heading2"></para>
+  </body>
+</topic>

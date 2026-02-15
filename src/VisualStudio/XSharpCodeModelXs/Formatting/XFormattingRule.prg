@@ -4,12 +4,7 @@
 // See License.txt in the project root for license information.
 //
 //------------------------------------------------------------------------------
-USING System
-USING System.Collections.Generic
 USING System.Collections
-USING System.Text
-USING System.Linq
-USING System.Diagnostics
 USING LanguageService.CodeAnalysis.XSharp.SyntaxParser
 USING LanguageService.SyntaxTree
 USING LanguageService.CodeAnalysis
@@ -19,7 +14,7 @@ USING LanguageService.CodeAnalysis.Text
 USING XSharp.Parser
 USING XSharp.Settings
 #pragma options("az", on)
-BEGIN NAMESPACE XSharpModel
+NAMESPACE XSharpModel
 
 STATIC CLASS FormattingExtensions
 
@@ -301,15 +296,17 @@ CLASS XFormattingRule
 
 
     PUBLIC STATIC METHOD IsGlobalEntity(token AS XKeyword) AS LOGIC
-        SWITCH token:Kw1
-        CASE XTokenType.Function
-        CASE XTokenType.Procedure
-        CASE XTokenType.Vostruct
-        CASE XTokenType.Union
-        CASE XTokenType.Define
-        CASE XTokenType.Global
-            RETURN TRUE
-        END SWITCH
+        if (token:Kw2 == XTokenType.None)
+            SWITCH token:Kw1
+            CASE XTokenType.Function
+            CASE XTokenType.Procedure
+            CASE XTokenType.Vostruct
+            CASE XTokenType.Union
+            CASE XTokenType.Define
+            CASE XTokenType.Global
+                RETURN TRUE
+            END SWITCH
+        ENDIF
         RETURN FALSE
 
 
@@ -446,9 +443,10 @@ CLASS RulesReader IMPLEMENTS VsParser.IErrorListener
         LOCAL stream := NULL AS ITokenStream
         TRY
             var options := List<String>{} {"lexonly"}
-            var parseOptions := XSharpParseOptions.FromVsValues(options)
-            lexer := XSharpLexer.Create(cSource, "rules.txt", parseOptions)
-            XSharp.Parser.VsParser.Lex(cSource, "rules.txt", parseOptions, SELF, OUT stream, OUT VAR includeFiles)
+            var parseOptions := XParseOptions.FromVsValues(options)
+            var opts := (XSharpParseOptions) parseOptions
+            lexer := XSharpLexer.Create(cSource, "rules.txt", opts)
+            XSharp.Parser.VsParser.Lex(cSource, "rules.txt", opts, SELF, OUT stream, OUT VAR includeFiles)
             VAR bufferedStream := (BufferedTokenStream) stream
             VAR tokens := bufferedStream:GetTokens()
             VAR line := List<IToken>{}
@@ -655,6 +653,10 @@ CLASS RulesReader IMPLEMENTS VsParser.IErrorListener
                     type := XSharpLexer.ENDDEFINE
                 CASE "ENDFOR"
                     type := XSharpLexer.NEXT
+                CASE "ENDTRY"
+                    type := XSharpLexer.END
+                CASE "ENDWITH"
+                    type := XSharpLexer.END
                 CASE "ENDCLASS"
                     type := XSharpLexer.ENDCLASS
                 OTHERWISE
@@ -720,8 +722,6 @@ CLASS RulesReader IMPLEMENTS VsParser.IErrorListener
 
 END CLASS
 
-
-END NAMESPACE // XSharpModel.Model
 
 
 

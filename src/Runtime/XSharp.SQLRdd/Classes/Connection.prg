@@ -47,7 +47,7 @@ class SqlDbConnection inherit SqlDbHandleObject implements IDisposable
     private _databaseRestrictions as int
     private _tableRestrictions as int
 
-    #region Properties
+    #region Connection Only Properties
     /// <summary>Dictionary with properties defined by the Ado.Net provider</summary>
     property DataSourceProperties as Dictionary<string, string> get _datasourceProperties
 
@@ -93,59 +93,10 @@ class SqlDbConnection inherit SqlDbHandleObject implements IDisposable
 
 #endregion
 
-#region Metadata Defaults
-
-
-    /// <summary>
-    /// Can the table be updated ?
-    /// </summary>
-    /// <remarks>This is the default value for the AllowUpdates property for tables opened with the RDD. This can be overridden at the table level</remarks>
-    PROPERTY AllowUpdates      as LOGIC auto
-    /// <summary>
-    /// Specifies whether memo fields of type Long text or Long binary are included in the WHERE clause when using automatic updating. This defaults to TRUE
-    /// </summary>
-    /// <remarks>This is the default value for the CompareMemo property for tables opened with the RDD. This can be overridden at the table level</remarks>
-    PROPERTY CompareMemo       as LOGIC auto
-    /// <summary>
-    /// Name of the Deleted column. When empty then rows will be physically deleted from the server
-    /// </summary>
-    /// <remarks>This is the default value for the DeletedColumn property for tables opened with the RDD. This can be overridden at the table level</remarks>
-    PROPERTY DeletedColumn      as STRING auto
-    /// <summary>
-    /// Can field names longer than 10 characters be used (true) or should they be truncated (false)
-    /// </summary>
-    /// <remarks>This is the default value for the LongFieldNames property for tables opened with the RDD. This can be overridden at the table level</remarks>
-    PROPERTY LongFieldNames     as LOGIC auto
-    /// <summary>
-    /// What is the maximum number of records that the RDD should fetch when unfiltered.
-    /// </summary>
-    /// <remarks>This is the default value for the MaxRecords property for tables opened with the RDD. This can be overridden at the table level</remarks>
-    PROPERTY MaxRecords         as INT auto
-    /// <summary>
-    /// Name of the Recno column. When empty then the relative row number is the record number
-    /// </summary>
-    /// <remarks>This is the default value for the RecnoColumn property for tables opened with the RDD. This can be overridden at the table level</remarks>
-    PROPERTY RecnoColumn        as STRING auto
-    /// <summary>
-    /// Should trailing spaces for string columns be trimmed?
-    /// </summary>
-    /// <remarks>This is the default value for the CompareMemo property for tables opened with the RDD. This can be overridden at the table level</remarks>
-    PROPERTY TrimTrailingSpaces as LOGIC auto
-    /// <summary>
-    /// Should all columns be updated when a record is updated?
-    /// </summary>
-    /// <remarks>This is the default value for the CompareMemo property for tables opened with the RDD. This can be overridden at the table level</remarks>
-    PROPERTY UpdateAllColumns as LOGIC auto
-    /// <summary>
-    /// Specifies whether the maximum value in the Recno column should be used as the RecCount property.
-    /// This defaults to FALSE which means that the RecCount property returns the number of records in the table
-    /// </summary>
-    property MaxRecnoAsRecCount       as logic auto
-
+#region Shared Properties
+// This includes the default properties that are shared between connection and table
+#include "..\Metadata.xh"
 #endregion
-
-
-
 
 #region static properties and methods
     internal const DefaultConnection := "DEFAULT" as string
@@ -154,7 +105,7 @@ class SqlDbConnection inherit SqlDbHandleObject implements IDisposable
     static constructor()
         Connections     := List<SqlDbConnection>{}
         DefaultCached   := true
-        AppDomain.CurrentDomain:ProcessExit += EventHandler{CurrentDomain_ProcessExit}
+        AppDomain.CurrentDomain:ProcessExit += CurrentDomain_ProcessExit
     end constructor
 
     internal static method CurrentDomain_ProcessExit(sender as object, e as EventArgs) as void
@@ -208,34 +159,37 @@ class SqlDbConnection inherit SqlDbHandleObject implements IDisposable
         options:ConnectionString := cConnectionString
         var builder := Provider:CreateConnectionStringBuilder()
         foreach key as string in options:Keys
-            var value := options[key]:ToString()
+            var strValue := options[key]:ToString()
+            var isTrue   := strValue:ToLower() == "true"
             switch key:ToLower()
             case "allowupdates"
-                self:AllowUpdates := (value:ToLower() == "true")
+                self:AllowUpdates := isTrue
             case "comparememo"
-                self:CompareMemo := (value:ToLower() == "true")
+                self:CompareMemo := isTrue
             case "deletedcolumn"
-                self:DeletedColumn := value
+                self:DeletedColumn := strValue
             case "legacyfieldtypes"
-                self:LegacyFieldTypes := (value:ToLower() == "true")
+                self:LegacyFieldTypes := isTrue
             case "longfieldnames"
-                self:LongFieldNames := (value:ToLower() == "true")
+                self:LongFieldNames := isTrue
             case "maxrecords"
-                if Int32.TryParse(value, out var max)
+                if Int32.TryParse(strValue, out var max)
                     self:MaxRecords := max
                 endif
-            case "recnocolumn"
-                self:RecnoColumn := value
-            case "updateallcolumns"
-                self:UpdateAllColumns := (value:ToLower() == "true")
-           case "trimtrailingspaces"
-                self:TrimTrailingSpaces := (value:ToLower() == "true")
-            case "usenulls"
-                self:UseNulls := (value:ToLower() == "true")
             case "maxrecnoasreccount"
-                self:MaxRecnoAsRecCount := (value:ToLower() == "true")
+                self:MaxRecnoAsRecCount := isTrue
+            case "recnocolumn"
+                self:RecnoColumn := strValue
+            case "updateallcolumns"
+                self:UpdateAllColumns := isTrue
+           case "seekreturnssubset"
+                self:SeekReturnsSubset := isTrue
+           case "trimtrailingspaces"
+                self:TrimTrailingSpaces := isTrue
+            case "usenulls"
+                self:UseNulls := isTrue
             otherwise
-                builder:Add(key, value)
+                builder:Add(key, strValue)
             end switch
         next
         return builder:ConnectionString
@@ -303,6 +257,8 @@ class SqlDbConnection inherit SqlDbHandleObject implements IDisposable
         MaxRecords         := DEFAULT_MAXRECORDS
         DeletedColumn      := DEFAULT_DELETEDCOLUMN
         RecnoColumn        := DEFAULT_RECNOCOLUMN
+        SeekReturnsSubset  := DEFAULT_SEEKRETURNSSUBSET
+        MaxRecnoAsRecCount := DEFAULT_MAXRECNOASRECCOUNT
         cConnectionString  := self:AnalyzeConnectionString(cConnectionString)
         self:ConnectionString := cConnectionString
         DbConnection    := Provider:CreateConnection()
@@ -324,7 +280,7 @@ class SqlDbConnection inherit SqlDbHandleObject implements IDisposable
         self:ForceOpen()
         SELF:_FillMetadataCollections()
         SELF:_FillDataSourceProperties()
-        SELF:_CheckLicenseTables()
+        SELF:_CheckConnectionTable()
         SELF:_Login()
         // Todo: Check for # of open users and close the connection when no users are left and then throw an exception
         return
@@ -363,7 +319,7 @@ class SqlDbConnection inherit SqlDbHandleObject implements IDisposable
 
     internal method ForceOpen as void
         if self:DbConnection:State != ConnectionState.Open
-            var connStr := RaiseStringEvent(self, SqlRDDEventReason.ConnectionString, "", self:ConnectionString)
+            var connStr := SELF:RaiseStringEvent(self, SqlRDDEventReason.ConnectionString, "", self:ConnectionString)
             self:DbConnection:ConnectionString  := connStr
             self:DbConnection:Open()
         endif
@@ -573,7 +529,7 @@ class SqlDbConnection inherit SqlDbHandleObject implements IDisposable
     /// <returns>Object with Table Information or NULL when an error occurs</returns>
     method GetStructureForQuery(cQuery as string, TableName as string, longFieldNames as LOGIC) as SqlDbTableInfo
          try
-            cQuery := RaiseStringEvent(self, SqlRDDEventReason.CommandText, TableName, cQuery)
+            cQuery := SELF:RaiseStringEvent(self, SqlRDDEventReason.CommandText, TableName, cQuery)
             longFieldNames := SELF:LongFieldNames
             _command:CommandText := cQuery
             var schema := _command:GetSchemaTable()
@@ -648,7 +604,7 @@ class SqlDbConnection inherit SqlDbHandleObject implements IDisposable
             var columnList := cColumnNames
             var selectStmt := SqlDbProvider.SelectClause+columnList+SqlDbProvider.FromClause+table
             var query := selectStmt+SqlDbProvider.WhereClause+"0=1"
-            var oTd := GetStructureForQuery(query,TableName, longFieldNames)
+            var oTd := SELF:GetStructureForQuery(query,TableName, longFieldNames)
             oTd:SelectStatement := selectStmt
             self:Schema:Add(TableName, oTd)
             return oTd
@@ -777,61 +733,37 @@ class SqlDbConnection inherit SqlDbHandleObject implements IDisposable
 
 
 
-    private method _CheckLicenseTables() as void
-        if SELF:DoesTableExist(CONNECTIONSTABLE) .and. self:DoesTableExist(LICENSETABLE)
+    private method _CheckConnectionTable() as void
+        if SELF:DoesTableExist(CONNECTIONSTABLE)
             return
         endif
         var sb := StringBuilder{}
         sb:Append(SELF:Provider:CreateTableStatement)
-        sb:Replace(SqlDbProvider.TableNameMacro,LICENSETABLE)
-        sb:Replace(SqlDbProvider.FieldDefinitionListMacro, "name varchar(50), value varchar(50)")
-        using var cmd := SqlDbCommand{"Licenses", self, false}
-        cmd:CommandText := sb:ToString()
-        cmd:ExecuteNonQuery("License")
-        sb:Clear()
-        sb:Append(SELF:Provider:CreateTableStatement)
+        using var cmd := SqlDbCommand{"ConnectionTable", self, false}
+
         sb:Replace(SqlDbProvider.TableNameMacro,CONNECTIONSTABLE)
         sb:Replace(SqlDbProvider.FieldDefinitionListMacro, "station varchar(50), username varchar(50), lastlogin varchar(10), refcount int")
         cmd:CommandText := sb:ToString()
         cmd:ExecuteNonQuery("License")
 
-        sb:Clear()
-        sb:Append("Insert into "+LICENSETABLE+"( name, value) values(@p1, @p2)")
-        cmd:CommandText := sb:ToString()
-        cmd:ClearParameters()
-        cmd:AddParameter("@p1","version")
-        cmd:AddParameter("@p2","SQLRDD Beta 2")
-        cmd:ExecuteNonQuery("License")
-        cmd:ClearParameters()
-        cmd:AddParameter("@p1","serial")
-        cmd:AddParameter("@p2","1234567890")
-        cmd:ExecuteNonQuery("License")
-        cmd:ClearParameters()
-        cmd:AddParameter("@p1","users")
-        cmd:AddParameter("@p2","999")
-        cmd:ExecuteNonQuery("License")
-        cmd:ClearParameters()
-        cmd:AddParameter("@p1","validationcode")
-        cmd:AddParameter("@p2","AAAA-BBBB-CCCC-DDDD")
-        cmd:ExecuteNonQuery("License")
-
 
     private method _Login() as void
-        _LoginWorker(true)
+        SELF:_LoginWorker(true)
     private method _Logout() as void
-        _LoginWorker(false)
+        SELF:_LoginWorker(false)
     private method _LoginWorker(lIn as LOGIC) as void
         var user    := Environment.UserName
         var station := Environment.MachineName
         var dDate   := DateTime.Now
         var today   := dDate:Year:ToString()+"-"+dDate:Month:ToString("0#")+"-"+dDate:Day:ToString("0#")
         SELF:BeginTrans()
+        // clear old logins
         using var cmd := SqlDbCommand{"Licenses", self, false}
         cmd:CommandText := "Delete from "+CONNECTIONSTABLE+" where lastlogin < @p3"
         cmd:ClearParameters()
         cmd:AddParameter("@p1",user)
         cmd:AddParameter("@p2",station)
-        cmd:AddParameter("@p3",today:ToString())
+        cmd:AddParameter("@p3",today)
         cmd:ExecuteNonQuery("License")
         var sWhere := "where username = @p1 and station = @p2 and lastlogin = @p3"
         if lIn
@@ -839,15 +771,15 @@ class SqlDbConnection inherit SqlDbHandleObject implements IDisposable
             var result := Convert.ToInt64(cmd:ExecuteScalar())
             if result == 0
                 cmd:CommandText := "Insert into "+CONNECTIONSTABLE+"(username, station, lastlogin, refcount) values(@p1, @p2, @p3, 0)"
-                cmd:ExecuteNonQuery("License")
+                cmd:ExecuteNonQuery("Login")
             endif
             cmd:CommandText := "Update "+CONNECTIONSTABLE+" set refcount = refcount + 1 "+sWhere
-            cmd:ExecuteNonQuery("License")
+            cmd:ExecuteNonQuery("Login")
         else
             cmd:CommandText := "Update "+CONNECTIONSTABLE+" set refcount = refcount - 1 "+sWhere
-            cmd:ExecuteNonQuery("License")
+            cmd:ExecuteNonQuery("Logout")
             cmd:CommandText := "delete from "+CONNECTIONSTABLE+" "+sWhere+" and refcount <= 0"
-            cmd:ExecuteNonQuery("License")
+            cmd:ExecuteNonQuery("Logout")
 
         endif
         SELF:CommitTrans()
@@ -860,18 +792,19 @@ class SqlDbConnection inherit SqlDbHandleObject implements IDisposable
 
     #endregion
 
-    INTERNAL CONST LICENSETABLE := "xs_license" as string
     INTERNAL CONST CONNECTIONSTABLE := "xs_connections" as string
     INTERNAL CONST DEFAULT_ALLOWUPDATES := TRUE AS LOGIC
     INTERNAL CONST DEFAULT_COMPAREMEMO := TRUE AS LOGIC
-    INTERNAL CONST DEFAULT_DELETEDCOLUMN := "xs_deleted" AS STRING
+    INTERNAL CONST DEFAULT_DELETEDCOLUMN := "" AS STRING
     INTERNAL CONST DEFAULT_LEGACYFIELDTYPES := TRUE AS LOGIC
     INTERNAL CONST DEFAULT_LONGFIELDNAMES := FALSE AS LOGIC
     INTERNAL CONST DEFAULT_MAXRECORDS := 1000 AS INT
-    INTERNAL CONST DEFAULT_RECNOCOLUMN := "xs_recno" AS STRING
+    INTERNAL CONST DEFAULT_RECNOCOLUMN := "" AS STRING
     INTERNAL CONST DEFAULT_TRIMTRAILINGSPACES := TRUE AS LOGIC
     INTERNAL CONST DEFAULT_UPDATEALLCOLUMNS := FALSE AS LOGIC
     INTERNAL CONST DEFAULT_USENULLS := TRUE AS LOGIC
+    INTERNAL CONST DEFAULT_SEEKRETURNSSUBSET := TRUE AS LOGIC
+    INTERNAL CONST DEFAULT_MAXRECNOASRECCOUNT := FALSE AS LOGIC
     #region Events
     /// <summary>
     /// Event handler for the SqlRDD events
@@ -883,30 +816,30 @@ class SqlDbConnection inherit SqlDbHandleObject implements IDisposable
         endif
         var oArgs := SqlRddEventArgs{ nEvent, cTable, oValue}
         if @@CallBack != null
-            var result := @@CallBack ( oObject, oArgs )
+            var result := SELF:CallBack ( oObject, oArgs )
             return result
         endif
         return oArgs:Value
     internal method RaiseStringEvent(oObject as SqlDbObject, nEvent as SqlRDDEventReason, cTable as string, oValue as string) as string
-        var result := RaiseEvent(oObject, nEvent, cTable, oValue)
+        var result := SELF:RaiseEvent(oObject, nEvent, cTable, oValue)
         if result is string var strValue
             return strValue
         endif
         return oValue
     internal method RaiseIntEvent(oObject as SqlDbObject, nEvent as SqlRDDEventReason, cTable as string, oValue as int) as int
-        var result := RaiseEvent(oObject, nEvent, cTable, oValue)
+        var result := SELF:RaiseEvent(oObject, nEvent, cTable, oValue)
         if result is int var intValue
             return intValue
         endif
         return oValue
     internal method RaiseListEvent(oObject as SqlDbObject, nEvent as SqlRDDEventReason, cTable as string, oValue as IList<string>) as IList<string>
-        var result := RaiseEvent(oObject, nEvent, cTable, oValue)
+        var result := SELF:RaiseEvent(oObject, nEvent, cTable, oValue)
         if result is IList<string> var listValue
             return listValue
         endif
         return oValue
     internal method RaiseLogicEvent(oObject as SqlDbObject, nEvent as SqlRDDEventReason, cTable as string, oValue as logic) as logic
-        var result := RaiseEvent(oObject, nEvent, cTable, oValue)
+        var result := SELF:RaiseEvent(oObject, nEvent, cTable, oValue)
         if result is logic var logValue
             return logValue
         endif

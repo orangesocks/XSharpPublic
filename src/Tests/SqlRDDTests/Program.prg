@@ -1,34 +1,34 @@
 ﻿using XSharp.RDD.SqlRDD
 using XSharp.RDD.SqlRDD.Providers
 using System.Data
+using System.Diagnostics
 using System.Data.Common
 using MySql.Data.MySqlClient
 using System.Collections.Generic
 
 global options := "TrimTrailingSpaces=False;UseNulls=False;" as STRING
 
-global SqlConnStr := "Server=(local);Initial catalog=Northwind;Trusted_Connection=True;"+options as STRING
-global ODBCConnStr := "Driver={SQL Server};Server=(local);Database=Northwind;Trusted_Connection=Yes;"+options as STRING
-global OleDbConnStr := "Provider=sqloledb;Data Source=(local);Initial Catalog=Northwind;Integrated Security=SSPI;"+options as STRING
+global SqlConnStr := "Server=(local);Initial catalog=Northwind;Trusted_Connection=True;LegacyFieldTypes=False;"+options as STRING
+global ODBCConnStr := "Driver={SQL Server};Server=LEDA;Database=Northwind;Trusted_Connection=Yes;"+options as STRING
+global OleDbConnStr := "Provider=sqloledb;Data Source=LEDA;Initial Catalog=Northwind;Integrated Security=SSPI;"+options as STRING
 global showEvents := true as logic
 
 function Start as void
+    TestBeta3()
     //TestProviders()
-    //estSqlServer()
+    //TestSqlServer()
     //TestODBC()
     //TestOLEDB()
     //     TestRDDODBC()
     //     TestRDDOLEDB()
     //TestRDDSql()
-    //     TestCommandSql()
-    //     TestCommandSql()
-    //     TestCommandODBC()
-    //     TestCommandODBC()
-    //     TestCommandOLEDB()
-    //     TestCommandOLEDB()
-    //     TestParametersODBC()
-    //     TestParametersSQL()
-    //     TestParametersOLEDB()
+
+//     TestCommandSql()
+//     TestCommandODBC()
+//     TestCommandOLEDB()
+//     TestParametersODBC()
+//     TestParametersSQL()
+//     TestParametersOLEDB()
     //TestTable()
     //TestCreateIndex()
     //TestServerFilter()
@@ -36,9 +36,32 @@ function Start as void
     //TestTransaction()
     //testCreate()
     //FillGsTutor()
-    TestGsTutor()
+    //TestGsTutor()
     wait
     return
+
+    function TestBeta3() as void
+        SqlDbSetProvider("SQLSERVER")
+        var handle := SqlDbOpenConnection(SqlConnStr)
+        DbUseArea(TRUE,"SQLRDD","CUSTOMER")
+        DbZap()
+        DbAppend()
+        FieldPut(1,"AAA")
+        DbAppend()
+        FieldPut(1,"BBB")
+        DbSkip()
+        ? LastRec()
+        DbCloseArea()
+
+        DbUseArea(TRUE,"SQLRDD","CUSTOMER")
+        ? FieldGet(1) // AAA, OK
+        FieldPut(1,"CCC")
+        DbSkip()
+        ? FieldGet(1) // Elizabeth, wrong!
+        FieldPut(1,"DDD")
+        DbCloseArea()
+        wait
+        return
 
 function TestCreate() as void
     local aStruct as array
@@ -174,13 +197,15 @@ function ListSeek as void
     ? "Seek Customer with key ALFKI"
     DbSetOrder("PK")
     DbSeek("ALFKI")
-    do while ! Eof() .and. Recno() < 10
+    var iCounter := 0
+    do while ! Eof() .and. iCounter++ < 5
         ? Recno(), Deleted(), FieldGet(1), FieldGet(2), FieldGet(3)
         DbSkip(1)
     enddo
     ? "Seek Customer with key GOURL"
     DbSeek("GOURL")
-    do while ! Eof() .and. Recno() < 10
+    iCounter := 0
+    do while ! Eof() .and. iCounter++ < 5
         ? Recno(), Deleted(), FieldGet(1), FieldGet(2), FieldGet(3)
         DbSkip(1)
     enddo
@@ -204,7 +229,7 @@ function TestParametersODBC() AS VOID
     local cmd  := null as SqlDbCommand
     TRY
         ? "Testing Parameters with ODBC"
-        var stopWatch := System.Diagnostics.Stopwatch{}
+        var stopWatch := Stopwatch{}
         stopWatch:Start()
 
         SqlDbSetProvider("ODBC")
@@ -508,13 +533,13 @@ Function DumpConnection(conn as SqlDbConnection) as void
         ? "ConnStr ",conn:DbConnection:ConnectionString
         ? "State   ",conn:DbConnection:State:ToString()
         ? "IsOpen  ", conn:IsOpen
-        var coll := conn:GetMetaDataCollections()
-        ? "Collections: ", coll:Count
-        foreach var name in coll
-            var table := conn:GetMetaDataCollection(Name)
-            DumpMetadataCollection(Name, table)
-            Console.ReadLine()
-        next
+        //var coll := conn:GetMetaDataCollections()
+//         ? "Collections: ", coll:Count
+//         foreach var name in coll
+//             var table := conn:GetMetaDataCollection(Name)
+//             DumpMetadataCollection(Name, table)
+//             Console.ReadLine()
+//         next
         var tables := conn:GetTables("TABLE")
         ? "# of Tables : ", tables:Count
         foreach var Name in tables
@@ -536,6 +561,7 @@ function DumpStructure(oTd as SqlDbTableInfo) as VOID
 FUNCTION EventHandler(oSender AS Object, e AS XSharp.RDD.SqlRDD.SqlRddEventArgs) AS OBJECT
     // Tags default
     switch e:Reason
+        
     case SqlRDDEventReason.Condition
         e:Value := ""
     case SqlRDDEventReason.Unique
@@ -561,6 +587,8 @@ FUNCTION EventHandler(oSender AS Object, e AS XSharp.RDD.SqlRDD.SqlRddEventArgs)
         case "Index:Customers"
             e:Value := "PK,CompanyName,ContactName,Address"
         end switch
+     case SqlRDDEventReason.SeekReturnsSubset
+         e:Value := TRUE
     end switch
     if showEvents
         ? "Event", e:Name, e:Reason:ToString(), e:Value
@@ -571,7 +599,7 @@ function TestProviders as void
     local oProv as ISqlDbProvider
     local oProvider := MySqlClientFactory.Instance AS DbProviderFactory
     ? oProvider:CreateConnection():GetType():FullName
-    local aTest := {"Advantage","ODBC","OLEDB","SQLSERVER","MySql","ORACLE"}
+    local aTest := {"ODBC","OLEDB","SQLSERVER","MySql","ORACLE", "PostgreSql"} // "Advantage",
     foreach strProv as STRING in aTest
         if SqlDbSetProvider(strProv)
             oProv := SqlDbGetProvider()
@@ -772,24 +800,71 @@ function TestTransaction()
             ? e:Message
         END TRY
         RETURN
+
 FUNCTION TestGsTutor() AS VOID
-    local aOrders as array
-    aOrders := {}
+//     local aOrders as array
+//     aOrders := {}
     TRY
         SqlDbSetProvider("SQLSERVER")
         RddSetDefault("SQLRDD")
         SqlDbOpenConnection("Server=(local);Initial catalog=GsTutor;Trusted_Connection=True;", EventHandler)
         var conn  := SqldbGetConnection("DEFAULT")
         conn:MetadataProvider := SqlMetaDataProviderDatabase{conn}
-        DbUseArea(,,"customer")
-        ShowArray(DbStruct())
-        DbCloseArea()
+        local oSrv := dbServer{"Customer"} as DbServer
+        ShowArray(oSrv:DbStruct)
+        oSrv:SetOrder("CustNum")
+        var stopWatch := StopWatch{}
+        stopWatch:Start()
+        oSrv:Seek(10)
+        ? stopWatch:Elapsed:ToString()
+        stopWatch:Restart()
+        ? "Recno", oSrv:Recno, oSrv:Eof, "Keycount",oSrv:OrderInfo(DBOI_KEYCOUNT), oSrv:OrderKeyVal
+        ? stopWatch:Elapsed:ToString()
+        stopWatch:Restart()
+        oSrv:Seek(10.0)
+        ? "Recno", oSrv:Recno, oSrv:Eof, "Keycount",oSrv:OrderInfo(DBOI_KEYCOUNT), oSrv:OrderKeyVal
+        ? stopWatch:Elapsed:ToString()
+        stopWatch:Restart()
+        oSrv:Seek((INT64) 20)
+        ? "Recno", oSrv:Recno, oSrv:Eof, "Keycount",oSrv:OrderInfo(DBOI_KEYCOUNT), oSrv:OrderKeyVal
+        ? stopWatch:Elapsed:ToString()
+        stopWatch:Restart()
+        oSrv:Seek(20,TRUE)
+        ? "Recno", oSrv:Recno, oSrv:Eof, "Keycount",oSrv:OrderInfo(DBOI_KEYCOUNT), oSrv:OrderKeyVal
+        wait
+        oSrv:CreateOrder("CustName","Customer","LastName+FirstName")
+        oSrv:CreateOrder("CustName","CustNum","CustNum")
+        oSrv:Close()
         DbUseArea(,,"orders")
         ShowArray(DbStruct())
+        OrdSetFocus("Order_Date")
+        stopWatch:Restart()
+        DbSeek(DateTime.Now)
+        ? stopWatch:Elapsed:ToString()
+        ? "Recno", Recno(), Eof(), "Keycount", DbOrderInfo(DBOI_KEYCOUNT), DbOrderInfo(DBOI_KEYVAL)
+        stopWatch:Restart()
+        DbSeek(1993.10.11)
+        ? stopWatch:Elapsed:ToString()
+        ? "Recno", Recno(), Eof(), "Keycount", DbOrderInfo(DBOI_KEYCOUNT), DbOrderInfo(DBOI_KEYVAL)
+        OrdSetFocus("OrdCust")
+        OrdScope(TOPSCOPE, 10)
+        OrdScope(BOTTOMSCOPE, 10)
+        stopWatch:Restart()
+        DbSeek(10,FALSE, FALSE)
+        ? stopWatch:Elapsed:ToString()
+        ? "Recno", Recno(), Eof(), "Keycount", DbOrderInfo(DBOI_KEYCOUNT), DbOrderInfo(DBOI_KEYVAL)
+        stopWatch:Restart()
+        DbSeek(10,FALSE, TRUE)
+        ? stopWatch:Elapsed:ToString()
+        ? "Recno", Recno(), Eof(), "Keycount", DbOrderInfo(DBOI_KEYCOUNT), DbOrderInfo(DBOI_KEYVAL)
         DbCloseArea()
 
     CATCH e as Exception
-        ? e:Message
+        ? e:ToString()
     END TRY
     RETURN
 
+
+
+    FUNCTION GetGlobal() AS usual CLIPPER
+        RETURN NULL_OBJECT

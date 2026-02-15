@@ -412,7 +412,7 @@ namespace XSharp.MacroCompiler
             const OperandType DEC = OperandType.Decimal;
             const OperandType BOL = OperandType.Bool;
 
-            // Overload resolution for Y * / - % < > <= >= X
+            // Overload resolution for Y / - % < > <= >= X
             OperandType[,] arithmetic =
             {
                 //          bool chr  i08  i16  i32  i64  u08  u16  u32  u64  r32  r64  dec
@@ -431,15 +431,17 @@ namespace XSharp.MacroCompiler
                 /*  dec */{ ERR, DEC, DEC, DEC, DEC, DEC, DEC, DEC, DEC, DEC, ERR, ERR, DEC },
             };
 
-            // Overload resolution for Y + X
-            OperandType[,] addition =
+            // Note that the operation on two Int32 values now returns an Int64 to avoid overflow
+            // for Multiplication, Subtraction and Addition
+            // Overload resolution for Y * + X
+            OperandType[,] muladdsub  =
             {
                 //          bool chr  i08  i16  i32  i64  u08  u16  u32  u64  r32  r64  dec
                 /* bool */{ ERR, ERR, ERR, ERR, ERR, ERR, ERR, ERR, ERR, ERR, ERR, ERR, ERR },
                 /*  chr */{ ERR, INT, INT, INT, INT, LNG, INT, INT, UIN, ULG, FLT, DBL, DEC },
                 /*  i08 */{ ERR, INT, INT, INT, INT, LNG, INT, INT, LNG, ERR, FLT, DBL, DEC },
                 /*  i16 */{ ERR, INT, INT, INT, INT, LNG, INT, INT, LNG, ERR, FLT, DBL, DEC },
-                /*  i32 */{ ERR, INT, INT, INT, INT, LNG, INT, INT, LNG, ERR, FLT, DBL, DEC },
+                /*  i32 */{ ERR, INT, INT, INT, LNG, LNG, INT, INT, LNG, ERR, FLT, DBL, DEC },
                 /*  i64 */{ ERR, LNG, LNG, LNG, LNG, LNG, LNG, LNG, LNG, ERR, FLT, DBL, DEC },
                 /*  u08 */{ ERR, INT, INT, INT, INT, LNG, INT, INT, UIN, ULG, FLT, DBL, DEC },
                 /*  u16 */{ ERR, INT, INT, INT, INT, LNG, INT, INT, UIN, ULG, FLT, DBL, DEC },
@@ -564,14 +566,14 @@ namespace XSharp.MacroCompiler
                 return res;
             };
 
-            var tables = new[] { arithmetic, addition, shift, equality, logical };
+            var tables = new[] { arithmetic, muladdsub, shift, equality, logical };
 
             Func<BinaryOperatorKind, int> tableIndex = k =>
             {
-                if (k == BinaryOperatorKind.Multiplication || k == BinaryOperatorKind.Subtraction || k == BinaryOperatorKind.Division
+                if (k == BinaryOperatorKind.Division
                     || k == BinaryOperatorKind.Remainder || k == BinaryOperatorKind.Exponent)
                     return 0;
-                if (k == BinaryOperatorKind.Addition)
+                if (k == BinaryOperatorKind.Subtraction || k == BinaryOperatorKind.Multiplication || k == BinaryOperatorKind.Addition)
                     return 1;
                 if (k == BinaryOperatorKind.LeftShift || k == BinaryOperatorKind.RightShift)
                     return 2;
@@ -595,12 +597,19 @@ namespace XSharp.MacroCompiler
             }
         }
 
-        public static BinaryOperatorSymbol ClassifyOperation(BinaryOperatorKind kind, TypeSymbol left, TypeSymbol right)
+        public static BinaryOperatorSymbol ClassifyOperation(BinaryOperatorKind kind, TypeSymbol left, TypeSymbol right, BindOptions options)
         {
             int leftIdx = ConversionEasyOut.TypeToIndex(left);
             if (leftIdx < 0)
             {
                 return null;
+            }
+            if (options.HasFlag(BindOptions.Enum))
+            {
+                if (right.NativeType == NativeType.Int32)
+                {
+                    right = Compilation.Get(NativeType.Int16);
+                }
             }
             int rightIdx = ConversionEasyOut.TypeToIndex(right);
             if (rightIdx < 0)

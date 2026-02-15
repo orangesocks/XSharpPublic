@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-06-30T11:33:37.260+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>#include</title>
+  <keywords>
+    <keyword>#include</keyword>
+    <keyword>Preprocessor</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">#include</para>
+    </header>
+    <para styleclass="Heading1">用途</para>
+    <para styleclass="Body Text">告诉预处理器将指定文件的内容视为源程序中出现该指令的位置。</para>
+    <para styleclass="Code Example">#include &quot;path-spec&quot; </para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Body Text">您可以将预处理器定义放入包含文件，然后使用 #include 指令将其添加到任何源文件中。</para>
+    <para styleclass="Body Text">path-spec 是一个文件名，可以选择在前面加上目录说明。文件名必须是现有文件的名称。</para>
+    <para styleclass="Body Text">预处理器按以下顺序搜索包含文件：</para>
+    <list id="0" type="ol" listtype="decimal" formatstring="&#37;&#115;&#46;" format-charset="DEFAULT_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Body Text" style="font-family:Arial; font-size:11pt; color:#000000;">
+      <li styleclass="Body Text">与包含 #include 语句的文件位于同一目录。</li>
+      <li styleclass="Body Text">沿着每个 /I 编译器选项指定的路径。</li>
+      <li styleclass="Body Text">在 XSharp 安装文件夹内的 Include 文件夹中</li>
+      <li styleclass="Body Text">沿 INCLUDE 环境变量指定的路径运行。 <text style="color:#ff0000;">(尚不支持)</text></li>
+    </list>
+    <para styleclass="Normal"></para>
+  </body>
+</topic>

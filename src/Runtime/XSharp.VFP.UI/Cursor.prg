@@ -1,4 +1,10 @@
-﻿USING System
+﻿// Cursor.prg
+//
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
+// See License.txt in the project root for license information.
+
+USING System
 USING System.Collections.Generic
 USING System.Text
 USING System.Windows.Forms
@@ -6,7 +12,7 @@ USING System.ComponentModel
 
 BEGIN NAMESPACE XSharp.VFP.UI
 	/// <summary>
-	/// The Cursor class.
+	/// The VFP compatible Cursor class.
 	/// </summary>
 	PARTIAL CLASS DbCursor //IMPLEMENTS XSharp.IDbNotify
 
@@ -140,14 +146,14 @@ BEGIN NAMESPACE XSharp.VFP.UI
 			ENDIF
 
 		METHOD Sync() AS VOID
-			LOCAL posRdd AS INT
+			LOCAL posRdd AS DWORD
 			//LOCAL posSrc AS INT
 			//
 			IF SELF:_oRDD != NULL
 				posRdd := SELF:_oRDD:RecNo
 				//posSrc := SELF:BindingSource:Position
 				// BindingSource Position is zero-Based
-				SELF:BindingSource:Position := posRdd - 1
+				SELF:BindingSource:Position := (INT) (posRdd - 1)
 			ENDIF
 
 			//		METHOD Notify(osender AS XSharp.RDD.IRdd, e AS XSharp.DbNotifyEventArgs) AS VOID

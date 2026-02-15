@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-06-29T00:15:22.254+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>PUBLIC 语句</title>
+  <keywords>
+    <keyword>Arrays<keyword>creating</keyword></keyword>
+    <keyword>Creating</keyword>
+    <keyword>Creating<keyword>arrays</keyword><keyword>variables</keyword></keyword>
+    <keyword>Declaration statements</keyword>
+    <keyword>Memory variable</keyword>
+    <keyword>PUBLIC statement</keyword>
+    <keyword>Runtime declaration</keyword>
+    <keyword>Statements</keyword>
+    <keyword>Variables<keyword>creating</keyword></keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">PUBLIC 语句</para>
+    </header>
+    <para styleclass="NotesBox"><snippet src="__NotInCoreVulcan" inline="false"/></para>
+    <para styleclass="NotesBox"><text styleclass="Heading1">用途</text></para>
+    <para styleclass="Normal">创建应用程序中所有例程都能看到的变量和数组。</para>
+    <para styleclass="Heading1">语法</para>
+    <para styleclass="Code with box">PUBLIC &lt;memVarList&gt;<br/>PUBLIC &lt;idVar&gt; [:= &lt;uValue&gt;] | &lt;ArraySpec&gt; [, ...]<br/>PUBLIC &lt;idVar&gt; [:= &lt;uValue&gt;] [AS &lt;Type&gt; [OF &lt;ClassLibrary&gt;] ] &#160;<tab /><tab /><tab /><tab /><tab /><tab /> // 仅用于 FoxPro 方言<br/>PUBLIC ARRAY &lt;arrayName&gt; <text style="font-weight:bold;">(</text> &lt;nRows&gt; [, &lt;nColumns&gt;] <text style="font-weight:bold;">)</text> [, &lt;arrayName&gt; ( &lt;nRows&gt; [, &lt;nColumns&gt;] ) ] &#160; &#160; // 仅用于 FoxPro 方言<br/>PUBLIC ARRAY &lt;arrayName&gt; <text style="font-weight:bold;">[</text> &lt;nRows&gt; [, &lt;nColumns&gt;] <text style="font-weight:bold;">]</text> [, &lt;arrayName&gt; <text style="font-weight:bold;">[</text> &lt;nRows&gt; [, &lt;nColumns&gt;] <text style="font-weight:bold;">]</text> ] &#160; &#160; // 仅用于 FoxPro 方言</para>
+    <para styleclass="Heading1">参数</para>
+    <para styleclass="List">&lt;<text styleclass="Code with box">memVarList</text>&gt;<tab /><text styleclass="Body Text">一个或多个变量名，用逗号分隔。</text></para>
+    <para styleclass="List"></para>
+    <para styleclass="List">&lt;idVar&gt;<tab />要创建的公有变量的有效标识符名称。 </para>
+    <para styleclass="List"><tab />idVar 可以加上一个“&amp;”前缀(例如PUBLIC &amp;name)。在这种情况下，编译器会认为 idVar 应包含一个已声明和初始化的变量名称字符串。</para>
+    <para styleclass="List"></para>
+    <para styleclass="List">&lt;uValue&gt;<tab />为变量赋值的初始值。 可以是任何有效的表达式。 如果没有指定 &lt;uValue&gt;，变量将被初始化为 FALSE。但也有例外：</para>
+    <para styleclass="List"><tab />在 FoxPro 方言中，PUBLIC FOX 和 FOXPRO 初始化为 TRUE。</para>
+    <para styleclass="List"><tab />在其他方言中，PUBLIC CLIPPER 初始化为 TRUE。</para>
+    <para styleclass="List"></para>
+    <para styleclass="List">&lt;ArraySpec&gt;<tab />要创建的动态数组的规格。 &lt;ArraySpec&gt; 是以下内容之一：</para>
+    <para styleclass="List"><tab />&lt;idArray&gt;[&lt;nElements&gt;, &lt;nElements&gt;, &lt;nElements&gt;]</para>
+    <para styleclass="List"><tab />&lt;idArray&gt;[&lt;nElements&gt;][&lt;nElements&gt;][&lt;nElements&gt;]</para>
+    <para styleclass="List"><tab />除第一个 nElements 外，其他均为可选。</para>
+    <para styleclass="List"><tab />&lt;idArray&gt;<tab />是要创建的数组的有效标识符名称。 数组元素初始化为 NIL。</para>
+    <para styleclass="List"><tab />&lt;nElements&gt; <tab />定义数组特定维数的元素个数。 维数由指定 &lt;nElements&gt; 参数的个数决定。</para>
+    <para styleclass="List"></para>
+    <para styleclass="List"><snippet src="__TypeAndCLass" inline="false"/></para>
+    <para styleclass="List"><tab /><text styleclass="Normal">&lt;Type&gt; 和 &lt;ClassLibrary&gt; 子句被忽略，因为动态内存变量的类型始终是 USUAL</text></para>
+    <para styleclass="List"></para>
+    <para styleclass="List">&lt;arrayName&gt;<tab />数组的变量名。数组的大小与 &lt;nRows&gt; 和 &lt;nColumns&gt; 所声明的一样。数组可以使用小括号作为分隔符，也可以使用方括号。</para>
+    <para styleclass="List"><tab />&lt;nColumns&gt; 是可选项</para>
+    <para styleclass="List"><tab />我们建议使用方括号。</para>
+    <para styleclass="Heading1">描述</para>
+    <para styleclass="Normal">PUBLIC 是一条可执行语句，这意味着您必须在定义例程中的任何变量声明语句(即 FIELD、LOCAL 和 MEMVAR)之后指定它。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">警告 &#160;<text styleclass="BoldItalic" style="font-family:Arial; font-size:10pt; font-weight:normal; font-style:italic; text-decoration:none; text-transform:none; vertical-align:baseline; color:#000000; background-color:transparent; letter-spacing:normal; letter-scaling:100%;">除非未声明变量(Undeclared Variables)编译器选项被选中，否则使用此语句创建的任何变量引用都会产生编译器错误。</text></para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">任何与现有公有或私有变量同名的声明变量(如 LOCALs)都会暂时隐藏公有或私有变量，直到覆盖变量被释放或不再可见。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">如果试图创建一个与现有可见的私有变量同名的公有变量，则会被直接忽略；但 PUBLIC 语句的赋值部分不会被忽略。 例如，下面几行代码改变了变量 x 的值，但并没有将其作用域从私有变为公有：</para>
+    <para styleclass="Code Example">PRIVATE x := 1000<br/>...<br/>PUBLIC x := &quot;New value for x&quot;<br/>? x<tab /><tab /><tab /><tab /><tab />// 结果: &#160;&quot;New value for x&quot;</para>
+    <para styleclass="Normal">对这种行为的解释是，在内部，PUBLIC 语句和赋值被视为不同的语句。 因此，这段代码将被处理如下：</para>
+    <para styleclass="Code Example">PRIVATE x := 1000<br/>...<br/>PUBLIC x<br/>x := &quot;New value for x&quot;<br/>? x<tab /><tab /><tab /><tab /><tab />// 结果: &#160;&quot;New value for x&quot;</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">PUBLIC 语句会被忽略，但赋值语句会被执行，从而改变私有变量 x 的值。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">当你使用一个已经存在的私有变量名声明一个公有数组时，这种行为会产生一个有趣的影响。 例如</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Code Example">PRIVATE x := 1000<br/>...<br/>PUBLIC x[10]<br/>? x[1]<tab /><tab /><tab /><tab />// 结果: &#160;NIL</para>
+    <para styleclass="Normal">在这种情况下，PUBLIC 语句也被视为两个单独的语句：</para>
+    <para styleclass="Code Example">PRIVATE x := 1000<br/>...<br/>PUBLIC x<br/>x := ArrayNew(10)<br/>? x[1]<tab /><tab /><tab /><tab />// 结果: &#160;NIL</para>
+    <para styleclass="Normal">同样，PUBLIC 语句被忽略，赋值将 x 从一个私有数值变量变为对 10 个元素数组的私有引用。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">如果试图指定一个与可见的已声明变量(例如 LOCAL、GLOBAL 或 DEFINE)冲突的公有变量，编译器不会将其视为错误，因为 PUBLIC 并不是编译器声明语句。 相反，声明的变量会在运行时隐藏公有变量。 这意味着，在声明的变量被释放之前，你根本无法访问公有变量。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">在类方法中，实例变量(ACCESS/ASSIGN变量除外)总是比同名的公有变量更可见。 如果存在名称冲突，请使用 _MEMVAR-&gt; 别名访问方法中的公有变量。 对于ACCESS/ASSIGN变量，使用 SELF: 前缀来覆盖与公有变量名称冲突的情况。</para>
+    <para styleclass="Normal">公有变量是动态作用域。 它们在程序运行期间或使用 &#160;CLEAR ALL 或 &#160;CLEAR MEMORY 明确释放之前一直存在。 </para>
+    <para styleclass="Heading1">备注</para>
+    <para styleclass="Normal"><text styleclass="BoldItalic" style="font-family:Arial; font-size:10pt; font-weight:normal; font-style:normal; text-decoration:none; text-transform:none; vertical-align:baseline; color:#000000; background-color:transparent; letter-spacing:normal; letter-scaling:100%;">PUBLIC Clipper： &#160;为了在应用程序中包含 &lt;%APP%&gt; 扩展名，并允许应用程序在 dBASE III PLUS 下运行，在使用 PUBLIC 创建时，特殊公有变量 Clipper 初始化为 TRUE。</text></para>
+    <para styleclass="Heading1">示例</para>
+    <para styleclass="Normal">本例创建了两个 PUBLIC 数组和一个 PUBLIC 变量：</para>
+    <para styleclass="Code Example">PUBLIC aArray1[10, 10], var2<br/>PUBLIC aArray2[20][10]</para>
+    <para styleclass="Normal">以下 PUBLIC 语句创建变量并初始化变量值：</para>
+    <para styleclass="Code Example">PUBLIC cString := Space(10), cColor := SetColor()<br/>PUBLIC aArray := {1, 2, 3}, ;<br/><tab />aArray2 := ArrayNew(12, 24)</para>
+    <para styleclass="Heading1">参见</para>
+    <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="command_GLOBAL">GLOBAL</link><text styleclass="Bold" style="font-family:Arial; font-size:10pt; font-weight:normal; font-style:normal; text-transform:none; vertical-align:baseline; color:#000000; background-color:transparent; letter-spacing:normal; letter-scaling:100%;">, </text><link displaytype="text" defaultstyle="true" type="topiclink" href="command_MEMVAR">MEMVAR</link><text styleclass="Bold" style="font-family:Arial; font-size:10pt; font-weight:normal; font-style:normal; text-transform:none; vertical-align:baseline; color:#000000; background-color:transparent; letter-spacing:normal; letter-scaling:100%;">, </text><link displaytype="text" defaultstyle="true" type="topiclink" href="command_PARAMETERS">PARAMETERS</link><text styleclass="Bold" style="font-family:Arial; font-size:10pt; font-weight:normal; font-style:normal; text-transform:none; vertical-align:baseline; color:#000000; background-color:transparent; letter-spacing:normal; letter-scaling:100%;">, </text><link displaytype="text" defaultstyle="true" type="topiclink" href="command_PRIVATE">PRIVATE</link>, <link displaytype="text" defaultstyle="true" type="topiclink" href="command_DECLARE">DIMENSION</link>, <link displaytype="text" defaultstyle="true" type="topiclink" href="command_DECLARE">DECLARE</link></para>
+    <para styleclass="Normal"></para>
+  </body>
+</topic>

@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-06-30T12:15:56.172+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>#translate</title>
+  <keywords>
+    <keyword>#translate</keyword>
+    <keyword>#xtranslate</keyword>
+    <keyword>#ytranslate</keyword>
+    <keyword>Preprocessor</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">#translate, #xtranslate 和 #ytranslate</para>
+    </header>
+    <para styleclass="Heading1">用途</para>
+    <para styleclass="Normal">指定用户自定义的翻译指令</para>
+    <para styleclass="Heading2">语法</para>
+    <para styleclass="Code Example"><text style="font-weight:normal; font-style:normal; color:#000000;">#translate &#160; &#160;&lt;matchPattern&gt; =&gt; &lt;resultPattern&gt; </text>// 可缩写为 4 个字符<br/><text style="font-weight:normal; font-style:normal; color:#000000;">#xtranslate &#160; &lt;matchPattern&gt; =&gt; &lt;resultPattern&gt; </text>// 不能缩写为 4 个字符<br/><text style="font-weight:normal; font-style:normal; color:#000000;">#ytranslate &#160; &lt;matchPattern&gt; =&gt; &lt;resultPattern&gt; </text>// 不能缩写为 4 个字符，且必须大小写匹配 </para>
+    <para styleclass="Normal"><snippet src="Command-translate" inline="false"/></para>
+  </body>
+</topic>

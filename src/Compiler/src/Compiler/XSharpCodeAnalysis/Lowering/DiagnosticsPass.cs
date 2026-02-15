@@ -55,6 +55,24 @@ namespace Microsoft.CodeAnalysis.CSharp
                 rightType = bcv.Operand.Type;
             }
             GenerateWarning(rightType, leftType, node);
+            WarnForNilAssignment(node.Right, leftType);
+        }
+
+        void WarnForNilAssignment(BoundExpression rightNode, TypeSymbol leftType)
+        {
+            if (rightNode.Syntax.XIsNil)
+            {
+                if (!leftType.IsUsualType())
+                {
+                    Error(ErrorCode.WRN_ConversionFromNilNotSupported, rightNode, leftType);
+                }
+            }
+
+        }
+        private BoundAssignmentOperator XsVisitAssignmentOperator(BoundAssignmentOperator node)
+        {
+            WarnForNilAssignment(node.Right, node.Left.Type);
+            return node;
         }
 
         private void GenerateWarning(TypeSymbol sourceType, TypeSymbol targetType, BoundNode node)
@@ -151,13 +169,13 @@ namespace Microsoft.CodeAnalysis.CSharp
             }
             return;
         }
-        private void XsVisitIndexerAccess(BoundIndexerAccess node)
+        private BoundIndexerAccess XsVisitIndexerAccess(BoundIndexerAccess node)
         {
             if (node.Syntax?.XNode is XSharpParser.AccessMemberContext amc)
             {
                 XsCheckMemberAccess(node, node.ReceiverOpt, amc, node.Type, node.Indexer);
             }
-            return;
+            return node;
         }
         private void XsVisitCall(BoundCall node)
         {
@@ -180,7 +198,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                         if (refkinds[i] == RefKind.Out && args._Args.Count > i)
                         {
                             var arg = args._Args[i];
-                            if (arg.RefOut?.Type != XSharpLexer.OUT)
+                            if (arg.RefOut?.Type != XSharpLexer.OUT && node.Arguments.Length > i)
                             {
                                 var argnode = node.Arguments[i];
                                 Error(ErrorCode.WRN_AutomaticRefGeneration, argnode, i + 1, refkinds[i]);
@@ -233,7 +251,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                     context2.Start.Type == XSharpParser.NIL)
                 {
                     if (context2.Parent is XSharpParser.NamedArgumentContext ||
-                        context2.Parent is XSharpParser.UnnamedArgumentContext||
+                        context2.Parent is XSharpParser.UnnamedArgumentContext ||
                         context2.Parent is XSharpParser.AssignmentExpressionContext)
                     {
                         Error(ErrorCode.WRN_ConversionFromNilNotSupported, node, node.Type);

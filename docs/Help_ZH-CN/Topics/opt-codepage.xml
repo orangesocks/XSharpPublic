@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-06-30T22:46:29.729+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>-codepage</title>
+  <keywords>
+    <keyword>-codepage</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">-codepage</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">如果所需的 codepage 不是系统当前默认的 codepage，该选项将指定编译时使用的 codepage。</para>
+    <para styleclass="Heading2">语法</para>
+    <para styleclass="Code with box">-codepage:id &#160;</para>
+    <para styleclass="Heading2">参数</para>
+    <para styleclass="List">id<tab />编译中所有源代码文件使用的代码页 id。</para>
+    <para styleclass="Heading2">备注</para>
+    <para styleclass="Normal">如果您编译的一个或多个源代码文件不是为使用计算机上的默认代码页而创建的，您可以使用 -codepage 选项来指定应使用哪个代码页。-codepage 适用于编译中的所有源代码文件。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">如果源代码文件是使用与计算机上相同的代码页创建的，或者源代码文件是使用 UNICODE 或 UTF-8 创建的，则无需使用 -codepage。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">有关如何查找系统支持哪些代码页的信息，请参见 GetCPInfo。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">该编译器选项在 Visual Studio 中不可用，也不能通过编程更改。</para>
+  </body>
+</topic>

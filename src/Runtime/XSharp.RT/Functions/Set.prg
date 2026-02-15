@@ -111,6 +111,9 @@ FUNCTION Set(nDefine, newValue) AS USUAL CLIPPER
             IF IsString(newValue) .OR. IsSymbol(newValue)
                 RETURN SetInternational(newValue)
             ENDIF
+        CASE Set.Hours
+            SetHours(newValue)
+            return SetHours()
 
         END SWITCH
     ENDIF
@@ -128,7 +131,10 @@ FUNCTION Set(nDefine, newValue) AS USUAL CLIPPER
                 state:Settings[nSetting] := cNew:ToUpper() == "ON"
             ELSE
                 TRY
-                    oNew := System.Convert.ChangeType( oNew, oOld:GetType())
+                    var oOldType := oOld:GetType()
+                    IF oNew:GetType() != oOldType
+                        oNew := OOPHelpers.ValueConvert(oNew, oOldType)
+                    ENDIF
                     state:Settings[nSetting] := oNew
                 CATCH
                     NOP // can't convert, so ignore assignment

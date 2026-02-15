@@ -34,30 +34,15 @@
     <AllowOldStyleAssignments>False</AllowOldStyleAssignments>
     <CS>False</CS>
     <NoStandardDefs>False</NoStandardDefs>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'" Label="Configuration">
-    <DisabledWarnings />
-    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+    <OutPutCopy>$(SolutionDir)Tools\VFPXPorter\Source\VFPXPorterLib\Data\Templates\Tools\$(TargetFileName)</OutPutCopy>
+    <Allowdot>True</Allowdot>
+    <EnforceSelf>False</EnforceSelf>
     <WarningLevel>4</WarningLevel>
     <WarningsAsErrors />
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile />
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'" Label="Configuration">
-    <DisabledWarnings />
-    <WarningLevel>4</WarningLevel>
-    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
-    <WarningsAsErrors />
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile />
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Documentation|AnyCPU'">
-    <DocumentationFile>XSharp.VFP.UI.Xml</DocumentationFile>
-    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
-    <WarningLevel>4</WarningLevel>
-    <WarningsAsErrors />
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <RunPostBuildEvent>OnBuildSuccess</RunPostBuildEvent>
+    <NoWarn>$(DisabledWarnings);108,114</NoWarn>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <ResolveNuGetPackages>false</ResolveNuGetPackages>
   </PropertyGroup>
   <Import Project="$(XSharpMsBuildDir)\XSharp.targets" />
   <ItemGroup>
@@ -130,6 +115,9 @@
     <Compile Include="CommandGroup.prg">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Properties\Resources.Designer.prg">
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
     <Compile Include="Spinner.prg" />
     <Compile Include="VFPDoForm.prg" />
     <Compile Include="VFPDummy.prg" />
@@ -164,6 +152,8 @@
     <Compile Include="OptionButton.prg" />
     <Compile Include="TextBox.prg" />
     <Compile Include="Timer.prg" />
+    <Compile Include="VFPTools.prg" />
+    <Compile Include="_OtherClasses.prg" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Headers" />
@@ -198,6 +188,7 @@
     <None Include="Generated\VFPControl.xh" />
     <None Include="Generated\VFPObject.xh" />
     <None Include="Headers\VFPObject.xh" />
+    <None Include="Properties\XSharp.bmp" />
     <None Include="XSharp\VFPProperties.xh" />
   </ItemGroup>
   <ItemGroup>
@@ -222,20 +213,22 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
-  <!-- This next bit is required unless the macro used to Import your targets is defined in an MSBuild toolset. -->
-  <ProjectExtensions>
-    <ProjectCapabilities>
-      <ProjectConfigurationsDeclaredAsItems />
-    </ProjectCapabilities>
-  </ProjectExtensions>
+  <ItemGroup>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <SubType>Designer</SubType>
+      <Generator>ResXFileCodeGenerator</Generator>
+      <CustomTool>ResXFileCodeGenerator</CustomTool>
+    </EmbeddedResource>
+  </ItemGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
     <PreBuildEvent />
-    <PostBuildEvent>copy $(Targetpath) $(SolutionDir)Tools\VFPXPorter\Source\VFPXPorterLib\Data\Templates\Tools\$(TargetFileName) /y</PostBuildEvent>
+    <PostBuildEvent>copy $(Targetpath) "$(OutPutCopy)" /y</PostBuildEvent>
     <RunPostBuildEvent>OnBuildSuccess</RunPostBuildEvent>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
     <PreBuildEvent />
-    <PostBuildEvent>copy $(Targetpath) $(SolutionDir)VFPXPorterLib\Data\Templates\Tools\$(TargetFileName) /y</PostBuildEvent>
+    <PostBuildEvent>copy $(Targetpath) "$(OutPutCopy)" /y</PostBuildEvent>
     <RunPostBuildEvent>OnBuildSuccess</RunPostBuildEvent>
   </PropertyGroup>
+  <Import Project="..\XmlDoc.Targets" />
 </Project>

@@ -986,7 +986,7 @@ CLASS ListView INHERIT TextControl
             lEnable := TRUE
         ENDIF
 
-        GuiWin32.SendMessage(SELF:Handle(), LVM_SETEXTENDEDLISTVIEWSTYLE, kExStyle, (LONG) IIF(lEnable, kExStyle, 0l))
+        GuiWin32.SendMessage(SELF:Handle(), LVM_SETEXTENDEDLISTVIEWSTYLE, kExStyle, (LONG) IIF(lEnable, kExStyle, 0L))
 
         RETURN SELF
 
@@ -1337,8 +1337,10 @@ CLASS ListViewColumn INHERIT VObject
              // calculate the pixel width of the column using the given character width
              VAR cStringSize := Replicate("M", (DWORD) SELF:nWidth)
              // convert the string size into pixel-width
-             VAR nPixelWidth := (SHORT) LVWin32.GetStringWidth(oOwner:Handle(), cStringSize)
-//             LVWin32.SetColumnWidth(oOwner:Handle(), SELF:Index, nPixelWidth)
+            VAR nPixelWidth := (SHORT) LVWin32.GetStringWidth(oOwner:Handle(), cStringSize)
+            var oldWidth :=  LVWin32.GetColumnWidth(oOwner:Handle(), SELF:Index)
+            LVWin32.SetColumnWidth(oOwner:Handle(), SELF:Index, nPixelWidth)
+            LVWin32.SetColumnWidth(oOwner:Handle(), SELF:Index, (Short) oldWidth)
          ENDIF
         RETURN
 

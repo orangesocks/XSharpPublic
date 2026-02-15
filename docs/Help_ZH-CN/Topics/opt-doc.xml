@@ -1,0 +1,50 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-07-04T18:28:01.460+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>-doc</title>
+  <keywords>
+    <keyword>-doc</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">-doc</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">通过 -doc 编译器选项，可以在 XML 文件中添加文档注释。</para>
+    <para styleclass="Heading2">语法</para>
+    <para styleclass="Code with box">-doc:file &#160;</para>
+    <para styleclass="Heading2">参数</para>
+    <para styleclass="List"><text styleclass="Code Example">file</text><tab />XML 输出文件，其中包含编译源代码文件中的注释。</para>
+    <para styleclass="Heading2">备注</para>
+    <para styleclass="Normal">在源代码文件中，可以处理以下内容之前的文档注释并将其添加到 XML 文件中：</para>
+    <para styleclass="Normal"></para>
+    <list id="0" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="margin-left:13px; font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal" style="margin-left:13px;">类、委托或接口等用户自定义类型</li>
+      <li styleclass="Normal" style="margin-left:13px;">诸如字段、事件、属性或方法等成员</li>
+    </list>
+    <para styleclass="Normal" style="margin-left:13px;"></para>
+    <para styleclass="Normal">包含 Main 的源代码文件会首先输出到 XML 中。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">要将生成的 .xml 文件用于 IntelliSense 功能，请让 .xml 文件的文件名与要支持的程序集相同，然后确保 .xml 文件与程序集位于同一目录下。这样，当程序集在 Visual Studio 项目中被引用时，.xml 文件也会被找到。更多信息，请参阅 &quot;提供代码注释&quot;。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">除非使用 -target:module 进行编译，否则文件将包含 &lt;assembly&gt;&lt;/assembly&gt; 标记，指定编译输出文件中包含程序集清单的文件名。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">&#32;</para>
+    <para styleclass="Normal">注意 </para>
+    <para styleclass="Normal">-doc 选项适用于所有输入文件；如果在 &quot;项目设置 &quot;中设置，则适用于项目中的所有文件。要禁用与特定文件或代码部分的文档注释相关的警告，请使用 #pragma warning。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">有关从代码中的注释生成文档的方法，请参阅文档注释的推荐标签。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal"><text styleclass="Heading3">要在 Visual Studio 开发环境中设置该编译器选项，请执行以下操作</text></para>
+    <para styleclass="Normal"></para>
+    <list id="1" type="ol" listtype="decimal" formatstring="&#37;&#48;&#58;&#115;&#46;" format-charset="DEFAULT_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="margin-left:13px; font-family:Arial; font-size:11pt; color:#000000;">
+      <li styleclass="Normal" style="margin-left:13px;">打开项目的 &quot;属性&quot;页面.</li>
+      <li styleclass="Normal" style="margin-left:13px;">点击 Build 选项卡</li>
+      <li styleclass="Normal" style="margin-left:13px;">编辑 XML documentation file 属性.</li>
+      <li styleclass="Normal" style="margin-left:13px;"><link displaytype="text" defaultstyle="true" type="topiclink" href="PropPage-Build">查看属性页</link></li>
+    </list>
+    <para styleclass="Normal" style="margin-left:13px;"></para>
+    <para styleclass="Normal">有关如何通过编程设置该编译器选项的信息，请参阅 DocumentationFile。</para>
+  </body>
+</topic>

@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-07-20T13:36:19.648+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>XS0073</title>
+  <keywords>
+    <keyword>XS0073</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">Error XS0073</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">add 访问器或 remove 访问器必须有一个主体</para>
+  </body>
+</topic>

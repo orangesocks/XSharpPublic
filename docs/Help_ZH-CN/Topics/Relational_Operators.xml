@@ -1,0 +1,202 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-06-30T09:54:57.032+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>关系操作符</title>
+  <keywords>
+    <keyword>&lt;</keyword>
+    <keyword>&lt;=</keyword>
+    <keyword>&gt;</keyword>
+    <keyword>&gt;=</keyword>
+    <keyword>Clipper collation</keyword>
+    <keyword>&apos;compatible string comparions</keyword>
+    <keyword>operator</keyword>
+    <keyword>Ordinal collation</keyword>
+    <keyword>relational operator</keyword>
+    <keyword>SetCollation</keyword>
+    <keyword>Unicode collation</keyword>
+    <keyword>-vo13</keyword>
+    <keyword>Windows collation</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">关系操作符</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">X# 使用以下逻辑操作符：</para>
+    <para styleclass="Normal"><tab /><tab /></para>
+    <para styleclass="Normal"><table styleclass="Default" rowcount="11" colcount="3" style="width:auto;">
+      <tr style="vertical-align:top">
+        <td style="width:15%;">
+          <para styleclass="Normal" style="text-align:center;"><text style="font-weight:bold;">操作符</text></para>
+        </td>
+        <td style="width:15%;">
+          <para styleclass="Normal" style="text-align:center;"><text style="font-weight:bold;">示例</text></para>
+        </td>
+        <td>
+          <para styleclass="Normal" style="text-align:center;"><text style="font-weight:bold;">含义</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal">&lt;</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x &lt; y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">小于（如果 x 小于 y 则为 true）。<br/><text style="font-weight:bold;">请参阅下面的字符串比较</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal">&lt;=</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x &lt;= y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">小于或等于（如果 x 小于或等于 y 则为 true）。<br/><text style="font-weight:bold;">请参阅下面的字符串比较</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal">&gt;</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x &gt; y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">大于（如果 x 大于 y，则为 true）。<br/><text style="font-weight:bold;">请参阅下面的字符串比较</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal">&gt;=</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x &gt;= y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">大于或等于（如果 x 大于或等于 y，则为 true）。<br/><text style="font-weight:bold;">请参阅下面的字符串比较</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal">=</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x = y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">等于<br/><text style="font-weight:bold; font-style:italic;">请注意，仅对字符串而言，= 和 == 之间是有区别的。参见下文</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal">==</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x == y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">恒等于 <br/><text style="font-weight:bold; font-style:italic;">请注意，仅对字符串而言，= 和 == 之间是有区别的。参见下文</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal">&lt;&gt;, #, !=</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x &lt;&gt; y, x # y, x != y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">不等于<br/><text style="font-weight:bold;">请注意，对于字符串来说，这与单 = 运算符遵循相同的规则。</text></para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal">$</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x $ y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">如果第一个字符串是第二个字符串的子串，则返回 true（区分大小写！）。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal">IS</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x IS y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">类型兼容性。如果已求值的左操作数可以转换为右操作数（静态类型）中指定的类型，则返回 true。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal">ASTYPE</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">x ASTYPE y</para>
+        </td>
+        <td>
+          <para styleclass="Body Text">类型转换。将左操作数转换为右操作数指定的类型（静态类型），但在 (T)x 会产生异常的情况下，返回 null 值。</para>
+        </td>
+      </tr>
+    </table></para>
+    <para styleclass="Heading2">字符串比较</para>
+    <para styleclass="Normal">对于字符串，&quot;=&quot;和&quot;==&quot;操作符的行为有所不同，单个等号的行为也取决于运行时设置。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">如果调用 SetExact(FALSE)，那么&quot;=&quot;操作符会将操作符右侧的字符等同到字符串的长度，而忽略左侧的剩余字符。这是默认设置。如果调用 SetExact(TRUE)，&quot;=&quot;和&quot;==&quot;对字符串的意义相同。</para>
+    <para styleclass="Normal">字符串的 &lt;、&lt;=、&gt; 和 &gt;= 操作符的行为取决于<text style="font-weight:bold;">编译器选项</text>和<text style="font-weight:bold;">运行时设置</text>。编译器选项<link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo13" styleclass="Body Text">-vo13</link> &quot;<text styleclass="Body Text">&apos;compatible string comparions(</text>兼容字符串比较) &quot;告诉编译器需要使用一个运行时函数来进行字符串比较。该运行时函数的行为取决于 SetCollation() 的设置。SetCollation() 有 4 种可能的值：</para>
+    <para styleclass="Body Text"><table styleclass="Default" rowcount="5" colcount="2">
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal">设置</para>
+        </td>
+        <td>
+          <para styleclass="Normal">描述</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal">Clipper</para>
+        </td>
+        <td>
+          <para styleclass="Normal">此设置将使用当前的 DOS 编解码器将两个字符串转换为 OEM 字符串。然后，将使用 SetNatDLL() 中定义的字符串比较/权重表对字符串进行比较。默认比较表使用基于字节数的权重。其他可用的比较语言包括德语、荷兰语、法语、俄语、西班牙语、SLOV852 等。</para>
+          <para styleclass="Normal">如果您的应用程序需要与 CLIPPER 程序共享文件，则应使用此设置。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal">Windows</para>
+        </td>
+        <td>
+          <para styleclass="Normal">此设置将使用当前的 ANSI 编码页将两个字符串转换为 ANSI 格式。然后，将使用正常的 Windows ANSI CompareString() 代码对字符串进行比较。当应用程序与 VO 程序共享文件时，应使用此设置</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal">Unicode</para>
+        </td>
+        <td>
+          <para styleclass="Normal">此设置不会转换字符串，而是使用 .Net 中的 String.Compare() 方法进行普通的 Unicode 字符串比较。</para>
+        </td>
+      </tr>
+      <tr style="vertical-align:top">
+        <td>
+          <para styleclass="Normal">Ordinal</para>
+        </td>
+        <td>
+          <para styleclass="Normal">此设置不会转换字符串，而是使用 .Net 中的 String.CompareOrdinal() 方法进行正常的序数字符串比较。这是最快的方法。</para>
+        </td>
+      </tr>
+    </table></para>
+    <para styleclass="Body Text"></para>
+    <para styleclass="Body Text">字符串的 &gt;= 和 &lt;= 运算符也会考虑 SetExact() 的设置。两个字符串的 &quot;equalness(相等性)&quot;由与&quot;=&quot;操作符相同的规则决定。</para>
+    <para styleclass="Body Text"></para>
+  </body>
+</topic>

@@ -80,8 +80,7 @@ namespace XSharp.Project
     [DefaultRegistryRoot("Software\\Microsoft\\VisualStudio\\14.0")]
     [ProvideProjectFactory(typeof(XSharpProjectFactory),
         XSharpConstants.LanguageName, XSharpConstants.ProjectFileMask, XSharpConstants.ProjectExtension, XSharpConstants.ProjectExtensions,
-        @".NullPath", LanguageVsTemplate = "XSharp", NewProjectRequireNewFolderVsTemplate = false)]
-
+        "ProjectTemplates", LanguageVsTemplate = "XSharp", NewProjectRequireNewFolderVsTemplate = false)]
 
     [ProvideOptionPage(typeof(Options.DialogPageProvider.WindowEditor), "X# Custom Editors", "VO Window Editor",
         categoryResourceID: 200,
@@ -99,7 +98,6 @@ namespace XSharp.Project
      pageNameResourceID: 204,
      keywordListResourceId: 304,
      supportsAutomation: true)]
-
     [ProvideProjectFactory(typeof(XSharpWPFProjectFactory),
         null,
         null,
@@ -113,7 +111,6 @@ namespace XSharp.Project
     [ProvideProjectItem(typeof(XSharpProjectFactory), "XSharp Items", @"ItemTemplates\Class", 500)]
     [ProvideProjectItem(typeof(XSharpProjectFactory), "XSharp Items", @"ItemTemplates\Form", 500)]
 
-    // Editors for VOBinaries
     [ProvideEditorExtension(typeof(VOFormEditorFactory), ".xsfrm", 0x42, DefaultName = "XSharp VO Form Editor", NameResourceID = 80110)]
     [ProvideEditorExtension(typeof(VOMenuEditorFactory), ".xsmnu", 0x42, DefaultName = "XSharp VO Menu Editor", NameResourceID = 80111)]
     [ProvideEditorExtension(typeof(VODBServerEditorFactory), ".xsdbs", 0x42, DefaultName = "XSharp VO DbServer Editor", NameResourceID = 80112)]
@@ -122,7 +119,6 @@ namespace XSharp.Project
     [ProvideEditorLogicalView(typeof(VOMenuEditorFactory), VSConstants.LOGVIEWID.Designer_string, IsTrusted = true)]
     [ProvideEditorLogicalView(typeof(VODBServerEditorFactory), VSConstants.LOGVIEWID.Designer_string, IsTrusted = true)]
     [ProvideEditorLogicalView(typeof(VOFieldSpecEditorFactory), VSConstants.LOGVIEWID.Designer_string, IsTrusted = true)]
-    // Vulcan Binaries
     [ProvideEditorExtension(typeof(VOFormEditorFactory), ".vnfrm", 0x42, DefaultName = "XSharp VO Form Editor", NameResourceID = 80110)]
     [ProvideEditorExtension(typeof(VOMenuEditorFactory), ".vnmnu", 0x42, DefaultName = "XSharp VO Menu Editor", NameResourceID = 80111)]
     [ProvideEditorExtension(typeof(VODBServerEditorFactory), ".vndbs", 0x42, DefaultName = "XSharp VO DbServer Editor", NameResourceID = 80112)]
@@ -162,7 +158,7 @@ namespace XSharp.Project
         }
 
 
-
+        XSharpShellEvents _shellEvents;
         #region Overridden Implementation
         /// <summary>
         /// Initialization of the package; this method is called right after the package is sited, so this is the place
@@ -171,7 +167,7 @@ namespace XSharp.Project
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
             // Give the codemodel a way to talk to the VS Shell
-            XSettings.ShellLink = new XSharpShellLink();
+            _shellEvents = new XSharpShellEvents();
 
             this.RegisterToolWindows();
 
@@ -208,6 +204,8 @@ namespace XSharp.Project
             }
             await this.RegisterCommandsAsync();
             await GetOptionsAsync();
+            XSettings.CodeDomProviderClass  = typeof(XSharp.CodeDom.XSharpCodeDomProvider);
+
         }
 
 
@@ -223,6 +221,8 @@ namespace XSharp.Project
                 xnode.UpdateReferencesInProjectModel();
             }
         }
+
+
         private void BuildEvents_ProjectConfigurationChanged(Community.VisualStudio.Toolkit.Project prj)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
@@ -255,29 +255,17 @@ namespace XSharp.Project
             }
             else
             {
-                // save values from disk to private registry 
+        //        // save values from disk to private registry 
                 await options.DebuggerOptions.SaveAsync();
                 await options.WindowEditorOptions.SaveAsync();
                 await options.OtherEditorOptions.SaveAsync();
             }
             options.WriteToSettings();
-            StartLogging();
             return true;
         }
+
         
-	 private void StartLogging()
-        {
-            int FileLogging = (int)Constants.GetSetting("Log2File", XSettings.EnableFileLogging? 1 : 0);
-            int DebugLogging = (int)Constants.GetSetting("Log2Debug", XSettings.EnableDebugLogging ? 1 : 0);
-
-            XSettings.EnableFileLogging = FileLogging != 0;
-            XSettings.EnableDebugLogging = DebugLogging != 0;
-            if (XSettings.EnableFileLogging || XSettings.EnableDebugLogging)
-                Logger.Start();
-            else
-                Logger.Stop();
-
-        }
+        
 		
         /// <summary>
         /// Read the comment tokens from the Tools/Options dialog and pass them to the CodeModel assembly
@@ -304,10 +292,10 @@ namespace XSharp.Project
         #endregion
         public int OnShellPropertyChange(int propid, object var)
         {
-            // A modal dialog has been opened. Editor Options ?
+        //    // A modal dialog has been opened. Editor Options ?
             if (propid == (int)__VSSPROPID4.VSSPROPID_IsModal && var is bool)
             {
-                // when modal window closes
+        //        // when modal window closes
                 if (!(bool)var)
                 {
                     SetCommentTokens();
@@ -326,7 +314,6 @@ namespace XSharp.Project
 
         public void Dispose()
         {
-            Logger.Stop();
             if (shell != null)
             {
                 JoinableTaskFactory.Run(async delegate
@@ -338,6 +325,20 @@ namespace XSharp.Project
             }
         }
     }
-    
+    internal static class Logger
+    {
+        internal static void Exception(Exception e, string msg)
+        {
+            XSettings.Logger.Exception(e, msg);
+        }
+        internal static void Information(string msg)
+        {
+            XSettings.Logger.Information(msg);
+        }
+        internal static void Debug(string msg)
+        {
+            XSettings.Logger.Debug(msg);
+        }
+    }
 
 }

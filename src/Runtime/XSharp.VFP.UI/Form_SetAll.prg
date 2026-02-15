@@ -1,8 +1,8 @@
-﻿// VFPForm_SetAll.prg
-// Created by    : fabri
-// Creation Date : 10/13/2022 8:17:02 AM
-// Created for   :
-// WorkStation   : FABXPS
+﻿// Form_SetAll.prg
+//
+// Copyright (c) XSharp B.V.  All Rights Reserved.
+// Licensed under the Apache License, Version 2.0.
+// See License.txt in the project root for license information.
 
 
 USING System
@@ -11,9 +11,6 @@ USING System.Text
 
 BEGIN NAMESPACE XSharp.VFP.UI
 
-	/// <summary>
-	/// The VFPForm class : Support for SetAll Method.
-	/// </summary>
 	PARTIAL CLASS Form
 
 		// Holds the convertion table between VFP and X#
@@ -31,9 +28,7 @@ BEGIN NAMESPACE XSharp.VFP.UI
 			//
 			VAR lookFor := String.Empty
 			IF cClass IS STRING VAR strClass
-				IF SELF:_typeConvert:ContainsKey( strClass:ToUpper() )
-					lookFor := SELF:_typeConvert[ strClass:ToUpper() ]
-				ENDIF
+				SELF:_typeConvert:TryGetValue( strClass:ToUpper() , out lookFor)
 			ENDIF
 			FOREACH VAR ctl IN SELF:Controls
 				// Looking for a specific Type ?

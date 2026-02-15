@@ -44,9 +44,7 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
 
         #region constants
     [NOSHOW] PRIVATE CONST STR_NIL  := "NIL" AS STRING
-    [NOSHOW] PRIVATE CONST STR_NULL := "Null" AS STRING
-    [NOSHOW] PRIVATE CONST STR_NULL_STRING := "NULL_STRING" AS STRING
-    [NOSHOW] PRIVATE CONST STR_NULL_PSZ := "NULL_PSZ" AS STRING
+    [NOSHOW] PRIVATE CONST STR_NULL := "NULL" AS STRING
     [NOSHOW] PRIVATE CONST STR_NULL_ARRAY := "NULL_ARRAY" AS STRING
     [NOSHOW] PRIVATE CONST STR_NULL_CODEBLOCK := "NULL_CODEBLOCK" AS STRING
     [NOSHOW] PRIVATE CONST STR_USUAL := "USUAL" AS STRING
@@ -57,14 +55,10 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
     /// <exclude />
     STATIC CONSTRUCTOR
         __Usual.__InitUsual()
-        //        IF RuntimeState.Dialect  == XSharpDialect.FoxPro
-        //            _NIL := __Usual{__UsualType.Logic,FALSE}
-        //        ELSE
-        //            _NIL := __Usual{__UsualType.Void}
-        //        ENDIF
         RuntimeState.DialectChanged += DialectChanged
 
     PRIVATE STATIC METHOD DialectChanged(oldDialect as XSharpDialect, newDialect as XSharpDialect) AS VOID
+        // Change the NIL value when the dialect changes
         __Usual.__InitUsual()
 
     INTERNAL STATIC METHOD __InitUsual() AS VOID
@@ -175,6 +169,12 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
         RETURN
 
     [NODEBUG] [INLINE];
+    PRIVATE CONSTRUCTOR(@@Value AS System.UIntPtr)
+        SELF(__UsualType.Ptr)
+        SELF:_valueData:p		:= @@Value:ToPointer()
+        RETURN
+
+    [NODEBUG] [INLINE];
     PRIVATE CONSTRUCTOR(@@Value AS PSZ)
         SELF(__UsualType.String)
         SELF:_refData			:= Psz2String(@@Value)
@@ -191,7 +191,7 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
     [NODEBUG];
     PUBLIC CONSTRUCTOR(o AS OBJECT)
         IF o == NULL_OBJECT
-            SELF(__UsualType.Object)
+            SELF(__UsualType.Object, FALSE)
         ELSE
             SELF := _NIL
             VAR vartype := o:GetType()
@@ -348,7 +348,7 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
     [NOSHOW] PRIVATE STATIC PROPERTY _IsFoxPro  AS LOGIC            [NODEBUG] [INLINE] GET XSharp.RuntimeState.Dialect == XSharpDialect.FoxPro
     [NOSHOW] PRIVATE PROPERTY _isByRef		    AS LOGIC	        [NODEBUG] [INLINE] GET _flags:IsByRef
     [NOSHOW] INTERNAL PROPERTY _usualType	    AS __UsualType      [NODEBUG] [INLINE] GET _flags:UsualType
-    /// No checks for typeflag. These private properties should always be accessed after checking the correct type
+    // No checks for typeflag. These private properties should always be accessed after checking the correct type
     [NOSHOW] INTERNAL PROPERTY _arrayValue      AS ARRAY			[NODEBUG] [INLINE] GET (ARRAY) _refData
     [NOSHOW] INTERNAL PROPERTY _codeblockValue  AS ICodeblock		[NODEBUG] [INLINE] GET (ICodeblock) _refData
     [NOSHOW] INTERNAL PROPERTY _currencyValue	AS CURRENCY	        [NODEBUG] [INLINE] GET __Currency{ (System.Decimal) _refData}
@@ -366,25 +366,9 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
     [NOSHOW] INTERNAL PROPERTY _binaryValue	    AS BINARY		    [NODEBUG] [INLINE] GET __Binary{ (BYTE[]) _refData}
 
         // properties for floats
-    [NOSHOW] PRIVATE PROPERTY _width			AS SByte            [NODEBUG] [INLINE] GET IIF(IsFloat, _flags:Width, 0)
-    [NOSHOW] PRIVATE PROPERTY _decimals		    AS SByte            [NODEBUG] [INLINE] GET IIF(IsFloat, _flags:Decimals,0)
-    [NOSHOW] PRIVATE PROPERTY _initialized      AS LOGIC
-        // we cannot simply read the initialized flag from _flags
-        // because a FLOAT with 0 decimals will also set initialized to false
-    [NODEBUG] ;
-    GET
-        SWITCH SELF:_flags:UsualType
-        CASE __UsualType.Void
-            RETURN FALSE
-        CASE __UsualType.Logic
-            RETURN SELF:_flags:Initialized
-        CASE __UsualType.Object
-            RETURN SELF:_refData != NULL
-        OTHERWISE
-            RETURN TRUE
-        END SWITCH
-    END GET
-    END PROPERTY
+    [NOSHOW] PRIVATE PROPERTY _width			AS SByte            [NODEBUG] [INLINE] GET _flags:Width
+    [NOSHOW] PRIVATE PROPERTY _decimals		    AS SByte            [NODEBUG] [INLINE] GET _flags:Decimals
+    [NOSHOW] PRIVATE PROPERTY _initialized      AS LOGIC            [NODEBUG] [INLINE] GET _flags:Initialized
     // Is .. ?
     /// <summary>This property returns TRUE when the USUAL is of type BINARY </summary>
     [NOSHOW] PUBLIC PROPERTY IsNull	        AS LOGIC [NODEBUG] [INLINE] GET _usualType == __UsualType.Null
@@ -457,6 +441,7 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
             RETURN TRUE
         ENDIF
         SWITCH _usualType
+        case __UsualType.Void       ; RETURN TRUE
         CASE __UsualType.Array		; RETURN _arrayValue == NULL .OR. _arrayValue:Length == 0
         CASE __UsualType.Binary	    ; RETURN _refData == NULL
         CASE __UsualType.Codeblock	; RETURN _codeblockValue == NULL
@@ -557,10 +542,10 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
             CASE __UsualType.Logic		; RETURN SELF:_logicValue:CompareTo(rhs:_logicValue)
             CASE __UsualType.Long		; RETURN SELF:_intValue:CompareTo(rhs:_intValue)
             CASE __UsualType.Ptr		; RETURN SELF:_ptrValue:ToInt64():CompareTo(rhs:_ptrValue:ToInt64())
-                // Uses String Comparison rules
+            CASE __UsualType.Float      ; RETURN SELF:_r8Value:CompareTo(rhs:_r8Value)
+            // Uses String Comparison rules
             //CASE __UsualType.Psz
-            CASE __UsualType.String
-                RETURN __StringCompare( SELF:_stringValue,  rhs:_stringValue)
+            CASE __UsualType.String     ; RETURN __StringCompare( SELF:_stringValue,  rhs:_stringValue)
             CASE __UsualType.Symbol		; RETURN __StringCompare( (STRING) SELF:_symValue, (STRING) rhs:_symValue)
             OTHERWISE					; RETURN 0
             END SWITCH
@@ -1380,13 +1365,13 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
 
 #region Unary Operators
     /// <include file="RTComments.xml" path="Comments/Operator/*" />
-    /// <remarks>This operator is only supported on usuals of type LOGIC.</remarks>
+    /// <remarks>This operator attempts to cast the usual to type LOGIC.</remarks>
     [NODEBUG];
     STATIC OPERATOR !(u AS __Usual) AS LOGIC
         IF u:_usualType == __UsualType.Logic
             RETURN !u:_logicValue
         ENDIF
-        THROW UnaryError("!", u)
+        RETURN !(LOGIC)u
 
     /// <include file="RTComments.xml" path="Comments/Operator/*" />
     /// <remarks>This operator is only supported on usuals of integral types.</remarks>
@@ -1480,7 +1465,16 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
         SWITCH lhs:_usualType
         CASE __UsualType.Long
             SWITCH rhs:_usualType
-            CASE __UsualType.Long		; RETURN (INT) (lhs:_intValue + rhs:_intValue)
+            CASE __UsualType.Long
+                local i1, i2 as Int64
+                i1 := lhs:_intValue
+                i2 := rhs:_intValue
+                i1 := i1 + i2
+                if i1 >= Int32.MinValue .and. i1 <= Int32.MaxValue
+                    RETURN (INT) i1
+                else
+                    RETURN  i1
+                endif
             CASE __UsualType.Int64		; RETURN (INT64) (lhs:_intValue + rhs:_i64Value)
             CASE __UsualType.Float		; RETURN FLOAT{Convert.ToDouble(lhs:_intValue) + rhs:_r8Value, rhs:_width, rhs:_decimals}
             CASE __UsualType.Currency	; RETURN (CURRENCY) (Convert.ToDecimal(lhs:_intValue) + rhs:_currencyValue)
@@ -1591,7 +1585,16 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
         SWITCH lhs:_usualType
         CASE __UsualType.Long
             SWITCH rhs:_usualType
-            CASE __UsualType.Long		; RETURN (INT)  (lhs:_intValue - rhs:_intValue)
+            CASE __UsualType.Long
+                local i1, i2 as Int64
+                i1 := lhs:_intValue
+                i2 := rhs:_intValue
+                i1 := i1 - i2
+                if i1 >= Int32.MinValue .and. i1 <= Int32.MaxValue
+                    RETURN (INT) i1
+                else
+                    RETURN  i1
+                endif
             CASE __UsualType.Int64		; RETURN (INT64) (lhs:_intValue - rhs:_i64Value)
             CASE __UsualType.Float		; RETURN FLOAT{Convert.ToDouble(lhs:_intValue) - rhs:_r8Value, rhs:_width, rhs:_decimals}
             CASE __UsualType.Currency	; RETURN (CURRENCY) (Convert.ToDecimal(lhs:_intValue) - rhs:_currencyValue)
@@ -1866,7 +1869,17 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
         SWITCH lhs:_usualType
         CASE __UsualType.Long
             SWITCH rhs:_usualType
-            CASE __UsualType.Long		; RETURN (INT)   (lhs:_intValue * rhs:_intValue)
+            CASE __UsualType.Long
+                local i1, i2 as Int64
+                i1 := lhs:_intValue
+                i2 := rhs:_intValue
+                i1 := i1 * i2
+                if i1 >= Int32.MinValue .and. i1 <= Int32.MaxValue
+                    RETURN (INT) i1
+                else
+                    RETURN  i1
+                endif
+
             CASE __UsualType.Int64		; RETURN (INT64) (lhs:_intValue * rhs:_i64Value)
             CASE __UsualType.Float		; RETURN FLOAT{lhs:_intValue * rhs:_r8Value, rhs:_width, rhs:_decimals}
             CASE __UsualType.Currency	; RETURN (CURRENCY) (Convert.ToDecimal(lhs:_intValue) * rhs:_currencyValue)
@@ -2091,6 +2104,12 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
 
     /// <include file="RTComments.xml" path="Comments/Operator/*" />
     [NODEBUG];
+    STATIC OPERATOR IMPLICIT(u AS __Usual) AS UIntPtr
+        var p := (IntPtr) u
+        RETURN (UIntPtr) p:ToPointer()
+
+    /// <include file="RTComments.xml" path="Comments/Operator/*" />
+    [NODEBUG];
     STATIC OPERATOR IMPLICIT(u AS __Usual) AS IntPtr
         // Note Vulcan has a different implementation for USUAL -> PTR and USUAL -> IntPtr
         IF u:IsNull  .or. !u:_initialized
@@ -2150,9 +2169,8 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
             RETURN u:ToString()
         CASE __UsualType.Binary
             RETURN u:_binaryValue:ToString()
-        OTHERWISE
-            THROW ConversionError(STRING, TYPEOF(STRING), u)
         END SWITCH
+        THROW ConversionError(STRING, TYPEOF(STRING), u)
     /// <include file="RTComments.xml" path="Comments/Operator/*" />
     /// <remarks>When the usual contains an numeric value then this value is considered to be an index in the symbol table.</remarks>
     [NODEBUG];
@@ -2677,12 +2695,12 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
 
     /// Note this generates error XS0553.
     /// However our compiler needs this one. Therefore disable XS0553
-    /// <include file="RTComments.xml" path="Comments/Operator/*" />
 #pragma warnings (553, off)
+    /// <include file="RTComments.xml" path="Comments/Operator/*" />
     [NODEBUG] [INLINE];
     STATIC OPERATOR IMPLICIT(val AS OBJECT) AS __Usual
         RETURN __Usual{val}
-#pragma warnings (553, on)
+#pragma warnings (553, default)
     /// <include file="RTComments.xml" path="Comments/Operator/*" />
     [NODEBUG] [INLINE];
     STATIC OPERATOR IMPLICIT(val AS LOGIC) AS __Usual
@@ -2877,6 +2895,7 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
             // ENDIF
         ENDIF
         SWITCH u:_usualType
+        CASE __UsualType.Void		; RETURN null
         CASE __UsualType.Array		; RETURN u:_arrayValue
         CASE __UsualType.Binary		; RETURN u:_binaryValue
         CASE __UsualType.Codeblock	; RETURN u:_codeblockValue
@@ -2950,8 +2969,7 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
         CASE __UsualType.Int64		; strResult := SELF:_i64Value:ToString()
         CASE __UsualType.Logic		; strResult := IIF(!SELF:_logicValue , ".F." , ".T.")
         CASE __UsualType.Ptr		; strResult := SELF:_ptrValue:ToString()
-        //CASE __UsualType.Psz		; strResult := IIF (SELF:_refData == NULL, STR_NULL_PSZ, SELF:_stringValue)
-        CASE __UsualType.String		; strResult := IIF (SELF:_refData == NULL, STR_NULL_STRING, SELF:_stringValue)
+        CASE __UsualType.String		; strResult := IIF (SELF:_refData == NULL, STR_NULL+" ( String ) " , SELF:_stringValue)
         CASE __UsualType.Symbol		; strResult := SELF:_symValue:ToString()
         CASE __UsualType.Void		; strResult := STR_NIL
         CASE __UsualType.Null		; strResult := STR_NULL
@@ -3328,7 +3346,7 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
         IF info == NULL
             THROW System.ArgumentException{"info"}
         ENDIF
-        info:AddValue("Flags", SELF:_flags:Flags)
+        info:AddValue("Flags", SELF:_flags:AllBits)
         info:AddValue("Type",  SELF:Value:GetType():FullName)
         info:AddValue("Value", SELF:Value)
         RETURN
@@ -3339,8 +3357,7 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
         IF info == NULL
             THROW System.ArgumentException{"info"}
         ENDIF
-        SELF:_flags          := UsualFlags{ __UsualType.Void }
-        SELF:_flags:Flags    := info:GetInt32("Flags")
+        SELF:_flags          := UsualFlags{ info:GetInt32("Flags") }
         VAR name             := info:GetString("Type")
         VAR type             := System.Type.GetType(name)
         VAR oValue           := info:GetValue("Value", type)
@@ -3428,7 +3445,15 @@ PUBLIC STRUCTURE __Usual IMPLEMENTS IConvertible, ;
         IF SELF:IsNull
             strValue := STR_NULL
         ELSEIF SELF:IsNil
-            strValue := "("+STR_NIL+")"
+            SWITCH self:_usualType
+            CASE __UsualType.Array
+            CASE __UsualType.String
+            CASE __UsualType.Codeblock
+            CASE __UsualType.Object
+                strValue := STR_NULL + " ( " + _usualType:ToString() + " )"
+            OTHERWISE
+                strValue := "("+STR_NIL+")"
+            END SWITCH
         ELSE
             strValue := SELF:Value:ToString() +" ( "
             IF SELF:IsByRef
@@ -3462,37 +3487,59 @@ END STRUCTURE
 
 [StructLayout(LayoutKind.Explicit, Pack := 1)];
 INTERNAL STRUCTURE UsualFlags
-    [FieldOffset(0)] EXPORT Flags       AS Int32
-    [FieldOffset(0)] EXPORT UsualType   AS __UsualType
-    [FieldOffset(1)] EXPORT Width       AS SByte
-    [FieldOffset(2)] EXPORT Decimals    AS SByte
-    [FieldOffset(2)] EXPORT Initialized AS LOGIC
-    [FieldOffset(3)] EXPORT IsByRef     AS LOGIC
+    [Flags] ;
+    INTERNAL Enum Flags AS BYTE
+        MEMBER None        := 0
+        MEMBER Initialized := 1
+        MEMBER IsByRef     := 2
+    END ENUM
+
+    [FieldOffset(0)] INITONLY EXPORT AllBits    AS Int32
+    [FieldOffset(0)] INITONLY EXPORT UsualType  AS __UsualType
+    [FieldOffset(1)] INITONLY EXPORT Width      AS SByte
+    [FieldOffset(2)] INITONLY EXPORT Decimals   AS SByte
+    [FieldOffset(3)] INITONLY EXPORT Bits       AS Flags
+
+    PROPERTY Initialized    AS LOGIC GET Bits:HasFlag(Flags.Initialized)
+    PROPERTY IsByRef        AS LOGIC GET Bits:HasFlag(Flags.IsByRef)
 
     #pragma warnings(171, off) // not all elements are initialzed. Setting Flags sets all other fields
     [NODEBUG] [INLINE];
-    CONSTRUCTOR(type AS __UsualType)
-        Flags       := 0
-        UsualType   := type
-        Initialized := TRUE
+    INTERNAL CONSTRUCTOR(bits as Int32)
+        // This constructor is used when deserializing a Usual
+        AllBits       := bits
+        RETURN
+
     [NODEBUG] [INLINE];
-    CONSTRUCTOR(type AS __UsualType, initialized as LOGIC)
-        Flags       := 0
+    INTERNAL CONSTRUCTOR(type AS __UsualType)
+        AllBits     := 0
         UsualType   := type
-        Initialized := initialized
+        if type != __UsualType.Void
+            Bits  := Flags.Initialized
+        endif
+        RETURN
     [NODEBUG] [INLINE];
-    CONSTRUCTOR(type AS __UsualType, nWidth as SByte, nFlags as SByte)
-        Flags       := 0
-        UsualType   := type
+    INTERNAL CONSTRUCTOR(type AS __UsualType, initialized as LOGIC)
+        SELF(type)
+        IF !initialized
+            Bits       :=  Flags.None
+        ENDIF
+        RETURN
+    [NODEBUG] [INLINE];
+    INTERNAL CONSTRUCTOR(type AS __UsualType, nWidth as SByte, nFlags as SByte)
+        SELF(type)
         Width       := nWidth
         Decimals    := nFlags
+        RETURN
     [NODEBUG] [INLINE];
-    CONSTRUCTOR(type AS __UsualType, nWidth as SByte, nFlags as SByte, lByRef as LOGIC)
-        Flags       := 0
-        UsualType   := type
+    INTERNAL CONSTRUCTOR(type AS __UsualType, nWidth as SByte, nFlags as SByte, lByRef as LOGIC)
+        SELF(type)
         Width       := nWidth
         Decimals    := nFlags
-        IsByRef     := lByRef
+        IF lByRef
+            Bits  |=  Flags.IsByRef
+        ENDIF
+        RETURN
     #pragma warnings(171, default)
 END STRUCTURE
 
@@ -3526,17 +3573,3 @@ FUNCTION UsualVal(u AS __Usual) AS __Usual
 /// </returns>
 FUNCTION ValType(u AS __Usual) AS STRING
     RETURN u:ValType
-
-
-
-
-
-
-
-
-
-
-
-
-
-

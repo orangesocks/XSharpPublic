@@ -9,6 +9,9 @@ using System;
 using System.Runtime.InteropServices;
 using IOleServiceProvider = Microsoft.VisualStudio.OLE.Interop.IServiceProvider;
 using Microsoft.VisualStudio.Shell;
+using System.Linq;
+using System.Collections.Generic;
+using Community.VisualStudio.Toolkit;
 
 namespace XSharp.Project
 {
@@ -33,8 +36,24 @@ namespace XSharp.Project
             this.package = package;
         }
         #endregion
-
+#if !DEV17
+        internal static List<string> InvalidProjectFiles = new List<string>();
+#endif
         #region Overriden implementation
+        protected override void CreateProject(string fileName, string location, string name, uint flags, ref Guid projectGuid, out IntPtr project, out int canceled)
+        {
+            project = IntPtr.Zero;
+#if !DEV17
+            if (InvalidProjectFiles.Contains(fileName.ToLower()))
+            {
+                InvalidProjectFiles.Remove(fileName.ToLower());
+                VS.MessageBox.ShowError("The project file " + fileName + " is an SDK style project and cannot be loaded inside this version of Visual Studio");
+                canceled = 1;
+                return;
+            }
+#endif
+            base.CreateProject(fileName, location, name, flags, ref projectGuid, out project, out canceled);
+        }
         /// <summary>
         /// Creates a new project by cloning an existing template project.
         /// </summary>
@@ -50,6 +69,21 @@ namespace XSharp.Project
             project.SetSite(provider);
             return project;
         }
-        #endregion
+        protected override ProjectNode CreateSdkProject()
+        {
+#if DEV17
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var project = new XSharpSdkProjectNode(this.package);
+            IOleServiceProvider provider = null;
+            var serviceProvider = this.package as IServiceProvider;
+            // ProjectPackage already switches to UI thread inside GetService
+            provider = (IOleServiceProvider)serviceProvider.GetService(typeof(IOleServiceProvider));
+            project.SetSite(provider);
+            return project;
+#else
+            return null;
+#endif
+        }
+#endregion
     }
 }

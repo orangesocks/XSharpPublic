@@ -9,25 +9,26 @@
  *
  * ***************************************************************************/
 #pragma warning disable VSTHRD010
-using System;
-using System.Windows.Forms.Design;
-using System.Collections.Generic;
-using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Globalization;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Diagnostics.CodeAnalysis;
-using System.Threading;
-using System.Windows.Threading;
+using Community.VisualStudio.Toolkit;
+
 using Microsoft.Build.Framework;
-using Microsoft.Build.Utilities;
-using Microsoft.VisualStudio;
+using Microsoft.Internal.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Settings;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
+#if !DEV17
 using Microsoft.VisualStudio.Shell.Settings;
-using Microsoft.Win32;
+#endif
+
+using System;
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Text;
+using System.Threading;
+using System.Windows.Forms.Design;
+
 using IOleServiceProvider = Microsoft.VisualStudio.OLE.Interop.IServiceProvider;
 
 
@@ -41,9 +42,6 @@ namespace Microsoft.VisualStudio.Project
     {
         #region fields
 
-        private const string GeneralCollection = @"General";
-        private const string BuildVerbosityProperty = "MSBuildLoggerVerbosity";
-
         private int currentIndent;
         private IVsOutputWindowPane outputWindowPane;
         // private string errorString = SR.GetString(SR.Error, CultureInfo.CurrentUICulture);
@@ -56,8 +54,14 @@ namespace Microsoft.VisualStudio.Project
         // Queues to manage Tasks and Error output plus message logging
         private ConcurrentQueue<Func<ErrorTask>> taskQueue;
         private ConcurrentQueue<OutputQueueEntry> outputQueue;
-
-        #endregion
+#if DEV17
+        private const string _settingName = "BuildAndRunOptions.MSBuildLoggerVerbosity";
+        private ISettingsManager _settings;
+#else
+        private const string GeneralCollection = @"General";
+        private const string BuildVerbosityProperty = "MSBuildLoggerVerbosity";
+#endif
+#endregion
 
         #region properties
 
@@ -90,9 +94,9 @@ namespace Microsoft.VisualStudio.Project
             set { this.outputWindowPane = value; }
         }
 
-        #endregion
+#endregion
 
-        #region ctors
+#region ctors
 
         /// <summary>
         /// Constructor.  Inititialize member data.
@@ -103,7 +107,12 @@ namespace Microsoft.VisualStudio.Project
             Utilities.ArgumentNotNull("hierarchy", hierarchy);
 
             Trace.WriteLineIf(Thread.CurrentThread.GetApartmentState() != ApartmentState.STA, "WARNING: IDEBuildLogger constructor running on the wrong thread.");
-
+#if DEV17
+            ThreadHelper.JoinableTaskFactory.Run(async delegate
+            {
+                _settings = await VS.GetServiceAsync<SVsSettingsPersistenceManager, ISettingsManager>();
+            });
+#endif
             IOleServiceProvider site;
 
             Microsoft.VisualStudio.ErrorHandler.ThrowOnFailure(hierarchy.GetSite(out site));
@@ -114,9 +123,9 @@ namespace Microsoft.VisualStudio.Project
             this.serviceProvider = new ServiceProvider(site);
         }
 
-        #endregion
+#endregion
 
-        #region IDisposable
+#region IDisposable
 
         public void Dispose()
         {
@@ -137,9 +146,9 @@ namespace Microsoft.VisualStudio.Project
             }
         }
 
-        #endregion
+#endregion
 
-        #region overridden methods
+#region overridden methods
 
         /// <summary>
         /// Overridden from the Logger class.
@@ -165,9 +174,9 @@ namespace Microsoft.VisualStudio.Project
             eventSource.MessageRaised += new BuildMessageEventHandler(MessageHandler);
         }
 
-        #endregion
+#endregion
 
-        #region event delegates
+#region event delegates
         /// <summary>
         /// This is the delegate for BuildStartedHandler events.
         /// </summary>
@@ -214,6 +223,7 @@ namespace Microsoft.VisualStudio.Project
         {
             // NOTE: This may run on a background thread!
             QueueOutputEvent(buildEvent.Succeeded ? MessageImportance.Low : MessageImportance.High, buildEvent);
+            ReportQueuedOutput();
         }
 
         /// <summary>
@@ -306,9 +316,9 @@ namespace Microsoft.VisualStudio.Project
             QueueOutputEvent(messageEvent.Importance, messageEvent);
         }
 
-        #endregion
+#endregion
 
-        #region output queue
+#region output queue
 
         protected void QueueOutputEvent(MessageImportance importance, BuildEventArgs buildEvent)
         {
@@ -341,14 +351,11 @@ namespace Microsoft.VisualStudio.Project
             if (this.OutputWindowPane != null)
             {
                 // Enqueue the output text
-                lock (outputQueue)
-                {
-                    this.outputQueue.Enqueue(new OutputQueueEntry(text, OutputWindowPane));
-                }
+                this.outputQueue.Enqueue(new OutputQueueEntry(text, OutputWindowPane));
                 // We want to interactively report the output. But we dont want to dispatch
                 // more than one at a time, otherwise we might overflow the main thread's
                 // message queue. So, we only report the output if the queue was empty.
-                if (this.outputQueue.Count == 1 && ThreadHelper.CheckAccess())
+                if (this.outputQueue.Count >= 1 && ThreadHelper.CheckAccess())
                 {
                     ReportQueuedOutput();
                 }
@@ -377,30 +384,34 @@ namespace Microsoft.VisualStudio.Project
         internal void FlushBuildOutput()
         {
             OutputQueueEntry output;
-            lock (outputQueue)
+            if (!outputQueue.IsEmpty)
             {
-                if (!outputQueue.IsEmpty)
+                ThreadHelper.JoinableTaskFactory.Run(async delegate
                 {
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
                     while (this.outputQueue.TryDequeue(out output))
                     {
                         if (output.Pane is IVsOutputWindowPaneNoPump nopump)
                         {
-                            nopump.OutputStringNoPump(output.Message);
+                            //if (ThreadHelper.CheckAccess())
+                            {
+                                nopump.OutputStringNoPump(output.Message);
+                            }
                         }
                         else
                         {
 #if DEV17
                             output.Pane.OutputStringThreadSafe(output.Message);
 #else
-                            ThreadHelper.JoinableTaskFactory.Run(async delegate
+                            if (ThreadHelper.CheckAccess())
                             {
-                                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                                 output.Pane.OutputString(output.Message);
-                            });
+                            }
 #endif
                         }
                     }
-                }
+                });
             }
         }
 
@@ -519,8 +530,7 @@ namespace Microsoft.VisualStudio.Project
         private bool LogAtImportance(MessageImportance importance)
         {
             // If importance is too low for current settings, ignore the event
-            bool logIt = false;
-
+            bool logIt = true;
             this.SetVerbosity();
 
             switch (this.Verbosity)
@@ -543,7 +553,6 @@ namespace Microsoft.VisualStudio.Project
                     Debug.Fail("Unknown Verbosity level. Ignoring will cause nothing to be logged");
                     break;
             }
-
             return logIt;
         }
 
@@ -581,13 +590,18 @@ namespace Microsoft.VisualStudio.Project
                 this.Verbosity = LoggerVerbosity.Normal;
 
                 try
+
                 {
+#if DEV17
+                    this.Verbosity = _settings.GetValueOrDefault(_settingName, LoggerVerbosity.Minimal);
+#else
                     var settings = new ShellSettingsManager(serviceProvider);
                     var store = settings.GetReadOnlySettingsStore(SettingsScope.UserSettings);
                     if (store.CollectionExists(GeneralCollection) && store.PropertyExists(GeneralCollection, BuildVerbosityProperty))
                     {
                         this.Verbosity = (LoggerVerbosity)store.GetInt32(GeneralCollection, BuildVerbosityProperty, (int)LoggerVerbosity.Normal);
                     }
+#endif
                 }
                 catch (Exception ex)
                 {
@@ -600,8 +614,9 @@ namespace Microsoft.VisualStudio.Project
                 }
 
                 this.haveCachedVerbosity = true;
+
+                }
             }
-        }
 
         /// <summary>
         /// Clear the cached verbosity, so that it will be re-evaluated from the build verbosity registry key.

@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-07-08T09:27:53.788+02:00" lasteditedby="robert" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>-filealign</title>
+  <keywords>
+    <keyword>-filealign</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">-filealign</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">通过 -filealign 编译器选项，您可以指定输出文件中各部分的大小。</para>
+    <para styleclass="Heading2">语法</para>
+    <para styleclass="Code with box">-filealign:number &#160;</para>
+    <para styleclass="Heading2">参数</para>
+    <para styleclass="List"><text styleclass="Code Example">number</text><tab />指定输出文件各部分大小的值。有效值为 512、1024、2048、4096 和 8192。这些值以字节为单位。</para>
+    <para styleclass="Heading2">备注</para>
+    <para styleclass="Normal">每个部分都将按照 -filealign 值倍数的边界对齐。没有固定的默认值。如果未指定 -filealign，通用语言运行时将在编译时选择默认值。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">指定分段大小会影响输出文件的大小。修改部分大小可能对在较小设备上运行的程序有用。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">使用 DUMPBIN 查看输出文件中的分段信息。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal"><snippet src="__buildExtra" inline="false"/></para>
+    <para styleclass="Normal"></para>
+  </body>
+</topic>

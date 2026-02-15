@@ -6,11 +6,14 @@
 
 using Microsoft.VisualStudio.Project;
 using Microsoft.VisualStudio.Shell;
+
 using System;
 using System.Drawing;
 using System.Windows.Forms;
-using XSharpModel;
+
 using XSharp.Settings;
+
+using XSharpModel;
 
 namespace XSharp.Project
 {
@@ -20,6 +23,13 @@ namespace XSharp.Project
     internal partial class XGeneralPropertyPagePanel : XPropertyPagePanel
     {
 
+        private bool IsSdkProject => !string.IsNullOrEmpty(ParentPropertyPage.ProjectMgr?.BuildProject.Xml.Sdk);
+        private bool IsMultiTargetingProject =>
+            ParentPropertyPage.ProjectMgr?.GetProjectProperty(XSharpProjectFileConstants.TargetFrameworks) != null ||
+            ParentPropertyPage.ProjectMgr?.GetProjectProperty(XSharpProjectFileConstants.XTargetFrameworks) != null;
+
+        private string TargetFrameworkMoniker =>
+            ParentPropertyPage.ProjectMgr?.TargetFrameworkMoniker.FullName;
         /// <summary>
         /// Initializes a new instance of the <see cref="XBuildEventsPropertyPagePanel"/> class.
         /// </summary>
@@ -39,7 +49,6 @@ namespace XSharp.Project
             this.chkAutoGenerateBindingRedirects.Tag = XSharpProjectFileConstants.AutoGenerateBindingRedirects;
             this.comboDialect.Tag = XSharpProjectFileConstants.Dialect;
             this.comboOutputType.Tag = XSharpProjectFileConstants.OutputType;
-            this.comboTargetFramework.Tag = XSharpProjectFileConstants.TargetFrameworkVersion;
 
             lblDefaultNamespace.Text = GeneralPropertyPagePanel.captNamespace;
             toolTip1.SetToolTip(lblDefaultNamespace, GeneralPropertyPagePanel.descNamespace);
@@ -73,9 +82,31 @@ namespace XSharp.Project
             FillCombo(new OutputTypeConverter(), comboOutputType);
             toolTip1.SetToolTip(lblOutputType, GeneralPropertyPagePanel.descOutputType);
             toolTip1.SetToolTip(comboOutputType, GeneralPropertyPagePanel.descOutputType);
-            FillCombo(new FrameworkNameConverter(), comboTargetFramework);
-            toolTip1.SetToolTip(lblTargetFramework, GeneralPropertyPagePanel.descFramework);
-            toolTip1.SetToolTip(comboTargetFramework, GeneralPropertyPagePanel.descFramework);
+
+            if (IsSdkProject && IsMultiTargetingProject)
+            {
+                tableLayoutPanel1.SetRow(comboTargetFramework, 4);
+                lblTargetFramework.Text = GeneralPropertyPagePanel.captTargetFrameworks;
+                toolTip1.SetToolTip(lblTargetFramework, GeneralPropertyPagePanel.descFrameworks);
+                this.tbTargetFrameworks.Tag = XSharpProjectFileConstants.XTargetFrameworks;
+                toolTip1.SetToolTip(tbTargetFrameworks, GeneralPropertyPagePanel.descFrameworks);
+                this.comboTargetFramework.Visible = false;
+                this.tbTargetFrameworks.Visible = true;
+            }
+            else
+            {
+                tableLayoutPanel1.SetRow(comboTargetFramework, 3);
+                lblTargetFramework.Text = GeneralPropertyPagePanel.captTargetFramework;
+                toolTip1.SetToolTip(lblTargetFramework, GeneralPropertyPagePanel.descFramework);
+                if (IsSdkProject)
+                    this.comboTargetFramework.Tag = XSharpProjectFileConstants.TargetFramework;
+                else
+                    this.comboTargetFramework.Tag = XSharpProjectFileConstants.TargetFrameworkVersion;
+                toolTip1.SetToolTip(comboTargetFramework, GeneralPropertyPagePanel.descFramework);
+                this.comboTargetFramework.Visible = true;
+                this.tbTargetFrameworks.Visible = false;
+                FillFrameworkNames();
+            }
 
 
             // hook up the form to both editors
@@ -84,12 +115,36 @@ namespace XSharp.Project
             UpdateWindowColors(this, defaultBackground, defaultForeground);
         }
 
+        public void FillFrameworkNames()
+        {
+            if (!IsMultiTargetingProject)
+            {
+                var moniker = this.TargetFrameworkMoniker;
+                if (ParentPropertyPage.ProjectMgr == null)
+                    return;
+                if (!string.IsNullOrEmpty(moniker))
+                {
+                    if (IsSdkProject)
+                    {
+                        if (moniker.StartsWith(".NETFramework") || moniker.StartsWith(".NETCoreApp"))
+                        {
+                            FillCombo(new SdkFrameworkNameConverter(ParentPropertyPage.ProjectMgr.BuildProject), comboTargetFramework);
+                        }
+                    }
+                    else
+                    {
+                        FillCombo(new FrameworkNameConverter(), comboTargetFramework);
+                    }
+                }
+            }
+        }
+
         void GetStartupClasses()
         {
             this.comboStartupObject.Items.Clear();
             this.comboStartupObject.Items.Add(GeneralPropertyPagePanel.DefaultValue);
-            var prjfile = ParentPropertyPage.ProjectMgr.ProjectFile;
-            var list = XDatabase.GetStartupClasses(System.IO.Path.GetFileName(prjfile));
+            var projectFile = ParentPropertyPage.ProjectMgr.ProjectFile;
+            var list = XDatabase.GetStartupClasses(System.IO.Path.GetFileName(projectFile));
             foreach (var item in list)
             {
                 this.comboStartupObject.Items.Add(item);
@@ -104,8 +159,8 @@ namespace XSharp.Project
 
         void EnableApplicationIcon()
         {
-            var prjfile = ParentPropertyPage.ProjectMgr.ProjectFile;
-            var hasRcFiles = XDatabase.HasRCFiles(prjfile);
+            var projectFile = ParentPropertyPage.ProjectMgr.ProjectFile;
+            var hasRcFiles = XDatabase.HasRCFiles(projectFile);
             this.labelIcon.Enabled = !hasRcFiles;
             this.tbAppIcon.Enabled = !hasRcFiles;
             this.btnIcon.Enabled = !hasRcFiles;
@@ -153,7 +208,6 @@ namespace XSharp.Project
                 }
             });
         }
-
         internal void resetFramework(string value)
         {
             int index = 0;
@@ -169,6 +223,7 @@ namespace XSharp.Project
             }
             resetting = false;
         }
+
         private void btnIcon_Click(object sender, EventArgs e)
         {
             ThreadHelper.ThrowIfNotOnUIThread();

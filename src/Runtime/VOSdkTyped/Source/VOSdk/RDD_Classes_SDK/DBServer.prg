@@ -3,7 +3,7 @@
 // Licensed under the Apache License, Version 2.0.
 // See License.txt in the project root for license information.
 //
-#pragma options ("enforceself", on)
+
 #pragma warnings(165, off)
 /// <include file="Rdd.xml" path="doc/DbServer/*" />
 [XSharp.Internal.TypesChanged];
@@ -31,7 +31,7 @@ partial class DbServer inherit DataServer
     protect cbStoredForBlock as usual
     protect cbStoredWhileBlock as usual
     protect uStoredScope as usual
-    protect nStoredNextCount as longint
+    protect nStoredNextCount as DWORD
     protect lStoredAllRecords as usual
     protect lStoredRestOfFile as logic
     protect wLastSelectionRec as dword
@@ -214,10 +214,10 @@ partial class DbServer inherit DataServer
                 break ErrorBuild( _VoDbErrInfoPtr( ) )
             endif
             do while ! VoDbEof( )
-                if lWhile .and. ! Eval( uCobWhile )
+                if lWhile .and. ! XSharp.RT.Functions.Eval( uCobWhile )
                     exit
                 endif
-                if ( ! lFor .or. Eval( uCobFor ) ) .and. lBlock
+                if ( ! lFor .or. XSharp.RT.Functions.Eval( uCobFor ) ) .and. lBlock
                     if lCC
                         if nEffectiveCCMode = ccOptimistic
                             if lCCUpdate .and. ! uFLock
@@ -229,7 +229,7 @@ partial class DbServer inherit DataServer
                                 if nLastLock != 0
                                     VoDbUnlock( nLastLock )
                                 endif
-                                nLastLock := (int) VoDbRecno( )
+                                nLastLock := VoDbRecno( )
                                 if ! VoDbEof( )
                                     lRetCode := VoDbRlock( nLastLock )
                                 else
@@ -244,7 +244,7 @@ partial class DbServer inherit DataServer
                     endif
 
 
-                    uRC := Eval( uBlock )
+                    uRC := XSharp.RT.Functions.Eval( uBlock )
                     if lCC .and. nEffectiveCCMode = ccOptimistic .and. lCCUpdate .and. ! uFLock
                         VoDbUnlock( nCurrRec )
                     endif
@@ -492,7 +492,7 @@ partial class DbServer inherit DataServer
                     if nLastLock != 0
                         VoDbUnlock( self:nLastLock )
                     endif
-                    nLastLock := (int) VoDbRecno( )
+                    nLastLock := VoDbRecno( )
                     if ! VoDbEof( )
                         lRetCode := VoDbRlock( self:nLastLock )
                     else
@@ -660,7 +660,7 @@ partial class DbServer inherit DataServer
                 break ErrorBuild( _VoDbErrInfoPtr( ) )
             endif
             if ! uFlock
-                nLastLock := (long) self:RecNo
+                nLastLock := self:RecNo
                 if ! self:RLock( nLastLock )
                     nLastLock := 0
                     oHLStatus := self:Status
@@ -679,7 +679,7 @@ partial class DbServer inherit DataServer
         endcase
 
         return
- 
+
 
     /// <include file="Rdd.xml" path="doc/DbServer.ctor/*" />
     constructor( cFile as usual, lShareMode := null as object, lReadOnlyMode := null as object, xDriver:= "" as string, aRDD := null_array as array)
@@ -757,7 +757,7 @@ partial class DbServer inherit DataServer
                 cTemp + "_" + cFileName }
 
 
-            oHLStatus := nil
+            oHLStatus := NULL_OBJECT
 
 
             self:wWorkArea := VoDbSetSelect( -1 )

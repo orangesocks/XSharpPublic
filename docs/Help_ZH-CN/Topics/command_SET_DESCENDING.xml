@@ -1,0 +1,33 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-06-27T20:18:06.847+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>SET DESCENDING 命令</title>
+  <keywords>
+    <keyword>Commands</keyword>
+    <keyword>Databases</keyword>
+    <keyword>Index/order</keyword>
+    <keyword>SET DESCENDING command</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">SET DESCENDING 命令</para>
+    </header>
+    <para styleclass="Normal"><snippet src="__CommandInclude" inline="false"/></para>
+    <para styleclass="Heading1">用途</para>
+    <para styleclass="Normal">更改控制顺序的降序标志。</para>
+    <para styleclass="Heading1">语法</para>
+    <para styleclass="Code with box">SET DESCENDING ON | OFF | (&lt;lToggle&gt;)</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Bold"><text style="font-weight:normal;">注意：此设置的初始默认值取决于创建控制命令时是否将降序作为属性。</text></para>
+    <para styleclass="Heading1">参数</para>
+    <para styleclass="List">ON <tab /></para>
+    <para styleclass="List">OFF<tab /></para>
+    <para styleclass="List">lToggle<tab /><text styleclass="Body Text">逻辑表达式，必须用括号表示。True 相当于 ON，False 相当于 OFF</text></para>
+    <para styleclass="Heading1">描述</para>
+    <para styleclass="Normal">SET DESCENDING 在功能上等同于 OrdDescend()。 </para>
+    <para styleclass="Body Text"><snippet src="__IncludeLibRT" inline="false"/></para>
+    <para styleclass="Heading1">参见</para>
+    <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="html\M_XSharp_RT_Functions_OrdDescend.htm" domain="XSharpRef.chm">OrdDescend()</link></para>
+    <para styleclass="Normal"></para>
+  </body>
+</topic>

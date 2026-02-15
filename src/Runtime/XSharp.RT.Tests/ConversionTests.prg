@@ -116,10 +116,11 @@ BEGIN NAMESPACE XSharp.RT.Tests
 
 		[Fact, Trait("Category", "Val")];
 		METHOD ValTest() AS VOID
-			LOCAL u AS USUAL
+        LOCAL u AS USUAL
+            RuntimeState.Dialect := XSharpDialect.VO
             SetDecimalSep('.')
             SetThousandSep(',')
-            SetDecimal(2)
+            SetDecimal(3)
 			u := Val("1.234")
 			Assert.Equal(1.234, (FLOAT) u)
 			SetDecimalSep(',')
@@ -197,7 +198,7 @@ BEGIN NAMESPACE XSharp.RT.Tests
 			Assert.Equal("123,456", AsString(Val("  123.456"  )))
 			Assert.Equal("123,456", AsString(Val("  123,456"  )))
 
-			Assert.True(Val(NULL) == 0)
+            Assert.True(Val(NULL) == 0)
 
 		[Fact, Trait("Category", "Val")];
 		METHOD ValTests2() AS VOID
@@ -375,6 +376,79 @@ BEGIN NAMESPACE XSharp.RT.Tests
             u := NULL_PSZ
             s := u
             Assert.Equal(s, "")
+
+		[Fact, Trait("Category", "IntegerFunction")];
+        METHOD IntgerFunctionTests() AS VOID
+
+			Assert.True( Integer (1.9)  == 1 )
+			Assert.True( Integer (1.1)  == 1 )
+			Assert.True( Integer (0.1)  == 0 )
+			Assert.True( Integer (-0.1) == 0 )
+			Assert.True( Integer (-1.1) == -1 )
+			Assert.True( Integer (-1.9) == -1 )
+
+			LOCAL fd := SetFloatDelta(0.2) AS REAL8
+
+			Assert.True( Integer (1.9)  == 1 )
+			Assert.True( Integer (1.1)  == 1 )
+			Assert.True( Integer (0.1)  == 0 )
+			Assert.True( Integer (-0.1) == 0 )
+			Assert.True( Integer (-1.1) == -1 )
+			Assert.True( Integer (-1.9) == -1 )
+
+			Assert.True( Integer ($1.9)  == 1 )
+			Assert.True( Integer ($1.1)  == 1 )
+			Assert.True( Integer ($0.1)  == 0 )
+			Assert.True( Integer (-$0.1) == 0 )
+			Assert.True( Integer (-$1.1) == -1 )
+			Assert.True( Integer (-$1.9) == -1 )
+
+			Assert.True( Integer (1.9m)  == 1 )
+			Assert.True( Integer (1.1m)  == 1 )
+			Assert.True( Integer (0.1m)  == 0 )
+			Assert.True( Integer (-0.1m) == 0 )
+			Assert.True( Integer (-1.1m) == -1 )
+			Assert.True( Integer (-1.9m) == -1 )
+
+			SetFloatDelta(fd)
+
+		[Fact, Trait("Category", "Settings")];
+        METHOD SettingsTest() as VOID
+            var dec := Set(Set.Decimals)
+            Set(Set.Decimals, 1.0)
+            var dec1 := Set(Set.Decimals)
+            Assert.True( dec1 is Long)
+            Assert.True( dec1 == 1L)
+            Set(Set.Decimals, "3")
+            dec1 := Set(Set.Decimals)
+            Assert.True( dec1 is Long)
+            Assert.True( dec1 == 3L)
+            Set(Set.Decimals, 2.0)
+            var dec2 := Set(Set.Decimals)
+            Assert.True( dec2 is Long)
+            Assert.True( dec2 == 2L)
+            Set(Set.Decimals, dec)
+            var ext := Set(Set.Exact)
+            Set(Set.Exact, "ON")
+            Assert.True( Set(Set.Exact) == TRUE)
+            Set(Set.Exact, "OFF")
+            Assert.True( Set(Set.Exact) == FALSE)
+            Set(Set.Exact,ext)
+
+            RETURN
+
+        [Fact, Trait("Category", "Conversions")];
+        METHOD F2BinTest() as VOID
+            local f2 as float
+            local s as string
+            foreach var f in F2BinValues()
+                s := F2Bin(f)
+                f2 := bin2f(s)
+                Assert.Equal(f, f2)
+            next
+            RETURN
+        static METHOD F2BinValues() as float[]
+            return <float>{ 1.23456, 1.23E5, 9.87E-1, -1.23456, -1.23E5, -9.87E-1, 2.0, -2.0, System.Double.NaN, System.Double.PositiveInfinity, System.Double.NegativeInfinity }
 
 
 	END CLASS

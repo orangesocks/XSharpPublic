@@ -1,4 +1,15 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+﻿<!--
+***********************************************************************************************
+XSharp.Props
+
+WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and have
+          created a backup copy.  Incorrect changes to this file will make it
+          impossible to load or build your projects from the command-line or the IDE.
+
+Copyright (C) XSharp BV. All rights reserved.
+***********************************************************************************************
+-->
+<!-- This file contains properties and items that are used by all the XSharp projects -->
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Condition="Exists('$(MsBuildBinPath)\Microsoft.Common.props')" Project="$((MsBuildBinPath)\Microsoft.Common.props"  />
   <PropertyGroup>
@@ -14,24 +25,21 @@
     <ProjectPath>$(MSBuildProjectDirectory)\$(MSBuildProjectFile)</ProjectPath>
     <TargetPlatformVersion>7.0</TargetPlatformVersion>
     <UseOSWinMdReferences>true</UseOSWinMdReferences>
-    <OutputType Condition=" '$(OutputType)' == '' ">>exe</OutputType>
+    <OutputType Condition=" '$(OutputType)' == '' ">exe</OutputType>
     <OutputPath Condition=" '$(OutputPath)' == '' ">bin\$(Configuration)\</OutputPath>
-    <DebuggerFlavor>XSharpDebugger</DebuggerFlavor>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <WinRTReferenceTabs>TAB_SDK_ALL</WinRTReferenceTabs>
-    <AssemblyReferenceTabs>TAB_ASSEMBLY_ALL</AssemblyReferenceTabs>
     <Name>$(MSBuildProjectName)</Name>
     <RootNamespace>$(Name)</RootNamespace>
     <AssemblyName>$(Name)</AssemblyName>
     <Dialect>Core</Dialect>
     <UseNativeVersion>false</UseNativeVersion>
     <SuppressRCWarnings>true</SuppressRCWarnings>
-    <!-- new in 2.15 -->
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <GenerateFullPaths>true</GenerateFullPaths>
     <Nologo>true</Nologo>
+    <UseHostCompilerIfAvailable>false</UseHostCompilerIfAvailable>
     <UseSharedCompilation>true</UseSharedCompilation>
     <WarningLevel>4</WarningLevel>
+    <_EnableDefaultWindowsPlatform Condition="'$(_EnableDefaultWindowsPlatform)' == '' And '$(UsingMicrosoftNETSdk)' != 'true'">true</_EnableDefaultWindowsPlatform>
   </PropertyGroup>
   <!-- Set defaults for Configuration, Platform, Optimize and PDB generation -->
   <PropertyGroup>
@@ -50,4 +58,9 @@
     <DebugType>pdbonly</DebugType>
     <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
+  <Import Condition="'$(UsingMicrosoftNETSdk)' == 'true'" Project="XSharp.SDK.Props"  />
+  <!-- These groups are needed because otherwise the Project Context Menu does not always display Build/Rebuild/Clean -->
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'"/>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'"/>
+
 </Project>

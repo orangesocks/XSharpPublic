@@ -34,6 +34,7 @@ namespace XSharp
         internal const string LanguageServiceName = "XSharp Language Service";
         internal const string EditorName = "XSharp Source Code Editor";
         internal const string ProjectSystemName = "XSharp Project System";
+        internal const string CpsProjectAssemblyName = "XSharp.VisualStudio.ProjectSystem";
 
         internal const string ProjectExtension = "xsproj";
         internal const string DottedProjectExtension = "." + ProjectExtension;
@@ -62,6 +63,7 @@ namespace XSharp
         internal const string DialectPropertiesPage = "2652FCA6-1C45-4D25-942D-4C5D5EDE9539";
         internal const string LanguagePropertiesPage = "0DFC7EF7-3F1A-4ACB-AFD8-DF56AEF9467A";
         internal const string BuildEventsPropertiesPage = "49306259-9119-466E-8780-486CFBE2597D";
+        internal const string GlobalUsingsPropertiesPage = "5BF73771-1E08-40D9-8A48-EC06552C138B";
         internal const string DebuggerWorkareasPane = "B5B41BAB-62F9-48E0-80D8-947F2F14D1C5";
         internal const string DebuggerSettingsPane = "F7ED7826-137A-462D-8757-37A02BEF4DCF";
         internal const string DebuggerGlobalsPane = "53B7968B-251B-44E0-BDF5-A225BF0DBC77";
@@ -82,9 +84,9 @@ namespace XSharp
         public const int FieldSpec = 4;
         public const int Menu = 5;
         internal const int VO = 6;
-        //public const int Grid = 7;
+        public const int SQLTable = 7;
         //public const int Test = 8;
-        //public const int Properties = 9;
+        public const int Report = 9;
         //public const int Reference = 10;
         //public const int DanglingReference = 11;
         internal const int TabOrder = 12;
@@ -99,6 +101,7 @@ namespace XSharp
     {
         internal const string Allowdot = nameof(Allowdot);
         internal const string AllowOldStyleAssignments = nameof(AllowOldStyleAssignments);
+        internal const string AnyCPU = nameof(AnyCPU);
         internal const string AssemblyName = nameof(AssemblyName);
         internal const string AssemblyOriginatorKeyFile = nameof(AssemblyOriginatorKeyFile);
         internal const string AutoGenerateBindingRedirects = nameof(AutoGenerateBindingRedirects);
@@ -119,12 +122,14 @@ namespace XSharp
         internal const string DialectVulcan = "Vulcan.NET";
         internal const string DialectXPP = "Xbase++";
         internal const string DisabledWarnings = nameof(DisabledWarnings);
+        internal const string NoWarn = nameof(NoWarn);
         internal const string DocumentationFile = nameof(DocumentationFile);
         internal const string EnforceSelf = nameof(EnforceSelf);
         internal const string EnforceOverride = nameof(EnforceOverride);
         internal const string Fox1 = nameof(Fox1);
         internal const string Fox2 = nameof(Fox2);
         internal const string GetTargetPath = nameof(GetTargetPath);
+        internal const string ImplicitUsings = nameof(ImplicitUsings);
         internal const string IncludePaths = nameof(IncludePaths);
         internal const string IncludeSearchPaths = nameof(IncludeSearchPaths);
         internal const string InitLocals = nameof(InitLocals);
@@ -202,7 +207,6 @@ namespace XSharp
         internal const string VulcanCompatibleResources = nameof(VulcanCompatibleResources);
         internal const string WarningLevel = nameof(WarningLevel);
         internal const string Xpp1 = nameof(Xpp1);
-        internal const string Xpp2 = nameof(Xpp2);
         internal const string RootNamespace = nameof(RootNamespace);
         internal const string StartupObject = nameof(StartupObject);
         internal const string ApplicationIcon = nameof(ApplicationIcon);
@@ -211,5 +215,9 @@ namespace XSharp
         internal const string DebugType = nameof(DebugType);
         internal const string DebuggerWorkingDirectory = nameof(DebuggerWorkingDirectory);
         internal const string EnableUnmanagedDebugging = nameof(EnableUnmanagedDebugging);
+        internal const string TargetFramework = nameof(TargetFramework);
+        internal const string TargetFrameworks = nameof(TargetFrameworks);
+        internal const string XTargetFrameworks = nameof(XTargetFrameworks);
+        internal const string ActiveTargetFramework = nameof(ActiveTargetFramework);
     }
 }

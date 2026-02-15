@@ -1,0 +1,33 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-06-28T00:47:15.339+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>DECLARE / DIMENSION 语句</title>
+  <keywords>
+    <keyword>Declaration statements</keyword>
+    <keyword>DECLARE</keyword>
+    <keyword>DECLARE statement</keyword>
+    <keyword>DIMENSION</keyword>
+    <keyword>Runtime declaration</keyword>
+    <keyword>Statements</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">DECLARE/DIMENSION 语句</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Body Text"><snippet src="__FoxProOnly" inline="false"/></para>
+    <para styleclass="Heading1">用途</para>
+    <para styleclass="Normal">创建并初始化 FoxPro 数组类型的私有变量</para>
+    <para styleclass="Normal">注：和 Declare 是同义词</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Code with box">DIMENSION &lt;arrayName&gt; <text style="font-weight:bold;">(</text> &lt;nRows&gt; [, &lt;nColumns&gt;] <text style="font-weight:bold;">)</text> [, &lt;arrayName&gt; ( &lt;nRows&gt; [, &lt;nColumns&gt;] ) ] &#160; &#160; // FoxPro dialect only<br/>DIMENSION &lt;arrayName&gt; <text style="font-weight:bold;">[</text> &lt;nRows&gt; [, &lt;nColumns&gt;] <text style="font-weight:bold;">]</text> [, &lt;arrayName&gt; <text style="font-weight:bold;">[</text> &lt;nRows&gt; [, &lt;nColumns&gt;] <text style="font-weight:bold;">]</text> ] &#160; &#160; // FoxPro dialect only<br/>DECLARE &#160; &lt;arrayName&gt; <text style="font-weight:bold;">(</text> &lt;nRows&gt; [, &lt;nColumns&gt;] <text style="font-weight:bold;">)</text> [, &lt;arrayName&gt; ( &lt;nRows&gt; [, &lt;nColumns&gt;] ) ] &#160; &#160; // FoxPro dialect only<br/>DECLARE &#160; &lt;arrayName&gt; <text style="font-weight:bold;">[</text> &lt;nRows&gt; [, &lt;nColumns&gt;] <text style="font-weight:bold;">]</text> [, &lt;arrayName&gt; <text style="font-weight:bold;">[</text> &lt;nRows&gt; [, &lt;nColumns&gt;] <text style="font-weight:bold;">]</text> ] &#160; &#160; // FoxPro dialect only</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Heading1">参数</para>
+    <para styleclass="List">&lt;arrayName&gt;<tab />数组的变量名。数组的大小与 &lt;nRows&gt; 和 &lt;nColumns&gt; 所声明的一样。数组可以使用小括号作为分隔符，也可以使用方括号。</para>
+    <para styleclass="List"><tab />&lt;nColumns&gt; 是可选项</para>
+    <para styleclass="List"><tab />我们建议使用方括号。</para>
+    <para styleclass="Heading1">参见</para>
+    <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="command_PUBLIC">PUBLIC</link>, <link displaytype="text" defaultstyle="true" type="topiclink" href="command_LOCAL">LOCAL</link></para>
+    <para styleclass="Normal"></para>
+  </body>
+</topic>

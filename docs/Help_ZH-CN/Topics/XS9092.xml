@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-07-13T03:59:28.229+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>XS9092</title>
+  <body>
+    <header>
+      <para styleclass="Heading1">Warning XS9092</para>
+    </header>
+    <para styleclass="Body Text">&apos;{0}&apos; 尚未声明。假设这是一个 VARIABLE 或 CURSOR。</para>
+    <para styleclass="Body Text"></para>
+    <para styleclass="Body Text">用 FoxPro 方言编译以下样式的代码时，将显示此警告</para>
+    <para styleclass="Code Example"><text style="font-weight:normal; font-style:normal; text-decoration:none; color:#000000;">? Customer.LastName &#160; </text><text style="font-weight:bold; font-style:italic; text-decoration:none; color:#339966;">// XS9092 &apos;Customer&apos; 尚未声明。假设这是一个 VARIABLE 或 CURSOR 。</text></para>
+    <para styleclass="Body Text"><text style="font-style:normal; color:#000000;">当启用 </text><text style="font-weight:normal; font-style:normal; color:#000000;">/undeclared </text><text style="font-style:normal; color:#000000;">编译器选项时，编译器不知道 Customer 是内存变量还是游标的名称。</text></para>
+    <para styleclass="Body Text"><text style="font-style:normal; color:#000000;">编译器在编译时不知道 Customer 是内存变量的名称还是游标的名称。这将在运行时予以确定，这可能导致运行时错误。</text></para>
+    <para styleclass="Body Text"><text style="font-style:normal; color:#000000;">如果在代码中声明一个名称为 &quot;Customer&quot; 的局部变量，编译器将认为 Customer 是一个具有 LastName 属性的对象。</text></para>
+  </body>
+</topic>

@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-07-18T00:06:32.987+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>类型化枚举</title>
+  <keywords>
+    <keyword>ENUM</keyword>
+    <keyword>Typed Enums</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">类型化枚举</para>
+    </header>
+    <para styleclass="Normal"><snippet src="Ex-Typed-Enums" inline="false"/></para>
+  </body>
+</topic>

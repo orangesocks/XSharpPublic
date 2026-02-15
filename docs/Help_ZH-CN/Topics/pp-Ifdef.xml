@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-06-30T11:26:18.550+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>#ifdef</title>
+  <keywords>
+    <keyword>#ifdef</keyword>
+    <keyword>Preprocessor</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">#ifdef</para>
+    </header>
+    <para styleclass="Heading1">用途</para>
+    <para styleclass="Body Text">当 X# 编译器遇到一个 #ifdef 指令，随后又遇到一个 <link displaytype="text" defaultstyle="true" type="topiclink" href="pp-Endif">#endif</link> 指令时，只有当指定的符号被定义时，它才会编译指令之间的代码。</para>
+    <para styleclass="Body Text">X# 中的 #ifdef 语句是布尔语句，只测试符号是否已定义。例如</para>
+    <para styleclass="Code Example">// DEBUG 可在命令行中定义<br/>// ...<br/>#if DEBUG<br/> &#160; &#160;Console.WriteLine(&quot;调试版本&quot;);<br/>#else<br/> &#160; &#160;Console.WriteLine(&quot;发布版本&quot;);<br/>#endif</para>
+    <para styleclass="Heading3">备注</para>
+    <para styleclass="Body Text">编译器选项 <link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo8">/vo8</link> 将改变这种行为：</para>
+    <para styleclass="Body Text">当 /vo8 激活时，任何定义为 TRUE 或非 0 数值的符号将被视为 &quot;已定义&quot;，而定义为 FALSE 或 0 数值的符号将被视为 &quot;未定义&quot;。</para>
+    <para styleclass="Body Text"></para>
+    <para styleclass="Body Text">参见</para>
+  </body>
+</topic>

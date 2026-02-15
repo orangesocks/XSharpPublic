@@ -188,7 +188,7 @@ end class
     internal static method GetDynamicModule() as ModuleBuilder
         if an == null .or. ab == null .or. mb == null
             an  := AssemblyName{"XSharp.XPP.DynamicClasses"}
-            ab  := AppDomain.CurrentDomain:DefineDynamicAssembly(an, AssemblyBuilderAccess.Run)
+            ab  := AssemblyBuilder.DefineDynamicAssembly(an, AssemblyBuilderAccess.Run)
             mb  := ab:DefineDynamicModule("MainModule")
         endif
         return mb
@@ -511,7 +511,7 @@ class XSharp.XPP.DynamicClassObject inherit ClassObject
     private _desc as ClassHelpers.ClassDescriptor
     property Name as string get _name
     internal property Descriptor as  ClassHelpers.ClassDescriptor get _desc
-    property Type  as System.Type get _Type
+    override property Type  as System.Type get _Type
 #endregion
     internal constructor(oType as System.Type, cName as string, oDesc  as ClassHelpers.ClassDescriptor)
         super(oType)

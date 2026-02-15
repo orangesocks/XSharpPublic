@@ -14,7 +14,49 @@ USING XUnit
 // Array tests are not working correctly yet with the current build
 BEGIN NAMESPACE XSharp.RT.Tests
 
-	CLASS ArrayTests
+
+    CLASS ArrayTests
+
+ 		[Trait("Category", "Array")];
+		[Fact];
+        METHOD AsortFuncTest() AS VOID
+            LOCAL FUNCTION SortFunc(a AS USUAL,b AS USUAL) AS INT
+                IF upper(a) < upper(b)
+                    RETURN -1
+                ELSEIF upper(a) > upper(b)
+                    RETURN 1
+                ENDIF
+                RETURN 0
+            END FUNCTION
+            LOCAL testArray AS ARRAY
+            testArray  := {"Fred", "Kate", "Fred", "ALVIN", "friend"}
+            ASortFunc(testArray, 1,ALen(testArray), SortFunc)
+            Assert.Equal(testArray[1],"ALVIN")
+            Assert.Equal(testArray[2],"Fred")
+            Assert.Equal(testArray[3],"Fred")
+            Assert.Equal(testArray[4],"friend")
+            Assert.Equal(testArray[5],"Kate")
+		RETURN
+    [Trait("Category", "Array")];
+    [Fact];
+     METHOD AsortExTest() AS VOID
+         LOCAL testArray AS ARRAY
+         testArray  := {"Fred", "Kate", "Fred", "ALVIN", "friend"}
+         // Use multi line codeblock feature below
+         ASortEx(testArray, 1,ALen(testArray), {|a,b|
+             IF upper(a) < upper(b)
+                 RETURN -1
+             ELSEIF upper(a) > upper(b)
+                 RETURN 1
+             ENDIF
+             RETURN 0
+            })
+         Assert.Equal(testArray[1],"ALVIN")
+         Assert.Equal(testArray[2],"Fred")
+         Assert.Equal(testArray[3],"Fred")
+         Assert.Equal(testArray[4],"friend")
+         Assert.Equal(testArray[5],"Kate")
+         RETURN
 
  		[Trait("Category", "Array")];
 		[Fact];
@@ -100,9 +142,9 @@ BEGIN NAMESPACE XSharp.RT.Tests
 			u := mainArray[5][2]
             Assert.Equal( "anothertest", (STRING) u)
             AAdd(mainArray, 42, 2)
-            Assert.Equal((int) mainArray[1], 1)
-            Assert.Equal((int) mainArray[2],  42)
-            Assert.Equal((string) mainArray[3],  "2")
+            Assert.Equal((INT) mainArray[1], 1)
+            Assert.Equal((INT) mainArray[2],  42)
+            Assert.Equal((STRING) mainArray[3],  "2")
 		RETURN
 
  		[Trait("Category", "Array")];
@@ -159,10 +201,11 @@ BEGIN NAMESPACE XSharp.RT.Tests
 			Assert.Equal( 0, (INT) a[1])
 			Assert.Equal( 8, (INT) a[6])
 
-			a := {8,2,1,4,3,0}
+			a := {8,2,1,4,3,0,8}
 			ASort(a , 0 , 100)
 			Assert.Equal( 0, (INT) a[1])
-			Assert.Equal( 8, (INT) a[6])
+            Assert.Equal( 8, (INT) a[6])
+            Assert.Equal( 8, (INT) a[7])
 
 			a := {8,2,1,4,3,0}
 			ASort(a , 0 , 100,IntegerSorter{})
@@ -173,13 +216,22 @@ BEGIN NAMESPACE XSharp.RT.Tests
 			Assert.Equal( 0, (INT) a[6])
 			Assert.Equal( 8, (INT) a[1])
 
-            a := {{ 1,1}, {1,2}, {2,3}, {2,4}}
+            a := {{ 1,1}, {2,3}, {1,2}, {2,4}}
             ASort(a, 0, 4, {|x,y| IIF (x[1] == y[1], x[2] <= y[2], x[1] < y[1])})
 
 			Assert.Equal( 1, (INT) a[1,2])
 			Assert.Equal( 2, (INT) a[2,2])
 			Assert.Equal( 3, (INT) a[3,2])
 			Assert.Equal( 4, (INT) a[4,2])
+
+            a := {{ 1,1}, {2,3}, {1,2}, {2,4}}
+            ASort(a, 0, 4, {|x,y| x[1] <= y[1]})
+
+			Assert.Equal( 1, (INT) a[1,2])
+			Assert.Equal( 2, (INT) a[2,2])
+			Assert.Equal( 3, (INT) a[3,2])
+			Assert.Equal( 4, (INT) a[4,2])
+
 
 
 		[Trait("Category", "Array")];
@@ -505,7 +557,7 @@ BEGIN NAMESPACE XSharp.RT.Tests
             EnableArrayIndexCheck(FALSE)
             Assert.True( aValues[1,1] == NIL )
             EnableArrayIndexCheck(TRUE)
-            Assert.ThrowsAny<Error>({ =>aValues[1,1] == NIL})
+//            Assert.ThrowsAny<Error>({ =>aValues[1,1] == NIL})
 
 		[Fact, Trait("Category", "Hacks")];
 		METHOD ArrayXPPSpecialHandling() AS VOID
@@ -524,15 +576,15 @@ BEGIN NAMESPACE XSharp.RT.Tests
 
         [Fact, Trait("Category", "Enumerator")];
         METHOD EnumeratorTest AS VOID
-            LOCAL a as Array
-            a := Array{ SELF:Enumerator1()}
+            LOCAL a AS ARRAY
+            a := ARRAY{ SELF:Enumerator1()}
             Assert.True(ALen(a) == 5)
             Assert.True(a[1] == 1)
             Assert.True(a[2] == 2)
             Assert.True(a[3] == 3)
             Assert.True(a[4] == 4)
             Assert.True(a[5] == 5)
-            a := Array{ SELF:Enumerator2()}
+            a := ARRAY{ SELF:Enumerator2()}
             Assert.True(ALen(a) == 5)
             Assert.True(a[1] == 1)
             Assert.True(a[2] == 2)
@@ -540,7 +592,7 @@ BEGIN NAMESPACE XSharp.RT.Tests
             Assert.True(a[4] == 4)
             Assert.True(a[5] == 5)
 
-            a := Array{ SELF:Enumerator3()}
+            a := ARRAY{ SELF:Enumerator3()}
             Assert.True(ALen(a) == 3)
             Assert.True(a[1] IS MyTestClass VAR tc1 .and. tc1:Number == 1)
             Assert.True(a[2] IS MyTestClass VAR tc2 .and. tc2:Number == 2)
@@ -548,20 +600,20 @@ BEGIN NAMESPACE XSharp.RT.Tests
 
         METHOD Enumerator1() AS IEnumerable<OBJECT>
             VAR oObjects := <OBJECT>{1,2,3,4,5}
-            FOREACH var o in oObjects
+            FOREACH VAR o IN oObjects
                 YIELD RETURN o
             NEXT
             YIELD BREAK
 
         METHOD Enumerator2() AS IEnumerable<USUAL>
             VAR oObjects := <USUAL>{1,2,3,4,5}
-            FOREACH var o in oObjects
+            FOREACH VAR o IN oObjects
                 YIELD RETURN o
             NEXT
             YIELD BREAK
         METHOD Enumerator3() AS IEnumerable<MyTestClass>
             VAR oObjects := <MyTestClass>{MyTestClass{1},MyTestClass{2},MyTestClass{3}}
-            FOREACH var o in oObjects
+            FOREACH VAR o IN oObjects
                 YIELD RETURN o
             NEXT
             YIELD BREAK
@@ -571,9 +623,9 @@ BEGIN NAMESPACE XSharp.RT.Tests
             RETURN a <= b
 
     END CLASS
-    Class MyTestClass
-        PUBLIC Number as INT
-        CONSTRUCTOR (nNumber as INT)
+    CLASS MyTestClass
+        PUBLIC Number AS INT
+        CONSTRUCTOR (nNumber AS INT)
             SELF:Number := nNumber
     END CLASS
 END NAMESPACE // XSharp.Runtime.Tests

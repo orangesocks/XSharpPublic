@@ -1,0 +1,39 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-07-04T18:30:17.412+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>-main</title>
+  <keywords>
+    <keyword>-main</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">-main</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">如果有多个类包含 Main 方法，则该选项指定包含程序入口点的类。</para>
+    <para styleclass="Heading2">语法</para>
+    <para styleclass="Code with box">-main:class &#160;</para>
+    <para styleclass="Heading2">参数</para>
+    <para styleclass="List"><text styleclass="Code Example">class</text><tab />包含 Main 方法的类型。</para>
+    <para styleclass="Heading2">备注</para>
+    <para styleclass="Normal">如果编译的程序中包含多个具有 Main 方法的类型，您可以指定哪个类型包含您希望用作程序入口的 Main 方法。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">该选项用于编译 .exe 文件。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal"><text styleclass="Heading3">要在 Visual Studio 开发环境中设置该编译器选项，请执行以下操作</text></para>
+    <para styleclass="Normal"></para>
+    <list id="0" type="ol" listtype="decimal" formatstring="&#37;&#48;&#58;&#115;&#46;" format-charset="DEFAULT_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="margin-left:13px; font-family:Arial; font-size:11pt; color:#000000;">
+      <li styleclass="Normal" style="margin-left:13px;">打开项目的 &quot;属性&quot;页面.</li>
+      <li styleclass="Normal" style="margin-left:13px;">点击 Application 选项卡</li>
+      <li styleclass="Normal" style="margin-left:13px;">编辑 Startup object 属性</li>
+      <li styleclass="Normal" style="margin-left:13px;"><link displaytype="text" defaultstyle="true" type="topiclink" href="PropPage-Application">查看属性页</link></li>
+    </list>
+    <para styleclass="Normal" style="margin-left:13px;"></para>
+    <para styleclass="Normal">要以编程方式设置该编译器选项，请参阅 StartupObject。</para>
+    <para styleclass="Heading2">示例</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">编译 t2.prg 和 t3.prg，指定在 Test2 中找到 Main 方法：</para>
+    <para styleclass="Code with box">xsc t2.prg t3.prg -main:Test2 &#160;</para>
+    <para styleclass="Normal"></para>
+  </body>
+</topic>

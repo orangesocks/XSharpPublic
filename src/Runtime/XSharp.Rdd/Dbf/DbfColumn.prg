@@ -11,6 +11,7 @@ USING System.Linq
 USING System.Runtime.CompilerServices
 USING XSharp.RDD.Enums
 USING XSharp.RDD.Support
+USING System.Diagnostics
 USING STATIC XSharp.Conversions
 BEGIN NAMESPACE XSharp.RDD
     /// <summary>Class for DBF Column reading / writing </summary>
@@ -104,18 +105,26 @@ BEGIN NAMESPACE XSharp.RDD
             // but can also be used to set a timestamp or rowversion later
             RETURN
 
-        PROTECTED METHOD _GetString(buffer AS BYTE[]) AS STRING
-            // The default implementation returns the part of the buffer as a string
+
+        PROTECTED METHOD _GetString(buffer AS BYTE[], nLen as LONG) AS STRING
+            // Let the DBF layer handle the encoding
             local result as string
-            if SELF:RDD is DBFNTX var oDbfNtx .and. ! oDbfNtx:Header:IsAnsi
-                var tmp := Byte[]{SELF:Length}
-                Array.Copy(buffer, SELF:Offset, tmp, 0, SELF:Length)
-                Ansi2OemA(tmp)
-                result := SELF:RDD:_Encoding:GetString(tmp, 0, SELF:Length)
-            else
-                result := SELF:RDD:_Encoding:GetString(buffer, SELF:Offset, SELF:Length)
+            if SELF:RDD is DBF
+                result := SELF:RDD:_GetString(buffer, SELF:Offset, nLen)
+            ELSE
+                result := RuntimeState.WinEncoding:GetString(buffer, SELF:Offset, nLen)
             endif
-            return result
+        RETURN result
+
+        PROTECTED METHOD _PutString(buffer AS BYTE[], strValue as STRING) AS LONG
+            // Let the DBF layer handle the encoding
+            VAR nResult := strValue:Length
+            if SELF:RDD is DBF
+                nResult := SELF:RDD:_GetBytes(strValue, buffer, SELF:Offset, SELF:Length)
+            ELSE
+                nResult := RuntimeState.WinEncoding:GetBytes(strValue, 0, SELF:Length, buffer, SELF:Offset)
+            endif
+            RETURN nResult
 
         /// <summary>Get the value from the buffer</summary>
        /// <param name="buffer">Record buffer for the current record</param>
@@ -123,7 +132,7 @@ BEGIN NAMESPACE XSharp.RDD
             IF SELF:IsNull()
                 RETURN DBNull.Value
             ENDIF
-            RETURN SELF:_GetString(buffer)
+            RETURN SELF:_GetString(buffer, SELF:Length)
 
         /// <summary>Handle NULL values.</summary>
        /// <param name="buffer">Record buffer for the current record</param>
@@ -142,23 +151,23 @@ BEGIN NAMESPACE XSharp.RDD
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)];
          INTERNAL METHOD IsNull() AS LOGIC
-            IF SELF:IsNullable .AND. SELF:RDD:_NullColumn != NULL
-                RETURN SELF:RDD:_NullColumn:GetBit(SELF:NullBit)
+            IF SELF:IsNullable .AND. SELF:RDD:NullColumn != NULL
+                RETURN SELF:RDD:NullColumn:GetBit(SELF:NullBit)
             ENDIF
             RETURN FALSE
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)];
         PROTECTED METHOD SetNullValue() AS LOGIC
-            IF SELF:IsNullable .AND. SELF:RDD:_NullColumn != NULL
-                SELF:RDD:_NullColumn:SetBit(SELF:NullBit, TRUE)
+            IF SELF:IsNullable .AND. SELF:RDD:NullColumn != NULL
+                SELF:RDD:NullColumn:SetBit(SELF:NullBit, TRUE)
                 RETURN TRUE
             ENDIF
             RETURN FALSE
 
          [MethodImpl(MethodImplOptions.AggressiveInlining)];
          PROTECTED METHOD ClearNullValue() AS VOID
-            IF SELF:IsNullable .AND. SELF:RDD:_NullColumn != NULL
-                SELF:RDD:_NullColumn:SetBit(SELF:NullBit, FALSE)
+            IF SELF:IsNullable .AND. SELF:RDD:NullColumn != NULL
+                SELF:RDD:NullColumn:SetBit(SELF:NullBit, FALSE)
             ENDIF
             RETURN
 
@@ -245,15 +254,6 @@ BEGIN NAMESPACE XSharp.RDD
             oResult :=  T{}
             RETURN FALSE
 
-        PROTECTED METHOD _PutString(buffer AS BYTE[], strValue AS STRING) AS VOID
-            if SELF:RDD is DBFNTX var oDbfNtx .and. ! oDbfNtx:Header:IsAnsi
-                var tmp := Byte[]{SELF:Length}
-                SELF:RDD:_Encoding:GetBytes(strValue, 0, SELF:Length, tmp, 0)
-                Oem2AnsiA(tmp)
-                Array.Copy(tmp, 0, buffer, SELF:Offset, SELF:Length)
-            ELSE
-                SELF:RDD:_Encoding:GetBytes(strValue, 0, SELF:Length, buffer, SELF:Offset)
-            endif
 
     END CLASS
 
@@ -307,22 +307,24 @@ BEGIN NAMESPACE XSharp.RDD
                     str := str:PadRight(SELF:Length,' ')
                 ENDIF
             ENDIF
+            local nLen as LONG
             IF SELF:IsBinary
-                LOCAL nLen := Math.Min(SELF:Length, str:Length) AS LONG
+                nLen := Math.Min(SELF:Length, str:Length)
                 System.Text.Encoding.Default:GetBytes(str, 0, nLen, buffer, SELF:Offset)
             ELSEIF SELF:IsUnicode
+                nLen := SELF:Length
                 System.Buffer.BlockCopy(str:ToCharArray(),0, buffer, SELF:Offset, SELF:Length)
             ELSE
-                SELF:_PutString(buffer, str)
+                nLen := SELF:_PutString(buffer, str)
             ENDIF
             IF SELF:IsVarLength
-                IF SELF:RDD:_NullColumn != NULL
-                    IF str:Length >= SELF:Length
+                IF SELF:RDD:NullColumn != NULL
+                    IF nLen >= SELF:Length
                         // we used all the bytes, so set the varlength bit to 0
-                        SELF:RDD:_NullColumn:SetBit(SELF:LengthBit, FALSE)
+                        SELF:RDD:NullColumn:SetBit(SELF:LengthBit, FALSE)
                     ELSE
-                        SELF:RDD:_NullColumn:SetBit(SELF:LengthBit, TRUE)
-                        buffer[SELF:Offset + SELF:Length-1] := (BYTE) str:Length
+                        SELF:RDD:NullColumn:SetBit(SELF:LengthBit, TRUE)
+                        buffer[SELF:Offset + SELF:Length-1] := (BYTE) nLen
                     ENDIF
                 ELSE
                     buffer[SELF:Offset + SELF:Length-1] := (BYTE) Math.Max(str:Length, SELF:Length-1)
@@ -339,34 +341,29 @@ BEGIN NAMESPACE XSharp.RDD
         /// <inheritdoc/>
         OVERRIDE METHOD GetValue(buffer AS BYTE[]) AS OBJECT
             LOCAL result AS STRING
+            VAR len := SELF:Length
             IF SELF:IsNull()
                 RETURN DBNull.Value
             ENDIF
             IF SELF:IsBinary
-                result := System.Text.Encoding.Default:GetString(buffer, SELF:Offset, SELF:Length)
+                result := System.Text.Encoding.Default:GetString(buffer, SELF:Offset, len)
             ELSEIF SELF:IsUnicode
-                VAR chars := CHAR[]{SELF:Length /2}
-                System.Buffer.BlockCopy(buffer, SELF:Offset, chars, 0, SELF:Length)
+                VAR chars := CHAR[]{len /2}
+                System.Buffer.BlockCopy(buffer, SELF:Offset, chars, 0, len)
                 result := STRING{chars}
-            ELSE
-                result := SUPER:_GetString(buffer)
-            ENDIF
-            IF IsVarLength
-                LOCAL len AS LONG
-                len := SELF:Length
-                IF SELF:RDD:_NullColumn != NULL
+            ELSEIF IsVarLength
+                IF SELF:RDD:NullColumn != NULL
                     LOCAL lSet AS LOGIC
-                    lSet := SELF:RDD:_NullColumn:GetBit(SELF:LengthBit)
+                    lSet := SELF:RDD:NullColumn:GetBit(SELF:LengthBit)
                     IF lSet
                         len := buffer[SELF:Offset + SELF:Length-1]
                     ENDIF
                 ENDIF
-                IF !String.IsNullOrEmpty(result)
-                    result := result:Substring(0, len)
-                ENDIF
+                result := SUPER:_GetString(buffer, len)
             ELSE
+                result := SUPER:_GetString(buffer, len)
                 IF String.IsNullOrEmpty(result)
-                    result := STRING{ ' ', SELF:Length }
+                    result := STRING{ ' ', len }
                 ENDIF
             ENDIF
             RETURN result
@@ -424,7 +421,8 @@ BEGIN NAMESPACE XSharp.RDD
                     VAR dt2 := DateTime{dValue:Year, dValue:Month, dValue:Day}
                     str := dt2:ToString( "yyyyMMdd" )
                 ENDIF
-                SELF:_PutString(buffer, str)
+                VAR nLen := SELF:_PutString(buffer, str)
+                Debug.Assert(nLen == 8, "Date column length is not 8")
                 RETURN TRUE
             ENDIF
             SELF:RDD:_dbfError(Subcodes.ERDD_DATATYPE, EG_DATATYPE,__ENTITY__, SELF:TypeError("Date",oValue))
@@ -596,7 +594,8 @@ BEGIN NAMESPACE XSharp.RDD
             ELSE
                 str := str:PadLeft(Length,' ')
             ENDIF
-            SELF:_PutString(buffer, str)
+            var nLen := SELF:_PutString(buffer, str)
+            Debug.Assert(nLen == SELF:Length, "Numeric column length is not correct")
             IF lDataWidthError
                 SELF:RDD:_dbfError(Subcodes.ERDD_DATAWIDTH, EG_DATAWIDTH,__ENTITY__, i"Numeric value for column '{ColumnName}' ({oValue}) is too large")
             ENDIF
@@ -673,7 +672,8 @@ BEGIN NAMESPACE XSharp.RDD
                 ELSE
                     strValue := intValue:ToString():PadLeft(10,' ')
                 ENDIF
-                SELF:_PutString(buffer, strValue)
+                var nLen := SELF:_PutString(buffer, strValue)
+                Debug.Assert(nLen == 10, "Memo column length is not 10")
             ENDIF
             RETURN TRUE
 
@@ -867,13 +867,13 @@ BEGIN NAMESPACE XSharp.RDD
             RETURN
         /// <inheritdoc/>
         OVERRIDE METHOD GetValue(buffer AS BYTE[]) AS OBJECT
-            LOCAL tmp AS REAL8
+            LOCAL tmp AS Int64
             LOCAL result AS Decimal
             IF SELF:IsNull()
                 RETURN DBNull.Value
             ENDIF
             tmp := BitConverter.ToInt64(buffer, SELF:Offset)
-            result := (decimal) (tmp/ (10 ^ SELF:Decimals))
+            result :=  (decimal)tmp / 10000m
             RETURN DbCurrency{result}
 
         /// <inheritdoc/>
@@ -889,7 +889,7 @@ BEGIN NAMESPACE XSharp.RDD
                 SELF:RDD:_dbfError(Subcodes.ERDD_DATATYPE, EG_DATATYPE,__ENTITY__, SELF:TypeError("Currency",oValue))
                 RETURN FALSE
             ENDIF
-            i64Value := (INT64) (currValue * (System.Decimal) (10^ SELF:Decimals))
+            i64Value := (INT64) (currValue * 10000m)
             VAR data := BitConverter.GetBytes(i64Value)
             Array.Copy(data, 0, buffer, SELF:Offset, SELF:Length)
             RETURN TRUE
@@ -919,32 +919,8 @@ BEGIN NAMESPACE XSharp.RDD
             RETURN
 
         INTERNAL METHOD _julianToDateTime(julian AS LONG) AS System.DateTime
-            VAR jd := (REAL8) julian
-            VAR z  := Math.Floor(jd + 0.5)
-            VAR w  := Math.Floor( (z -1867216.25) / 36524.25)
-            VAR x  := Math.Floor(w / 4)
-            VAR aa := Math.Floor(z + 1 + w - x)
-	        VAR bb := Math.Floor(aa + 1524)
-	        VAR cc := Math.Floor((bb - 122.1) / 365.25)
-	        VAR dd := Math.Floor(365.25 * cc)
-	        VAR ee := Math.Floor((bb - dd) / 30.6001)
-	        VAR ff := Math.Floor(30.6001 * ee)
-            VAR day := bb - dd - ff
-	        LOCAL month AS REAL8
-            LOCAL year AS REAL8
-
-	        IF ((ee - 13) <= 12 .AND.  (ee - 13) > 0)
-		        month := ee - 13
-	        ELSE
-		        month := ee - 1
-            ENDIF
-
-	        IF (month == 1 || month == 2)
-    	        year := cc - 4715
-	        ELSE
-		        year := cc - 4716
-            ENDIF
-            RETURN DateTime { (INT)year, (INT) month, (INT) day}
+            var d := JulianToDate(julian)
+            RETURN DateTime{d:Year, d:Month, d:Day}
         /// <inheritdoc/>
         OVERRIDE METHOD GetValue(buffer AS BYTE[]) AS OBJECT
             LOCAL result AS DateTime

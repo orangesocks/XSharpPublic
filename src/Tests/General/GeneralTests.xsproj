@@ -11,7 +11,7 @@
     <Name>GeneralTests</Name>
     <Nologo>true</Nologo>
     <GenerateFullPaths>true</GenerateFullPaths>
-    <Dialect>XPP</Dialect>
+    <Dialect>VO</Dialect>
     <OutputName>ConsoleApplication2</OutputName>
     <StartupObject />
     <ApplicationIcon />
@@ -23,8 +23,8 @@
     <VO3>false</VO3>
     <VO4>false</VO4>
     <VO5>false</VO5>
-    <VO6>false</VO6>
-    <VO7>False</VO7>
+    <VO6>False</VO6>
+    <VO7>True</VO7>
     <VO8>false</VO8>
     <VO9>False</VO9>
     <VO10>false</VO10>
@@ -34,11 +34,9 @@
     <VO14>False</VO14>
     <VO15>True</VO15>
     <VO16>false</VO16>
-    <XPP1>false</XPP1>
-    <FOX1>false</FOX1>
     <AZ>false</AZ>
     <CS>false</CS>
-    <LB>False</LB>
+    <LB>True</LB>
     <NamedArgs>false</NamedArgs>
     <OVF>false</OVF>
     <Unsafe>True</Unsafe>
@@ -47,10 +45,11 @@
     <NoStandardDefs>false</NoStandardDefs>
     <IncludePaths />
     <StandardDefs />
-    <MemVar>False</MemVar>
+    <MemVar>True</MemVar>
     <Undeclared>False</Undeclared>
     <InitLocals>false</InitLocals>
     <AllowOldStyleAssignments>true</AllowOldStyleAssignments>
+    <Allowdot>false</Allowdot>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'" Label="Configuration">
     <PlatformTarget>x86</PlatformTarget>
@@ -64,7 +63,7 @@
     <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
     <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
     <UseSharedCompilation>true</UseSharedCompilation>
-    <DisabledWarnings />
+    <NoWarn />
     <SignAssembly>false</SignAssembly>
     <DelaySign>false</DelaySign>
     <AssemblyOriginatorKeyFile />

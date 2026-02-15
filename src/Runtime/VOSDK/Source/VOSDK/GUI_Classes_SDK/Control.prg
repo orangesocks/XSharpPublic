@@ -1,4 +1,4 @@
-#pragma options ("enforceself", on)
+
 /// <include file="Gui.xml" path="doc/Control/*" />
 CLASS Control INHERIT VObject
 	PROTECT hWnd AS PTR
@@ -647,7 +647,7 @@ METHOD Deactivate(oEvent)
 METHOD DEFAULT(oEvent)
 	LOCAL oEvt := oEvent AS @@event
 	SELF:EventReturnValue := CallWindowProc(SELF:__lpfnDefaultProc, hWnd, oEvt:umsg, oEvt:wParam, oEvt:lParam)
-	RETURN 1l
+	RETURN 1L
 
 
 
@@ -761,7 +761,7 @@ METHOD Dispatch(oEvent)
 		IF IsMethod(SELF, #PaintBackground)
 			IF Send(SELF, #PaintBackground, PTR(_CAST, oEvt:wParam))
 				SELF:EventReturnValue := 1L
-				RETURN 1l
+				RETURN 1L
 			ENDIF
 		ENDIF
 
@@ -979,7 +979,7 @@ METHOD Dispatch(oEvent)
 
 	IF IsLong(uRet)
 		SELF:EventReturnValue := uRet
-		RETURN 1l
+		RETURN 1L
 	ENDIF
 
 
@@ -1833,7 +1833,7 @@ METHOD SetFocus()
 		IF oParent IS DialogWindow
 			SendMessage(oParent:Handle(), WM_NEXTDLGCTL, DWORD(_CAST, SELF:Handle()), 1L)
 		ELSE
-			SetFocus(SELF:Handle())
+			Win32SetFocus(SELF:Handle())
 		ENDIF
 	ENDIF
 
@@ -1855,7 +1855,7 @@ METHOD HasStyle(kStyle AS LONG)
 
 /// <include file="Gui.xml" path="doc/Control.SetParent/*" />
 METHOD SetParent( hWndNewParent AS PTR)  AS VOID
-	SetParent( SELF:Handle() , hWndNewParent  )
+	Win32SetParent( SELF:Handle() , hWndNewParent  )
 	RETURN
 
 

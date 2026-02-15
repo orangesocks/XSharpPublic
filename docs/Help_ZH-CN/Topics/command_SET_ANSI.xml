@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-06-27T20:12:12.779+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>SET ANSI 命令</title>
+  <keywords>
+    <keyword>ANSI format</keyword>
+    <keyword>Commands</keyword>
+    <keyword>Converting to OEM characters</keyword>
+    <keyword>Environment</keyword>
+    <keyword>OEM format</keyword>
+    <keyword>SET ANSI command</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Normal"></para>
+      <para styleclass="Heading1">SET ANSI 命令</para>
+    </header>
+    <para styleclass="Normal"><snippet src="__CommandInclude" inline="false"/></para>
+    <para styleclass="Heading1">用途</para>
+    <para styleclass="Normal">更改设置，以确定数据库文件是使用 ANSI 还是 OEM 格式创建，以及某些文本文件操作是否在两种字符集之间进行转换。</para>
+    <para styleclass="Heading1">语法</para>
+    <para styleclass="Normal">SET ANSI ON | OFF | (&lt;<text styleclass="Italic">lToggle</text>&gt;)</para>
+    <para styleclass="Heading1">参数</para>
+    <para styleclass="List">ON, OFF, lToggle<tab /><text styleclass="Body Text">逻辑表达式，必须用括号表示。True 相当于 ON，False 相当于 OFF</text></para>
+    <para styleclass="Heading1">描述</para>
+    <para styleclass="Normal">SET ANSI 在功能上等同于 SetAnsi()。</para>
+    <para styleclass="Body Text"><snippet src="__IncludeLibRt" inline="false"/></para>
+    <para styleclass="Heading1">参见</para>
+    <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="html\Overload_XSharp_Core_Functions_SetAnsi.htm" domain="XSharpRef.chm">SetAnsi()</link></para>
+  </body>
+</topic>

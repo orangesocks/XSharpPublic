@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-06-28T00:58:25.759+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>PARAMETERS 语句</title>
+  <keywords>
+    <keyword>Creating<keyword>variables</keyword></keyword>
+    <keyword>Declaration statements</keyword>
+    <keyword>Memory variable</keyword>
+    <keyword>PARAMETERS statement</keyword>
+    <keyword>Runtime declaration</keyword>
+    <keyword>Statements</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">PARAMETERS 语句</para>
+    </header>
+    <para styleclass="NotesBox"><snippet src="__NotInCoreVulcan" inline="false"/></para>
+    <para styleclass="Heading1">用途</para>
+    <para styleclass="Body Text">创建私有变量，接收传递的值或引用。</para>
+    <para styleclass="Heading1">语法</para>
+    <para styleclass="Code with box">PARAMETERS &lt;idParameterList&gt;<br/>PARAMETERS &lt;Parameter1&gt; [ AS &lt;Type&gt; [ OF &lt;ClassLibrary&gt; ] ] [, &lt;Parameter2&gt; [ AS &lt;Type&gt; [ OF &lt;ClassLibrary&gt; ] ] ] // 仅用于 FoxPro 方言</para>
+    <para styleclass="" style="text-align:left; text-indent:0px; margin-top:0px; margin-right:0px; margin-bottom:0px; margin-left:0px; line-height:1.00; background-color:transparent; white-space:normal; page-break-inside:auto; page-break-after:auto; border:none; tabstops:none;"></para>
+    <para styleclass="Heading1">参数</para>
+    <para styleclass="List">&lt;<text styleclass="Code with box">idParameterList</text>&gt;<tab /><text styleclass="Body Text">一个或多个参数变量，用逗号分隔。这些变量用于接收调用例程时传递的参数。这些变量将是动态内存变量</text></para>
+    <para styleclass="List"></para>
+    <para styleclass="List"><snippet src="__TypeAndCLass" inline="false"/></para>
+    <para styleclass="Heading1">描述</para>
+    <para styleclass="Body Text">当 PARAMETERS 语句执行时，参数列表中的所有变量都会被创建为私有变量，所有同名的公有或私有变量都会被隐藏，直到当前过程或函数结束。PARAMETERS 语句是一条可执行语句，因此可以出现在过程或函数的任何位置。</para>
+    <para styleclass="Body Text">如果参数作为过程或函数声明语句的一部分，也可以声明为局部变量(见示例)。以这种方式指定的参数称为形参(形式参数)。需要注意的是，在过程或函数定义中不能同时指定形参和 PARAMETERS 语句。</para>
+    <para styleclass="Body Text">否则会导致编译器出错。</para>
+    <para styleclass="Body Text">接收变量的数量不必与调用例程传递的参数数量一致。如果指定的参数多于参数，多余的参数将被忽略。如果指定的参数少于参数，多余的参数将以 NIL 值创建。如果跳过一个参数，相应的参数将被初始化为 NIL。</para>
+    <para styleclass="Body Text">PCount() 函数返回参数列表中最后一个参数的位置。这与传递的参数数量不同，因为它包括跳过的参数。</para>
+    <para styleclass="Heading1">示例</para>
+    <para styleclass="Body Text">该函数接收通过 PARAMETERS 语句传递给私有参数的值：</para>
+    <para styleclass="Code Example"><text style="font-weight:bold; font-style:normal; color:#ff0000;">FUNCTION</text><text style="font-weight:normal; font-style:normal; color:#000000;"> MyFunc()</text><br/><text style="font-weight:bold; font-style:normal; color:#ff0000;">PARAMETERS</text><text style="font-weight:normal; font-style:normal; color:#000000;"> cOne, cTwo, cThree</text><br/><text style="font-weight:normal; font-style:normal; color:#000000;">? cOne, cTwo, cThree</text></para>
+    <para styleclass="Body Text">下一个示例与此类似，但通过在 FUNCTION 声明中声明参数变量，接收传入局部变量的值：</para>
+    <para styleclass="Code Example"><text style="font-weight:bold; font-style:normal; color:#ff0000;">FUNCTION</text><text style="font-weight:normal; font-style:normal; color:#000000;"> MyFunc(cOne, cTwo, cThree)</text><br/><text style="font-weight:normal; font-style:normal; color:#000000;">? cOne, cTwo, cThree</text></para>
+    <para styleclass="Heading1">参见</para>
+    <para styleclass="Normal"><link displaytype="text" defaultstyle="true" type="topiclink" href="command_LPARAMETERS">LPARAMETERS</link>, <link displaytype="text" defaultstyle="true" type="topiclink" href="command_PRIVATE">PRIVATE</link></para>
+  </body>
+</topic>

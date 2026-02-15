@@ -352,7 +352,7 @@ CLASS XSharp_VOWindowEditor INHERIT VOWindowEditor
         VAR rootNs := oFile:Project:ProjectNode:RootNameSpace
         VAR usings := List<STRING>{}
         usings:Add(rootNs)
-        oType := oProject:Lookup(cClass,usings)
+        oType := oProject:Lookup(cClass,usings) ASTYPE XSharpModel.XSourceTypeSymbol
         IF cName:ToUpper() == "CLASSDECLARATION"
             IF (oType != NULL_OBJECT)
                 oType:OpenEditor()
@@ -368,31 +368,33 @@ CLASS XSharp_VOWindowEditor INHERIT VOWindowEditor
             NEXT
         ENDIF
         lOpen := FALSE
-        VAR source := oProject:ProjectNode:DocumentGetText(oFile:FullPath, REF lOpen)
+        VAR source := XDocuments.GetText(oFile:FullPath, REF lOpen)
 
         IF .NOT. lOpen
-            XSettings.OpenDocument(oFile:FullPath, 0,0, false)
+            XDocuments.Open(oFile:FullPath, 0,0, false)
         END IF
-        source := oProject:ProjectNode:DocumentGetText(oFile:FullPath, REF lOpen)
+        source := XDocuments.GetText(oFile:FullPath, REF lOpen)
         IF .NOT. lOpen .OR. source == NULL
             RETURN
         END IF
 
         VAR oEditor := XSharp_EditorStream{}
         oEditor:Load(oFile:FullPath)
-        local nLine as LONG
+        local nLine, nFirstLine as LONG
         if oType != NULL
-            // Apparently oType:Range:EndLine returns the end line minus one, so we have to add one
-            nLine := oType:Range:EndLine +1
+            nLine := oType:Range:EndLine - 1
         else
-            nLine := aLines:Count-1
+            nLine := oEditor:Editor:aLines:Count - 1
         ENDIF
-        FOR LOCAL nTemplateLine :=  aLines:Count - 1 AS INT DOWNTO 0
-            LOCAL cLine := aLines[nTemplateLine] AS STRING
+        XDocuments.InsertLine(oFile:FullPath, nLine, "")
+        nLine ++
+        nFirstLine := nLine
+        FOREACH cLine AS STRING IN aLines
             LOCAL cNew := VOWindowEditor.SubStituteTpl(cLine, cClass, oWindowDesign:cInitParams) AS STRING
-            oFile:Project:ProjectNode:DocumentInsertLine(oFile:FullPath, nLine, cNew)
+            XDocuments.InsertLine(oFile:FullPath, nLine, cNew)
+            nLine ++
         NEXT
-        XSettings.OpenDocument(oFile:FullPath, nLine-1,0, false)
+        XDocuments.Open(oFile:FullPath, nFirstLine, 0, false)
         XSharpModel.XSolution.WalkFile(oFile:FullPath)
         RETURN
 

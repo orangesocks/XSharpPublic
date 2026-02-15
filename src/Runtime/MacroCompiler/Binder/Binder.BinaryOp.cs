@@ -19,7 +19,10 @@ namespace XSharp.MacroCompiler
 
         internal BinaryOperatorSymbol BindBinaryOperation(BinaryExpr expr, BinaryOperatorKind kind)
         {
-            return BindBinaryOperation(expr, kind, Options.Binding);
+            var options = Options.Binding;
+            if (kind == BinaryOperatorKind.Division && Options.VOIntegerDivisions)
+                options |= BindOptions.ForceUsual;
+            return BindBinaryOperation(expr, kind, options);
         }
 
         internal static BinaryOperatorSymbol BindBinaryOperation(BinaryExpr expr, BinaryOperatorKind kind, BindOptions options)
@@ -42,12 +45,13 @@ namespace XSharp.MacroCompiler
         {
             // When one or both of the datatypes is Usual or Object then convert to Usual and let
             // the operators in the Usual type handle the binary operation
-            if (left.Datatype.IsUsualOrObject() || right.Datatype.IsUsualOrObject())
+            if (left.Datatype.IsUsualOrObject() || right.Datatype.IsUsualOrObject() || options.HasFlag(BindOptions.ForceUsual))
             {
                 Convert(ref left, Compilation.Get(NativeType.Usual), options);
                 Convert(ref right, Compilation.Get(NativeType.Usual), options);
             }
-            var sym = BinaryOperatorEasyOut.ClassifyOperation(kind, left.Datatype, right.Datatype);
+
+            var sym = BinaryOperatorEasyOut.ClassifyOperation(kind, left.Datatype, right.Datatype, options);
 
             if (options.HasFlag(BindOptions.AllowInexactComparisons) && sym != null)
             {
@@ -269,7 +273,7 @@ namespace XSharp.MacroCompiler
                     Convert(ref l, Compilation.Get(NativeType.String), options);
                 if (right.Datatype.NativeType == NativeType.Symbol)
                     Convert(ref r, Compilation.Get(NativeType.String), options);
-                var sym = BinaryOperatorEasyOut.ClassifyOperation(kind, l.Datatype, r.Datatype);
+                var sym = BinaryOperatorEasyOut.ClassifyOperation(kind, l.Datatype, r.Datatype, options);
                 if (sym != null)
                 {
                     left = l;
@@ -324,6 +328,9 @@ namespace XSharp.MacroCompiler
             else
                 return null;
 
+            if ((kind == BinaryOperatorKind.Addition || kind == BinaryOperatorKind.Subtraction)
+                && dt.EnumUnderlyingType.NativeType == NativeType.Int32)
+                options |= BindOptions.Enum;
             Convert(ref l, dt.EnumUnderlyingType, options);
             Convert(ref r, dt.EnumUnderlyingType, options);
 

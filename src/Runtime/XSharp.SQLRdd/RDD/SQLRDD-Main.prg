@@ -38,10 +38,10 @@ partial class SQLRDD inherit DBFVFP
     public override property FieldCount  as long => super:FieldCount - self:_numHiddenColumns
 
     /// <summary>Returns the # of rows in the local buffer (DataTable).</summary>
-    public property RowCount    as long => iif(Self:DataTable == null, 0, Self:DataTable:Rows:Count)
+    public property RowCount    as dword => iif(Self:DataTable == null, 0, (DWORD) Self:DataTable:Rows:Count)
 
     /// <summary>The current rownumber in the buffer (DataTable).</summary>
-    public property RowNumber   as long GET _RecNo INTERNAL SET _RecNo := value
+    public property RowNumber   as dword GET _RecNo INTERNAL SET _RecNo := value
 
     /// <summary>The current row in the buffer (DataTable).
     /// When the server is at EOF then the phantomrow is returned.</summary>
@@ -50,7 +50,7 @@ partial class SQLRDD inherit DBFVFP
             if self:RowNumber == 0 .or. self:RowNumber > self:RowCount
                 return self:_phantomRow
             endif
-            return self:DataTable:Rows[self:RowNumber -1]
+            return self:DataTable:Rows[(int) self:RowNumber -1]
         end get
     end property
 #endregion
@@ -210,7 +210,7 @@ partial class SQLRDD inherit DBFVFP
         var lResult := super:Append(lReleaseLock)
         self:_baseRecno  := old
         if lResult
-            var key := self:_builder:GetNextKey()
+            var key := (dword) self:_builder:GetNextKey()
             var row := self:DataTable:NewRow()
             self:DataTable:Rows:Add(row)
             _updatedRows:Add(row)
@@ -226,7 +226,7 @@ partial class SQLRDD inherit DBFVFP
                 endif
             next
             if self:_recnoColumNo > -1
-                self:_recordKeyCache:Add(key, SELF:RowCount-1)
+                self:_recordKeyCache:Add(key, (DWORD) SELF:RowCount-1)
             endif
             self:_serverReccount += 1
             self:GoHot()
@@ -341,20 +341,20 @@ partial class SQLRDD inherit DBFVFP
                         local wasNew := false as logic
                         // Append from may add deleted rows
                         if row:RowState.HasFlag(DataRowState.Added)
-                            lOk := _ExecuteInsertStatement(row)
+                            lOk := SELF:_ExecuteInsertStatement(row)
                             row:AcceptChanges()
                             wasNew  := true
                         endif
                         if self:_deletedColumnNo > -1
                             if !wasNew
                                 // already written with _deletedColumnNo with the correct value
-                                lOk := _ExecuteUpdateStatement(row, true)
+                                lOk := SELF:_ExecuteUpdateStatement(row)
                                 if lOk
                                     row:AcceptChanges()
                                 endif
                             endif
                         else
-                            lOk := _ExecuteDeleteStatement(row, true)
+                            lOk := SELF:_ExecuteDeleteStatement(row)
                             // we do not clear the fields, but leave the row unchanged.
                             // the DBF has the deleted flag. This emulates what DBF files do
 
@@ -363,10 +363,10 @@ partial class SQLRDD inherit DBFVFP
 
                     else
                         if row:RowState.HasFlag(DataRowState.Added)
-                            lOk := _ExecuteInsertStatement(row)
+                            lOk := SELF:_ExecuteInsertStatement(row)
                             row:AcceptChanges()
                         elseif row:RowState.HasFlag(DataRowState.Modified)
-                            lOk := _ExecuteUpdateStatement(row, true)
+                            lOk := SELF:_ExecuteUpdateStatement(row)
                             row:AcceptChanges()
                         endif
                     endif
@@ -399,7 +399,18 @@ partial class SQLRDD inherit DBFVFP
             bag:Close()
         next
         _connection:UnregisterRdd(self)
+        var indexes := List<string>{}
+        foreach var index in self:OrderBagList
+            indexes:Add(index:FullPath)
+        next
+
         lOk := super:Close()
+        foreach var indexFile in indexes
+            if File.Exists(indexFile)
+                File.Delete(indexFile)
+            endif
+        next
+
         if File.Exists(SELF:FileName)
             File.Delete(SELF:FileName)
         endif
@@ -425,7 +436,7 @@ partial class SQLRDD inherit DBFVFP
         // Must position the DBF on the right row for the deletion
         var old := self:_baseRecno
         self:_baseRecno  := true
-        super:GoTo(SELF:RowNumber)
+        super:GoTo((DWORD) SELF:RowNumber)
         self:_baseRecno  := old
         return super:Delete()
     end method
@@ -448,7 +459,7 @@ partial class SQLRDD inherit DBFVFP
         // Must position the DBF on the right row for the recall
         var old := self:_baseRecno
         self:_baseRecno  := true
-        super:GoTo(SELF:RowNumber)
+        super:GoTo((DWORD) SELF:RowNumber)
         self:_baseRecno  := old
         return super:Recall()
     end method
@@ -520,14 +531,14 @@ partial class SQLRDD inherit DBFVFP
         endif
         LOCAL isOK := TRUE AS LOGIC
         //
+        SELF:GoCold()
         IF nToSkip == 0
-            // Refresh current Recno
-            SELF:GoCold()
+            NOP
         ELSE
             var newRow := SELF:RowNumber + nToSkip
             IF newRow > 0
                 if newRow <= SELF:RowCount
-                    SELF:RowNumber := newRow
+                    SELF:RowNumber := (DWORD) newRow
                     SELF:_SetEOF(FALSE)
                 ELSE
                     SELF:RowNumber := 0
@@ -548,8 +559,8 @@ partial class SQLRDD inherit DBFVFP
     OVERRIDE METHOD GoToId(oRec AS OBJECT) AS LOGIC
 	    LOCAL result AS LOGIC
 		TRY
-			VAR nRec := Convert.ToInt32( oRec )
-			result := SELF:GoTo( nRec )
+			VAR nRec := Convert.ToUInt32( oRec )
+			result := SELF:GoTo( (DWORD) nRec )
 		CATCH ex AS Exception
 			SELF:_dbfError(ex, Subcodes.EDB_GOTO,Gencode.EG_DATATYPE,  "SQLRDD.GoToId",FALSE)
 			result := FALSE
@@ -562,7 +573,7 @@ partial class SQLRDD inherit DBFVFP
     /// When a RecnoColumn is defined, then the cursor will be positioned on the row with the specified Recno, when it exists.
     /// If the recno does not exist, or when no RecnoColumn is defined, then the cursor will be positioned on the phantom row at the end of the table.
     /// </remarks>
-    override method GoTo(nRec as long) as logic
+    override method GoTo(nRec as DWORD) as logic
         local lSuccess := TRUE as logic
         if !self:_ForceOpen()
             return false
@@ -577,7 +588,7 @@ partial class SQLRDD inherit DBFVFP
                 nRec     := 0
             endif
         endif
-        LOCAL nCount := SELF:RowCount AS LONG
+        LOCAL nCount := SELF:RowCount AS DWORD
         // Normal positioning, VO resets FOUND to FALSE after a recprd movement
         SELF:_Found := FALSE
         SELF:_BufferValid := FALSE
@@ -609,19 +620,19 @@ partial class SQLRDD inherit DBFVFP
     /// When a RecnoColumn is defined, then this will return the value of that column.
     /// Otherwise the relative position inside the cursor will be returned.
     /// </remarks>
-    override property RecNo		as int
+    override property RecNo		as DWORD
         get
             self:ForceRel()
             if !SELF:_baseRecno .and. self:_recnoColumNo > -1 .and. ! SELF:EoF
                 var obj := SELF:CurrentRow[self:_recnoColumNo]
-                return Convert.ToInt32(obj)
+                return Convert.ToUInt32(obj)
             endif
-            return SELF:RowNumber
+            return (DWORD) SELF:RowNumber
         end get
     end property
 
     /// <inheritdoc />
-    override property RecCount as int
+    override property RecCount as dword
         get
             return Self:_serverReccount
         end get
@@ -662,34 +673,6 @@ partial class SQLRDD inherit DBFVFP
         System.Diagnostics.Debug.WriteLine(" Skip {0}, from row {1}, recno {2} to row {3}, recno {4}, EOF {5}, BOF {6}", nToSkip, oldRow, oldRecNo, SELF:RowNumber, SELF:RecNo, SELF:EoF, SELF:BoF)
         #endif
         RETURN result
-    end method
-
-    /// <summary>Perform a seek operation on the current selected index for the current Workarea.</summary>
-    /// <param name="info">An object containing containing the necessary seek information.</param>
-    /// <returns><include file="CoreComments.xml" path="Comments/TrueOrFalse/*" /></returns>
-    /// <remarks>The result of the actial seek operation is stored in the Found property of the RDD and the EOF property.</remarks>
-    /// <remarks>
-    /// When the area is in Tablemode, and no data has been read before, then this will trigger fetching the data from the database
-    /// </remarks>
-    override method Seek(seekInfo as DbSeekInfo) as logic
-        local oKey as object
-        // change behavior when all rows are read.
-        // In that case we can search in the local buffer
-        oKey := seekInfo:Value
-        if oKey == null         // Seek NIL
-            if seekInfo:Last
-                return self:GoBottom()
-            else
-                return self:GoTop()
-            endif
-        endif
-        if self:CurrentOrder == null
-            self:_dbfError(Subcodes.ERDD_DATATYPE, Gencode.EG_NOORDER, "SQLRDD:Seek","No current Order" )
-            return false
-        endif
-        var cSeekExpr := CurrentOrder:SeekExpression(seekInfo )
-        self:_OpenTable(cSeekExpr)
-        return true
     end method
 
     /// <summary>Is the current row deleted?</summary>

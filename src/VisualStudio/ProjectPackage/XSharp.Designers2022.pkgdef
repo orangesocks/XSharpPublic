@@ -96,15 +96,18 @@
 ; The following keys register the extensions for Diff and Peek
 [$RootKey$\Diff\SupportedContentTypes]
 ".prg"=""
+".prgx"=""
 ".ppo"=""
 ".ch"=""
 ".xh"=""
 ".xs"=""
+".xsproj"=""
 [$RootKey$\Peek\SupportedContentTypes]
 ".prg"=""
+".prgx"=""
 ".ppo"=""
 ".ch"=""
 ".xh"=""
 ".xs"=""
-
+".xsproj"=""
 

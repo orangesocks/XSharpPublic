@@ -532,7 +532,7 @@ namespace XSharp.LanguageService
             return null;
         }
 
-        
+
         /// <summary>
         /// Retrieve the CompletionType based on :
         ///  The Token list returned by GetTokenList()
@@ -564,7 +564,8 @@ namespace XSharp.LanguageService
                 // Could be USING or USING STATIC statement.
                 // We allow the lookup of Namespaces or Types
                 //
-                if (!state.HasFlag(CompletionState.Namespaces) && !state.HasFlag(CompletionState.Types))
+                if (!state.HasFlag(CompletionState.Namespaces) && !state.HasFlag(CompletionState.Types)
+                    && !state.HasFlag(CompletionState.General))
                     return result;
                 StringBuilder sb = new StringBuilder();
                 foreach (var token in xtokenList)
@@ -572,11 +573,11 @@ namespace XSharp.LanguageService
                     sb.Append(token.Text);
                 }
                 var name = sb.ToString();
-                if (state.HasFlag(CompletionState.Namespaces))
+                if (state.HasFlag(CompletionState.Namespaces) || state.HasFlag(CompletionState.General))
                 {
                     result.AddRange(SearchNamespaces(location, name));
                 }
-                if (state.HasFlag(CompletionState.Types))
+                if (state.HasFlag(CompletionState.Types) || state.HasFlag(CompletionState.General))
                 {
                     result.AddRange(SearchType(location, name));
                 }
@@ -666,7 +667,11 @@ namespace XSharp.LanguageService
                         startOfExpression = true;
                         continue;
                     case XSharpLexer.LBRKT:
-                        if (symbols.Peek().TypeName != KnownTypes.SystemArray)
+                        if (symbols.Count == 0)
+                        {
+                            startOfExpression = true;
+                        }
+                        else if (symbols.Peek().TypeName != KnownTypes.SystemArray)
                         {
                             startOfExpression = true;
                         }
@@ -736,7 +741,7 @@ namespace XSharp.LanguageService
                         startOfExpression = false;
                         state = CompletionState.Namespaces;
                         continue;
-                    #endregion 
+                    #endregion
                     case XSharpLexer.CLASS:
                     case XSharpLexer.STRUCTURE:
                     case XSharpLexer.VOSTRUCT:
@@ -771,8 +776,8 @@ namespace XSharp.LanguageService
                                 {
                                     None,
                                     Define = 1,                 // #define
-                                    Command = 2,                 // #command 
-                                    Translate = 3,               // #translate 
+                                    Command = 2,                 // #command
+                                    Translate = 3,               // #translate
                                     XCommand = 4,                // #xcommand
                                     XTranslate = 5,              // #xtranslate
                                 }
@@ -809,7 +814,7 @@ namespace XSharp.LanguageService
                         symbols.Push(ent);
                         result.Add(ent);
                         continue;
-                        
+
                     default:
                         hasBracket = false;
                         if (XSharpLexer.IsOperator(currentToken.Type))
@@ -860,7 +865,7 @@ namespace XSharp.LanguageService
                 {
                     if (findType && currentType != null  && !currentType.IsGlobalType())
                     {
-                        // Add current typename, so we will find nested types 
+                        // Add current typename, so we will find nested types
                         additionalUsings.Add(currentType.FullName);
                     }
                 }
@@ -1080,7 +1085,8 @@ namespace XSharp.LanguageService
                 }
             }
             if (result.Count == 0 && (XSharpLexer.IsKeyword(currentToken.Type) ||
-                XSharpLexer.IsPPKeyword(currentToken.Type) ))
+                XSharpLexer.IsPPKeyword(currentToken.Type) ||
+                XSharpLexer.IsWordOperator(currentToken.Type)))
             {
                 ((XSharpToken)currentToken).Text = XLiterals.FormatKeyword(currentToken.Text);
                 var sym = new XKeywordSymbol(currentToken.Text);
@@ -1234,12 +1240,13 @@ namespace XSharp.LanguageService
 
                 // The first token in the list can be a Function or a Procedure
                 // Except if we already have a Type
+                result.AddRange(SearchLocalFunction(location, currentName));
                 result.AddRange(SearchFunction(location, currentName));
 
                 if (result.Count == 0 && currentType != null)
                 {
                     // no method lookup when enforceself is enabled
-                    if (!location.Project.ProjectNode.EnforceSelf)
+                    if (!location.Project.ParseOptions.EnforceSelf)
                         result.AddRange(SearchMethod(location, currentType, currentName, visibility, false));
                 }
                 if (result.Count == 0)
@@ -1452,7 +1459,7 @@ namespace XSharp.LanguageService
                 }
                 else
                 {
-                    
+
                     var ctors = type.GetConstructors().Where(x => x.IsVisible(minVisibility));
                     result.AddRange(ctors);
                 }
@@ -1775,7 +1782,7 @@ namespace XSharp.LanguageService
             else
             {
                 tmp = type.GetMembers(name, true).Where(x => x.Kind.IsClassMethod(location.Dialect)).ToList();
-                if (tmp.Count == 0 && !isTicked) 
+                if (tmp.Count == 0 && !isTicked)
                 {
                     tmp = type.GetMembers(name + "`").Where(x => x.Kind.IsClassMethod(location.Dialect)).ToList();
                 }
@@ -1924,6 +1931,29 @@ namespace XSharp.LanguageService
             return result;
         }
 
+        private static IList<IXMemberSymbol> SearchLocalFunction(XSharpSearchLocation location, string name)
+        {
+            var result = new List<IXMemberSymbol>();
+            if (location.File == null || location.Project == null)
+            {
+                return result;
+            }
+            WriteOutputMessage($" SearchLocalFunction {location.File.SourcePath}, '{name}' ");
+            var file = location.File;
+            var current = location.Member;
+            foreach (XSourceEntity entity in file.EntityList)
+            {
+                if (entity is IXMemberSymbol member && member.Kind.IsLocal())
+                {
+                if (entity.Name == name && current.Range.StartLine <= entity.Range.StartLine &&
+                    current.Range.EndLine > entity.Range.EndLine)
+                    {
+                        result.Add(member);
+                    }
+                }
+            }
+            return result;
+        }
         private static IList<IXMemberSymbol> SearchFunction(XSharpSearchLocation location, string name)
         {
 

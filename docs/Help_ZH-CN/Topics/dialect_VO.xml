@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../helpproject.xsl" ?>
+<topic template="Default" modified="2024-07-24T12:51:19.825+08:00" lasteditedby="niuji" version="2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../helpproject.xsd">
+  <title>Visual Objects</title>
+  <keywords>
+    <keyword>&amp;&amp;</keyword>
+    <keyword>__VO__</keyword>
+    <keyword>_WINBOOL</keyword>
+    <keyword>4 letter abbreviations</keyword>
+    <keyword>PSZ</keyword>
+    <keyword>UNION</keyword>
+    <keyword>Visual Objects</keyword>
+    <keyword>VOSTRUCT</keyword>
+  </keywords>
+  <body>
+    <header>
+      <para styleclass="Heading1">Visual Objects</para>
+    </header>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">这种方言具有“<link displaytype="text" defaultstyle="true" type="topiclink" href="dialect_All-Non-Core-dialects">所有非 Core 方言</link>”的特征。</para>
+    <para styleclass="Normal"></para>
+    <para styleclass="Normal">编译器和运行时在编译 “Visual Objects” 方言时具有以下“特殊”行为。</para>
+    <para styleclass="Heading2">编译器</para>
+    <list id="0" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">允许使用 4 个字母缩写某些旧关键词</li>
+      <li styleclass="Normal">允许使用“&amp;&amp;”作为同行注释字符，就像使用“//”一样</li>
+      <li styleclass="Normal">如果添加了对 XSharp.VO 的引用，就会启用某些特定于 VO 的函数，例如 RtRegString() </li>
+    </list>
+    <list id="1" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">支持使用“@”来获取变量的地址。如果使用编译器选项 <link displaytype="text" defaultstyle="true" type="topiclink" href="opt-vo7">-vo7</link>，这也可以用于 REF 变量。</li>
+      <li styleclass="Normal">预处理器添加了一个值为 TRUE 的定义 __VO__</li>
+      <li styleclass="Normal">添加 VOSTRUCT 和 UNION 实体类型</li>
+      <li styleclass="Normal">将 _WINBOOL 类型用于 VOSTRUCT 和 UNION 实体内的逻辑值</li>
+      <li styleclass="Normal">PSZ 类型的索引器从元素 1 开始</li>
+    </list>
+    <para styleclass="Heading2">运行时(Runtime)</para>
+    <list id="2" type="ul" listtype="bullet" formatstring="&#183;" format-charset="SYMBOL_CHARSET" levelreset="true" legalstyle="false" startfrom="1" styleclass="Normal" style="font-family:Symbol; font-size:11pt; color:#000000;">
+      <li styleclass="Normal">当以 Ansi More（SetAnsi(TRUE)，即默认值）运行时，DBFNTX 的 DBF 头会设置 Ansi 位</li>
+    </list>
+  </body>
+</topic>
